@@ -1,0 +1,39 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+
+permissions:
+  contents: write   # needed to create a Release on tags
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # build number = commit count
+
+      - name: Show toolchain
+        run: swiftc --version && sw_vers
+
+      - name: Build
+        run: ./build.sh           # ad-hoc signs (no self-signed identity on CI)
+
+      - name: Package
+        run: ditto -c -k --keepParent ReLayout.app reLayout.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: reLayout-app
+          path: reLayout.zip
+
+      - name: Release (on tag)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: reLayout.zip

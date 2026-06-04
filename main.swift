@@ -895,9 +895,12 @@ final class AppController: NSObject, NSApplicationDelegate {
         return Unmanaged<CFString>.fromOpaque(idPtr).takeUnretainedValue() as String
     }
 
-    // Read the focused element's selected text via Accessibility — NO synthetic
-    // copy, NO clipboard. This is what avoids tripping DeepL's Ctrl+C+C watcher.
-    private func axSelection() -> (AXUIElement, String)? {
+    // Focused element's selected text via Accessibility.
+    //   nil  -> AX unavailable for the focused element (use clipboard fallback)
+    //   ""   -> AX available, nothing selected
+    //   text -> the selection
+    // No copy event, no clipboard — keeps DeepL's Ctrl+C+C watcher quiet.
+    private func axSelectedText() -> String? {
         let sys = AXUIElementCreateSystemWide()
         var appVal: CFTypeRef?
         guard AXUIElementCopyAttributeValue(sys, kAXFocusedApplicationAttribute as CFString, &appVal) == .success,
@@ -909,25 +912,17 @@ final class AppController: NSObject, NSApplicationDelegate {
         let el = elVal as! AXUIElement
         var txtVal: CFTypeRef?
         guard AXUIElementCopyAttributeValue(el, kAXSelectedTextAttribute as CFString, &txtVal) == .success,
-              let s = txtVal as? String, !s.isEmpty else { return nil }
-        return (el, s)
+              let s = txtVal as? String else { return nil }
+        return s
     }
 
-    // Read current selection: AX first (no copy event -> DeepL Ctrl+C+C quiet),
-    // else synthetic Cmd+C.
-    private func readSelection(_ pb: NSPasteboard) -> String? {
-        if let (_, s) = axSelection(), !s.isEmpty {
-            dbg("read via AX: \(s.debugDescription)")
-            return s
-        }
-        // Cmd+C: only trust it if the pasteboard actually changed — otherwise nothing
-        // was selected and pb still holds the old (unrelated) clipboard content.
+    // Clipboard read (only when AX is unavailable): Cmd+C, trusted only if the
+    // pasteboard actually changed (else nothing was selected).
+    private func copySelection(_ pb: NSPasteboard) -> String? {
         let before = pb.changeCount
         postKey(CGKeyCode(kVK_ANSI_C), .maskCommand)
         usleep(120_000)
-        guard pb.changeCount != before, let c = pb.string(forType: .string), !c.isEmpty else {
-            return nil
-        }
+        guard pb.changeCount != before, let c = pb.string(forType: .string), !c.isEmpty else { return nil }
         dbg("read via Cmd+C: \(c.debugDescription)")
         return c
     }
@@ -943,13 +938,29 @@ final class AppController: NSObject, NSApplicationDelegate {
         let pb = NSPasteboard.general
         let saved = pb.string(forType: .string)
 
-        var sel = readSelection(pb)
-        if sel == nil || sel!.isEmpty {
-            // nothing selected -> select from caret to start of line and use that
-            dbg("no selection -> Shift+Cmd+Left")
-            postKey(CGKeyCode(kVK_LeftArrow), [.maskShift, .maskCommand])
-            usleep(120_000)
-            sel = readSelection(pb)
+        var sel: String?
+        let ax = axSelectedText()
+        if let ax {
+            // AX path — never touches the clipboard (DeepL stays quiet)
+            if !ax.isEmpty {
+                dbg("read via AX: \(ax.debugDescription)")
+                sel = ax
+            } else {
+                dbg("AX empty -> Shift+Cmd+Left")
+                postKey(CGKeyCode(kVK_LeftArrow), [.maskShift, .maskCommand])
+                usleep(120_000)
+                let s = axSelectedText()
+                if let s, !s.isEmpty { dbg("read via AX: \(s.debugDescription)"); sel = s }
+            }
+        } else {
+            // AX unavailable -> clipboard fallback (Cmd+C)
+            sel = copySelection(pb)
+            if sel == nil {
+                dbg("no selection -> Shift+Cmd+Left")
+                postKey(CGKeyCode(kVK_LeftArrow), [.maskShift, .maskCommand])
+                usleep(120_000)
+                sel = copySelection(pb)
+            }
         }
 
         guard let text = sel, !text.isEmpty, let r = convert(text) else {
@@ -958,18 +969,34 @@ final class AppController: NSObject, NSApplicationDelegate {
             return
         }
 
-        // WRITE via paste — reliable in every app (AX set is a silent no-op in many).
-        // Paste does not trip copy-watchers, so DeepL stays quiet.
-        dbg("paste: \(r.out.debugDescription)")
-        pb.clearContents()
-        pb.setString(r.out, forType: .string)
-        usleep(30_000)
-        postKey(CGKeyCode(kVK_ANSI_V), .maskCommand)
-        usleep(120_000)
-
+        // WRITE via synthesized Unicode keystrokes (no clipboard, no paste) — the
+        // active selection is replaced by the typed input, like Caramba. No copy/paste
+        // events, so DeepL stays quiet. Clipboard is never used for writing.
+        dbg("type: \(r.out.debugDescription)")
+        typeUnicode(r.out)
+        usleep(20_000)
         TISSelectInputSource(r.dst.source)
-        usleep(80_000)
+        // restore clipboard only if the Cmd+C read fallback dirtied it
         restoreClipboard(saved)
+    }
+
+    // Insert a string by synthesizing per-character Unicode key events.
+    private func typeUnicode(_ s: String) {
+        let src = CGEventSource(stateID: .combinedSessionState)
+        for ch in s {
+            let units = Array(String(ch).utf16)
+            if let down = CGEvent(keyboardEventSource: src, virtualKey: 0, keyDown: true) {
+                down.flags = []
+                down.keyboardSetUnicodeString(stringLength: units.count, unicodeString: units)
+                down.post(tap: .cgSessionEventTap)
+            }
+            if let up = CGEvent(keyboardEventSource: src, virtualKey: 0, keyDown: false) {
+                up.flags = []
+                up.keyboardSetUnicodeString(stringLength: units.count, unicodeString: units)
+                up.post(tap: .cgSessionEventTap)
+            }
+            usleep(1500)   // small gap so slow apps don't drop characters
+        }
     }
 
     private func restoreClipboard(_ saved: String?) {

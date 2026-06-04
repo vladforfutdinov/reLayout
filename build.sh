@@ -28,7 +28,7 @@ cp Info.plist "$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD" "$APP/Contents/Info.plist"
 echo "version: $VERSION (short $SHORT, build $BUILD)"
 
-swiftc -O -o "$APP/Contents/MacOS/ReLayout" main.swift \
+swiftc -O -parse-as-library -o "$APP/Contents/MacOS/ReLayout" main.swift \
     -framework Cocoa -framework Carbon
 
 # Sign with the stable self-signed identity if present (run ./make-cert.sh once),

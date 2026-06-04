@@ -34,6 +34,14 @@ struct KeyStroke: Hashable {
     let mods: UInt32 // UCKeyTranslate modifierKeyState (carbon mods >> 8)
 }
 
+// Conversion-relevant surface of a keyboard layout. Lets the transliteration
+// engine be exercised with injected fixtures (tests) instead of a live TIS source.
+protocol LayoutMaps {
+    var charToStroke: [String: KeyStroke] { get }
+    var strokeToChar: [KeyStroke: String] { get }
+    var isCyrillic: Bool { get }
+}
+
 // MARK: - Layout engine
 //
 // For one installed keyboard layout we build, via UCKeyTranslate over every
@@ -46,7 +54,7 @@ struct KeyStroke: Hashable {
 // This is layout-driven, so the Option layer (ß/æ/… <-> ы/э/ъ/ё) resolves
 // automatically — no hand-coded character tables.
 
-final class Layout {
+final class Layout: LayoutMaps {
     let id: String
     let source: TISInputSource
     private(set) var charToStroke: [String: KeyStroke] = [:]
@@ -155,7 +163,7 @@ final class Layout {
     }
 }
 
-func transliterate(_ text: String, from src: Layout, to dst: Layout) -> String {
+func transliterate(_ text: String, from src: LayoutMaps, to dst: LayoutMaps) -> String {
     var out = ""
     for ch in text {
         let key = String(ch)
@@ -186,7 +194,7 @@ private func hasLatin(_ w: Substring) -> Bool { w.unicodeScalars.contains(where:
 
 // A word is wrong-but-Cyrillic-target if any of its chars (which src can type) maps
 // to a Cyrillic letter in dst. Catches the Option layer (ß/æ -> ы/э), neither a-z nor Cyrillic.
-private func mapsToCyr(_ w: Substring, src: Layout, dst: Layout) -> Bool {
+private func mapsToCyr(_ w: Substring, src: LayoutMaps, dst: LayoutMaps) -> Bool {
     for ch in w {
         if let st = src.charToStroke[String(ch)], let m = dst.strokeToChar[st],
            let f = m.unicodeScalars.first, isCyrLetter(f) { return true }
@@ -212,7 +220,7 @@ private func tokenize(_ text: String) -> [Substring] {
 //   src Cyrillic -> convert words containing Cyrillic
 //   src Latin    -> convert words with Latin letters (or src->dst Cyrillic-mapping, e.g. ß/æ)
 // Returns nil if nothing changed.
-func convertWrong(_ text: String, src: Layout, dst: Layout) -> String? {
+func convertWrong(_ text: String, src: LayoutMaps, dst: LayoutMaps) -> String? {
     var acc = ""
     for t in tokenize(text) {
         if t.first?.isWhitespace ?? false { acc += t; continue }
@@ -1034,14 +1042,28 @@ final class AppController: NSObject, NSApplicationDelegate {
     }
 }
 
-// MARK: - selftest (no GUI)
+// MARK: - main
 
-if CommandLine.arguments.contains("--enabled") {
-    print("ENABLED keyboard sources, in TISCreateInputSourceList(nil,false) order:")
-    let filter = [kTISPropertyInputSourceType as String: kTISTypeKeyboardLayout as String] as CFDictionary
-    if let listPtr = TISCreateInputSourceList(filter, false)?.takeRetainedValue() {
+#if !TESTING
+@main
+enum ReLayoutApp {
+    static func main() {
+        if CommandLine.arguments.contains("--enabled") { printEnabledSources(); exit(0) }
+        if CommandLine.arguments.contains("--selftest") { runSelfTest(); exit(0) }
+
+        let app = NSApplication.shared
+        app.setActivationPolicy(.accessory)
+        app.delegate = AppController.shared
+        app.run()
+    }
+
+    // --enabled: dump the ENABLED keyboard sources in input-menu order.
+    private static func printEnabledSources() {
+        print("ENABLED keyboard sources, in TISCreateInputSourceList(nil,false) order:")
+        let filter = [kTISPropertyInputSourceType as String: kTISTypeKeyboardLayout as String] as CFDictionary
+        guard let listPtr = TISCreateInputSourceList(filter, false)?.takeRetainedValue() else { return }
         for i in 0..<CFArrayGetCount(listPtr) {
-            let raw = CFArrayGetValueAtIndex(listPtr, i)!
+            guard let raw = CFArrayGetValueAtIndex(listPtr, i) else { continue }
             let src = Unmanaged<TISInputSource>.fromOpaque(raw).takeUnretainedValue()
             let idP = TISGetInputSourceProperty(src, kTISPropertyInputSourceID)
             let nmP = TISGetInputSourceProperty(src, kTISPropertyLocalizedName)
@@ -1050,21 +1072,17 @@ if CommandLine.arguments.contains("--enabled") {
             print("  [\(i)] \(nm)  —  \(id)")
         }
     }
-    exit(0)
-}
 
-if CommandLine.arguments.contains("--selftest") {
-    func short(_ l: Layout) -> String { l.id.replacingOccurrences(of: "com.apple.keylayout.", with: "") }
-    let enabled = Layout.enabledList()
-    print("enabled:", enabled.map { "\(short($0))\($0.isCyrillic ? "(cyr)" : "")" }.joined(separator: ", "))
-    let byId = Dictionary(uniqueKeysWithValues: enabled.map { ($0.id, $0) })
-    let ukr = byId.values.first { $0.isCyrillic }
-    let abc = byId["com.apple.keylayout.ABC"]
-    if let ukr, let abc {
-        let pairs: [(String, Layout, Layout)] = [
-            ("ABC->UKR", abc, ukr),
-            ("UKR->ABC", ukr, abc),
-        ]
+    // --selftest: run convertWrong against the live ABC + Cyrillic layouts.
+    private static func runSelfTest() {
+        func short(_ l: Layout) -> String { l.id.replacingOccurrences(of: "com.apple.keylayout.", with: "") }
+        let enabled = Layout.enabledList()
+        print("enabled:", enabled.map { "\(short($0))\($0.isCyrillic ? "(cyr)" : "")" }.joined(separator: ", "))
+        let byId = Dictionary(uniqueKeysWithValues: enabled.map { ($0.id, $0) })
+        let ukr = byId.values.first { $0.isCyrillic }
+        let abc = byId["com.apple.keylayout.ABC"]
+        guard let ukr, let abc else { return }
+        let pairs: [(String, Layout, Layout)] = [("ABC->UKR", abc, ukr), ("UKR->ABC", ukr, abc)]
         for (lbl, src, dst) in pairs {
             print("\n-- convertWrong \(lbl) (src=\(short(src)) dst=\(short(dst))) --")
             let samples = lbl.hasPrefix("ABC")
@@ -1075,12 +1093,5 @@ if CommandLine.arguments.contains("--selftest") {
             }
         }
     }
-    exit(0)
 }
-
-// MARK: - main
-
-let app = NSApplication.shared
-app.setActivationPolicy(.accessory)
-app.delegate = AppController.shared
-app.run()
+#endif

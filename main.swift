@@ -588,7 +588,7 @@ final class AppController: NSObject, NSApplicationDelegate {
 
     private func reportMissingLayouts() {
         let a = NSAlert()
-        a.messageText = "ReLayout: need at least 2 keyboard layouts"
+        a.messageText = "reLayout: need at least 2 keyboard layouts"
         a.informativeText = "Add a second input source in System Settings ▸ Keyboard ▸ Input Sources."
         a.runModal()
     }
@@ -724,7 +724,7 @@ final class AppController: NSObject, NSApplicationDelegate {
         }
         let w = SettingsWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: 200),
                                styleMask: [.titled, .closable], backing: .buffered, defer: false)
-        w.title = "ReLayout Settings"
+        w.title = "reLayout Settings"
         w.isReleasedWhenClosed = false
         let content = w.contentView!
 

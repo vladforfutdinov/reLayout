@@ -3,9 +3,9 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleName</key>
-    <string>ReLayout</string>
+    <string>reLayout</string>
     <key>CFBundleDisplayName</key>
-    <string>ReLayout</string>
+    <string>reLayout</string>
     <key>CFBundleIdentifier</key>
     <string>com.vlad.relayout</string>
     <key>CFBundleExecutable</key>

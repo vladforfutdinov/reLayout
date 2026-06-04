@@ -693,12 +693,12 @@ final class AppController: NSObject, NSApplicationDelegate {
 
     // carbon modifier mask -> Cocoa device-independent mask (for conflict lookup)
     private func cocoaMods(_ carbon: UInt32) -> UInt {
-        var m: UInt = 0
-        if carbon & UInt32(cmdKey) != 0     { m |= 0x10_0000 }
-        if carbon & UInt32(optionKey) != 0  { m |= 0x08_0000 }
-        if carbon & UInt32(controlKey) != 0 { m |= 0x04_0000 }
-        if carbon & UInt32(shiftKey) != 0   { m |= 0x02_0000 }
-        return m
+        var m: NSEvent.ModifierFlags = []
+        if carbon & UInt32(cmdKey) != 0     { m.insert(.command) }
+        if carbon & UInt32(optionKey) != 0  { m.insert(.option) }
+        if carbon & UInt32(controlKey) != 0 { m.insert(.control) }
+        if carbon & UInt32(shiftKey) != 0   { m.insert(.shift) }
+        return m.rawValue
     }
 
     // MARK: settings window
@@ -713,7 +713,7 @@ final class AppController: NSObject, NSApplicationDelegate {
                                styleMask: [.titled, .closable], backing: .buffered, defer: false)
         w.title = "reLayout Settings"
         w.isReleasedWhenClosed = false
-        let content = w.contentView!
+        guard let content = w.contentView else { return }
 
         // right-aligned caption column, like macOS settings forms
         func caption(_ s: String) -> NSTextField {

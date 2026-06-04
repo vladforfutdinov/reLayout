@@ -20,13 +20,6 @@ func fourCharCode(_ s: String) -> FourCharCode {
     return r
 }
 
-func hasCyrillic(_ s: String) -> Bool {
-    for u in s.unicodeScalars where (0x0400...0x04FF).contains(u.value) || (0x0500...0x052F).contains(u.value) {
-        return true
-    }
-    return false
-}
-
 // MARK: - Keystroke (physical key + modifier state)
 
 struct KeyStroke: Hashable {
@@ -130,51 +123,6 @@ final class Layout: LayoutMaps {
             guard let raw = CFArrayGetValueAtIndex(listPtr, i) else { continue }
             let src = Unmanaged<TISInputSource>.fromOpaque(raw).takeUnretainedValue()
             if let l = Layout(src) { out.append(l) }
-        }
-        return out
-    }
-
-    // Prefer the user's ENABLED layout (added in System Settings), exact id over
-    // substring, before falling back to any installed layout.
-    static func find(idContains needles: [String]) -> Layout? {
-        // pass 1: enabled only (includeAllInstalled = false)
-        if let l = scan(needles, includeAllInstalled: false) { return l }
-        // pass 2: anything installed
-        return scan(needles, includeAllInstalled: true)
-    }
-
-    private static func scan(_ needles: [String], includeAllInstalled: Bool) -> Layout? {
-        let filter = [kTISPropertyInputSourceType as String: kTISTypeKeyboardLayout as String] as CFDictionary
-        guard let listPtr = TISCreateInputSourceList(filter, includeAllInstalled)?.takeRetainedValue() else { return nil }
-        var sources: [(id: String, src: TISInputSource)] = []
-        for i in 0..<CFArrayGetCount(listPtr) {
-            let raw = CFArrayGetValueAtIndex(listPtr, i)!
-            let src = Unmanaged<TISInputSource>.fromOpaque(raw).takeUnretainedValue()
-            guard let idPtr = TISGetInputSourceProperty(src, kTISPropertyInputSourceID) else { continue }
-            let sid = Unmanaged<CFString>.fromOpaque(idPtr).takeUnretainedValue() as String
-            sources.append((sid, src))
-        }
-        // exact match first
-        for n in needles {
-            if let hit = sources.first(where: { $0.id == n }), let l = Layout(hit.src) { return l }
-        }
-        // then substring
-        for n in needles {
-            if let hit = sources.first(where: { $0.id.contains(n) }), let l = Layout(hit.src) { return l }
-        }
-        return nil
-    }
-
-    static func allKeyboardLayoutIDs() -> [String] {
-        let filter = [kTISPropertyInputSourceType as String: kTISTypeKeyboardLayout as String] as CFDictionary
-        guard let listPtr = TISCreateInputSourceList(filter, true)?.takeRetainedValue() else { return [] }
-        var out: [String] = []
-        for i in 0..<CFArrayGetCount(listPtr) {
-            let raw = CFArrayGetValueAtIndex(listPtr, i)!
-            let src = Unmanaged<TISInputSource>.fromOpaque(raw).takeUnretainedValue()
-            if let idPtr = TISGetInputSourceProperty(src, kTISPropertyInputSourceID) {
-                out.append(Unmanaged<CFString>.fromOpaque(idPtr).takeUnretainedValue() as String)
-            }
         }
         return out
     }
@@ -590,11 +538,9 @@ final class AppController: NSObject, NSApplicationDelegate {
         info.isEnabled = false
         menu.addItem(info)
         menu.addItem(.separator())
-        // menu.addItem(NSMenuItem(title: "Retype selection [\(hotKeyDisplay))", action: #selector(retypeMenu), keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "Settings…", action: #selector(openReLayoutSettings), keyEquivalent: ""))
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Open Keyboard Settings…", action: #selector(openKeyboardSettings), keyEquivalent: ""))
-        menu.addItem(.separator())
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(quit), keyEquivalent: "q"))
         for it in menu.items where it.action != nil { it.target = self }
@@ -609,7 +555,6 @@ final class AppController: NSObject, NSApplicationDelegate {
         return "\(list) [ \(hotKeyDisplay) ]"
     }
 
-    @objc private func retypeMenu() { worker.async { self.performRetype() } }
     @objc private func quit() { NSApp.terminate(nil) }
 
     @objc private func openRepo() {

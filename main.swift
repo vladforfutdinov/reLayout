@@ -413,6 +413,14 @@ final class AppController: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private var hotKeyRef: EventHotKeyRef?
     private var handlerInstalled = false
+
+    // Retype runs on a dedicated serial queue, NOT a Swift-Concurrency Task: the
+    // work is blocking input synthesis (waitModifiersReleased / typeUnicode use
+    // usleep, plus synchronous CGEvent posting) that must not occupy the
+    // cooperative thread pool. The serial queue also guarantees one retype at a
+    // time. TIS calls (convert / TISSelectInputSource) are bounced to the main
+    // thread via DispatchQueue.main.sync because TIS asserts off-main on macOS 26;
+    // this never deadlocks since the main thread never blocks waiting on `worker`.
     private let worker = DispatchQueue(label: "relayout.worker")
 
     // user-configurable hotkey (persisted in UserDefaults). Default: tap left Option.
@@ -433,6 +441,10 @@ final class AppController: NSObject, NSApplicationDelegate {
     private weak var shortcutField: ShortcutField?
     private weak var conflictLabel: NSTextField?
     private weak var loginCheckbox: NSButton?
+
+    deinit {
+        DistributedNotificationCenter.default().removeObserver(self)
+    }
 
     func applicationDidFinishLaunching(_ note: Notification) {
         promptAccessibilityIfNeeded()

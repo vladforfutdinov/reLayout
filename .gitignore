@@ -1,0 +1,13 @@
+# build output
+ReLayout.app/
+*.o
+*.swiftmodule
+
+# debug
+/tmp/relayout.log
+
+# macOS
+.DS_Store
+
+# editor local history
+.history/

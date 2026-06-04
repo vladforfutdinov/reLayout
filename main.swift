@@ -227,6 +227,206 @@ func convertWrong(_ text: String, src: Layout, dst: Layout) -> String? {
     return acc == text ? nil : acc
 }
 
+// MARK: - Hotkey model + helpers (file scope)
+
+enum HKMode: Int { case carbon = 0, modTap = 1 }
+
+func carbonModsFrom(_ f: NSEvent.ModifierFlags) -> UInt32 {
+    var m: UInt32 = 0
+    if f.contains(.command) { m |= UInt32(cmdKey) }
+    if f.contains(.option)  { m |= UInt32(optionKey) }
+    if f.contains(.control) { m |= UInt32(controlKey) }
+    if f.contains(.shift)   { m |= UInt32(shiftKey) }
+    return m
+}
+
+func comboDisplay(_ code: UInt16, _ f: NSEvent.ModifierFlags, _ chars: String?) -> String {
+    var s = ""
+    if f.contains(.control) { s += "⌃" }
+    if f.contains(.option)  { s += "⌥" }
+    if f.contains(.shift)   { s += "⇧" }
+    if f.contains(.command) { s += "⌘" }
+    return s + keyName(code, chars)
+}
+
+func keyName(_ code: UInt16, _ chars: String?) -> String {
+    switch Int(code) {
+    case kVK_Space:  return "Space"
+    case kVK_Return: return "↩"
+    case kVK_Tab:    return "⇥"
+    case kVK_Delete: return "⌫"
+    case kVK_Escape: return "⎋"
+    case kVK_F1: return "F1"; case kVK_F2: return "F2"; case kVK_F3: return "F3"
+    case kVK_F4: return "F4"; case kVK_F5: return "F5"; case kVK_F6: return "F6"
+    case kVK_F7: return "F7"; case kVK_F8: return "F8"; case kVK_F9: return "F9"
+    case kVK_F10: return "F10"; case kVK_F11: return "F11"; case kVK_F12: return "F12"
+    case kVK_LeftArrow: return "←"; case kVK_RightArrow: return "→"
+    case kVK_UpArrow: return "↑"; case kVK_DownArrow: return "↓"
+    default:
+        if let c = chars, !c.isEmpty, c != " " { return c.uppercased() }
+        return "key\(code)"
+    }
+}
+
+func modKeyLabel(_ kc: UInt16) -> String {
+    let sym: String
+    switch Int(kc) {
+    case kVK_Option, kVK_RightOption:   sym = "⌥"
+    case kVK_Control, kVK_RightControl: sym = "⌃"
+    case kVK_Command, kVK_RightCommand: sym = "⌘"
+    case kVK_Shift, kVK_RightShift:     sym = "⇧"
+    default:                            sym = "?"
+    }
+    let right = [kVK_RightOption, kVK_RightControl, kVK_RightCommand, kVK_RightShift].contains(Int(kc))
+    return "\(right ? "right" : "left") \(sym)"
+}
+
+func chordDisplay(_ set: Set<UInt16>) -> String {
+    set.sorted().map(modKeyLabel).joined(separator: "+")
+}
+
+// Which modifier KEYS are down, distinguishing left/right via device-dependent bits.
+func pressedModKeys(_ f: NSEvent.ModifierFlags) -> Set<UInt16> {
+    let raw = f.rawValue
+    let map: [(UInt, Int)] = [
+        (0x00000001, kVK_Control), (0x00002000, kVK_RightControl),
+        (0x00000002, kVK_Shift),   (0x00000004, kVK_RightShift),
+        (0x00000020, kVK_Option),  (0x00000040, kVK_RightOption),
+        (0x00000008, kVK_Command), (0x00000010, kVK_RightCommand),
+    ]
+    var s = Set<UInt16>()
+    for (bit, kc) in map where raw & bit != 0 { s.insert(UInt16(kc)) }
+    return s
+}
+
+// macOS symbolic-hotkey conflict lookup. Returns owner name if taken.
+func systemHotkeyConflict(keyCode: UInt16, cocoaMods: UInt) -> String? {
+    guard let d = UserDefaults(suiteName: "com.apple.symbolichotkeys"),
+          let map = d.dictionary(forKey: "AppleSymbolicHotKeys") else { return nil }
+    let MASK: UInt = 0x10_0000 | 0x08_0000 | 0x04_0000 | 0x02_0000
+    let want = cocoaMods & MASK
+    for (idStr, raw) in map {
+        guard let entry = raw as? [String: Any],
+              (entry["enabled"] as? Bool) == true,
+              let value = entry["value"] as? [String: Any],
+              let params = value["parameters"] as? [Any], params.count >= 3,
+              let kc = (params[1] as? NSNumber)?.intValue,
+              let mm = (params[2] as? NSNumber)?.intValue, kc >= 0 else { continue }
+        if kc == Int(keyCode), UInt(mm) & MASK == want { return symbolicHotkeyName(Int(idStr) ?? -1) }
+    }
+    return nil
+}
+
+func symbolicHotkeyName(_ id: Int) -> String {
+    let names: [Int: String] = [
+        7: "menu bar focus", 8: "Dock focus", 32: "Mission Control",
+        33: "App windows", 36: "Show Desktop", 52: "Zoom toggle", 57: "Invert colors",
+        60: "Select previous input source", 61: "Select next input source",
+        64: "Spotlight", 65: "Finder search", 79: "Move left a space", 81: "Move right a space",
+        28: "Screenshot → file", 29: "Screenshot → clipboard",
+        30: "Area screenshot → file", 31: "Area screenshot → clipboard",
+        184: "Screenshot options", 162: "Launchpad", 163: "Notification Center",
+        175: "Notification Center", 222: "Dictation",
+    ]
+    return names[id] ?? "a macOS shortcut (#\(id))"
+}
+
+// MARK: - Shortcut recorder field (System-Settings-style, click to record)
+
+final class ShortcutField: NSView {
+    var display: String { didSet { needsDisplay = true } }
+    // (mode, keyCode, carbonMods, chord, display)
+    var onCommit: ((HKMode, UInt32, UInt32, [UInt16], String) -> Void)?
+
+    private var recording = false { didSet { needsDisplay = true } }
+    private var monitor: Any?
+    private var peak: Set<UInt16>?
+    private var comboUsed = false
+
+    init(display: String) {
+        self.display = display
+        super.init(frame: NSRect(x: 0, y: 0, width: 150, height: 24))
+        translatesAutoresizingMaskIntoConstraints = false
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    override var intrinsicContentSize: NSSize { NSSize(width: 150, height: 24) }
+    override var acceptsFirstResponder: Bool { true }
+
+    override func draw(_ dirty: NSRect) {
+        let r = bounds.insetBy(dx: 0.5, dy: 0.5)
+        let path = NSBezierPath(roundedRect: r, xRadius: 5, yRadius: 5)
+        (recording ? NSColor.controlAccentColor.withAlphaComponent(0.15) : NSColor.textBackgroundColor).setFill()
+        path.fill()
+        (recording ? NSColor.controlAccentColor : NSColor.separatorColor).setStroke()
+        path.lineWidth = recording ? 2 : 1
+        path.stroke()
+
+        let text = recording ? "Type shortcut…" : display
+        let color: NSColor = recording ? .secondaryLabelColor : .labelColor
+        let attrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 13), .foregroundColor: color,
+        ]
+        let sz = (text as NSString).size(withAttributes: attrs)
+        (text as NSString).draw(at: NSPoint(x: (bounds.width - sz.width) / 2, y: (bounds.height - sz.height) / 2),
+                                withAttributes: attrs)
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        recording ? stop() : start()
+    }
+
+    private func start() {
+        recording = true
+        peak = nil; comboUsed = false
+        window?.makeFirstResponder(self)
+        monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged]) { [weak self] ev in
+            guard let self else { return ev }
+            if ev.type == .keyDown { return self.handleKeyDown(ev) }
+            self.handleFlags(ev)
+            return nil
+        }
+    }
+
+    private func stop() {
+        if let m = monitor { NSEvent.removeMonitor(m); monitor = nil }
+        recording = false
+    }
+
+    private func handleKeyDown(_ ev: NSEvent) -> NSEvent? {
+        if ev.keyCode == UInt16(kVK_Escape) { stop(); return nil }   // cancel
+        comboUsed = true
+        let mods = ev.modifierFlags.intersection([.command, .option, .control, .shift])
+        guard !mods.intersection([.command, .option, .control]).isEmpty else { return nil } // need a real modifier
+        let disp = comboDisplay(ev.keyCode, mods, ev.charactersIgnoringModifiers)
+        commit(.carbon, UInt32(ev.keyCode), carbonModsFrom(mods), [], disp)
+        return nil
+    }
+
+    private func handleFlags(_ ev: NSEvent) {
+        let cur = pressedModKeys(ev.modifierFlags)
+        if cur.isEmpty {
+            if !comboUsed, let p = peak, !p.isEmpty {
+                commit(.modTap, 0, 0, Array(p), chordDisplay(p))
+            }
+            peak = nil; comboUsed = false
+        } else if peak == nil || cur.count > (peak?.count ?? 0) {
+            peak = cur
+        }
+    }
+
+    private func commit(_ mode: HKMode, _ code: UInt32, _ mods: UInt32, _ chord: [UInt16], _ disp: String) {
+        display = disp
+        stop()
+        onCommit?(mode, code, mods, chord, disp)
+    }
+}
+
+// Settings window that closes on Esc (macOS convention via cancelOperation).
+final class SettingsWindow: NSWindow {
+    override func cancelOperation(_ sender: Any?) { close() }
+}
+
 // MARK: - App controller
 
 final class AppController: NSObject, NSApplicationDelegate {
@@ -237,13 +437,12 @@ final class AppController: NSObject, NSApplicationDelegate {
     private var handlerInstalled = false
     private let worker = DispatchQueue(label: "relayout.worker")
 
-    // user-configurable hotkey (persisted in UserDefaults)
-    private enum HKMode: Int { case carbon = 0, modTap = 1 }
-    private var hotKeyMode: HKMode = .carbon
+    // user-configurable hotkey (persisted in UserDefaults). Default: tap left Option.
+    private var hotKeyMode: HKMode = .modTap
     private var hotKeyCode = UInt32(kVK_ANSI_R)   // carbon: virtual key
     private var hotKeyMods = UInt32(controlKey | optionKey)
-    private var hotKeyChord: [UInt16] = []        // modTap: set of modifier virtual keys
-    private var hotKeyDisplay = "⌃⌥R"
+    private var hotKeyChord: [UInt16] = [UInt16(kVK_Option)]   // modTap: modifier virtual keys
+    private var hotKeyDisplay = "left⌥"
 
     // modifier-tap runtime state
     private var tapMonitors: [Any] = []
@@ -253,22 +452,9 @@ final class AppController: NSObject, NSApplicationDelegate {
 
     // settings
     private var settingsWindow: NSWindow?
-    private weak var settingsHotkeyLabel: NSTextField?
+    private weak var shortcutField: ShortcutField?
+    private weak var conflictLabel: NSTextField?
     private weak var loginCheckbox: NSButton?
-
-    // recorder
-    private var recorderWindow: NSWindow?
-    private var recorderIsSheet = false
-    private var recorderMonitor: Any?
-    private var pendingMode: HKMode = .carbon
-    private var pendingCode: UInt32?
-    private var pendingMods: UInt32 = 0
-    private var pendingChord: [UInt16] = []
-    private var pendingDisplay = ""
-    private var recPeak: Set<UInt16>?
-    private var recComboUsed = false
-    private weak var recorderLabel: NSTextField?
-    private weak var recorderSaveButton: NSButton?
 
     func applicationDidFinishLaunching(_ note: Notification) {
         promptAccessibilityIfNeeded()
@@ -374,7 +560,7 @@ final class AppController: NSObject, NSApplicationDelegate {
         menu.addItem(NSMenuItem(title: "Open Keyboard Settings…", action: #selector(openKeyboardSettings), keyEquivalent: ""))
         menu.addItem(.separator())
         menu.addItem(.separator())
-        menu.addItem(NSMenuItem(title: "Quit ReLayout", action: #selector(quit), keyEquivalent: "q"))
+        menu.addItem(NSMenuItem(title: "Quit", action: #selector(quit), keyEquivalent: "q"))
         for it in menu.items where it.action != nil { it.target = self }
         statusItem.menu = menu
     }
@@ -477,23 +663,7 @@ final class AppController: NSObject, NSApplicationDelegate {
         // a strict subset = chord still building up or partially released -> wait
     }
 
-    // Which modifier KEYS are currently down, distinguishing left/right via the
-    // device-dependent bits in modifierFlags.rawValue (the .option/.shift/… masks
-    // are shared by both sides and can't tell L from R).
-    private func pressedModKeys(_ f: NSEvent.ModifierFlags) -> Set<UInt16> {
-        let raw = f.rawValue
-        let map: [(UInt, Int)] = [
-            (0x00000001, kVK_Control), (0x00002000, kVK_RightControl),
-            (0x00000002, kVK_Shift),   (0x00000004, kVK_RightShift),
-            (0x00000020, kVK_Option),  (0x00000040, kVK_RightOption),
-            (0x00000008, kVK_Command), (0x00000010, kVK_RightCommand),
-        ]
-        var s = Set<UInt16>()
-        for (bit, kc) in map where raw & bit != 0 { s.insert(UInt16(kc)) }
-        return s
-    }
-
-    // MARK: hotkey persistence + recorder
+    // MARK: hotkey persistence
 
     private func loadHotkey() {
         let d = UserDefaults.standard
@@ -515,233 +685,33 @@ final class AppController: NSObject, NSApplicationDelegate {
         d.set(display, forKey: "hkDisplay")
     }
 
-    private func carbonMods(_ f: NSEvent.ModifierFlags) -> UInt32 {
-        var m: UInt32 = 0
-        if f.contains(.command) { m |= UInt32(cmdKey) }
-        if f.contains(.option)  { m |= UInt32(optionKey) }
-        if f.contains(.control) { m |= UInt32(controlKey) }
-        if f.contains(.shift)   { m |= UInt32(shiftKey) }
-        return m
+    // default hotkey: tap left Option
+    private static let defaultHotkey: (HKMode, UInt32, UInt32, [UInt16], String) =
+        (.modTap, UInt32(kVK_ANSI_R), UInt32(controlKey | optionKey), [UInt16(kVK_Option)], "left ⌥")
+
+    @objc private func resetHotkey() {
+        let d = AppController.defaultHotkey
+        commitHotkey(d.0, d.1, d.2, d.3, d.4)
+        shortcutField?.display = d.4
     }
 
-    private func displayString(_ code: UInt16, _ f: NSEvent.ModifierFlags, _ chars: String?) -> String {
-        var s = ""
-        if f.contains(.control) { s += "⌃" }
-        if f.contains(.option)  { s += "⌥" }
-        if f.contains(.shift)   { s += "⇧" }
-        if f.contains(.command) { s += "⌘" }
-        return s + keyName(code, chars)
-    }
-
-    private func modKeyLabel(_ kc: UInt16) -> String {
-        let sym: String
-        switch Int(kc) {
-        case kVK_Option, kVK_RightOption:   sym = "⌥"
-        case kVK_Control, kVK_RightControl: sym = "⌃"
-        case kVK_Command, kVK_RightCommand: sym = "⌘"
-        case kVK_Shift, kVK_RightShift:     sym = "⇧"
-        default:                            sym = "?"
-        }
-        let right = [kVK_RightOption, kVK_RightControl, kVK_RightCommand, kVK_RightShift].contains(Int(kc))
-        return "\(right ? "right" : "left")\(sym)"
-    }
-
-    private func chordDisplay(_ set: Set<UInt16>) -> String {
-        let parts = set.sorted().map { modKeyLabel($0) }
-        return parts.joined(separator: "+")
-    }
-
-    private func keyName(_ code: UInt16, _ chars: String?) -> String {
-        switch Int(code) {
-        case kVK_Space:        return "Space"
-        case kVK_Return:       return "↩"
-        case kVK_Tab:          return "⇥"
-        case kVK_Delete:       return "⌫"
-        case kVK_Escape:       return "⎋"
-        case kVK_F1:  return "F1";  case kVK_F2:  return "F2";  case kVK_F3:  return "F3"
-        case kVK_F4:  return "F4";  case kVK_F5:  return "F5";  case kVK_F6:  return "F6"
-        case kVK_F7:  return "F7";  case kVK_F8:  return "F8";  case kVK_F9:  return "F9"
-        case kVK_F10: return "F10"; case kVK_F11: return "F11"; case kVK_F12: return "F12"
-        case kVK_LeftArrow: return "←"; case kVK_RightArrow: return "→"
-        case kVK_UpArrow: return "↑"; case kVK_DownArrow: return "↓"
-        default:
-            if let c = chars, !c.isEmpty, c != " " { return c.uppercased() }
-            return "key\(code)"
-        }
-    }
-
-    @objc private func changeHotkey() {
-        if recorderWindow != nil { recorderWindow?.makeKeyAndOrderFront(nil); return }
-        pendingCode = nil
-        pendingChord = []
-        recPeak = nil
-        recComboUsed = false
-        let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 380, height: 160),
-                         styleMask: [.titled, .closable], backing: .buffered, defer: false)
-        w.title = "ReLayout — set hotkey"
-        w.center()
-        w.isReleasedWhenClosed = false
-
-        let label = NSTextField(labelWithString: "Current: \(hotKeyDisplay)\nPress a shortcut, or tap modifier(s) together")
-        label.alignment = .center
-        label.maximumNumberOfLines = 2
-        label.font = .systemFont(ofSize: 13)
-        label.frame = NSRect(x: 20, y: 70, width: 340, height: 64)
-        w.contentView?.addSubview(label)
-        recorderLabel = label
-
-        let save = NSButton(title: "Save", target: self, action: #selector(saveRecorded))
-        save.bezelStyle = .rounded
-        save.keyEquivalent = "\r"
-        save.frame = NSRect(x: 270, y: 18, width: 90, height: 32)
-        save.isEnabled = false
-        w.contentView?.addSubview(save)
-        recorderSaveButton = save
-
-        let cancel = NSButton(title: "Cancel", target: self, action: #selector(cancelRecorder))
-        cancel.bezelStyle = .rounded
-        cancel.keyEquivalent = "\u{1b}" // Esc
-        cancel.frame = NSRect(x: 20, y: 18, width: 90, height: 32)
-        w.contentView?.addSubview(cancel)
-
-        recorderWindow = w
-        if let sw = settingsWindow, sw.isVisible {
-            recorderIsSheet = true
-            sw.beginSheet(w, completionHandler: nil)
-        } else {
-            recorderIsSheet = false
-            NSApp.activate(ignoringOtherApps: true)
-            w.makeKeyAndOrderFront(nil)
-        }
-
-        recorderMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged]) { [weak self] ev in
-            guard let self else { return ev }
-            if ev.type == .keyDown { return self.recordKeyDown(ev) }
-            self.recordFlags(ev)
-            return nil
-        }
-    }
-
-    // Normal key + modifier(s) -> carbon combo.
-    private func recordKeyDown(_ ev: NSEvent) -> NSEvent? {
-        // let Return/Esc drive the buttons
-        if ev.keyCode == UInt16(kVK_Return) || ev.keyCode == UInt16(kVK_Escape) { return ev }
-        recComboUsed = true
-        let mods = ev.modifierFlags.intersection([.command, .option, .control, .shift])
-        if mods.intersection([.command, .option, .control]).isEmpty {
-            recorderLabel?.stringValue = "Need ⌘, ⌥ or ⌃ — or tap modifier(s) alone"
-            return nil
-        }
-        setPendingCarbon(code: UInt32(ev.keyCode), mods: carbonMods(mods), cocoaMods: mods.rawValue,
-                         display: displayString(ev.keyCode, mods, ev.charactersIgnoringModifiers))
-        return nil
-    }
-
-    // Modifier-only chord: capture the largest simultaneous set of modifier keys,
-    // commit on full release (if no symbol key was used).
-    private func recordFlags(_ ev: NSEvent) {
-        let cur = pressedModKeys(ev.modifierFlags)
-        if cur.isEmpty {
-            if !recComboUsed, let p = recPeak, !p.isEmpty {
-                setPendingChord(p)
-            }
-            recPeak = nil
-            recComboUsed = false
-        } else if recPeak == nil || cur.count > (recPeak?.count ?? 0) {
-            recPeak = cur
-        }
-    }
-
-    // Normal key + modifier(s) -> carbon combo.
-    private func setPendingCarbon(code: UInt32, mods: UInt32, cocoaMods: UInt, display: String) {
-        pendingMode = .carbon; pendingCode = code; pendingMods = mods; pendingChord = []
-        showPending(display, warn: systemHotkeyConflict(keyCode: UInt16(code), cocoaMods: cocoaMods))
-    }
-
-    private func setPendingChord(_ set: Set<UInt16>) {
-        pendingMode = .modTap; pendingCode = nil; pendingMods = 0
-        pendingChord = Array(set)
-        showPending(chordDisplay(set))
-    }
-
-    private func showPending(_ display: String, warn: String? = nil) {
-        pendingDisplay = display
-        if let warn {
-            recorderLabel?.font = .systemFont(ofSize: 15)
-            recorderLabel?.stringValue = "\(display)\n⚠︎ conflicts with \(warn) — Save to override"
-        } else {
-            recorderLabel?.font = .boldSystemFont(ofSize: 22)
-            recorderLabel?.stringValue = display
-        }
-        recorderSaveButton?.isEnabled = true   // warn, don't block
-    }
-
-    // Look up a key+modifier combo in macOS's symbolic hotkeys (System Settings ▸
-    // Keyboard ▸ Shortcuts). Returns a human name if the combo is already taken.
-    private func systemHotkeyConflict(keyCode: UInt16, cocoaMods: UInt) -> String? {
-        guard let d = UserDefaults(suiteName: "com.apple.symbolichotkeys"),
-              let map = d.dictionary(forKey: "AppleSymbolicHotKeys") else { return nil }
-        let MASK: UInt = 0x10_0000 | 0x08_0000 | 0x04_0000 | 0x02_0000 // cmd|opt|ctrl|shift
-        let want = cocoaMods & MASK
-        for (idStr, raw) in map {
-            guard let entry = raw as? [String: Any],
-                  (entry["enabled"] as? Bool) == true,
-                  let value = entry["value"] as? [String: Any],
-                  let params = value["parameters"] as? [Any], params.count >= 3,
-                  let kc = (params[1] as? NSNumber)?.intValue,
-                  let mm = (params[2] as? NSNumber)?.intValue, kc >= 0 else { continue }
-            if kc == Int(keyCode), UInt(mm) & MASK == want {
-                return symbolicHotkeyName(Int(idStr) ?? -1)
-            }
-        }
-        return nil
-    }
-
-    private func symbolicHotkeyName(_ id: Int) -> String {
-        let names: [Int: String] = [
-            7: "macOS: focus menu bar", 8: "macOS: focus Dock",
-            9: "macOS: focus next window", 10: "macOS: focus toolbar",
-            11: "macOS: focus floating window", 27: "macOS: focus next window",
-            32: "Mission Control", 33: "Mission Control: app windows",
-            36: "macOS: show Desktop", 52: "macOS: zoom toggle",
-            57: "macOS: invert colors",
-            60: "macOS: select previous input source",
-            61: "macOS: select next input source",
-            64: "Spotlight search", 65: "Finder search window",
-            79: "macOS: move left a space", 81: "macOS: move right a space",
-            28: "Screenshot ▸ save to file", 29: "Screenshot ▸ copy to clipboard",
-            30: "Screenshot ▸ area to file", 31: "Screenshot ▸ area to clipboard",
-            184: "Screenshot & recording options",
-            162: "Launchpad", 163: "Notification Center", 175: "Notification Center",
-            222: "macOS: dictation",
-        ]
-        return names[id] ?? "a macOS keyboard shortcut (#\(id))"
-    }
-
-    @objc private func saveRecorded() {
-        let valid = (pendingMode == .carbon && pendingCode != nil)
-            || (pendingMode == .modTap && !pendingChord.isEmpty)
-        guard valid else { return }
-        saveHotkey(mode: pendingMode, code: pendingCode ?? 0, mods: pendingMods,
-                   chord: pendingChord, display: pendingDisplay)
+    // Commit a hotkey captured by the ShortcutField.
+    private func commitHotkey(_ mode: HKMode, _ code: UInt32, _ mods: UInt32, _ chord: [UInt16], _ display: String) {
+        saveHotkey(mode: mode, code: code, mods: mods, chord: chord, display: display)
         applyHotkey()
         setupMenu()
-        settingsHotkeyLabel?.stringValue = hotKeyDisplay
-        closeRecorder()
+        let warn = mode == .carbon ? systemHotkeyConflict(keyCode: UInt16(code), cocoaMods: cocoaMods(mods)) : nil
+        conflictLabel?.stringValue = warn.map { "⚠︎ also used by \($0)" } ?? ""
     }
 
-    @objc private func cancelRecorder() { closeRecorder() }
-
-    private func closeRecorder() {
-        if let m = recorderMonitor { NSEvent.removeMonitor(m); recorderMonitor = nil }
-        pendingCode = nil
-        recPeak = nil
-        recComboUsed = false
-        if let w = recorderWindow {
-            if recorderIsSheet, let sw = settingsWindow { sw.endSheet(w) } else { w.close() }
-        }
-        recorderWindow = nil
-        recorderIsSheet = false
+    // carbon modifier mask -> Cocoa device-independent mask (for conflict lookup)
+    private func cocoaMods(_ carbon: UInt32) -> UInt {
+        var m: UInt = 0
+        if carbon & UInt32(cmdKey) != 0     { m |= 0x10_0000 }
+        if carbon & UInt32(optionKey) != 0  { m |= 0x08_0000 }
+        if carbon & UInt32(controlKey) != 0 { m |= 0x04_0000 }
+        if carbon & UInt32(shiftKey) != 0   { m |= 0x02_0000 }
+        return m
     }
 
     // MARK: settings window
@@ -752,53 +722,86 @@ final class AppController: NSObject, NSApplicationDelegate {
             w.makeKeyAndOrderFront(nil)
             return
         }
-        let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 440, height: 250),
-                         styleMask: [.titled, .closable], backing: .buffered, defer: false)
+        let w = SettingsWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: 200),
+                               styleMask: [.titled, .closable], backing: .buffered, defer: false)
         w.title = "ReLayout Settings"
-        w.center()
         w.isReleasedWhenClosed = false
-        let v = w.contentView!
+        let content = w.contentView!
 
-        func label(_ s: String, _ frame: NSRect, bold: Bool = false, size: CGFloat = 13) -> NSTextField {
+        // right-aligned caption column, like macOS settings forms
+        func caption(_ s: String) -> NSTextField {
             let l = NSTextField(labelWithString: s)
-            l.frame = frame
-            l.font = bold ? .boldSystemFont(ofSize: size) : .systemFont(ofSize: size)
-            l.textColor = bold ? .secondaryLabelColor : .labelColor
-            v.addSubview(l)
+            l.alignment = .right
+            l.textColor = .secondaryLabelColor
+            l.setContentHuggingPriority(.required, for: .horizontal)
             return l
         }
 
-        _ = label("HOTKEY", NSRect(x: 20, y: 200, width: 200, height: 18), bold: true, size: 11)
-        let hk = label(hotKeyDisplay, NSRect(x: 20, y: 168, width: 280, height: 26), size: 18)
-        settingsHotkeyLabel = hk
-        let change = NSButton(title: "Change…", target: self, action: #selector(changeHotkey))
-        change.bezelStyle = .rounded
-        change.frame = NSRect(x: 318, y: 168, width: 102, height: 28)
-        v.addSubview(change)
+        let field = ShortcutField(display: hotKeyDisplay)
+        field.onCommit = { [weak self] mode, code, mods, chord, disp in
+            self?.commitHotkey(mode, code, mods, chord, disp)
+        }
+        shortcutField = field
+        let resetIcon = NSImage(systemSymbolName: "arrow.uturn.backward", accessibilityDescription: "Restore default")
+        let reset = NSButton(image: resetIcon ?? NSImage(), target: self, action: #selector(resetHotkey))
+        reset.isBordered = false
+        reset.bezelStyle = .accessoryBar
+        reset.imageScaling = .scaleProportionallyDown
+        reset.toolTip = "Restore default (left ⌥)"
+        let hkRow = NSStackView(views: [field, reset])
+        hkRow.orientation = .horizontal
+        hkRow.spacing = 8
+        hkRow.alignment = .centerY
 
-        _ = label("STARTUP", NSRect(x: 20, y: 124, width: 200, height: 18), bold: true, size: 11)
-        let cb = NSButton(checkboxWithTitle: "Open ReLayout at login", target: self, action: #selector(toggleLogin))
-        cb.frame = NSRect(x: 20, y: 98, width: 320, height: 22)
+        let conflict = NSTextField(labelWithString: "")
+        conflict.font = .systemFont(ofSize: 11)
+        conflict.textColor = .systemOrange
+        conflictLabel = conflict
+        if hotKeyMode == .carbon,
+           let w = systemHotkeyConflict(keyCode: UInt16(hotKeyCode), cocoaMods: cocoaMods(hotKeyMods)) {
+            conflict.stringValue = "⚠︎ also used by \(w)"
+        }
+
+        let cb = NSButton(checkboxWithTitle: "Open at login", target: self, action: #selector(toggleLogin))
         cb.state = loginEnabled() ? .on : .off
-        v.addSubview(cb)
         loginCheckbox = cb
 
-        _ = label("LAYOUTS", NSRect(x: 20, y: 56, width: 200, height: 18), bold: true, size: 11)
-        _ = label(layoutInfoTitle(), NSRect(x: 20, y: 28, width: 290, height: 20), size: 13)
+        let layouts = NSTextField(labelWithString: layoutListText())
+        layouts.textColor = .secondaryLabelColor
 
-        // Esc / ⏎ closes the window
-        let close = NSButton(title: "Close", target: self, action: #selector(closeSettings))
-        close.bezelStyle = .rounded
-        close.keyEquivalent = "\u{1b}"   // Esc
-        close.frame = NSRect(x: 330, y: 14, width: 90, height: 30)
-        v.addSubview(close)
+        let grid = NSGridView(views: [
+            [caption(""), cb],
+            [caption("Layouts:"), layouts],
+            [caption("Hotkey:"), hkRow],
+            [NSGridCell.emptyContentView, conflict],
+        ])
+        grid.rowSpacing = 10
+        grid.columnSpacing = 10
+        grid.column(at: 0).xPlacement = .trailing
+        grid.rowAlignment = .none
+        for i in 0..<grid.numberOfRows { grid.row(at: i).yPlacement = .center }
+        grid.row(at: 3).topPadding = 0   // tuck conflict under the field
+        grid.translatesAutoresizingMaskIntoConstraints = false
+        content.addSubview(grid)
+        NSLayoutConstraint.activate([
+            grid.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 20),
+            grid.trailingAnchor.constraint(lessThanOrEqualTo: content.trailingAnchor, constant: -20),
+            grid.topAnchor.constraint(equalTo: content.topAnchor, constant: 20),
+            grid.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -20),
+        ])
+        content.layoutSubtreeIfNeeded()
+        w.setContentSize(content.fittingSize)
+        w.center()
 
         settingsWindow = w
         NSApp.activate(ignoringOtherApps: true)
         w.makeKeyAndOrderFront(nil)
     }
 
-    @objc private func closeSettings() { settingsWindow?.close() }
+    private func layoutListText() -> String {
+        let names = Layout.enabledList().map { $0.id.replacingOccurrences(of: "com.apple.keylayout.", with: "") }
+        return names.isEmpty ? "—" : names.joined(separator: " · ")
+    }
 
     @objc private func toggleLogin() {
         setLogin(loginCheckbox?.state == .on)
@@ -963,7 +966,10 @@ final class AppController: NSObject, NSApplicationDelegate {
             }
         }
 
-        guard let text = sel, !text.isEmpty, let r = convert(text) else {
+        // convert() touches TIS APIs, which must run on the main thread (macOS 26
+        // asserts otherwise). Hop to main for it.
+        guard let text = sel, !text.isEmpty,
+              let r = DispatchQueue.main.sync(execute: { self.convert(text) }) else {
             dbg("nothing to convert")
             restoreClipboard(saved)
             return
@@ -975,7 +981,7 @@ final class AppController: NSObject, NSApplicationDelegate {
         dbg("type: \(r.out.debugDescription)")
         typeUnicode(r.out)
         usleep(20_000)
-        TISSelectInputSource(r.dst.source)
+        DispatchQueue.main.sync { TISSelectInputSource(r.dst.source) }
         // restore clipboard only if the Cmd+C read fallback dirtied it
         restoreClipboard(saved)
     }

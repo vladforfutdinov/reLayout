@@ -24,10 +24,7 @@ jobs:
         run: swiftc --version && sw_vers
 
       - name: Build
-        env:
-          # on a tag push, version comes from the tag (v1.2.3 -> 1.2.3); else VERSION file
-          RELAYOUT_VERSION: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '' }}
-        run: ./build.sh           # ad-hoc signs (no self-signed identity on CI)
+        run: ./build.sh           # version read from git tag via describe; ad-hoc signs on CI
 
       - name: Package
         run: ditto -c -k --keepParent ReLayout.app reLayout.zip

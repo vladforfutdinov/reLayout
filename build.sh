@@ -3,19 +3,30 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 APP="ReLayout.app"
-# Version source of truth: RELAYOUT_VERSION env (set by CI from the git tag),
-# falling back to the VERSION file for local/dev builds. Leading "v" stripped.
-VERSION="${RELAYOUT_VERSION:-$(tr -d '[:space:]' < VERSION)}"
+
+# Version, in precedence order:
+#   1. RELAYOUT_VERSION env (manual override)
+#   2. exact git tag on HEAD            -> release version  (e.g. 1.2.3)
+#   3. git describe (nearest tag + dev) -> dev version      (e.g. 1.2.3-4-gabc123)
+#   4. VERSION file                     -> last-resort fallback
+version_from_git() {
+    git describe --tags --exact-match 2>/dev/null && return
+    git describe --tags --always --dirty 2>/dev/null && return
+    return 1
+}
+VERSION="${RELAYOUT_VERSION:-$(version_from_git || tr -d '[:space:]' < VERSION)}"
 VERSION="${VERSION#v}"
+SHORT="${VERSION%%-*}"   # CFBundleShortVersionString must be plain dotted numbers
 BUILD="$(git rev-list --count HEAD 2>/dev/null || echo 0)"
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS"
 cp Info.plist "$APP/Contents/Info.plist"
 
-# inject version (single source of truth = VERSION; build number = commit count)
-/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$APP/Contents/Info.plist"
+# inject version (short = release number; build = commit count)
+/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $SHORT" "$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD" "$APP/Contents/Info.plist"
+echo "version: $VERSION (short $SHORT, build $BUILD)"
 
 swiftc -O -o "$APP/Contents/MacOS/ReLayout" main.swift \
     -framework Cocoa -framework Carbon

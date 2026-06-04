@@ -576,6 +576,12 @@ final class AppController: NSObject, NSApplicationDelegate {
     @objc private func retypeMenu() { worker.async { self.performRetype() } }
     @objc private func quit() { NSApp.terminate(nil) }
 
+    @objc private func openRepo() {
+        if let url = URL(string: "https://github.com/vladforfutdinov/reLayout") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
     @objc private func openKeyboardSettings() {
         let candidates = [
             "x-apple.systempreferences:com.apple.Keyboard-Settings.extension",
@@ -773,13 +779,23 @@ final class AppController: NSObject, NSApplicationDelegate {
         let versionLabel = NSTextField(labelWithString: "reLayout \(version)")
         versionLabel.font = .systemFont(ofSize: 11)
         versionLabel.textColor = .tertiaryLabelColor
+        let link = NSButton(title: "GitHub", target: self, action: #selector(openRepo))
+        link.isBordered = false
+        link.bezelStyle = .inline
+        link.attributedTitle = NSAttributedString(string: "GitHub ↗", attributes: [
+            .foregroundColor: NSColor.linkColor, .font: NSFont.systemFont(ofSize: 11),
+        ])
+        let footer = NSStackView(views: [versionLabel, link])
+        footer.orientation = .horizontal
+        footer.spacing = 10
+        footer.alignment = .firstBaseline
 
         let grid = NSGridView(views: [
             [caption(""), cb],
             [caption("Layouts:"), layouts],
             [caption("Hotkey:"), hkRow],
             [NSGridCell.emptyContentView, conflict],
-            [NSGridCell.emptyContentView, versionLabel],
+            [NSGridCell.emptyContentView, footer],
         ])
         grid.rowSpacing = 10
         grid.columnSpacing = 10

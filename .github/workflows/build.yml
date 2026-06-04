@@ -9,6 +9,9 @@ on:
 permissions:
   contents: write   # needed to create a Release on tags
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true   # run JS actions on Node 24 (Node 20 deprecated)
+
 jobs:
   build:
     runs-on: macos-latest

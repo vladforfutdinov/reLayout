@@ -769,11 +769,17 @@ final class AppController: NSObject, NSApplicationDelegate {
         let layouts = NSTextField(labelWithString: layoutListText())
         layouts.textColor = .secondaryLabelColor
 
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
+        let versionLabel = NSTextField(labelWithString: "reLayout \(version)")
+        versionLabel.font = .systemFont(ofSize: 11)
+        versionLabel.textColor = .tertiaryLabelColor
+
         let grid = NSGridView(views: [
             [caption(""), cb],
             [caption("Layouts:"), layouts],
             [caption("Hotkey:"), hkRow],
             [NSGridCell.emptyContentView, conflict],
+            [NSGridCell.emptyContentView, versionLabel],
         ])
         grid.rowSpacing = 10
         grid.columnSpacing = 10

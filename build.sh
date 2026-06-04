@@ -3,9 +3,16 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 APP="ReLayout.app"
+VERSION="$(tr -d '[:space:]' < VERSION)"
+BUILD="$(git rev-list --count HEAD 2>/dev/null || echo 0)"
+
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS"
 cp Info.plist "$APP/Contents/Info.plist"
+
+# inject version (single source of truth = VERSION; build number = commit count)
+/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$APP/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD" "$APP/Contents/Info.plist"
 
 swiftc -O -o "$APP/Contents/MacOS/ReLayout" main.swift \
     -framework Cocoa -framework Carbon

@@ -4,14 +4,19 @@ import ServiceManagement
 
 // MARK: - Helpers
 
-let dbgPath = "/tmp/relayout.log"
+// Debug trace to /tmp/relayout.log. Compiled out unless built with -DDEBUG:
+// these lines include the user's selected text, which must never be written to
+// disk in a release build. The empty release body is inlined away under -O.
 func dbg(_ s: String) {
-    let line = s + "\n"
+#if DEBUG
+    let dbgPath = "/tmp/relayout.log"
+    let data = Data((s + "\n").utf8)
     if let h = FileHandle(forWritingAtPath: dbgPath) {
-        h.seekToEndOfFile(); h.write(line.data(using: .utf8)!); h.closeFile()
+        h.seekToEndOfFile(); h.write(data); h.closeFile()
     } else {
-        try? line.data(using: .utf8)!.write(to: URL(fileURLWithPath: dbgPath))
+        try? data.write(to: URL(fileURLWithPath: dbgPath))
     }
+#endif
 }
 
 func fourCharCode(_ s: String) -> FourCharCode {

@@ -937,12 +937,12 @@ final class AppController: NSObject, NSApplicationDelegate {
         let sys = AXUIElementCreateSystemWide()
         var appVal: CFTypeRef?
         guard AXUIElementCopyAttributeValue(sys, kAXFocusedApplicationAttribute as CFString, &appVal) == .success,
-              let appVal else { return nil }
-        let app = appVal as! AXUIElement
+              let appVal, CFGetTypeID(appVal) == AXUIElementGetTypeID() else { return nil }
+        let app = appVal as! AXUIElement   // type checked above
         var elVal: CFTypeRef?
         guard AXUIElementCopyAttributeValue(app, kAXFocusedUIElementAttribute as CFString, &elVal) == .success,
-              let elVal else { return nil }
-        let el = elVal as! AXUIElement
+              let elVal, CFGetTypeID(elVal) == AXUIElementGetTypeID() else { return nil }
+        let el = elVal as! AXUIElement   // type checked above
         var txtVal: CFTypeRef?
         guard AXUIElementCopyAttributeValue(el, kAXSelectedTextAttribute as CFString, &txtVal) == .success,
               let s = txtVal as? String else { return nil }
@@ -968,8 +968,13 @@ final class AppController: NSObject, NSApplicationDelegate {
 
         waitModifiersReleased()
 
+        // The clipboard is saved/restored ONLY on the Cmd+C fallback path. The AX
+        // path never touches it, so we must not clear+restore it there — doing so
+        // would wipe any non-string clipboard content (images, files) on every
+        // retype. clipboardSaved is set iff we actually dirtied the pasteboard.
         let pb = NSPasteboard.general
-        let saved = pb.string(forType: .string)
+        var clipboardSaved: String?
+        var clipboardTouched = false
 
         var sel: String?
         let ax = axSelectedText()
@@ -986,7 +991,10 @@ final class AppController: NSObject, NSApplicationDelegate {
                 if let s, !s.isEmpty { dbg("read via AX: \(s.debugDescription)"); sel = s }
             }
         } else {
-            // AX unavailable -> clipboard fallback (Cmd+C)
+            // AX unavailable -> clipboard fallback (Cmd+C), which overwrites the
+            // pasteboard; remember the prior string so we can put it back.
+            clipboardSaved = pb.string(forType: .string)
+            clipboardTouched = true
             sel = copySelection(pb)
             if sel == nil {
                 dbg("no selection -> Shift+Cmd+Left")
@@ -1001,7 +1009,7 @@ final class AppController: NSObject, NSApplicationDelegate {
         guard let text = sel, !text.isEmpty,
               let r = DispatchQueue.main.sync(execute: { self.convert(text) }) else {
             dbg("nothing to convert")
-            restoreClipboard(saved)
+            if clipboardTouched { restoreClipboard(clipboardSaved) }
             return
         }
 
@@ -1011,9 +1019,9 @@ final class AppController: NSObject, NSApplicationDelegate {
         dbg("type: \(r.out.debugDescription)")
         typeUnicode(r.out)
         usleep(20_000)
-        DispatchQueue.main.sync { TISSelectInputSource(r.dst.source) }
+        DispatchQueue.main.sync { _ = TISSelectInputSource(r.dst.source) }
         // restore clipboard only if the Cmd+C read fallback dirtied it
-        restoreClipboard(saved)
+        if clipboardTouched { restoreClipboard(clipboardSaved) }
     }
 
     // Insert a string by synthesizing per-character Unicode key events.

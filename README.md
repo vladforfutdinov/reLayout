@@ -1,9 +1,10 @@
-# ReLayout
+# reLayout
 
-Punto-style "retype selection in the other layout" for macOS. Fixed **US (ABC) ⇄ Ukrainian**.
+Punto/Caramba-style "retype the selection in the correct keyboard layout" for macOS — a
+tiny menu-bar app. Select (or just type) wrong-layout text, hit the hotkey, and it's
+retyped in the right layout; the system input source flips so you can keep going.
 
-Select wrong-layout text, press the hotkey — it gets retyped in the correct layout and the
-system input source flips so you can keep typing.
+Works with **any** enabled keyboard layouts — not hard-coded to a specific pair.
 
 ## Why it handles `ß`/`æ` → `ы`/`э`
 
@@ -13,114 +14,96 @@ It does **not** map character→character. It maps:
 char --(source layout reverse)--> physical key + modifiers --(target layout)--> char
 ```
 
-using Carbon `UCKeyTranslate` over the actual installed layouts. Because you type Russian
-`ы э ъ ё` on the Ukrainian layout with **Option** (they're missing from the base layer), and
-the same physical `Option+key` on US produces `ß æ …`, both sit on the same keycode+Option —
-so they convert automatically. No hand-coded tables.
+via Carbon `UCKeyTranslate` over the actually-installed layouts. You type Russian `ы э ъ ё`
+on the Ukrainian layout with **Option**; the same physical `Option+key` on US produces
+`ß æ …`. Both sit on the same keycode+Option, so they convert automatically — no hand-coded
+character tables, and the Option layer just works.
 
-## Build
+## Build & run
 
 ```sh
+./make-cert.sh     # one-time: self-signed identity so the Accessibility grant survives rebuilds
 ./build.sh
-```
-
-Produces `ReLayout.app` (ad-hoc signed, menu-bar agent — no Dock icon).
-
-## Run
-
-```sh
 open ./ReLayout.app
 ```
 
-First launch macOS asks for **Accessibility** (needed to send ⌘C/⌘V and read modifiers):
-**System Settings → Privacy & Security → Accessibility** → enable **ReLayout** → relaunch.
+First launch asks for **Accessibility** (needed to read selection / send keystrokes):
+**System Settings → Privacy & Security → Accessibility** → enable **reLayout** → relaunch.
 
 ## Use
 
-1. Select the mistyped text.
-2. Press **⌃⌥R** (Control+Option+R).
+1. Select the mistyped text — or, with nothing selected, the text from the caret back to
+   the start of the line is used.
+2. Press the hotkey (default: **tap left Option**).
 
-Conversion is **per word**, and the marker for "wrong" is the **layout active at the
-moment you press the hotkey** (= the layout that produced the mistake):
+Conversion is **per word**. The "wrong" words are those typed in the **layout active at the
+moment you press the hotkey** (identified by script). Only those are converted; the rest of
+the selection is kept. After converting, the system layout switches to the target.
 
-- Active layout **US** → only Latin-script words are converted to Ukrainian
-  (incl. the Option layer `ß/æ → ы/э`); Cyrillic words are left untouched.
-- Active layout **Ukrainian** → only Cyrillic words are converted to US; Latin
-  words are left untouched.
+Target layout selection:
 
-So `я сказал ghbdtn` (US active) → `я сказал привет`, and `I said привет`
-(UA active) → `I said ghbdtn`. After converting, the system layout flips to the
-correct one. If nothing in the selection matches the active script, it's a no-op.
+- **2 enabled layouts** → the other one.
+- **>2 enabled** → the **first** in the input-source list; if the active layout *is* the
+  first, the **second**; or, if the rest of the selection is in another script that maps to
+  exactly one enabled layout, that one.
 
-No dictionary — the only signal is "this script ≠ what the active layout should
-produce". Press the hotkey right after the mistake, while the wrong layout is still
-active.
-
-Menu-bar **⇄** icon shows the active pair and has a manual "Retype selection" item + Quit.
-
-## Self-test (no GUI)
-
-```sh
-./ReLayout.app/Contents/MacOS/ReLayout --selftest
-```
-
-Prints the detected layouts, every installed keyboard layout id, and sample conversions
-(`ghbdtn → привет`, `ß → ы`, …).
+`я сказал ghbdtn` (US active) → `я сказал привет`. If nothing in the selection matches the
+active layout's script, it's a no-op.
 
 ## Settings
 
-Menu-bar **⇄ → Settings…** (⌘,). Window has:
+Menu-bar **⇄ → Settings…**:
 
-- **Hotkey** — current shortcut + **Change…** (opens the recorder as a sheet).
-- **Startup** — *Open ReLayout at login* (via `SMAppService`). The login item points at
-  the app's current path — if you move the `.app`, toggle it off/on again.
-- **Layouts** — the detected `US ⇄ Ukrainian` pair.
+- **Startup** — *Open at login* (`SMAppService`).
+- **Layouts** — the enabled input sources, in menu order.
+- **Hotkey** — an inline recorder field (like System Settings): click it, then press the
+  shortcut. An undo button restores the default. A conflict line warns if the combo is
+  already a macOS system shortcut.
 
-All settings persist across restarts (hotkey in `UserDefaults`, login item in the
-system's login-items registry).
+Settings persist across restarts (hotkey in `UserDefaults`, login item in the system
+registry).
 
-## Hotkey
+### Hotkey kinds
 
-Set via **Settings… → Change…**. Two kinds:
+- **Combo** — a key plus ⌘/⌥/⌃ (e.g. ⌃⌥R).
+- **Modifier tap / chord** — tap one or more modifiers alone (press + release, nothing
+  else): right Option, both Options, ⌃ + left Option, … Left/right are distinct. Fires only
+  if released quickly with no other key/mouse press between, so normal use (Option+click,
+  ⌥+letter) doesn't trigger it.
 
-- **Combo** — a normal key plus ⌘/⌥/⌃ (e.g. ⌃⌥R).
-- **Single modifier tap** — tap one modifier alone (press + release, nothing else),
-  e.g. right Option. Left/right are distinct. A tap fires only if released within
-  0.5 s with no other key or mouse press in between, so using the modifier normally
-  (Option+click, ⌥+letter) does not trigger it.
+Conflict check covers macOS system shortcuts (`com.apple.symbolichotkeys`) only — per-app
+shortcuts aren't centrally registered, combos the system grabs first (e.g. ⌘Space) can't be
+captured, and modifier-only taps aren't checked.
 
-The window shows the captured shortcut; nothing is applied until **Save**. The choice
-persists in UserDefaults across restarts.
+## How it reads / writes (and why DeepL stays quiet)
 
-**Conflict check** — when you capture a key combo, ReLayout looks it up in macOS's
-system shortcuts (`com.apple.symbolichotkeys`) and, if taken, shows the owner
-(e.g. "select previous input source", "Spotlight search"). The warning is advisory —
-Save still overrides. Caveats: only system shortcuts are visible (per-app shortcuts
-aren't centrally registered); combos the system grabs first (e.g. ⌘Space) can't be
-captured at all; modifier-only taps aren't checked (macOS has no registry for them).
+- **Read** — Accessibility (`kAXSelectedText`), no copy event, no clipboard. Only when AX is
+  unavailable for the focused element does it fall back to ⌘C (and only trusts it if the
+  pasteboard actually changed).
+- **Write** — synthesized Unicode keystrokes (`CGEvent` + `keyboardSetUnicodeString`) that
+  replace the active selection, like Caramba. No paste, clipboard untouched.
 
-## Customise (code)
+Because there's no synthetic copy, clipboard watchers like DeepL's `Ctrl+C+C` don't fire.
 
-- **Layouts** — `applicationDidFinishLaunching`: the `idContains:` needle lists. `find()`
-  prefers your *enabled* layout, exact id over substring. Swap `"Ukrainian"` for e.g.
-  `"Russian"` for a US⇄Russian build.
+## The menu-bar badge
 
-## How it reads the selection (and why DeepL stays quiet)
-
-Primary path: the **Accessibility API** (`kAXSelectedText` on the focused element) — reads and
-replaces the selection in place with **no synthetic copy and no clipboard use**. Tools that
-synthesize a copy keystroke (RuSwitcher-style) trip clipboard watchers like DeepL's
-`Ctrl+C+C`; this doesn't. Same approach as Caramba.
-
-Fallback path: clipboard ⌘C/⌘V round-trip, used only for apps that don't expose AX text
-(some Electron/web views). Clipboard is saved and restored.
+Mirrors the current input source as a fixed-size template badge (e.g. a filled `A` for ABC,
+an outlined `УК` for Ukrainian), tinting/dimming with the menu bar. Updates on layout change.
 
 ## Limitations
 
-- AX in-place replace works in native text fields; unsupported apps fall back to clipboard.
-- Secure input fields (password boxes) block synthetic ⌘C/⌘V — fallback is a no-op there.
-- Needs both layouts present; if missing, an alert lists what was found.
+- Same-script layouts (e.g. ABC vs German) can't be told apart per-word without a dictionary;
+  every Latin word is treated as convertible.
+- Secure input fields (password boxes) block synthetic keystrokes.
+- Needs ≥ 2 enabled keyboard layouts.
 
-## Autostart (optional)
+## Diagnostics
 
-System Settings → General → Login Items → add `ReLayout.app`.
+```sh
+./ReLayout.app/Contents/MacOS/ReLayout --enabled    # list enabled sources in order
+./ReLayout.app/Contents/MacOS/ReLayout --selftest   # sample conversions, no GUI
+```
+
+## Autostart
+
+Toggle *Open at login* in Settings, or System Settings → General → Login Items → `ReLayout.app`.

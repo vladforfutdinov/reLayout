@@ -105,12 +105,29 @@ final class Layout: LayoutMaps {
 
     // Enabled keyboard layouts, in the system input-menu order
     // (TISCreateInputSourceList order matches AppleEnabledInputSources / the menu).
+    //
+    // Building each Layout runs UCKeyTranslate over 128 keys × 4 modifier combos,
+    // so the result is cached and reused on every retype. The cache is dropped via
+    // invalidateCache() when the enabled set changes (see AppController's
+    // kTISNotifyEnabledKeyboardInputSourcesChanged observer). Main-thread only
+    // (TIS APIs are), so no locking.
+    private static var cachedEnabled: [Layout]?
+
     static func enabledList() -> [Layout] {
+        if let cached = cachedEnabled { return cached }
+        let built = buildEnabledList()
+        cachedEnabled = built
+        return built
+    }
+
+    static func invalidateCache() { cachedEnabled = nil }
+
+    private static func buildEnabledList() -> [Layout] {
         let filter = [kTISPropertyInputSourceType as String: kTISTypeKeyboardLayout as String] as CFDictionary
         guard let listPtr = TISCreateInputSourceList(filter, false)?.takeRetainedValue() else { return [] }
         var out: [Layout] = []
         for i in 0..<CFArrayGetCount(listPtr) {
-            let raw = CFArrayGetValueAtIndex(listPtr, i)!
+            guard let raw = CFArrayGetValueAtIndex(listPtr, i) else { continue }
             let src = Unmanaged<TISInputSource>.fromOpaque(raw).takeUnretainedValue()
             if let l = Layout(src) { out.append(l) }
         }
@@ -471,15 +488,26 @@ final class AppController: NSObject, NSApplicationDelegate {
         applyHotkey()
         setupMenu()
         // mirror the system input-source indicator in the menu bar
-        DistributedNotificationCenter.default().addObserver(
-            self, selector: #selector(inputSourceChanged),
-            name: NSNotification.Name(kTISNotifySelectedKeyboardInputSourceChanged as String), object: nil)
+        let dnc = DistributedNotificationCenter.default()
+        dnc.addObserver(self, selector: #selector(inputSourceChanged),
+                        name: NSNotification.Name(kTISNotifySelectedKeyboardInputSourceChanged as String), object: nil)
+        // enabled-set change -> the cached layout list is stale; drop it and refresh
+        dnc.addObserver(self, selector: #selector(enabledSourcesChanged),
+                        name: NSNotification.Name(kTISNotifyEnabledKeyboardInputSourcesChanged as String), object: nil)
         updateStatusIcon()
         if Layout.enabledList().count < 2 { reportMissingLayouts() }
     }
 
     @objc private func inputSourceChanged() {
         DispatchQueue.main.async { self.updateStatusIcon() }
+    }
+
+    @objc private func enabledSourcesChanged() {
+        DispatchQueue.main.async {
+            Layout.invalidateCache()
+            self.setupMenu()        // refresh the layout list shown in the menu
+            self.updateStatusIcon()
+        }
     }
 
     // macOS renders the menu-bar input indicator itself (kTISPropertyIconImageURL is

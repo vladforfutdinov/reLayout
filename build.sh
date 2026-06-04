@@ -8,13 +8,13 @@ APP="ReLayout.app"
 #   1. RELAYOUT_VERSION env (manual override)
 #   2. exact git tag on HEAD            -> release version  (e.g. 1.2.3)
 #   3. git describe (nearest tag + dev) -> dev version      (e.g. 1.2.3-4-gabc123)
-#   4. VERSION file                     -> last-resort fallback
+#   4. 0.0.0-dev                        -> no git / no tags
 version_from_git() {
     git describe --tags --exact-match 2>/dev/null && return
     git describe --tags --always --dirty 2>/dev/null && return
     return 1
 }
-VERSION="${RELAYOUT_VERSION:-$(version_from_git || tr -d '[:space:]' < VERSION)}"
+VERSION="${RELAYOUT_VERSION:-$(version_from_git || echo 0.0.0-dev)}"
 VERSION="${VERSION#v}"
 SHORT="${VERSION%%-*}"   # CFBundleShortVersionString must be plain dotted numbers
 BUILD="$(git rev-list --count HEAD 2>/dev/null || echo 0)"

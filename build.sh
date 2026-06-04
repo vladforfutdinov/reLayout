@@ -3,7 +3,10 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 APP="ReLayout.app"
-VERSION="$(tr -d '[:space:]' < VERSION)"
+# Version source of truth: RELAYOUT_VERSION env (set by CI from the git tag),
+# falling back to the VERSION file for local/dev builds. Leading "v" stripped.
+VERSION="${RELAYOUT_VERSION:-$(tr -d '[:space:]' < VERSION)}"
+VERSION="${VERSION#v}"
 BUILD="$(git rev-list --count HEAD 2>/dev/null || echo 0)"
 
 rm -rf "$APP"

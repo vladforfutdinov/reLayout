@@ -480,15 +480,13 @@ final class ShortcutField: NSView {
             lastCommitted = disp
             onCommit?(mode, code, mods, chord, disp)
         }
-        if mode == .modTap {
-            // Keep recording so the user can pick another chord without re-clicking
-            // (focus stays on the field). Re-arm capture; click away / Esc finalizes.
-            peak = nil; comboUsed = false
-            window?.makeFirstResponder(self)   // re-assert in case onCommit churned focus
-            needsDisplay = true
-        } else {
-            stop()   // a combo is a definitive one-shot pick
-        }
+        // Keep recording (and focus) for BOTH modes so the user can pick another
+        // shortcut without re-clicking — including after a conflict, whose window
+        // resize would otherwise churn focus. Click away / Esc / re-click finalizes.
+        // Don't reset comboUsed here: for a combo it stays set until the trailing
+        // modifier release, so that release isn't mistaken for a chord.
+        window?.makeFirstResponder(self)
+        needsDisplay = true
     }
 }
 

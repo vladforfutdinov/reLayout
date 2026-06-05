@@ -595,8 +595,26 @@ final class AppController: NSObject, NSApplicationDelegate {
     // empty for keyboard layouts), so we redraw the same look: a rounded box with the
     // source's native-language abbreviation (УК / РУ / A), as a template image that
     // adapts to light/dark menu bars.
+    // Menu-bar icon mode (persisted). false = live layout-state badge (default),
+    // true = the static app icon.
+    private var menuBarStatic: Bool {
+        get { UserDefaults.standard.bool(forKey: "menuBarStatic") }
+        set { UserDefaults.standard.set(newValue, forKey: "menuBarStatic") }
+    }
+
     private func updateStatusIcon() {
         guard let button = statusItem?.button else { return }
+        if menuBarStatic {
+            let base: NSImage = NSApp.applicationIconImage ?? NSImage()
+            let icon = (base.copy() as? NSImage) ?? base
+            icon.size = NSSize(width: 18, height: 18)
+            icon.isTemplate = false   // keycap is full-colour, not a template
+            button.image = icon
+            button.imagePosition = .imageOnly
+            button.title = ""
+            button.setAccessibilityLabel("reLayout")
+            return
+        }
         guard let srcRef = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue() else { return }
         let badge = badgeImage(abbrev(srcRef))
         // The badge is a template image with no inherent meaning to VoiceOver;
@@ -980,11 +998,20 @@ final class AppController: NSObject, NSApplicationDelegate {
         langPopup.target = self
         langPopup.action = #selector(changeLanguage(_:))
 
-        let hotkeyRowIndex = 3
+        // menu-bar icon: live layout state (tag 0) vs static app icon (tag 1)
+        let menuBarPopup = NSPopUpButton(frame: .zero, pullsDown: false)
+        menuBarPopup.addItem(withTitle: L("settings.menubar.layout"));  menuBarPopup.lastItem?.tag = 0
+        menuBarPopup.addItem(withTitle: L("settings.menubar.static"));  menuBarPopup.lastItem?.tag = 1
+        menuBarPopup.selectItem(withTag: menuBarStatic ? 1 : 0)
+        menuBarPopup.target = self
+        menuBarPopup.action = #selector(changeMenuBarIcon(_:))
+
+        let hotkeyRowIndex = 4
         let grid = NSGridView(views: [
             [caption(""), cb],
             [caption(L("settings.layouts")), layouts],
             [caption(L("settings.language")), langPopup],
+            [caption(L("settings.menubar")), menuBarPopup],
             [caption(L("settings.hotkey")), hkColumn],
         ])
         grid.rowSpacing = 10
@@ -1028,6 +1055,11 @@ final class AppController: NSObject, NSApplicationDelegate {
         setupMenu()
         if let w = settingsWindow { settingsWindow = nil; w.close() }
         DispatchQueue.main.async { self.openReLayoutSettings() }
+    }
+
+    @objc private func changeMenuBarIcon(_ sender: NSPopUpButton) {
+        menuBarStatic = (sender.selectedTag() == 1)
+        updateStatusIcon()
     }
 
     private func loginEnabled() -> Bool {

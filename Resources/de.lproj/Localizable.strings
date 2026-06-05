@@ -23,3 +23,6 @@
 "settings.language.system" = "Systemstandard";
 "settings.undoHint" = "Doppeltippen zum Widerrufen";
 "menu.checkUpdates" = "Nach Updates suchen…";
+"settings.menubar" = "Menüleiste:";
+"settings.menubar.layout" = "Belegungsstatus";
+"settings.menubar.static" = "Statisches Symbol";

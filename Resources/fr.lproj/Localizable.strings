@@ -23,3 +23,6 @@
 "settings.language.system" = "Par défaut du système";
 "settings.undoHint" = "Double-appui pour annuler";
 "menu.checkUpdates" = "Rechercher les mises à jour…";
+"settings.menubar" = "Barre des menus :";
+"settings.menubar.layout" = "État de la disposition";
+"settings.menubar.static" = "Icône statique";

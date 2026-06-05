@@ -23,3 +23,6 @@
 "settings.language.system" = "Predeterminado del sistema";
 "settings.undoHint" = "Doble pulsación para deshacer";
 "menu.checkUpdates" = "Buscar actualizaciones…";
+"settings.menubar" = "Barra de menús:";
+"settings.menubar.layout" = "Estado de distribución";
+"settings.menubar.static" = "Icono estático";

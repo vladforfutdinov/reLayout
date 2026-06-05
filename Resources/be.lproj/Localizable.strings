@@ -23,3 +23,6 @@
 "settings.language.system" = "Як у сістэме";
 "settings.undoHint" = "Падвойнае націсканне — адмена";
 "menu.checkUpdates" = "Праверыць абнаўленні…";
+"settings.menubar" = "Меню-бар:";
+"settings.menubar.layout" = "Бягучая раскладка";
+"settings.menubar.static" = "Статычная іконка";

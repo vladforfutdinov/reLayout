@@ -23,3 +23,6 @@
 "settings.language.system" = "システムのデフォルト";
 "settings.undoHint" = "ダブルタップで取り消し";
 "menu.checkUpdates" = "アップデートを確認…";
+"settings.menubar" = "メニューバー：";
+"settings.menubar.layout" = "レイアウト状態";
+"settings.menubar.static" = "静的アイコン";

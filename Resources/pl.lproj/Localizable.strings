@@ -23,3 +23,6 @@
 "settings.language.system" = "Domyślny systemu";
 "settings.undoHint" = "Dotknij dwukrotnie, aby cofnąć";
 "menu.checkUpdates" = "Sprawdź aktualizacje…";
+"settings.menubar" = "Pasek menu:";
+"settings.menubar.layout" = "Stan układu";
+"settings.menubar.static" = "Statyczna ikona";

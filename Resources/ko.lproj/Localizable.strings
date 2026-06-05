@@ -23,3 +23,6 @@
 "settings.language.system" = "시스템 기본값";
 "settings.undoHint" = "두 번 누르면 실행 취소";
 "menu.checkUpdates" = "업데이트 확인…";
+"settings.menubar" = "메뉴 막대:";
+"settings.menubar.layout" = "레이아웃 상태";
+"settings.menubar.static" = "정적 아이콘";

@@ -23,3 +23,6 @@
 "settings.language.system" = "System Default";
 "settings.undoHint" = "Double-tap to undo";
 "menu.checkUpdates" = "Check for Updates…";
+"settings.menubar" = "Menu bar:";
+"settings.menubar.layout" = "Layout state";
+"settings.menubar.static" = "Static icon";

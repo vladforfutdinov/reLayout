@@ -23,3 +23,6 @@
 "settings.language.system" = "跟随系统";
 "settings.undoHint" = "双击以撤销";
 "menu.checkUpdates" = "检查更新…";
+"settings.menubar" = "菜单栏：";
+"settings.menubar.layout" = "布局状态";
+"settings.menubar.static" = "静态图标";

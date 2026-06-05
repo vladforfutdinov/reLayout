@@ -808,6 +808,19 @@ final class AppController: NSObject, NSApplicationDelegate {
         let warn = mode == .carbon ? systemHotkeyConflict(keyCode: UInt16(code), cocoaMods: cocoaMods(mods)) : nil
         conflictLabel?.stringValue = warn.map { String(format: L("settings.conflict"), $0) } ?? ""
         conflictLabel?.isHidden = (warn == nil)   // collapse the row when no conflict
+        fitSettingsWindow()                       // re-fit so row spacing stays constant
+    }
+
+    // Resize the Settings window to its content's natural size, keeping the
+    // top-left corner fixed. Called when a row's visibility changes (the conflict
+    // line) so the grid isn't stretched to a stale fixed height — which would
+    // otherwise redistribute the row spacing.
+    private func fitSettingsWindow() {
+        guard let w = settingsWindow, let c = w.contentView else { return }
+        c.layoutSubtreeIfNeeded()
+        let topLeft = NSPoint(x: w.frame.minX, y: w.frame.maxY)
+        w.setContentSize(c.fittingSize)
+        w.setFrameTopLeftPoint(topLeft)
     }
 
     // carbon modifier mask -> Cocoa device-independent mask (for conflict lookup)

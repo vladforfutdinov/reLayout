@@ -29,7 +29,7 @@ cp -R Resources/*.lproj "$APP/Contents/Resources/"
 
 # app icon: build AppIcon.icns from the 1024 master (swap ICON_SRC for the other
 # keycap variant). CFBundleIconFile=AppIcon is declared in Info.plist.
-ICON_SRC="Resources/for-dark-1024.png"   # silver keycap; use for-light-1024.png for the black one
+ICON_SRC="Resources/for-light-text-1024.png"   # black "rL" wordmark
 if [ -f "$ICON_SRC" ]; then
     ICONSET="$(mktemp -d)/AppIcon.iconset"; mkdir -p "$ICONSET"
     for pair in "16:16x16" "32:16x16@2x" "32:32x32" "64:32x32@2x" \

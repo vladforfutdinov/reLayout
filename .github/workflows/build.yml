@@ -7,9 +7,6 @@ on:
 permissions:
   contents: write   # needed to create a Release on tags
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true   # run JS actions on Node 24 (Node 20 deprecated)
-
 # Release builds (tag push) are signed with Developer ID + Hardened Runtime and
 # notarized. Required repository secrets:
 #   DEVELOPER_ID_CERT_P12_BASE64  base64 of the Developer ID Application .p12
@@ -93,22 +90,13 @@ jobs:
           ./notarize.sh reLayout.dmg   # submit + staple the dmg itself (offline first-mount)
           rm -f "$RUNNER_TEMP/ac.p8"
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: reLayout-app
-          path: |
-            reLayout.zip
-            reLayout.dmg
-
       - name: Release (on tag)
         if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            reLayout.dmg
-            reLayout.zip
-          generate_release_notes: true   # auto changelog from commits/PRs since last tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" reLayout.dmg reLayout.zip \
+            --title "${GITHUB_REF_NAME}" --generate-notes
 
       - name: Publish Sparkle appcast to GitHub Pages (release only)
         if: startsWith(github.ref, 'refs/tags/v')

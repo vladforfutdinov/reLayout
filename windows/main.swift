@@ -30,7 +30,8 @@ if !RegisterHotKey(nil, hotkeyID, mods, UINT(0x52)) {
     print("reLayout: failed to register hotkey")
     exit(1)
 }
-print("reLayout (Windows MVP) — hotkey: Ctrl+Alt+R. Select text, press it. Ctrl+C here to quit.")
+_ = setupTray()
+print("reLayout (Windows MVP) — hotkey: Ctrl+Alt+R. Tray right-click → Quit.")
 
 var msg = MSG()
 while GetMessageW(&msg, nil, 0, 0) {
@@ -40,3 +41,6 @@ while GetMessageW(&msg, nil, 0, 0) {
     TranslateMessage(&msg)
     DispatchMessageW(&msg)
 }
+
+removeTray()
+UnregisterHotKey(nil, hotkeyID)

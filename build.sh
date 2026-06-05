@@ -27,6 +27,22 @@ cp Info.plist "$APP/Contents/Info.plist"
 mkdir -p "$APP/Contents/Resources"
 cp -R Resources/*.lproj "$APP/Contents/Resources/"
 
+# app icon: build AppIcon.icns from the 1024 master (swap ICON_SRC for the other
+# keycap variant). CFBundleIconFile=AppIcon is declared in Info.plist.
+ICON_SRC="Resources/for-dark-1024.png"   # silver keycap; use for-light-1024.png for the black one
+if [ -f "$ICON_SRC" ]; then
+    ICONSET="$(mktemp -d)/AppIcon.iconset"; mkdir -p "$ICONSET"
+    for pair in "16:16x16" "32:16x16@2x" "32:32x32" "64:32x32@2x" \
+                "128:128x128" "256:128x128@2x" "256:256x256" "512:256x256@2x" \
+                "512:512x512" "1024:512x512@2x"; do
+        px="${pair%%:*}"; nm="${pair##*:}"
+        sips -z "$px" "$px" "$ICON_SRC" --out "$ICONSET/icon_${nm}.png" >/dev/null
+    done
+    iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
+    rm -rf "$(dirname "$ICONSET")"
+    echo "icon: AppIcon.icns from $ICON_SRC"
+fi
+
 # inject version (short = release number; build = commit count)
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $SHORT" "$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD" "$APP/Contents/Info.plist"

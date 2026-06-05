@@ -16,6 +16,8 @@
     <string>1.0</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
     <key>NSHumanReadableCopyright</key>
     <string>© 2026 Volodymyr Forfutdinov</string>
     <key>CFBundleDevelopmentRegion</key>

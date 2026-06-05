@@ -325,8 +325,15 @@ final class ShortcutField: NSView {
         self.display = display
         super.init(frame: NSRect(x: 0, y: 0, width: 150, height: 24))
         translatesAutoresizingMaskIntoConstraints = false
+        setAccessibilityElement(true)
+        setAccessibilityRole(.button)
+        setAccessibilityLabel("Hotkey")
     }
-    required init?(coder: NSCoder) { fatalError() }
+    required init?(coder: NSCoder) { fatalError("ShortcutField is code-only") }
+
+    // VoiceOver: announce the current shortcut and let activation start recording.
+    override func accessibilityValue() -> Any? { recording ? "Recording" : display }
+    override func accessibilityPerformPress() -> Bool { recording ? stop() : start(); return true }
 
     override var intrinsicContentSize: NSSize { NSSize(width: 150, height: 24) }
     override var acceptsFirstResponder: Bool { true }
@@ -482,9 +489,22 @@ final class AppController: NSObject, NSApplicationDelegate {
     private func updateStatusIcon() {
         guard let button = statusItem?.button else { return }
         guard let srcRef = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue() else { return }
-        button.image = badgeImage(abbrev(srcRef))
+        let badge = badgeImage(abbrev(srcRef))
+        // The badge is a template image with no inherent meaning to VoiceOver;
+        // describe the current input source so the menu-bar item is announced.
+        let name = localizedSourceName(srcRef)
+        badge.accessibilityDescription = name
+        button.image = badge
         button.imagePosition = .imageOnly
         button.title = ""
+        button.setAccessibilityLabel("reLayout, current input source: \(name)")
+    }
+
+    private func localizedSourceName(_ src: TISInputSource) -> String {
+        if let p = TISGetInputSourceProperty(src, kTISPropertyLocalizedName) {
+            return Unmanaged<CFString>.fromOpaque(p).takeUnretainedValue() as String
+        }
+        return abbrev(src)
     }
 
     private func abbrev(_ src: TISInputSource) -> String {
@@ -555,7 +575,7 @@ final class AppController: NSObject, NSApplicationDelegate {
         info.isEnabled = false
         menu.addItem(info)
         menu.addItem(.separator())
-        menu.addItem(NSMenuItem(title: "Settings…", action: #selector(openReLayoutSettings), keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: "Settings…", action: #selector(openReLayoutSettings), keyEquivalent: ","))
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Open Keyboard Settings…", action: #selector(openKeyboardSettings), keyEquivalent: ""))
         menu.addItem(.separator())
@@ -720,9 +740,15 @@ final class AppController: NSObject, NSApplicationDelegate {
 
     // MARK: settings window
 
+    // NSApp.activate(ignoringOtherApps:) is deprecated on macOS 14+.
+    private func activateApp() {
+        if #available(macOS 14.0, *) { NSApp.activate() }
+        else { NSApp.activate(ignoringOtherApps: true) }
+    }
+
     @objc private func openReLayoutSettings() {
         if let w = settingsWindow {
-            NSApp.activate(ignoringOtherApps: true)
+            activateApp()
             w.makeKeyAndOrderFront(nil)
             return
         }
@@ -814,7 +840,7 @@ final class AppController: NSObject, NSApplicationDelegate {
         w.center()
 
         settingsWindow = w
-        NSApp.activate(ignoringOtherApps: true)
+        activateApp()
         w.makeKeyAndOrderFront(nil)
     }
 

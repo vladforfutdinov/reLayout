@@ -25,5 +25,7 @@ jobs:
         with:
           branch: swift-6.0.3-release
           tag: 6.0.3-RELEASE
+      - name: swift build (engine + Windows target)
+        run: swift build
       - name: swift test (engine)
         run: swift test

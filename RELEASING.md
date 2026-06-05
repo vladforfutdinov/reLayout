@@ -35,6 +35,22 @@ Set these under **Settings → Secrets and variables → Actions**.
    - `AC_API_ISSUER_ID` ← the Issuer ID (UUID)
    - `AC_API_KEY_P8_BASE64` ← that base64
 
+### Homebrew tap (optional, for `brew install --cask`)
+
+1. Create a public repo **`homebrew-relayout`** under your account (an empty repo
+   is fine — CI populates `Casks/relayout.rb` on the first release).
+2. Create a fine-grained Personal Access Token with **Contents: read and write**
+   on that repo, and add it here as the secret **`TAP_GITHUB_TOKEN`**.
+
+On each release, CI renders the cask from `packaging/homebrew/relayout.rb.tmpl`
+(filling in the version and the DMG's sha256) and pushes it to the tap. Users then:
+
+```sh
+brew install --cask vladforfutdinov/relayout/relayout
+```
+
+If `TAP_GITHUB_TOKEN` is unset the release still succeeds — the tap bump is skipped.
+
 ## Cutting a release
 
 ```sh

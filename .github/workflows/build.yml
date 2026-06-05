@@ -95,3 +95,9 @@ jobs:
             reLayout.dmg
             reLayout.zip
           generate_release_notes: true   # auto changelog from commits/PRs since last tag
+
+      - name: Update Homebrew tap (release only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          TAP_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}   # contents:write on homebrew-relayout
+        run: ./packaging/homebrew/update-cask.sh "${GITHUB_REF_NAME#v}" reLayout.dmg

@@ -21,7 +21,13 @@ character tables, and the Option layer just works.
 
 ## Install
 
-Grab **`reLayout.dmg`** from the [latest release](https://github.com/vladforfutdinov/reLayout/releases/latest),
+**Homebrew:**
+
+```sh
+brew install --cask vladforfutdinov/relayout/relayout
+```
+
+**Or** grab **`reLayout.dmg`** from the [latest release](https://github.com/vladforfutdinov/reLayout/releases/latest),
 open it, and drag **ReLayout** onto **Applications**.
 
 Releases are signed with a Developer ID and **notarized by Apple**, so they open

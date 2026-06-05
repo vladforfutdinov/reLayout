@@ -11,13 +11,24 @@ import ServiceManagement
 // language). A Settings override points it at a specific <lang>.lproj so the UI
 // can switch language live, without relaunch.
 enum Loc {
-    // 12 supported UI languages, in menu order. code -> native display name.
-    static let languages: [(code: String, name: String)] = [
-        ("en", "English"), ("ru", "Русский"), ("uk", "Українська"),
-        ("be", "Беларуская"), ("de", "Deutsch"), ("fr", "Français"),
-        ("es", "Español"), ("pt", "Português"), ("pl", "Polski"),
-        ("zh-Hans", "简体中文"), ("ja", "日本語"), ("ko", "한국어"),
-    ]
+    // Supported UI languages, derived from the .lproj bundles shipped in
+    // Resources (not hardcoded). Each is shown by its autonym — the language's
+    // own name — sorted alphabetically so the order is stable across calls.
+    static let languages: [(code: String, name: String)] = {
+        // Bundle.localizations can list a code twice (Info.plist
+        // CFBundleLocalizations + the on-disk .lproj), so dedupe.
+        Array(Set(Bundle.main.localizations))
+            .filter { $0 != "Base" }
+            .map { code -> (code: String, name: String) in
+                let loc = Locale(identifier: code)
+                let raw = loc.localizedString(forIdentifier: code)
+                    ?? loc.localizedString(forLanguageCode: code)
+                    ?? code
+                return (code, raw.prefix(1).localizedUppercase + raw.dropFirst())
+            }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }()
+
     private static let key = "language"   // UserDefaults; absent/"" = follow system
     private(set) static var bundle: Bundle = .main
 
@@ -796,6 +807,7 @@ final class AppController: NSObject, NSApplicationDelegate {
         setupMenu()
         let warn = mode == .carbon ? systemHotkeyConflict(keyCode: UInt16(code), cocoaMods: cocoaMods(mods)) : nil
         conflictLabel?.stringValue = warn.map { String(format: L("settings.conflict"), $0) } ?? ""
+        conflictLabel?.isHidden = (warn == nil)   // collapse the row when no conflict
     }
 
     // carbon modifier mask -> Cocoa device-independent mask (for conflict lookup)
@@ -861,11 +873,19 @@ final class AppController: NSObject, NSApplicationDelegate {
            let w = systemHotkeyConflict(keyCode: UInt16(hotKeyCode), cocoaMods: cocoaMods(hotKeyMods)) {
             conflict.stringValue = String(format: L("settings.conflict"), w)
         }
+        conflict.isHidden = conflict.stringValue.isEmpty   // no empty line when no conflict
 
         // small secondary hint under the hotkey field: double-tap to undo
         let undoHint = NSTextField(labelWithString: L("settings.undoHint"))
         undoHint.font = .systemFont(ofSize: 11)
         undoHint.textColor = .secondaryLabelColor
+
+        // hotkey field + (optional) conflict warning + undo hint, stacked tight
+        // under the "Hotkey:" caption — no gap from separate grid rows.
+        let hkColumn = NSStackView(views: [hkRow, conflict, undoHint])
+        hkColumn.orientation = .vertical
+        hkColumn.alignment = .leading
+        hkColumn.spacing = 4
 
         let cb = NSButton(checkboxWithTitle: L("settings.openAtLogin"), target: self, action: #selector(toggleLogin))
         cb.state = loginEnabled() ? .on : .off
@@ -874,7 +894,7 @@ final class AppController: NSObject, NSApplicationDelegate {
         let layouts = NSTextField(labelWithString: layoutListText())
         layouts.textColor = .secondaryLabelColor
 
-        // language picker: "System Default" + the 12 native names; tag = code ("" = system)
+        // language picker: "System Default" + bundled languages; tag 0 = system, n = Loc.languages[n-1]
         let langPopup = NSPopUpButton(frame: .zero, pullsDown: false)
         langPopup.addItem(withTitle: L("settings.language.system"))
         langPopup.lastItem?.tag = 0
@@ -890,21 +910,19 @@ final class AppController: NSObject, NSApplicationDelegate {
         langPopup.target = self
         langPopup.action = #selector(changeLanguage(_:))
 
+        let hotkeyRowIndex = 3
         let grid = NSGridView(views: [
             [caption(""), cb],
             [caption(L("settings.layouts")), layouts],
             [caption(L("settings.language")), langPopup],
-            [caption(L("settings.hotkey")), hkRow],
-            [NSGridCell.emptyContentView, conflict],
-            [NSGridCell.emptyContentView, undoHint],
+            [caption(L("settings.hotkey")), hkColumn],
         ])
         grid.rowSpacing = 10
         grid.columnSpacing = 10
         grid.column(at: 0).xPlacement = .trailing
         grid.rowAlignment = .none
         for i in 0..<grid.numberOfRows { grid.row(at: i).yPlacement = .center }
-        grid.row(at: 4).topPadding = 0   // tuck conflict under the hotkey field
-        grid.row(at: 5).topPadding = 0   // tuck undo hint right below
+        grid.row(at: hotkeyRowIndex).yPlacement = .top   // caption aligns to the field, not the stack center
         grid.translatesAutoresizingMaskIntoConstraints = false
         content.addSubview(grid)
         NSLayoutConstraint.activate([

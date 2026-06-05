@@ -17,8 +17,8 @@ final class WinLayout: LayoutMaps {
     init(_ hkl: HKL) {
         self.hkl = hkl
         // Low word of the HKL is the LANGID; use it as a stable id.
-        let raw = UInt(bitPattern: Int(bitPattern: hkl))
-        self.id = String(format: "%04x", UInt32(raw & 0xFFFF))
+        let bits = unsafeBitCast(hkl, to: UInt.self)
+        self.id = String(bits & 0xFFFF, radix: 16)
         build()
     }
 
@@ -58,9 +58,9 @@ final class WinLayout: LayoutMaps {
                 if c.shift { state[Int(VK_SHIFT)] = 0x80 }
                 if c.altgr { state[Int(VK_CONTROL)] = 0x80; state[Int(VK_MENU)] = 0x80 }
                 var buf = [WCHAR](repeating: 0, count: 8)
-                let r = ToUnicodeEx(vk, scan, &state, &buf, 8, noChange, hkl)
+                let r = ToUnicodeEx(vk, scan, state, &buf, 8, noChange, hkl)
                 guard r > 0 else { continue }   // 0 = none, <0 = dead key: skip
-                let s = String(utf16CodeUnits: buf, count: Int(r))
+                let s = String(decoding: buf.prefix(Int(r)), as: UTF16.self)
                 guard let f = s.unicodeScalars.first, f.value >= 0x20 else { continue }
                 let stroke = KeyStroke(keyCode: UInt16(vk), mods: c.idx)
                 if strokeToChar[stroke] == nil { strokeToChar[stroke] = s }

@@ -1013,6 +1013,8 @@ final class AppController: NSObject, NSApplicationDelegate {
         hkColumn.spacing = 4
 
         let cb = NSButton(checkboxWithTitle: L("settings.openAtLogin"), target: self, action: #selector(toggleLogin))
+        cb.controlSize = .regular
+        cb.font = .systemFont(ofSize: NSFont.systemFontSize(for: .regular))
         cb.state = loginEnabled() ? .on : .off
         loginCheckbox = cb
 
@@ -1055,6 +1057,8 @@ final class AppController: NSObject, NSApplicationDelegate {
 #if SPARKLE
         let autoUpdateCb = NSButton(checkboxWithTitle: L("settings.autoUpdate"),
                                     target: self, action: #selector(toggleAutoUpdate(_:)))
+        autoUpdateCb.controlSize = .regular
+        autoUpdateCb.font = .systemFont(ofSize: NSFont.systemFontSize(for: .regular))
         autoUpdateCb.state = (updater?.updater.automaticallyChecksForUpdates ?? true) ? .on : .off
         rows.append([caption(""), autoUpdateCb])
 #endif

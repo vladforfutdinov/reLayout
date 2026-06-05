@@ -375,6 +375,7 @@ final class ShortcutField: NSView {
     private var monitor: Any?
     private var peak: Set<UInt16>?
     private var comboUsed = false
+    private var lastCommitted: String?   // dedupe re-commits; also = value shown while recording
 
     init(display: String) {
         self.display = display
@@ -393,6 +394,13 @@ final class ShortcutField: NSView {
     override var intrinsicContentSize: NSSize { NSSize(width: 150, height: 24) }
     override var acceptsFirstResponder: Bool { true }
 
+    // Finalize recording if focus leaves the field (e.g. user clicks another
+    // control), so a chord recording doesn't keep capturing the keyboard.
+    override func resignFirstResponder() -> Bool {
+        if recording { stop() }
+        return super.resignFirstResponder()
+    }
+
     override func draw(_ dirty: NSRect) {
         let r = bounds.insetBy(dx: 0.5, dy: 0.5)
         let path = NSBezierPath(roundedRect: r, xRadius: 5, yRadius: 5)
@@ -402,8 +410,11 @@ final class ShortcutField: NSView {
         path.lineWidth = recording ? 2 : 1
         path.stroke()
 
-        let text = recording ? L("shortcut.placeholder") : display
-        let color: NSColor = recording ? .secondaryLabelColor : .labelColor
+        // While recording: show the captured chord once there is one, else the
+        // "Type shortcut…" placeholder.
+        let placeholder = recording && lastCommitted == nil
+        let text = recording ? (lastCommitted ?? L("shortcut.placeholder")) : display
+        let color: NSColor = placeholder ? .secondaryLabelColor : .labelColor
         let attrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: 13), .foregroundColor: color,
         ]
@@ -418,7 +429,7 @@ final class ShortcutField: NSView {
 
     private func start() {
         recording = true
-        peak = nil; comboUsed = false
+        peak = nil; comboUsed = false; lastCommitted = nil
         window?.makeFirstResponder(self)
         monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged]) { [weak self] ev in
             guard let self else { return ev }
@@ -457,8 +468,18 @@ final class ShortcutField: NSView {
 
     private func commit(_ mode: HKMode, _ code: UInt32, _ mods: UInt32, _ chord: [UInt16], _ disp: String) {
         display = disp
-        stop()
-        onCommit?(mode, code, mods, chord, disp)
+        if disp != lastCommitted {
+            lastCommitted = disp
+            onCommit?(mode, code, mods, chord, disp)
+        }
+        if mode == .modTap {
+            // Keep recording so the user can pick another chord without re-clicking
+            // (focus stays on the field). Re-arm capture; click away / Esc finalizes.
+            peak = nil; comboUsed = false
+            needsDisplay = true
+        } else {
+            stop()   // a combo is a definitive one-shot pick
+        }
     }
 }
 

@@ -617,14 +617,15 @@ final class AppController: NSObject, NSApplicationDelegate {
     private func updateStatusIcon() {
         guard let button = statusItem?.button else { return }
         if menuBarStatic {
-            // Pick the keycap that reads on the current menu-bar appearance: the
-            // silver keycap on a dark bar, the black one on a light bar.
-            let base = menuGlyphImage(for: button.effectiveAppearance)
+            // The "rL" wordmark is monochrome, so use it as a TEMPLATE image: the
+            // system tints it to the menu-bar foreground colour itself (white on a
+            // dark bar, black on a light bar) — correct even when the bar's tint
+            // doesn't match the app's Light/Dark appearance (e.g. wallpaper-driven).
+            let glyph = (NSImage(named: "for-light-text-1024")?.copy() as? NSImage)
                 ?? NSApp.applicationIconImage ?? NSImage()
-            let icon = (base.copy() as? NSImage) ?? base
-            icon.size = NSSize(width: 18, height: 18)
-            icon.isTemplate = false   // keycap is full-colour, not a template
-            button.image = icon
+            glyph.size = NSSize(width: 18, height: 18)
+            glyph.isTemplate = true
+            button.image = glyph
             button.imagePosition = .imageOnly
             button.title = ""
             button.setAccessibilityLabel("reLayout")

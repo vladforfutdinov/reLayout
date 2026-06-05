@@ -129,5 +129,5 @@ jobs:
       - name: Update Homebrew tap (release only)
         if: startsWith(github.ref, 'refs/tags/v')
         env:
-          TAP_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}   # contents:write on homebrew-relayout
+          TAP_DEPLOY_KEY: ${{ secrets.TAP_DEPLOY_KEY }}   # SSH deploy key (write) on homebrew-relayout
         run: ./packaging/homebrew/update-cask.sh "${GITHUB_REF_NAME#v}" reLayout.dmg

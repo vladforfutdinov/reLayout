@@ -1,22 +1,42 @@
 import WinSDK
 import ReLayoutCore
 
-// Windows port — work in progress. This first cut validates the Win32 layout
-// builder + the shared engine; the tray, hotkey, selection read (UI Automation),
-// keystroke write (SendInput) and Settings UI come next.
-//
-// For now: list installed layouts and demo a conversion, so `swift build` on
-// Windows CI compiles the WinSDK glue end-to-end.
+// reLayout — Windows MVP. Hotkey -> read selection (clipboard) -> convert with the
+// shared engine -> type the result -> switch layout. No tray/GUI yet; runs from a
+// console. Selection-read is the Ctrl+C fallback for now (UI Automation later).
 
-let layouts = WinLayout.installedList()
-print("installed layouts: \(layouts.map { "\($0.id)\($0.isCyrillic ? "(cyr)" : "")" })")
+// Source = current (foreground) layout. Target = the other-script enabled layout,
+// else simply the other one.
+func performRetype() {
+    guard let cur = WinLayout.current() else { return }
+    let all = WinLayout.installedList()
+    guard all.count >= 2 else { return }
+    let dst = all.first(where: { $0.isCyrillic != cur.isCyrillic && $0.id != cur.id })
+        ?? all.first(where: { $0.id != cur.id })
+    guard let dst else { return }
 
-if layouts.count >= 2 {
-    let src = layouts[0]
-    let dst = layouts.first(where: { $0.isCyrillic != src.isCyrillic }) ?? layouts[1]
-    let sample = "ghbdtn"
-    print("convert \(sample.debugDescription) [\(src.id) -> \(dst.id)]: "
-          + (convertWrong(sample, src: src, dst: dst) ?? "nil"))
-} else {
-    print("need >= 2 layouts to demo conversion")
+    waitModifiersReleased()
+    guard let text = readSelection(), !text.isEmpty,
+          let out = convertWrong(text, src: cur, dst: dst) else { return }
+    sendUnicode(out)
+    Sleep(20)
+    switchLayout(to: dst)
+}
+
+let hotkeyID: Int32 = 1
+// MVP default: Ctrl+Alt+R (NOREPEAT so holding doesn't spam).
+let mods = UINT(MOD_CONTROL) | UINT(MOD_ALT) | UINT(MOD_NOREPEAT)
+if RegisterHotKey(nil, hotkeyID, mods, UINT(0x52)) == 0 {
+    print("reLayout: failed to register hotkey")
+    exit(1)
+}
+print("reLayout (Windows MVP) — hotkey: Ctrl+Alt+R. Select text, press it. Ctrl+C here to quit.")
+
+var msg = MSG()
+while GetMessageW(&msg, nil, 0, 0) > 0 {
+    if msg.message == UINT(WM_HOTKEY), Int32(truncatingIfNeeded: msg.wParam) == hotkeyID {
+        performRetype()
+    }
+    TranslateMessage(&msg)
+    DispatchMessageW(&msg)
 }

@@ -575,11 +575,12 @@ final class AppController: NSObject, NSApplicationDelegate {
         info.isEnabled = false
         menu.addItem(info)
         menu.addItem(.separator())
+        menu.addItem(NSMenuItem(title: "About reLayout", action: #selector(showAbout), keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "Settings…", action: #selector(openReLayoutSettings), keyEquivalent: ","))
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Open Keyboard Settings…", action: #selector(openKeyboardSettings), keyEquivalent: ""))
         menu.addItem(.separator())
-        menu.addItem(NSMenuItem(title: "Quit", action: #selector(quit), keyEquivalent: "q"))
+        menu.addItem(NSMenuItem(title: "Quit reLayout", action: #selector(quit), keyEquivalent: "q"))
         for it in menu.items where it.action != nil { it.target = self }
         statusItem.menu = menu
     }
@@ -594,10 +595,18 @@ final class AppController: NSObject, NSApplicationDelegate {
 
     @objc private func quit() { NSApp.terminate(nil) }
 
-    @objc private func openRepo() {
-        if let url = URL(string: "https://github.com/vladforfutdinov/reLayout") {
-            NSWorkspace.shared.open(url)
-        }
+    // Standard macOS About panel. Name/version/icon/copyright come from Info.plist
+    // (CFBundleName, CFBundleShortVersionString, CFBundleVersion,
+    // NSHumanReadableCopyright); we add the project link as clickable credits.
+    @objc private func showAbout() {
+        activateApp()
+        let credits = NSAttributedString(
+            string: "github.com/vladforfutdinov/reLayout",
+            attributes: [
+                .link: URL(string: "https://github.com/vladforfutdinov/reLayout") as Any,
+                .font: NSFont.systemFont(ofSize: 11),
+            ])
+        NSApp.orderFrontStandardAboutPanel(options: [.credits: credits])
     }
 
     @objc private func openKeyboardSettings() {
@@ -799,27 +808,11 @@ final class AppController: NSObject, NSApplicationDelegate {
         let layouts = NSTextField(labelWithString: layoutListText())
         layouts.textColor = .secondaryLabelColor
 
-        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
-        let versionLabel = NSTextField(labelWithString: "reLayout \(version)")
-        versionLabel.font = .systemFont(ofSize: 11)
-        versionLabel.textColor = .tertiaryLabelColor
-        let link = NSButton(title: "GitHub", target: self, action: #selector(openRepo))
-        link.isBordered = false
-        link.bezelStyle = .inline
-        link.attributedTitle = NSAttributedString(string: "GitHub ↗", attributes: [
-            .foregroundColor: NSColor.linkColor, .font: NSFont.systemFont(ofSize: 11),
-        ])
-        let footer = NSStackView(views: [versionLabel, link])
-        footer.orientation = .horizontal
-        footer.spacing = 10
-        footer.alignment = .firstBaseline
-
         let grid = NSGridView(views: [
             [caption(""), cb],
             [caption("Layouts:"), layouts],
             [caption("Hotkey:"), hkRow],
             [NSGridCell.emptyContentView, conflict],
-            [NSGridCell.emptyContentView, footer],
         ])
         grid.rowSpacing = 10
         grid.columnSpacing = 10

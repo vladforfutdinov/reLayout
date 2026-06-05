@@ -27,9 +27,30 @@ cp Info.plist "$APP/Contents/Info.plist"
 mkdir -p "$APP/Contents/Resources"
 cp -R Resources/*.lproj "$APP/Contents/Resources/"
 
-# app icon: build AppIcon.icns from the 1024 master (swap ICON_SRC for the other
-# keycap variant). CFBundleIconFile=AppIcon is declared in Info.plist.
-ICON_SRC="Resources/for-light-text-1024.png"   # black "rL" wordmark
+# app icon: composite the black "rL" wordmark onto an OPAQUE light rounded tile,
+# so it stays visible on any background (Finder, the Sparkle updater window, Get
+# Info) — a transparent glyph would vanish dark-on-dark. CFBundleIconFile=AppIcon.
+ICON_SRC="$(mktemp -d)/appicon.png"
+swift - "$ICON_SRC" Resources/for-light-text-1024.png <<'SWIFT'
+import Cocoa
+let out = CommandLine.arguments[1], glyphPath = CommandLine.arguments[2]
+let S: CGFloat = 1024
+let img = NSImage(size: NSSize(width: S, height: S))
+img.lockFocus()
+let inset: CGFloat = 64
+let rect = NSRect(x: inset, y: inset, width: S - 2*inset, height: S - 2*inset)
+let tile = NSBezierPath(roundedRect: rect, xRadius: 180, yRadius: 180)
+tile.addClip()
+NSGradient(colors: [NSColor(white: 0.97, alpha: 1), NSColor(white: 0.80, alpha: 1)])?
+    .draw(in: rect, angle: -90)
+if let glyph = NSImage(contentsOfFile: glyphPath) {
+    let pad: CGFloat = 250
+    glyph.draw(in: NSRect(x: pad, y: pad, width: S - 2*pad, height: S - 2*pad))
+}
+img.unlockFocus()
+let rep = NSBitmapImageRep(data: img.tiffRepresentation!)!
+try! rep.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: out))
+SWIFT
 if [ -f "$ICON_SRC" ]; then
     ICONSET="$(mktemp -d)/AppIcon.iconset"; mkdir -p "$ICONSET"
     for pair in "16:16x16" "32:16x16@2x" "32:32x32" "64:32x32@2x" \

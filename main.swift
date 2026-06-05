@@ -607,13 +607,18 @@ final class AppController: NSObject, NSApplicationDelegate {
         set { UserDefaults.standard.set(newValue, forKey: "menuBarStatic") }
     }
 
+    // Appearance-matched keycap: silver on dark, black on light.
+    private func keycapImage(for appearance: NSAppearance) -> NSImage? {
+        let dark = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+        return NSImage(named: dark ? "for-dark-1024" : "for-light-1024")
+    }
+
     private func updateStatusIcon() {
         guard let button = statusItem?.button else { return }
         if menuBarStatic {
             // Pick the keycap that reads on the current menu-bar appearance: the
             // silver keycap on a dark bar, the black one on a light bar.
-            let dark = button.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
-            let base = NSImage(named: dark ? "for-dark-1024" : "for-light-1024")
+            let base = keycapImage(for: button.effectiveAppearance)
                 ?? NSApp.applicationIconImage ?? NSImage()
             let icon = (base.copy() as? NSImage) ?? base
             icon.size = NSSize(width: 18, height: 18)
@@ -748,7 +753,12 @@ final class AppController: NSObject, NSApplicationDelegate {
                 .link: URL(string: "https://github.com/vladforfutdinov/reLayout") as Any,
                 .font: NSFont.systemFont(ofSize: 11),
             ])
-        NSApp.orderFrontStandardAboutPanel(options: [.credits: credits])   // shows the app icon
+        // theme-matched keycap (the bundled AppIcon.icns is a single static image)
+        var options: [NSApplication.AboutPanelOptionKey: Any] = [.credits: credits]
+        if let icon = keycapImage(for: NSApp.effectiveAppearance) {
+            options[.applicationIcon] = icon
+        }
+        NSApp.orderFrontStandardAboutPanel(options: options)
     }
 
     @objc private func openKeyboardSettings() {

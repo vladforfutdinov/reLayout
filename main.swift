@@ -507,6 +507,7 @@ final class AppController: NSObject, NSApplicationDelegate {
     private var hotKeyRef: EventHotKeyRef?
     private var handlerInstalled = false
     private var appearanceObservation: NSKeyValueObservation?   // refresh static icon on dark/light switch
+    private var aboutResignObserver: Any?                       // close About panel when it loses focus
 
 #if SPARKLE
     // Sparkle auto-updater. startingUpdater:true begins scheduled checks against
@@ -759,6 +760,19 @@ final class AppController: NSObject, NSApplicationDelegate {
             options[.applicationIcon] = icon
         }
         NSApp.orderFrontStandardAboutPanel(options: options)
+
+        // close the panel as soon as it loses focus
+        if let token = aboutResignObserver { NotificationCenter.default.removeObserver(token); aboutResignObserver = nil }
+        if let panel = NSApp.keyWindow {
+            aboutResignObserver = NotificationCenter.default.addObserver(
+                forName: NSWindow.didResignKeyNotification, object: panel, queue: .main
+            ) { [weak self, weak panel] _ in
+                panel?.close()
+                if let t = self?.aboutResignObserver {
+                    NotificationCenter.default.removeObserver(t); self?.aboutResignObserver = nil
+                }
+            }
+        }
     }
 
     @objc private func openKeyboardSettings() {

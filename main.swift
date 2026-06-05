@@ -608,10 +608,10 @@ final class AppController: NSObject, NSApplicationDelegate {
         set { UserDefaults.standard.set(newValue, forKey: "menuBarStatic") }
     }
 
-    // Appearance-matched keycap: silver on dark, black on light.
-    private func keycapImage(for appearance: NSAppearance) -> NSImage? {
+    // Appearance-matched "rL" wordmark: white glyph on dark, black on light.
+    private func menuGlyphImage(for appearance: NSAppearance) -> NSImage? {
         let dark = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
-        return NSImage(named: dark ? "for-dark-1024" : "for-light-1024")
+        return NSImage(named: dark ? "for-dark-text-1024" : "for-light-text-1024")
     }
 
     private func updateStatusIcon() {
@@ -619,7 +619,7 @@ final class AppController: NSObject, NSApplicationDelegate {
         if menuBarStatic {
             // Pick the keycap that reads on the current menu-bar appearance: the
             // silver keycap on a dark bar, the black one on a light bar.
-            let base = keycapImage(for: button.effectiveAppearance)
+            let base = menuGlyphImage(for: button.effectiveAppearance)
                 ?? NSApp.applicationIconImage ?? NSImage()
             let icon = (base.copy() as? NSImage) ?? base
             icon.size = NSSize(width: 18, height: 18)
@@ -756,7 +756,7 @@ final class AppController: NSObject, NSApplicationDelegate {
             ])
         // theme-matched keycap (the bundled AppIcon.icns is a single static image)
         var options: [NSApplication.AboutPanelOptionKey: Any] = [.credits: credits]
-        if let icon = keycapImage(for: NSApp.effectiveAppearance) {
+        if let icon = menuGlyphImage(for: NSApp.effectiveAppearance) {
             options[.applicationIcon] = icon
         }
         NSApp.orderFrontStandardAboutPanel(options: options)

@@ -153,6 +153,6 @@ fi
 
 echo "Built $APP"
 echo
-echo "Run:   open ./$APP"
-echo "First launch: System Settings > Privacy & Security > Accessibility -> enable ReLayout, then relaunch."
+echo "Run:   open \"./$APP\""
+echo "First launch: System Settings > Privacy & Security > Accessibility -> enable \"$DISPLAY_NAME\", then relaunch."
 echo "Hotkey: Ctrl+Option+R  (select text, then press)."

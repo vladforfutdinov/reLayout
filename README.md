@@ -24,10 +24,9 @@ character tables, and the Option layer just works.
 Grab **`reLayout.dmg`** from the [latest release](https://github.com/vladforfutdinov/reLayout/releases/latest),
 open it, and drag **ReLayout** onto **Applications**.
 
-The app is self-signed, not notarized, so Gatekeeper blocks the first launch
-("unidentified developer"). Right-click **ReLayout.app → Open → Open** once (or
-**System Settings → Privacy & Security → Open Anyway**); subsequent launches are
-normal. From the command line: `xattr -dr com.apple.quarantine /Applications/ReLayout.app`.
+Releases are signed with a Developer ID and **notarized by Apple**, so they open
+without any Gatekeeper warning. (Builds ≤ 1.1 were self-signed and needed a
+one-time right-click **Open**.)
 
 First launch asks for **Accessibility** (needed to read selection / send keystrokes):
 **System Settings → Privacy & Security → Accessibility** → enable **reLayout** → relaunch.
@@ -40,6 +39,9 @@ First launch asks for **Accessibility** (needed to read selection / send keystro
 ./make-dmg.sh      # optional: -> reLayout.dmg (drag-to-Applications installer)
 open ./ReLayout.app
 ```
+
+Signed/notarized release builds are produced by CI on a `vX.Y.Z` tag — see
+[RELEASING.md](RELEASING.md) for the signing setup and required secrets.
 
 ## Use
 

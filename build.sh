@@ -35,13 +35,21 @@ echo "version: $VERSION (short $SHORT, build $BUILD)"
 swiftc -O -parse-as-library -o "$APP/Contents/MacOS/ReLayout" main.swift \
     -framework Cocoa -framework Carbon
 
-# Sign with the stable self-signed identity if present (run ./make-cert.sh once),
-# so the Accessibility grant survives rebuilds. Fall back to ad-hoc otherwise.
-IDENTITY="ReLayout Self Signed"
-if security find-identity -v -p codesigning | grep -q "$IDENTITY"; then
-    codesign --force --deep --options runtime --sign "$IDENTITY" "$APP"
+# Signing, in precedence order:
+#   1. SIGN_IDENTITY set (CI / release) -> Developer ID Application + Hardened
+#      Runtime + secure timestamp. This is what notarization requires.
+#   2. local self-signed "ReLayout Self Signed" (run ./make-cert.sh once) so the
+#      Accessibility grant survives rebuilds during development.
+#   3. ad-hoc fallback.
+SELF="ReLayout Self Signed"
+if [ -n "${SIGN_IDENTITY:-}" ]; then
+    codesign --force --deep --options runtime --timestamp --sign "$SIGN_IDENTITY" "$APP"
+    echo "signed: Developer ID ($SIGN_IDENTITY), hardened runtime"
+elif security find-identity -v -p codesigning | grep -q "$SELF"; then
+    codesign --force --deep --options runtime --sign "$SELF" "$APP"
+    echo "signed: $SELF (local dev)"
 else
-    echo "WARNING: '$IDENTITY' not found — run ./make-cert.sh first. Ad-hoc signing (grant will re-prompt)."
+    echo "WARNING: no signing identity — run ./make-cert.sh first. Ad-hoc signing (grant will re-prompt)."
     codesign --force --deep --sign - "$APP"
 fi
 

@@ -1,0 +1,20 @@
+"menu.about" = "About reLayout";
+"menu.settings" = "Settings…";
+"menu.openKeyboardSettings" = "Open Keyboard Settings…";
+"menu.quit" = "Quit reLayout";
+
+"alert.needLayouts.title" = "reLayout: need at least 2 keyboard layouts";
+"alert.needLayouts.body" = "Add a second input source in System Settings ▸ Keyboard ▸ Input Sources.";
+"alert.loginItem.title" = "Couldn't change the login item";
+
+"settings.title" = "reLayout Settings";
+"settings.openAtLogin" = "Open at login";
+"settings.layouts" = "Layouts:";
+"settings.hotkey" = "Hotkey:";
+"settings.conflict" = "⚠︎ also used by %@";
+"settings.restoreDefault" = "Restore default";
+
+"shortcut.placeholder" = "Type shortcut…";
+"shortcut.recording" = "Recording";
+
+"a11y.statusItem" = "reLayout, current input source: %@";

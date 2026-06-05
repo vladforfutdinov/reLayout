@@ -1,0 +1,20 @@
+"menu.about" = "reLayout — informacje";
+"menu.settings" = "Ustawienia…";
+"menu.openKeyboardSettings" = "Otwórz ustawienia klawiatury…";
+"menu.quit" = "Zakończ reLayout";
+
+"alert.needLayouts.title" = "reLayout: wymagane są co najmniej 2 układy klawiatury";
+"alert.needLayouts.body" = "Dodaj drugie źródło wprowadzania w Ustawieniach systemowych ▸ Klawiatura ▸ Źródła wprowadzania.";
+"alert.loginItem.title" = "Nie można zmienić elementu logowania";
+
+"settings.title" = "Ustawienia reLayout";
+"settings.openAtLogin" = "Otwórz przy logowaniu";
+"settings.layouts" = "Układy:";
+"settings.hotkey" = "Skrót:";
+"settings.conflict" = "⚠︎ używane już przez %@";
+"settings.restoreDefault" = "Przywróć domyślne";
+
+"shortcut.placeholder" = "Wpisz skrót…";
+"shortcut.recording" = "Nagrywanie";
+
+"a11y.statusItem" = "reLayout, bieżące źródło wprowadzania: %@";

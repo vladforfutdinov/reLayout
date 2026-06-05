@@ -103,6 +103,13 @@ Because there's no synthetic copy, clipboard watchers like DeepL's `Ctrl+C+C` do
 Mirrors the current input source as a fixed-size template badge (e.g. a filled `A` for ABC,
 an outlined `УК` for Ukrainian), tinting/dimming with the menu bar. Updates on layout change.
 
+## Localization
+
+The UI follows the system language, localized to 12: English, Russian, Ukrainian, Belarusian,
+German, French, Spanish, Portuguese, Polish, Simplified Chinese, Japanese, Korean. Strings live
+in `Resources/<lang>.lproj/Localizable.strings`; `build.sh` copies them into the bundle. (The
+names of conflicting macOS system shortcuts shown in Settings are reported in English.)
+
 ## Limitations
 
 - Same-script layouts (e.g. ABC vs German) can't be told apart per-word without a dictionary;

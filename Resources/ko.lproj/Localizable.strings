@@ -1,0 +1,20 @@
+"menu.about" = "reLayout 정보";
+"menu.settings" = "설정…";
+"menu.openKeyboardSettings" = "키보드 설정 열기…";
+"menu.quit" = "reLayout 종료";
+
+"alert.needLayouts.title" = "reLayout: 키보드 레이아웃이 2개 이상 필요합니다";
+"alert.needLayouts.body" = "시스템 설정 ▸ 키보드 ▸ 입력 소스에서 두 번째 입력 소스를 추가하세요.";
+"alert.loginItem.title" = "로그인 항목을 변경할 수 없습니다";
+
+"settings.title" = "reLayout 설정";
+"settings.openAtLogin" = "로그인 시 열기";
+"settings.layouts" = "레이아웃:";
+"settings.hotkey" = "단축키:";
+"settings.conflict" = "⚠︎ 이미 %@에서 사용 중입니다";
+"settings.restoreDefault" = "기본값 복원";
+
+"shortcut.placeholder" = "단축키 입력…";
+"shortcut.recording" = "기록 중";
+
+"a11y.statusItem" = "reLayout, 현재 입력 소스: %@";

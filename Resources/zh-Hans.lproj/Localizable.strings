@@ -1,0 +1,20 @@
+"menu.about" = "关于 reLayout";
+"menu.settings" = "设置…";
+"menu.openKeyboardSettings" = "打开键盘设置…";
+"menu.quit" = "退出 reLayout";
+
+"alert.needLayouts.title" = "reLayout：至少需要 2 种键盘布局";
+"alert.needLayouts.body" = "请在“系统设置 ▸ 键盘 ▸ 输入法”中添加第二个输入源。";
+"alert.loginItem.title" = "无法更改登录项";
+
+"settings.title" = "reLayout 设置";
+"settings.openAtLogin" = "登录时打开";
+"settings.layouts" = "布局：";
+"settings.hotkey" = "快捷键：";
+"settings.conflict" = "⚠︎ 已被 %@ 占用";
+"settings.restoreDefault" = "恢复默认";
+
+"shortcut.placeholder" = "输入快捷键…";
+"shortcut.recording" = "正在录制";
+
+"a11y.statusItem" = "reLayout，当前输入源：%@";

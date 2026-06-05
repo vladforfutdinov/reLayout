@@ -1,0 +1,20 @@
+"menu.about" = "Пра reLayout";
+"menu.settings" = "Налады…";
+"menu.openKeyboardSettings" = "Адкрыць налады клавіятуры…";
+"menu.quit" = "Выйсці з reLayout";
+
+"alert.needLayouts.title" = "reLayout: патрэбна не менш за 2 раскладкі клавіятуры";
+"alert.needLayouts.body" = "Дадайце другую крыніцу ўводу ў Сістэмных наладах ▸ Клавіятура ▸ Крыніцы ўводу.";
+"alert.loginItem.title" = "Не атрымалася змяніць элемент уваходу";
+
+"settings.title" = "Налады reLayout";
+"settings.openAtLogin" = "Запускаць пры ўваходзе";
+"settings.layouts" = "Раскладкі:";
+"settings.hotkey" = "Спалучэнне:";
+"settings.conflict" = "⚠︎ ужо выкарыстоўваецца: %@";
+"settings.restoreDefault" = "Скінуць да прадвызначанага";
+
+"shortcut.placeholder" = "Націсніце спалучэнне…";
+"shortcut.recording" = "Запіс";
+
+"a11y.statusItem" = "reLayout, бягучая крыніца ўводу: %@";

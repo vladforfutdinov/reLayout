@@ -1,0 +1,20 @@
+"menu.about" = "Über reLayout";
+"menu.settings" = "Einstellungen…";
+"menu.openKeyboardSettings" = "Tastatureinstellungen öffnen…";
+"menu.quit" = "reLayout beenden";
+
+"alert.needLayouts.title" = "reLayout: mindestens 2 Tastaturbelegungen erforderlich";
+"alert.needLayouts.body" = "Fügen Sie unter Systemeinstellungen ▸ Tastatur ▸ Eingabequellen eine zweite Eingabequelle hinzu.";
+"alert.loginItem.title" = "Anmeldeobjekt konnte nicht geändert werden";
+
+"settings.title" = "reLayout-Einstellungen";
+"settings.openAtLogin" = "Beim Anmelden öffnen";
+"settings.layouts" = "Belegungen:";
+"settings.hotkey" = "Tastenkürzel:";
+"settings.conflict" = "⚠︎ wird bereits verwendet von %@";
+"settings.restoreDefault" = "Standard wiederherstellen";
+
+"shortcut.placeholder" = "Kurzbefehl eingeben…";
+"shortcut.recording" = "Aufnahme";
+
+"a11y.statusItem" = "reLayout, aktuelle Eingabequelle: %@";

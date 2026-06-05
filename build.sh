@@ -23,6 +23,10 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS"
 cp Info.plist "$APP/Contents/Info.plist"
 
+# localizations: copy each <lang>.lproj/Localizable.strings into the bundle
+mkdir -p "$APP/Contents/Resources"
+cp -R Resources/*.lproj "$APP/Contents/Resources/"
+
 # inject version (short = release number; build = commit count)
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $SHORT" "$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD" "$APP/Contents/Info.plist"

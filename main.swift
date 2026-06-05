@@ -4,6 +4,10 @@ import ServiceManagement
 
 // MARK: - Helpers
 
+// Localized UI string. Keys live in <lang>.lproj/Localizable.strings (copied
+// into the app bundle by build.sh). Missing key -> the key itself is returned.
+func L(_ key: String) -> String { NSLocalizedString(key, comment: "") }
+
 // Debug trace to /tmp/relayout.log. Compiled out unless built with -DDEBUG:
 // these lines include the user's selected text, which must never be written to
 // disk in a release build. The empty release body is inlined away under -O.
@@ -327,12 +331,12 @@ final class ShortcutField: NSView {
         translatesAutoresizingMaskIntoConstraints = false
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
-        setAccessibilityLabel("Hotkey")
+        setAccessibilityLabel(L("settings.hotkey"))
     }
     required init?(coder: NSCoder) { fatalError("ShortcutField is code-only") }
 
     // VoiceOver: announce the current shortcut and let activation start recording.
-    override func accessibilityValue() -> Any? { recording ? "Recording" : display }
+    override func accessibilityValue() -> Any? { recording ? L("shortcut.recording") : display }
     override func accessibilityPerformPress() -> Bool { recording ? stop() : start(); return true }
 
     override var intrinsicContentSize: NSSize { NSSize(width: 150, height: 24) }
@@ -347,7 +351,7 @@ final class ShortcutField: NSView {
         path.lineWidth = recording ? 2 : 1
         path.stroke()
 
-        let text = recording ? "Type shortcut…" : display
+        let text = recording ? L("shortcut.placeholder") : display
         let color: NSColor = recording ? .secondaryLabelColor : .labelColor
         let attrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: 13), .foregroundColor: color,
@@ -510,7 +514,7 @@ final class AppController: NSObject, NSApplicationDelegate {
         button.image = badge
         button.imagePosition = .imageOnly
         button.title = ""
-        button.setAccessibilityLabel("reLayout, current input source: \(name)")
+        button.setAccessibilityLabel(String(format: L("a11y.statusItem"), name))
     }
 
     private func localizedSourceName(_ src: TISInputSource) -> String {
@@ -588,12 +592,12 @@ final class AppController: NSObject, NSApplicationDelegate {
         info.isEnabled = false
         menu.addItem(info)
         menu.addItem(.separator())
-        menu.addItem(NSMenuItem(title: "About reLayout", action: #selector(showAbout), keyEquivalent: ""))
-        menu.addItem(NSMenuItem(title: "Settings…", action: #selector(openReLayoutSettings), keyEquivalent: ","))
+        menu.addItem(NSMenuItem(title: L("menu.about"), action: #selector(showAbout), keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: L("menu.settings"), action: #selector(openReLayoutSettings), keyEquivalent: ","))
         menu.addItem(.separator())
-        menu.addItem(NSMenuItem(title: "Open Keyboard Settings…", action: #selector(openKeyboardSettings), keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: L("menu.openKeyboardSettings"), action: #selector(openKeyboardSettings), keyEquivalent: ""))
         menu.addItem(.separator())
-        menu.addItem(NSMenuItem(title: "Quit reLayout", action: #selector(quit), keyEquivalent: "q"))
+        menu.addItem(NSMenuItem(title: L("menu.quit"), action: #selector(quit), keyEquivalent: "q"))
         for it in menu.items where it.action != nil { it.target = self }
         statusItem.menu = menu
     }
@@ -634,8 +638,8 @@ final class AppController: NSObject, NSApplicationDelegate {
 
     private func reportMissingLayouts() {
         let a = NSAlert()
-        a.messageText = "reLayout: need at least 2 keyboard layouts"
-        a.informativeText = "Add a second input source in System Settings ▸ Keyboard ▸ Input Sources."
+        a.messageText = L("alert.needLayouts.title")
+        a.informativeText = L("alert.needLayouts.body")
         a.runModal()
     }
 
@@ -747,7 +751,7 @@ final class AppController: NSObject, NSApplicationDelegate {
         applyHotkey()
         setupMenu()
         let warn = mode == .carbon ? systemHotkeyConflict(keyCode: UInt16(code), cocoaMods: cocoaMods(mods)) : nil
-        conflictLabel?.stringValue = warn.map { "⚠︎ also used by \($0)" } ?? ""
+        conflictLabel?.stringValue = warn.map { String(format: L("settings.conflict"), $0) } ?? ""
     }
 
     // carbon modifier mask -> Cocoa device-independent mask (for conflict lookup)
@@ -776,7 +780,7 @@ final class AppController: NSObject, NSApplicationDelegate {
         }
         let w = SettingsWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: 200),
                                styleMask: [.titled, .closable], backing: .buffered, defer: false)
-        w.title = "reLayout Settings"
+        w.title = L("settings.title")
         w.isReleasedWhenClosed = false
         guard let content = w.contentView else { return }
 
@@ -794,12 +798,12 @@ final class AppController: NSObject, NSApplicationDelegate {
             self?.commitHotkey(mode, code, mods, chord, disp)
         }
         shortcutField = field
-        let resetIcon = NSImage(systemSymbolName: "arrow.uturn.backward", accessibilityDescription: "Restore default")
+        let resetIcon = NSImage(systemSymbolName: "arrow.uturn.backward", accessibilityDescription: L("settings.restoreDefault"))
         let reset = NSButton(image: resetIcon ?? NSImage(), target: self, action: #selector(resetHotkey))
         reset.isBordered = false
         reset.bezelStyle = .accessoryBar
         reset.imageScaling = .scaleProportionallyDown
-        reset.toolTip = "Restore default (left ⌥)"
+        reset.toolTip = L("settings.restoreDefault")
         let hkRow = NSStackView(views: [field, reset])
         hkRow.orientation = .horizontal
         hkRow.spacing = 8
@@ -811,10 +815,10 @@ final class AppController: NSObject, NSApplicationDelegate {
         conflictLabel = conflict
         if hotKeyMode == .carbon,
            let w = systemHotkeyConflict(keyCode: UInt16(hotKeyCode), cocoaMods: cocoaMods(hotKeyMods)) {
-            conflict.stringValue = "⚠︎ also used by \(w)"
+            conflict.stringValue = String(format: L("settings.conflict"), w)
         }
 
-        let cb = NSButton(checkboxWithTitle: "Open at login", target: self, action: #selector(toggleLogin))
+        let cb = NSButton(checkboxWithTitle: L("settings.openAtLogin"), target: self, action: #selector(toggleLogin))
         cb.state = loginEnabled() ? .on : .off
         loginCheckbox = cb
 
@@ -823,8 +827,8 @@ final class AppController: NSObject, NSApplicationDelegate {
 
         let grid = NSGridView(views: [
             [caption(""), cb],
-            [caption("Layouts:"), layouts],
-            [caption("Hotkey:"), hkRow],
+            [caption(L("settings.layouts")), layouts],
+            [caption(L("settings.hotkey")), hkRow],
             [NSGridCell.emptyContentView, conflict],
         ])
         grid.rowSpacing = 10
@@ -873,7 +877,7 @@ final class AppController: NSObject, NSApplicationDelegate {
         } catch {
             dbg("login toggle error: \(error)")
             let a = NSAlert()
-            a.messageText = "Couldn't change the login item"
+            a.messageText = L("alert.loginItem.title")
             a.informativeText = error.localizedDescription
             a.runModal()
         }

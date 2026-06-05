@@ -1,0 +1,20 @@
+"menu.about" = "Про reLayout";
+"menu.settings" = "Параметри…";
+"menu.openKeyboardSettings" = "Відкрити параметри клавіатури…";
+"menu.quit" = "Завершити reLayout";
+
+"alert.needLayouts.title" = "reLayout: потрібно щонайменше 2 розкладки клавіатури";
+"alert.needLayouts.body" = "Додайте друге джерело введення в Системних параметрах ▸ Клавіатура ▸ Джерела введення.";
+"alert.loginItem.title" = "Не вдалося змінити об’єкт входу";
+
+"settings.title" = "Параметри reLayout";
+"settings.openAtLogin" = "Запускати під час входу";
+"settings.layouts" = "Розкладки:";
+"settings.hotkey" = "Скорочення:";
+"settings.conflict" = "⚠︎ вже використовується: %@";
+"settings.restoreDefault" = "Відновити типове";
+
+"shortcut.placeholder" = "Натисніть скорочення…";
+"shortcut.recording" = "Запис";
+
+"a11y.statusItem" = "reLayout, поточне джерело введення: %@";

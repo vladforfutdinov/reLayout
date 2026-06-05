@@ -1,0 +1,20 @@
+"menu.about" = "Acerca de reLayout";
+"menu.settings" = "Ajustes…";
+"menu.openKeyboardSettings" = "Abrir Ajustes de teclado…";
+"menu.quit" = "Salir de reLayout";
+
+"alert.needLayouts.title" = "reLayout: se necesitan al menos 2 distribuciones de teclado";
+"alert.needLayouts.body" = "Añade una segunda fuente de entrada en Ajustes del Sistema ▸ Teclado ▸ Fuentes de entrada.";
+"alert.loginItem.title" = "No se pudo cambiar el ítem de inicio";
+
+"settings.title" = "Ajustes de reLayout";
+"settings.openAtLogin" = "Abrir al iniciar sesión";
+"settings.layouts" = "Distribuciones:";
+"settings.hotkey" = "Atajo:";
+"settings.conflict" = "⚠︎ ya lo usa %@";
+"settings.restoreDefault" = "Restaurar valor predeterminado";
+
+"shortcut.placeholder" = "Escribe el atajo…";
+"shortcut.recording" = "Grabando";
+
+"a11y.statusItem" = "reLayout, fuente de entrada actual: %@";

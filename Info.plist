@@ -18,6 +18,23 @@
     <string>APPL</string>
     <key>NSHumanReadableCopyright</key>
     <string>© 2026 Volodymyr Forfutdinov</string>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>en</string>
+    <key>CFBundleLocalizations</key>
+    <array>
+        <string>en</string>
+        <string>ru</string>
+        <string>uk</string>
+        <string>be</string>
+        <string>de</string>
+        <string>fr</string>
+        <string>es</string>
+        <string>pt</string>
+        <string>pl</string>
+        <string>zh-Hans</string>
+        <string>ja</string>
+        <string>ko</string>
+    </array>
     <key>LSUIElement</key>
     <true/>
     <key>LSMinimumSystemVersion</key>

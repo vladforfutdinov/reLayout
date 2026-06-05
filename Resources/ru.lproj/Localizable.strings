@@ -1,0 +1,20 @@
+"menu.about" = "О приложении reLayout";
+"menu.settings" = "Настройки…";
+"menu.openKeyboardSettings" = "Открыть настройки клавиатуры…";
+"menu.quit" = "Завершить reLayout";
+
+"alert.needLayouts.title" = "reLayout: нужно минимум 2 раскладки клавиатуры";
+"alert.needLayouts.body" = "Добавьте второй источник ввода в Системных настройках ▸ Клавиатура ▸ Источники ввода.";
+"alert.loginItem.title" = "Не удалось изменить элемент входа";
+
+"settings.title" = "Настройки reLayout";
+"settings.openAtLogin" = "Запускать при входе";
+"settings.layouts" = "Раскладки:";
+"settings.hotkey" = "Сочетание:";
+"settings.conflict" = "⚠︎ уже используется: %@";
+"settings.restoreDefault" = "Сбросить по умолчанию";
+
+"shortcut.placeholder" = "Нажмите сочетание…";
+"shortcut.recording" = "Запись";
+
+"a11y.statusItem" = "reLayout, текущий источник ввода: %@";

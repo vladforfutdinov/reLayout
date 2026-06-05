@@ -1,0 +1,20 @@
+"menu.about" = "reLayout について";
+"menu.settings" = "設定…";
+"menu.openKeyboardSettings" = "キーボード設定を開く…";
+"menu.quit" = "reLayout を終了";
+
+"alert.needLayouts.title" = "reLayout：キーボードレイアウトが2つ以上必要です";
+"alert.needLayouts.body" = "「システム設定 ▸ キーボード ▸ 入力ソース」で2つ目の入力ソースを追加してください。";
+"alert.loginItem.title" = "ログイン項目を変更できませんでした";
+
+"settings.title" = "reLayout 設定";
+"settings.openAtLogin" = "ログイン時に開く";
+"settings.layouts" = "レイアウト：";
+"settings.hotkey" = "ショートカット：";
+"settings.conflict" = "⚠︎ %@ で既に使用されています";
+"settings.restoreDefault" = "デフォルトに戻す";
+
+"shortcut.placeholder" = "ショートカットを入力…";
+"shortcut.recording" = "記録中";
+
+"a11y.statusItem" = "reLayout、現在の入力ソース：%@";

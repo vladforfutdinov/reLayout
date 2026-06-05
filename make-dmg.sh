@@ -21,12 +21,21 @@ cp -R "$APP" "$STAGE/"
 ln -s /Applications "$STAGE/Applications"
 
 rm -f "$DMG"
-hdiutil create \
-    -volname "$VOLNAME" \
-    -srcfolder "$STAGE" \
-    -fs HFS+ \
-    -format UDZO \
-    -ov \
-    "$DMG"
+# hdiutil can intermittently fail with "Resource busy" on CI (Spotlight/mount
+# races over the staging dir); retry a few times.
+for attempt in 1 2 3 4; do
+    if hdiutil create \
+        -volname "$VOLNAME" \
+        -srcfolder "$STAGE" \
+        -fs HFS+ \
+        -format UDZO \
+        -ov \
+        "$DMG"; then
+        break
+    fi
+    if [ "$attempt" = 4 ]; then echo "error: hdiutil create failed after retries" >&2; exit 1; fi
+    echo "hdiutil create failed (attempt $attempt) -- retrying in 5s"
+    sleep 5
+done
 
 echo "Built $DMG"

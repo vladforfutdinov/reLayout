@@ -711,7 +711,6 @@ final class AppController: NSObject, NSApplicationDelegate {
         info.isEnabled = false
         menu.addItem(info)
         menu.addItem(.separator())
-        menu.addItem(NSMenuItem(title: L("menu.about"), action: #selector(showAbout), keyEquivalent: ""))
 #if SPARKLE
         menu.addItem(NSMenuItem(title: L("menu.checkUpdates"), action: #selector(checkForUpdates), keyEquivalent: ""))
 #endif
@@ -1012,6 +1011,14 @@ final class AppController: NSObject, NSApplicationDelegate {
         menuBarPopup.target = self
         menuBarPopup.action = #selector(changeMenuBarIcon(_:))
 
+        // link-style button that opens the standard About panel
+        let aboutLink = NSButton(title: L("menu.about"), target: self, action: #selector(showAbout))
+        aboutLink.isBordered = false
+        aboutLink.bezelStyle = .inline
+        aboutLink.attributedTitle = NSAttributedString(string: L("menu.about"), attributes: [
+            .foregroundColor: NSColor.linkColor, .font: NSFont.systemFont(ofSize: 11),
+        ])
+
         let hotkeyRowIndex = 4
         let grid = NSGridView(views: [
             [caption(""), cb],
@@ -1019,6 +1026,7 @@ final class AppController: NSObject, NSApplicationDelegate {
             [caption(L("settings.language")), langPopup],
             [caption(L("settings.menubar")), menuBarPopup],
             [caption(L("settings.hotkey")), hkColumn],
+            [NSGridCell.emptyContentView, aboutLink],
         ])
         grid.rowSpacing = 10
         grid.columnSpacing = 10

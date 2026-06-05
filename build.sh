@@ -74,7 +74,23 @@ cp Resources/for-dark-text-1024.png Resources/for-light-text-1024.png "$APP/Cont
 # full git version (e.g. 1.2.3 for a release tag, 1.2.3-4-gabc123[-dirty] for a
 # dev build) — shown in the About panel so dev vs prod is obvious.
 /usr/libexec/PlistBuddy -c "Set :RLVersionFull $VERSION" "$APP/Contents/Info.plist"
-echo "version: $VERSION (short $SHORT, build $BUILD)"
+
+# Release vs dev: a release is built on an exact version tag (CI). Dev builds get
+# a distinct bundle id + name so macOS keeps SEPARATE Accessibility / Input
+# Monitoring grants and UserDefaults — otherwise dev and prod fight over the same
+# TCC entry. Override with RELAYOUT_RELEASE=1 / RELAYOUT_DEV=1.
+if git describe --tags --exact-match >/dev/null 2>&1; then IS_RELEASE=1; else IS_RELEASE=0; fi
+[ "${RELAYOUT_RELEASE:-}" = "1" ] && IS_RELEASE=1
+[ "${RELAYOUT_DEV:-}" = "1" ] && IS_RELEASE=0
+if [ "$IS_RELEASE" = "1" ]; then
+    BUNDLE_ID="com.vlad.relayout";     DISPLAY_NAME="reLayout"
+else
+    BUNDLE_ID="com.vlad.relayout.dev"; DISPLAY_NAME="reLayout (dev)"
+fi
+/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $BUNDLE_ID" "$APP/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleName $DISPLAY_NAME" "$APP/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName $DISPLAY_NAME" "$APP/Contents/Info.plist"
+echo "version: $VERSION (short $SHORT, build $BUILD) — $DISPLAY_NAME [$BUNDLE_ID]"
 
 SWIFT_FLAGS=(-O -parse-as-library)
 LINK_FLAGS=(-framework Cocoa -framework Carbon)

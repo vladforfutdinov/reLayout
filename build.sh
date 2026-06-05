@@ -42,7 +42,7 @@ SPARKLE_VERSION="2.6.4"
 if [ "${WITH_SPARKLE:-0}" = "1" ]; then
     SPARKLE_DIR=".sparkle/$SPARKLE_VERSION"
     if [ ! -d "$SPARKLE_DIR/Sparkle.framework" ]; then
-        echo "fetching Sparkle $SPARKLE_VERSION…"
+        echo "fetching Sparkle ${SPARKLE_VERSION}..."
         mkdir -p "$SPARKLE_DIR"
         curl -fsSL "https://github.com/sparkle-project/Sparkle/releases/download/$SPARKLE_VERSION/Sparkle-$SPARKLE_VERSION.tar.xz" \
             | tar -xJ -C "$SPARKLE_DIR"

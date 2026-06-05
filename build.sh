@@ -2,8 +2,6 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-APP="ReLayout.app"
-
 # Version, in precedence order:
 #   1. RELAYOUT_VERSION env (manual override)
 #   2. exact git tag on HEAD            -> release version  (e.g. 1.2.3)
@@ -18,6 +16,19 @@ VERSION="${RELAYOUT_VERSION:-$(version_from_git || echo 0.0.0-dev)}"
 VERSION="${VERSION#v}"
 SHORT="${VERSION%%-*}"   # CFBundleShortVersionString must be plain dotted numbers
 BUILD="$(git rev-list --count HEAD 2>/dev/null || echo 0)"
+
+# Release vs dev: a release is built on an exact version tag (CI). Dev builds get
+# a distinct bundle id, name AND .app filename so macOS keeps SEPARATE
+# Accessibility / Input Monitoring grants and UserDefaults, and Finder/Settings
+# show the suffix. Override with RELAYOUT_RELEASE=1 / RELAYOUT_DEV=1.
+if git describe --tags --exact-match >/dev/null 2>&1; then IS_RELEASE=1; else IS_RELEASE=0; fi
+[ "${RELAYOUT_RELEASE:-}" = "1" ] && IS_RELEASE=1
+[ "${RELAYOUT_DEV:-}" = "1" ] && IS_RELEASE=0
+if [ "$IS_RELEASE" = "1" ]; then
+    APP="ReLayout.app";        BUNDLE_ID="com.vlad.relayout";     DISPLAY_NAME="reLayout"
+else
+    APP="ReLayout (dev).app";  BUNDLE_ID="com.vlad.relayout.dev"; DISPLAY_NAME="reLayout (dev)"
+fi
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS"
@@ -75,18 +86,6 @@ cp Resources/for-dark-text-1024.png Resources/for-light-text-1024.png "$APP/Cont
 # dev build) — shown in the About panel so dev vs prod is obvious.
 /usr/libexec/PlistBuddy -c "Set :RLVersionFull $VERSION" "$APP/Contents/Info.plist"
 
-# Release vs dev: a release is built on an exact version tag (CI). Dev builds get
-# a distinct bundle id + name so macOS keeps SEPARATE Accessibility / Input
-# Monitoring grants and UserDefaults — otherwise dev and prod fight over the same
-# TCC entry. Override with RELAYOUT_RELEASE=1 / RELAYOUT_DEV=1.
-if git describe --tags --exact-match >/dev/null 2>&1; then IS_RELEASE=1; else IS_RELEASE=0; fi
-[ "${RELAYOUT_RELEASE:-}" = "1" ] && IS_RELEASE=1
-[ "${RELAYOUT_DEV:-}" = "1" ] && IS_RELEASE=0
-if [ "$IS_RELEASE" = "1" ]; then
-    BUNDLE_ID="com.vlad.relayout";     DISPLAY_NAME="reLayout"
-else
-    BUNDLE_ID="com.vlad.relayout.dev"; DISPLAY_NAME="reLayout (dev)"
-fi
 /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $BUNDLE_ID" "$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleName $DISPLAY_NAME" "$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName $DISPLAY_NAME" "$APP/Contents/Info.plist"

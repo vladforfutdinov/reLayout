@@ -54,7 +54,7 @@ func setupTray() -> Bool {
     nid.uID = 1
     nid.uFlags = UINT(NIF_ICON) | UINT(NIF_MESSAGE)
     nid.uCallbackMessage = trayCallback
-    nid.hIcon = LoadIconW(nil, IDI_APPLICATION)
+    nid.hIcon = LoadIconW(nil, UnsafePointer<WCHAR>(bitPattern: 32512))   // MAKEINTRESOURCE(IDI_APPLICATION)
     return Shell_NotifyIconW(DWORD(NIM_ADD), &nid)
 }
 

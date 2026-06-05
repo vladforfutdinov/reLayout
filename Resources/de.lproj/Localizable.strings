@@ -22,3 +22,4 @@
 "settings.language" = "Sprache:";
 "settings.language.system" = "Systemstandard";
 "settings.undoHint" = "Doppeltippen zum Widerrufen";
+"menu.checkUpdates" = "Nach Updates suchen…";

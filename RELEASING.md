@@ -51,6 +51,31 @@ brew install --cask vladforfutdinov/relayout/relayout
 
 If `TAP_GITHUB_TOKEN` is unset the release still succeeds — the tap bump is skipped.
 
+### Sparkle auto-update (EdDSA + appcast)
+
+Release builds embed [Sparkle](https://sparkle-project.org) and check
+`SUFeedURL` (`https://vladforfutdinov.github.io/reLayout/appcast.xml`).
+
+1. Build once with Sparkle to fetch the tools, then generate the EdDSA keypair:
+   ```sh
+   WITH_SPARKLE=1 ./build.sh
+   .sparkle/*/bin/generate_keys            # stores the private key in your keychain
+   .sparkle/*/bin/generate_keys -p         # prints the PUBLIC key
+   ```
+   - Put the **public** key in `Info.plist` → `SUPublicEDKey` (replace
+     `REPLACE_WITH_SPARKLE_PUBLIC_ED_KEY`).
+   - Export the **private** key and add it as the secret **`SPARKLE_ED_PRIVATE_KEY`**:
+     ```sh
+     .sparkle/*/bin/generate_keys -x sparkle_private.key   # the file's contents = the secret
+     ```
+2. Enable **GitHub Pages** for the repo, serving the **`gh-pages`** branch (root).
+   CI creates/updates `appcast.xml` there on each release.
+
+On release, CI signs the embedded `Sparkle.framework` with your Developer ID
+(same Team ID as the app, so Hardened Runtime's library validation passes),
+notarizes, generates the signed appcast from `reLayout.zip`, and publishes it to
+`gh-pages`. If `SPARKLE_ED_PRIVATE_KEY` is unset the appcast step is skipped.
+
 ## Cutting a release
 
 ```sh

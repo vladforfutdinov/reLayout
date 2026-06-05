@@ -22,3 +22,4 @@
 "settings.language" = "Мова:";
 "settings.language.system" = "Як у системі";
 "settings.undoHint" = "Подвійне натискання — скасування";
+"menu.checkUpdates" = "Перевірити оновлення…";

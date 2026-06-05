@@ -22,3 +22,4 @@
 "settings.language" = "Język:";
 "settings.language.system" = "Domyślny systemu";
 "settings.undoHint" = "Dotknij dwukrotnie, aby cofnąć";
+"menu.checkUpdates" = "Sprawdź aktualizacje…";

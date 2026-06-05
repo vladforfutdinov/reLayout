@@ -22,3 +22,4 @@
 "settings.language" = "언어:";
 "settings.language.system" = "시스템 기본값";
 "settings.undoHint" = "두 번 누르면 실행 취소";
+"menu.checkUpdates" = "업데이트 확인…";

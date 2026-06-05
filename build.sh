@@ -32,8 +32,29 @@ cp -R Resources/*.lproj "$APP/Contents/Resources/"
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD" "$APP/Contents/Info.plist"
 echo "version: $VERSION (short $SHORT, build $BUILD)"
 
-swiftc -O -parse-as-library -o "$APP/Contents/MacOS/ReLayout" main.swift \
-    -framework Cocoa -framework Carbon
+SWIFT_FLAGS=(-O -parse-as-library)
+LINK_FLAGS=(-framework Cocoa -framework Carbon)
+
+# Sparkle auto-update is opt-in (WITH_SPARKLE=1, set by release CI) so local/test
+# builds stay framework-free. Fetch a pinned Sparkle, embed the framework, compile
+# the #if SPARKLE code, and rpath-link to the embedded framework.
+SPARKLE_VERSION="2.6.4"
+if [ "${WITH_SPARKLE:-0}" = "1" ]; then
+    SPARKLE_DIR=".sparkle/$SPARKLE_VERSION"
+    if [ ! -d "$SPARKLE_DIR/Sparkle.framework" ]; then
+        echo "fetching Sparkle $SPARKLE_VERSION…"
+        mkdir -p "$SPARKLE_DIR"
+        curl -fsSL "https://github.com/sparkle-project/Sparkle/releases/download/$SPARKLE_VERSION/Sparkle-$SPARKLE_VERSION.tar.xz" \
+            | tar -xJ -C "$SPARKLE_DIR"
+    fi
+    mkdir -p "$APP/Contents/Frameworks"
+    cp -R "$SPARKLE_DIR/Sparkle.framework" "$APP/Contents/Frameworks/"
+    SWIFT_FLAGS+=(-D SPARKLE)
+    LINK_FLAGS+=(-F "$SPARKLE_DIR" -framework Sparkle
+                 -Xlinker -rpath -Xlinker @executable_path/../Frameworks)
+fi
+
+swiftc "${SWIFT_FLAGS[@]}" -o "$APP/Contents/MacOS/ReLayout" main.swift "${LINK_FLAGS[@]}"
 
 # Signing, in precedence order:
 #   1. SIGN_IDENTITY set (CI / release) -> Developer ID Application + Hardened
@@ -41,12 +62,30 @@ swiftc -O -parse-as-library -o "$APP/Contents/MacOS/ReLayout" main.swift \
 #   2. local self-signed "ReLayout Self Signed" (run ./make-cert.sh once) so the
 #      Accessibility grant survives rebuilds during development.
 #   3. ad-hoc fallback.
+# When Sparkle is embedded, sign it (and its nested XPC/helpers) FIRST, then the
+# app, so the seal is valid inside-out.
+#
+# Hardened Runtime (--options runtime) is applied ONLY for Developer ID — it's a
+# distribution/notarization requirement, and its library validation rejects an
+# embedded framework that isn't signed by the SAME Team ID. With Developer ID both
+# app and framework get your team, so it passes. Self-signed/ad-hoc have no team,
+# so we skip hardened runtime locally (the Sparkle build still runs for testing).
 SELF="ReLayout Self Signed"
+sign_app() {   # $1 = identity, $2 = "yes" to harden (Developer ID only)
+    local id="$1" opts=""
+    [ "$2" = "yes" ] && opts="--options runtime --timestamp"
+    if [ -d "$APP/Contents/Frameworks/Sparkle.framework" ]; then
+        codesign --force --deep $opts --sign "$id" "$APP/Contents/Frameworks/Sparkle.framework"
+        codesign --force $opts --sign "$id" "$APP"
+    else
+        codesign --force --deep $opts --sign "$id" "$APP"
+    fi
+}
 if [ -n "${SIGN_IDENTITY:-}" ]; then
-    codesign --force --deep --options runtime --timestamp --sign "$SIGN_IDENTITY" "$APP"
+    sign_app "$SIGN_IDENTITY" "yes"
     echo "signed: Developer ID ($SIGN_IDENTITY), hardened runtime"
 elif security find-identity -v -p codesigning | grep -q "$SELF"; then
-    codesign --force --deep --options runtime --sign "$SELF" "$APP"
+    sign_app "$SELF" "no"
     echo "signed: $SELF (local dev)"
 else
     echo "WARNING: no signing identity — run ./make-cert.sh first. Ad-hoc signing (grant will re-prompt)."

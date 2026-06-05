@@ -4,6 +4,7 @@ ReLayout.app/
 *.swiftmodule
 *.zip
 *.dmg
+.sparkle/
 
 # debug
 /tmp/relayout.log

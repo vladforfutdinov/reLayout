@@ -22,3 +22,4 @@
 "settings.language" = "Language:";
 "settings.language.system" = "System Default";
 "settings.undoHint" = "Double-tap to undo";
+"menu.checkUpdates" = "Check for Updates…";

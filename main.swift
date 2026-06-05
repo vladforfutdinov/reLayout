@@ -1,6 +1,9 @@
 import Cocoa
 import Carbon.HIToolbox
 import ServiceManagement
+#if SPARKLE
+import Sparkle   // only linked in release builds (build.sh WITH_SPARKLE=1)
+#endif
 
 // MARK: - Helpers
 
@@ -504,6 +507,12 @@ final class AppController: NSObject, NSApplicationDelegate {
     private var hotKeyRef: EventHotKeyRef?
     private var handlerInstalled = false
 
+#if SPARKLE
+    // Sparkle auto-updater. startingUpdater:true begins scheduled checks against
+    // SUFeedURL (Info.plist), verified with SUPublicEDKey.
+    private var updater: SPUStandardUpdaterController?
+#endif
+
     // Retype runs on a dedicated serial queue, NOT a Swift-Concurrency Task: the
     // work is blocking input synthesis (waitModifiersReleased / typeUnicode use
     // usleep, plus synchronous CGEvent posting) that must not occupy the
@@ -551,6 +560,9 @@ final class AppController: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ note: Notification) {
         Loc.load()   // apply saved language override before any UI is built
+#if SPARKLE
+        updater = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
+#endif
         promptAccessibilityIfNeeded()
         loadHotkey()
         installHotKeyHandler()
@@ -673,6 +685,9 @@ final class AppController: NSObject, NSApplicationDelegate {
         menu.addItem(info)
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: L("menu.about"), action: #selector(showAbout), keyEquivalent: ""))
+#if SPARKLE
+        menu.addItem(NSMenuItem(title: L("menu.checkUpdates"), action: #selector(checkForUpdates), keyEquivalent: ""))
+#endif
         menu.addItem(NSMenuItem(title: L("menu.settings"), action: #selector(openReLayoutSettings), keyEquivalent: ","))
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: L("menu.openKeyboardSettings"), action: #selector(openKeyboardSettings), keyEquivalent: ""))
@@ -691,6 +706,10 @@ final class AppController: NSObject, NSApplicationDelegate {
     }
 
     @objc private func quit() { NSApp.terminate(nil) }
+
+#if SPARKLE
+    @objc private func checkForUpdates() { updater?.checkForUpdates(nil) }
+#endif
 
     // Standard macOS About panel. Name/version/icon/copyright come from Info.plist
     // (CFBundleName, CFBundleShortVersionString, CFBundleVersion,

@@ -54,6 +54,9 @@ jobs:
           rm -f "$RUNNER_TEMP/cert.p12"
 
       - name: Build
+        env:
+          # embed Sparkle only for release builds; main/PR stay framework-free
+          WITH_SPARKLE: ${{ startsWith(github.ref, 'refs/tags/v') && '1' || '0' }}
         run: ./build.sh            # signs with $SIGN_IDENTITY if set, else ad-hoc
 
       - name: Test
@@ -95,6 +98,35 @@ jobs:
             reLayout.dmg
             reLayout.zip
           generate_release_notes: true   # auto changelog from commits/PRs since last tag
+
+      - name: Publish Sparkle appcast to GitHub Pages (release only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SPARKLE_ED_PRIVATE_KEY:-}" ]; then
+            echo "SPARKLE_ED_PRIVATE_KEY unset — skipping appcast"; exit 0
+          fi
+          GEN="$(ls .sparkle/*/bin/generate_appcast | head -1)"
+          printf '%s' "$SPARKLE_ED_PRIVATE_KEY" > "$RUNNER_TEMP/ed_priv"
+          SRC="$RUNNER_TEMP/appcast-src"; mkdir -p "$SRC"; cp reLayout.zip "$SRC/"
+          "$GEN" --ed-key-file "$RUNNER_TEMP/ed_priv" \
+            --download-url-prefix "https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/" \
+            "$SRC"
+          OUT="$RUNNER_TEMP/pages"
+          git clone --depth 1 --branch gh-pages \
+            "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$OUT" 2>/dev/null || {
+              git clone --depth 1 "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$OUT"
+              ( cd "$OUT" && git checkout --orphan gh-pages && git rm -rf . >/dev/null 2>&1 || true )
+            }
+          cp "$SRC/appcast.xml" "$OUT/appcast.xml"
+          ( cd "$OUT"
+            git add appcast.xml
+            git -c user.name=relayout-ci -c user.email=ci@users.noreply.github.com \
+              commit -m "appcast ${GITHUB_REF_NAME}" || { echo "no change"; exit 0; }
+            git push origin gh-pages )
 
       - name: Update Homebrew tap (release only)
         if: startsWith(github.ref, 'refs/tags/v')

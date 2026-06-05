@@ -22,3 +22,4 @@
 "settings.language" = "Langue :";
 "settings.language.system" = "Par défaut du système";
 "settings.undoHint" = "Double-appui pour annuler";
+"menu.checkUpdates" = "Rechercher les mises à jour…";

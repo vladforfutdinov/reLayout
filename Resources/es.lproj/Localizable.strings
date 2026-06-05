@@ -22,3 +22,4 @@
 "settings.language" = "Idioma:";
 "settings.language.system" = "Predeterminado del sistema";
 "settings.undoHint" = "Doble pulsación para deshacer";
+"menu.checkUpdates" = "Buscar actualizaciones…";

@@ -132,6 +132,12 @@ names of conflicting macOS system shortcuts shown in Settings are reported in En
 ./ReLayout.app/Contents/MacOS/ReLayout --selftest   # sample conversions, no GUI
 ```
 
+## Updates
+
+Release builds auto-update via [Sparkle](https://sparkle-project.org) (EdDSA-signed
+appcast, checked in the background). Or trigger it from the menu-bar
+**⇄ → Check for Updates…**.
+
 ## Autostart
 
 Toggle *Open at login* in Settings, or System Settings → General → Login Items → `ReLayout.app`.

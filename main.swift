@@ -763,6 +763,10 @@ final class AppController: NSObject, NSApplicationDelegate {
         if let icon = menuGlyphImage(for: NSApp.effectiveAppearance) {
             options[.applicationIcon] = icon
         }
+        // show the full git version (release tag vs dev describe) on the version line
+        if let full = Bundle.main.object(forInfoDictionaryKey: "RLVersionFull") as? String, !full.isEmpty {
+            options[.applicationVersion] = full
+        }
         NSApp.orderFrontStandardAboutPanel(options: options)
 
         // close the panel as soon as it loses focus

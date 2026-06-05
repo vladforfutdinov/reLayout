@@ -50,6 +50,9 @@ cp Resources/for-dark-text-1024.png Resources/for-light-text-1024.png "$APP/Cont
 # inject version (short = release number; build = commit count)
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $SHORT" "$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD" "$APP/Contents/Info.plist"
+# full git version (e.g. 1.2.3 for a release tag, 1.2.3-4-gabc123[-dirty] for a
+# dev build) — shown in the About panel so dev vs prod is obvious.
+/usr/libexec/PlistBuddy -c "Set :RLVersionFull $VERSION" "$APP/Contents/Info.plist"
 echo "version: $VERSION (short $SHORT, build $BUILD)"
 
 SWIFT_FLAGS=(-O -parse-as-library)

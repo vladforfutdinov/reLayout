@@ -43,6 +43,10 @@ if [ -f "$ICON_SRC" ]; then
     echo "icon: AppIcon.icns from $ICON_SRC"
 fi
 
+# keycap variants for the static menu-bar icon (appearance-aware: silver on dark
+# bars, black on light), loaded at runtime via NSImage(named:)
+cp Resources/for-dark-1024.png Resources/for-light-1024.png "$APP/Contents/Resources/" 2>/dev/null || true
+
 # inject version (short = release number; build = commit count)
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $SHORT" "$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD" "$APP/Contents/Info.plist"

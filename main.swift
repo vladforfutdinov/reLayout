@@ -506,6 +506,7 @@ final class AppController: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private var hotKeyRef: EventHotKeyRef?
     private var handlerInstalled = false
+    private var appearanceObservation: NSKeyValueObservation?   // refresh static icon on dark/light switch
 
 #if SPARKLE
     // Sparkle auto-updater. startingUpdater:true begins scheduled checks against
@@ -575,6 +576,10 @@ final class AppController: NSObject, NSApplicationDelegate {
         // enabled-set change -> the cached layout list is stale; drop it and refresh
         dnc.addObserver(self, selector: #selector(enabledSourcesChanged),
                         name: NSNotification.Name(kTISNotifyEnabledKeyboardInputSourcesChanged as String), object: nil)
+        // refresh the (static) menu-bar icon when the system switches dark/light
+        appearanceObservation = NSApp.observe(\.effectiveAppearance) { [weak self] _, _ in
+            DispatchQueue.main.async { self?.updateStatusIcon() }
+        }
         updateStatusIcon()
         if Layout.enabledList().count < 2 { reportMissingLayouts() }
     }
@@ -605,7 +610,11 @@ final class AppController: NSObject, NSApplicationDelegate {
     private func updateStatusIcon() {
         guard let button = statusItem?.button else { return }
         if menuBarStatic {
-            let base: NSImage = NSApp.applicationIconImage ?? NSImage()
+            // Pick the keycap that reads on the current menu-bar appearance: the
+            // silver keycap on a dark bar, the black one on a light bar.
+            let dark = button.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+            let base = NSImage(named: dark ? "for-dark-1024" : "for-light-1024")
+                ?? NSApp.applicationIconImage ?? NSImage()
             let icon = (base.copy() as? NSImage) ?? base
             icon.size = NSSize(width: 18, height: 18)
             icon.isTemplate = false   // keycap is full-colour, not a template
@@ -740,10 +749,7 @@ final class AppController: NSObject, NSApplicationDelegate {
                 .link: URL(string: "https://github.com/vladforfutdinov/reLayout") as Any,
                 .font: NSFont.systemFont(ofSize: 11),
             ])
-        NSApp.orderFrontStandardAboutPanel(options: [
-            .credits: credits,
-            .applicationIcon: NSImage(size: NSSize(width: 1, height: 1)),   // 1×1 transparent → no logo
-        ])
+        NSApp.orderFrontStandardAboutPanel(options: [.credits: credits])   // shows the app icon
     }
 
     @objc private func openKeyboardSettings() {

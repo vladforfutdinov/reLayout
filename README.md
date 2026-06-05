@@ -19,16 +19,27 @@ on the Ukrainian layout with **Option**; the same physical `Option+key` on US pr
 `ß æ …`. Both sit on the same keycode+Option, so they convert automatically — no hand-coded
 character tables, and the Option layer just works.
 
-## Build & run
+## Install
 
-```sh
-./make-cert.sh     # one-time: self-signed identity so the Accessibility grant survives rebuilds
-./build.sh
-open ./ReLayout.app
-```
+Grab **`reLayout.dmg`** from the [latest release](https://github.com/vladforfutdinov/reLayout/releases/latest),
+open it, and drag **ReLayout** onto **Applications**.
+
+The app is self-signed, not notarized, so Gatekeeper blocks the first launch
+("unidentified developer"). Right-click **ReLayout.app → Open → Open** once (or
+**System Settings → Privacy & Security → Open Anyway**); subsequent launches are
+normal. From the command line: `xattr -dr com.apple.quarantine /Applications/ReLayout.app`.
 
 First launch asks for **Accessibility** (needed to read selection / send keystrokes):
 **System Settings → Privacy & Security → Accessibility** → enable **reLayout** → relaunch.
+
+## Build from source
+
+```sh
+./make-cert.sh     # one-time: self-signed identity so the Accessibility grant survives rebuilds
+./build.sh         # -> ReLayout.app
+./make-dmg.sh      # optional: -> reLayout.dmg (drag-to-Applications installer)
+open ./ReLayout.app
+```
 
 ## Use
 

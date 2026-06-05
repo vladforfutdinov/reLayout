@@ -2,6 +2,8 @@
 ReLayout.app/
 *.o
 *.swiftmodule
+*.zip
+*.dmg
 
 # debug
 /tmp/relayout.log

@@ -1,0 +1,29 @@
+name: core
+
+# Cross-platform check of the shared engine (ReLayoutCore): proves the reused
+# Swift compiles and passes on both macOS and Windows. Separate from the
+# tag-only release workflow.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: swift test (engine)
+        run: swift test
+
+  test-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Swift toolchain
+        uses: compnerd/gha-setup-swift@main
+        with:
+          branch: swift-6.0.3-release
+          tag: 6.0.3-RELEASE
+      - name: swift test (engine)
+        run: swift test

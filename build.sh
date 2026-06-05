@@ -113,7 +113,7 @@ if [ "${WITH_SPARKLE:-0}" = "1" ]; then
                  -Xlinker -rpath -Xlinker @executable_path/../Frameworks)
 fi
 
-swiftc "${SWIFT_FLAGS[@]}" -o "$APP/Contents/MacOS/ReLayout" main.swift "${LINK_FLAGS[@]}"
+swiftc "${SWIFT_FLAGS[@]}" -o "$APP/Contents/MacOS/ReLayout" main.swift Core/*.swift "${LINK_FLAGS[@]}"
 
 # Signing, in precedence order:
 #   1. SIGN_IDENTITY set (CI / release) -> Developer ID Application + Hardened

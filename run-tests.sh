@@ -6,6 +6,6 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 BIN="$(mktemp -d)/relayout-tests"
-swiftc -DTESTING -parse-as-library -o "$BIN" main.swift tests.swift \
+swiftc -DTESTING -parse-as-library -o "$BIN" main.swift tests.swift Core/*.swift \
     -framework Cocoa -framework Carbon
 "$BIN"

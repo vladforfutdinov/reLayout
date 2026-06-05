@@ -83,20 +83,9 @@ func fourCharCode(_ s: String) -> FourCharCode {
     return r
 }
 
-// MARK: - Keystroke (physical key + modifier state)
-
-struct KeyStroke: Hashable {
-    let keyCode: UInt16
-    let mods: UInt32 // UCKeyTranslate modifierKeyState (carbon mods >> 8)
-}
-
-// Conversion-relevant surface of a keyboard layout. Lets the transliteration
-// engine be exercised with injected fixtures (tests) instead of a live TIS source.
-protocol LayoutMaps {
-    var charToStroke: [String: KeyStroke] { get }
-    var strokeToChar: [KeyStroke: String] { get }
-    var isCyrillic: Bool { get }
-}
+// KeyStroke, LayoutMaps and the conversion engine (transliterate/convertWrong/
+// tokenize/script detection) live in Core/Engine.swift — shared with the Windows
+// port. macOS builds compile that file alongside this one (see build.sh).
 
 // MARK: - Layout engine
 //
@@ -189,78 +178,6 @@ final class Layout: LayoutMaps {
         }
         return out
     }
-}
-
-func transliterate(_ text: String, from src: LayoutMaps, to dst: LayoutMaps) -> String {
-    var out = ""
-    for ch in text {
-        let key = String(ch)
-        if let stroke = src.charToStroke[key], let mapped = dst.strokeToChar[stroke] {
-            out += mapped
-        } else {
-            out += key
-        }
-    }
-    return out
-}
-
-private func isCyrLetter(_ u: Unicode.Scalar) -> Bool {
-    (0x0400...0x04FF).contains(u.value) || (0x0500...0x052F).contains(u.value)
-}
-
-private func hasCyr(_ w: Substring) -> Bool { w.unicodeScalars.contains(where: isCyrLetter) }
-
-private func isLatinLetter(_ u: Unicode.Scalar) -> Bool {
-    let v = u.value
-    if (0x41...0x5A).contains(v) || (0x61...0x7A).contains(v) { return true }
-    // Latin-1 Supplement + Latin Extended-A/B letters (ä ö ü ß é …), minus × ÷
-    if (0xC0...0x24F).contains(v) && v != 0xD7 && v != 0xF7 { return true }
-    return false
-}
-
-private func hasLatin(_ w: Substring) -> Bool { w.unicodeScalars.contains(where: isLatinLetter) }
-
-// A word is wrong-but-Cyrillic-target if any of its chars (which src can type) maps
-// to a Cyrillic letter in dst. Catches the Option layer (ß/æ -> ы/э), neither a-z nor Cyrillic.
-private func mapsToCyr(_ w: Substring, src: LayoutMaps, dst: LayoutMaps) -> Bool {
-    for ch in w {
-        if let st = src.charToStroke[String(ch)], let m = dst.strokeToChar[st],
-           let f = m.unicodeScalars.first, isCyrLetter(f) { return true }
-    }
-    return false
-}
-
-// Tokenize into alternating whitespace / non-whitespace runs (order preserved).
-private func tokenize(_ text: String) -> [Substring] {
-    var tokens: [Substring] = []
-    var i = text.startIndex
-    while i < text.endIndex {
-        let space = text[i].isWhitespace
-        var j = i
-        while j < text.endIndex, text[j].isWhitespace == space { j = text.index(after: j) }
-        tokens.append(text[i..<j]); i = j
-    }
-    return tokens
-}
-
-// Per-word conversion. The "wrong" words are those typed in `src` (the active/wrong
-// layout) — identified by script — and only those are converted to `dst`.
-//   src Cyrillic -> convert words containing Cyrillic
-//   src Latin    -> convert words with Latin letters (or src->dst Cyrillic-mapping, e.g. ß/æ)
-// Returns nil if nothing changed.
-func convertWrong(_ text: String, src: LayoutMaps, dst: LayoutMaps) -> String? {
-    var acc = ""
-    for t in tokenize(text) {
-        if t.first?.isWhitespace ?? false { acc += t; continue }
-        let wrong: Bool
-        if src.isCyrillic {
-            wrong = hasCyr(t)
-        } else {
-            wrong = !hasCyr(t) && (hasLatin(t) || mapsToCyr(t, src: src, dst: dst))
-        }
-        acc += wrong ? transliterate(String(t), from: src, to: dst) : String(t)
-    }
-    return acc == text ? nil : acc
 }
 
 // MARK: - Hotkey model + helpers (file scope)

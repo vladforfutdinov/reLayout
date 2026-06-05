@@ -370,12 +370,16 @@ final class ShortcutField: NSView {
     var display: String { didSet { needsDisplay = true } }
     // (mode, keyCode, carbonMods, chord, display)
     var onCommit: ((HKMode, UInt32, UInt32, [UInt16], String) -> Void)?
+    // Called true when recording starts, false when it ends — lets the owner
+    // suspend the live hotkey so it doesn't fire (and steal focus) while typing one.
+    var onRecordingChanged: ((Bool) -> Void)?
 
     private var recording = false { didSet { needsDisplay = true } }
     private var monitor: Any?
     private var peak: Set<UInt16>?
     private var comboUsed = false
     private var lastCommitted: String?   // dedupe re-commits; also = value shown while recording
+    private var committing = false       // suppress resign-triggered stop during commit churn
 
     init(display: String) {
         self.display = display
@@ -397,7 +401,7 @@ final class ShortcutField: NSView {
     // Finalize recording if focus leaves the field (e.g. user clicks another
     // control), so a chord recording doesn't keep capturing the keyboard.
     override func resignFirstResponder() -> Bool {
-        if recording { stop() }
+        if recording, !committing { stop() }
         return super.resignFirstResponder()
     }
 
@@ -430,6 +434,7 @@ final class ShortcutField: NSView {
     private func start() {
         recording = true
         peak = nil; comboUsed = false; lastCommitted = nil
+        onRecordingChanged?(true)   // pause the live hotkey while we capture a new one
         window?.makeFirstResponder(self)
         monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged]) { [weak self] ev in
             guard let self else { return ev }
@@ -442,6 +447,7 @@ final class ShortcutField: NSView {
     private func stop() {
         if let m = monitor { NSEvent.removeMonitor(m); monitor = nil }
         recording = false
+        onRecordingChanged?(false)   // resume the live hotkey
     }
 
     private func handleKeyDown(_ ev: NSEvent) -> NSEvent? {
@@ -468,6 +474,8 @@ final class ShortcutField: NSView {
 
     private func commit(_ mode: HKMode, _ code: UInt32, _ mods: UInt32, _ chord: [UInt16], _ disp: String) {
         display = disp
+        committing = true                 // onCommit may relayout the window and churn focus
+        defer { committing = false }
         if disp != lastCommitted {
             lastCommitted = disp
             onCommit?(mode, code, mods, chord, disp)
@@ -476,6 +484,7 @@ final class ShortcutField: NSView {
             // Keep recording so the user can pick another chord without re-clicking
             // (focus stays on the field). Re-arm capture; click away / Esc finalizes.
             peak = nil; comboUsed = false
+            window?.makeFirstResponder(self)   // re-assert in case onCommit churned focus
             needsDisplay = true
         } else {
             stop()   // a combo is a definitive one-shot pick
@@ -739,12 +748,18 @@ final class AppController: NSObject, NSApplicationDelegate {
         dbg("InstallEventHandler status=\(ih)")
     }
 
-    // Tear down whatever is active, then install the current mode.
-    private func applyHotkey() {
+    // Unregister the live hotkey (both modes). Used to pause it while the user
+    // records a new one, and as the first half of applyHotkey.
+    private func suspendHotkey() {
         if let r = hotKeyRef { UnregisterEventHotKey(r); hotKeyRef = nil }
         for m in tapMonitors { NSEvent.removeMonitor(m) }
         tapMonitors.removeAll()
         tapArmed = false
+    }
+
+    // Tear down whatever is active, then install the current mode.
+    private func applyHotkey() {
+        suspendHotkey()
 
         switch hotKeyMode {
         case .carbon:
@@ -886,6 +901,10 @@ final class AppController: NSObject, NSApplicationDelegate {
         let field = ShortcutField(display: hotKeyDisplay)
         field.onCommit = { [weak self] mode, code, mods, chord, disp in
             self?.commitHotkey(mode, code, mods, chord, disp)
+        }
+        field.onRecordingChanged = { [weak self] active in
+            // suspend the live hotkey while recording so it can't fire and steal focus
+            if active { self?.suspendHotkey() } else { self?.applyHotkey() }
         }
         shortcutField = field
         let resetIcon = NSImage(systemSymbolName: "arrow.uturn.backward", accessibilityDescription: L("settings.restoreDefault"))

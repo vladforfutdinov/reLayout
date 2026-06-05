@@ -466,6 +466,7 @@ final class AppController: NSObject, NSApplicationDelegate {
     private var tapArmed = false
     private var tapArmTime: Double = 0
     private var tapInterrupted = false
+    private var tapPolluted = false   // an out-of-set modifier appeared this cycle
 
     // settings
     private var settingsWindow: NSWindow?
@@ -744,6 +745,7 @@ final class AppController: NSObject, NSApplicationDelegate {
         for m in tapMonitors { NSEvent.removeMonitor(m) }
         tapMonitors.removeAll()
         tapArmed = false
+        tapPolluted = false
     }
 
     // Tear down whatever is active, then install the current mode.
@@ -778,19 +780,28 @@ final class AppController: NSObject, NSApplicationDelegate {
         let target = Set(hotKeyChord)
         guard !target.isEmpty else { return }
         let cur = pressedModKeys(ev.modifierFlags)
-        if cur == target {
-            tapArmed = true; tapArmTime = ProcessInfo.processInfo.systemUptime; tapInterrupted = false
-        } else if cur.isEmpty {
-            if tapArmed, !tapInterrupted,
+        if cur.isEmpty {
+            // fire only on a clean cycle: exact chord, no extra modifier ever, no
+            // key/mouse interruption, released quickly.
+            if tapArmed, !tapInterrupted, !tapPolluted,
                ProcessInfo.processInfo.systemUptime - tapArmTime < 0.6 {
-                tapArmed = false
                 worker.async { self.performRetype() }
             }
             tapArmed = false
+            tapPolluted = false   // reset for the next press cycle
         } else if !cur.isSubset(of: target) {
-            tapArmed = false   // an extra modifier outside the set -> cancel
+            // a modifier OUTSIDE the configured set was held together with it —
+            // poison the whole cycle so releasing back to the chord can't re-arm.
+            tapPolluted = true
+            tapArmed = false
+        } else if cur == target {
+            if !tapPolluted, !tapArmed {
+                tapArmed = true
+                tapArmTime = ProcessInfo.processInfo.systemUptime
+                tapInterrupted = false
+            }
         }
-        // a strict subset = chord still building up or partially released -> wait
+        // a non-empty strict subset = chord still building up / partially released -> wait
     }
 
     // MARK: hotkey persistence

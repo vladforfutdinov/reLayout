@@ -26,14 +26,14 @@ func performRetype() {
 let hotkeyID: Int32 = 1
 // MVP default: Ctrl+Alt+R (NOREPEAT so holding doesn't spam).
 let mods = UINT(MOD_CONTROL) | UINT(MOD_ALT) | UINT(MOD_NOREPEAT)
-if RegisterHotKey(nil, hotkeyID, mods, UINT(0x52)) == 0 {
+if !RegisterHotKey(nil, hotkeyID, mods, UINT(0x52)) {
     print("reLayout: failed to register hotkey")
     exit(1)
 }
 print("reLayout (Windows MVP) — hotkey: Ctrl+Alt+R. Select text, press it. Ctrl+C here to quit.")
 
 var msg = MSG()
-while GetMessageW(&msg, nil, 0, 0) > 0 {
+while GetMessageW(&msg, nil, 0, 0) {
     if msg.message == UINT(WM_HOTKEY), Int32(truncatingIfNeeded: msg.wParam) == hotkeyID {
         performRetype()
     }

@@ -26,3 +26,4 @@
 "settings.menubar" = "Меню-бар:";
 "settings.menubar.layout" = "Поточна розкладка";
 "settings.menubar.static" = "Статична іконка";
+"settings.autoUpdate" = "Автоматично перевіряти оновлення";

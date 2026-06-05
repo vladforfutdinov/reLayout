@@ -26,3 +26,4 @@
 "settings.menubar" = "Barra de menús:";
 "settings.menubar.layout" = "Estado de distribución";
 "settings.menubar.static" = "Icono estático";
+"settings.autoUpdate" = "Buscar actualizaciones automáticamente";

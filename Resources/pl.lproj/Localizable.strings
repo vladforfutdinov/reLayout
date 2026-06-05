@@ -26,3 +26,4 @@
 "settings.menubar" = "Pasek menu:";
 "settings.menubar.layout" = "Stan układu";
 "settings.menubar.static" = "Statyczna ikona";
+"settings.autoUpdate" = "Automatycznie sprawdzaj aktualizacje";

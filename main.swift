@@ -742,6 +742,9 @@ final class AppController: NSObject, NSApplicationDelegate {
 
 #if SPARKLE
     @objc private func checkForUpdates() { updater?.checkForUpdates(nil) }
+    @objc private func toggleAutoUpdate(_ sender: NSButton) {
+        updater?.updater.automaticallyChecksForUpdates = (sender.state == .on)
+    }
 #endif
 
     // Standard macOS About panel. Name/version/icon/copyright come from Info.plist
@@ -1044,15 +1047,20 @@ final class AppController: NSObject, NSApplicationDelegate {
             .foregroundColor: NSColor.linkColor, .font: NSFont.systemFont(ofSize: 11),
         ])
 
-        let hotkeyRowIndex = 4
-        let grid = NSGridView(views: [
-            [caption(""), cb],
-            [caption(L("settings.layouts")), layouts],
-            [caption(L("settings.language")), langPopup],
-            [caption(L("settings.menubar")), menuBarPopup],
-            [caption(L("settings.hotkey")), hkColumn],
-            [NSGridCell.emptyContentView, aboutLink],
-        ])
+        var rows: [[NSView]] = [[caption(""), cb]]
+#if SPARKLE
+        let autoUpdateCb = NSButton(checkboxWithTitle: L("settings.autoUpdate"),
+                                    target: self, action: #selector(toggleAutoUpdate(_:)))
+        autoUpdateCb.state = (updater?.updater.automaticallyChecksForUpdates ?? true) ? .on : .off
+        rows.append([caption(""), autoUpdateCb])
+#endif
+        rows.append([caption(L("settings.layouts")), layouts])
+        rows.append([caption(L("settings.language")), langPopup])
+        rows.append([caption(L("settings.menubar")), menuBarPopup])
+        let hotkeyRowIndex = rows.count
+        rows.append([caption(L("settings.hotkey")), hkColumn])
+        rows.append([NSGridCell.emptyContentView, aboutLink])
+        let grid = NSGridView(views: rows)
         grid.rowSpacing = 10
         grid.columnSpacing = 10
         grid.column(at: 0).xPlacement = .trailing

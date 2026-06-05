@@ -26,3 +26,4 @@
 "settings.menubar" = "메뉴 막대:";
 "settings.menubar.layout" = "레이아웃 상태";
 "settings.menubar.static" = "정적 아이콘";
+"settings.autoUpdate" = "자동으로 업데이트 확인";

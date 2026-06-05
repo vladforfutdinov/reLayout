@@ -26,3 +26,4 @@
 "settings.menubar" = "Menu bar:";
 "settings.menubar.layout" = "Layout state";
 "settings.menubar.static" = "Static icon";
+"settings.autoUpdate" = "Automatically check for updates";

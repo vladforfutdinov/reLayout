@@ -437,6 +437,19 @@ final class AppController: NSObject, NSApplicationDelegate {
     private var hotKeyChord: [UInt16] = [UInt16(kVK_Option)]   // modTap: modifier virtual keys
     private var hotKeyDisplay = "left⌥"
 
+    // Last conversion, for double-tap undo: pressing the hotkey again within
+    // undoWindow seconds reverses it (reselects the typed text, restores the
+    // original, flips the input source back). Accessed only from `worker`
+    // (serial), so no lock. systemUptime is monotonic.
+    private struct Conversion {
+        let original: String
+        let typed: String
+        let srcSource: TISInputSource
+        let time: Double
+    }
+    private var lastConversion: Conversion?
+    private let undoWindow = 1.5
+
     // modifier-tap runtime state
     private var tapMonitors: [Any] = []
     private var tapArmed = false
@@ -892,7 +905,7 @@ final class AppController: NSObject, NSApplicationDelegate {
     //   - >2, cur != #0   -> #0 (first)
     //   - >2, cur == #0   -> layout of the OTHER-script words if uniquely determinable,
     //                        else #1 (second)
-    private func convert(_ text: String) -> (out: String, dst: Layout)? {
+    private func convert(_ text: String) -> (out: String, dst: Layout, src: Layout)? {
         let enabled = Layout.enabledList()
         guard enabled.count >= 2 else { return nil }
         let curID = currentSourceID()
@@ -912,7 +925,7 @@ final class AppController: NSObject, NSApplicationDelegate {
 
         dbg("convert cur=\(cur.id) -> target=\(target.id)")
         guard let out = convertWrong(text, src: cur, dst: target) else { return nil }
-        return (out, target)
+        return (out, target, cur)
     }
 
     // The target implied by the NON-wrong (other-script) words in the selection,
@@ -975,6 +988,15 @@ final class AppController: NSObject, NSApplicationDelegate {
             return
         }
 
+        // Double-tap undo: a second hotkey within undoWindow of a conversion
+        // reverses it instead of converting again.
+        if let last = lastConversion,
+           ProcessInfo.processInfo.systemUptime - last.time < undoWindow {
+            lastConversion = nil
+            performUndo(last)
+            return
+        }
+
         waitModifiersReleased()
 
         // The clipboard is saved/restored ONLY on the Cmd+C fallback path. The AX
@@ -1031,6 +1053,25 @@ final class AppController: NSObject, NSApplicationDelegate {
         DispatchQueue.main.sync { _ = TISSelectInputSource(r.dst.source) }
         // restore clipboard only if the Cmd+C read fallback dirtied it
         if clipboardTouched { restoreClipboard(clipboardSaved) }
+        // remember it so a quick second hotkey can undo
+        lastConversion = Conversion(original: text, typed: r.out,
+                                    srcSource: r.src.source,
+                                    time: ProcessInfo.processInfo.systemUptime)
+    }
+
+    // Reverse the last conversion: reselect the text we just typed (Shift+Left
+    // once per character, since the caret sits right after it), replace it with
+    // the original, and flip the input source back to the source layout.
+    private func performUndo(_ last: Conversion) {
+        waitModifiersReleased()
+        dbg("undo: restore \(last.original.debugDescription)")
+        for _ in 0..<last.typed.count {
+            postKey(CGKeyCode(kVK_LeftArrow), .maskShift)
+        }
+        usleep(20_000)
+        typeUnicode(last.original)
+        usleep(20_000)
+        DispatchQueue.main.sync { _ = TISSelectInputSource(last.srcSource) }
     }
 
     // Insert a string by synthesizing per-character Unicode key events.

@@ -46,6 +46,8 @@ open ./ReLayout.app
 1. Select the mistyped text — or, with nothing selected, the text from the caret back to
    the start of the line is used.
 2. Press the hotkey (default: **tap left Option**).
+3. **Undo** — press the hotkey again within ~1.5 s to reverse the conversion (restores the
+   original text and the previous input source). Like RuSwitcher's double-Alt.
 
 Conversion is **per word**. The "wrong" words are those typed in the **layout active at the
 moment you press the hotkey** (identified by script). Only those are converted; the rest of

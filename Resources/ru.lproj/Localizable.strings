@@ -18,3 +18,7 @@
 "shortcut.recording" = "Запись";
 
 "a11y.statusItem" = "reLayout, текущий источник ввода: %@";
+
+"settings.language" = "Язык:";
+"settings.language.system" = "Как в системе";
+"settings.undoHint" = "Двойное нажатие — отмена";

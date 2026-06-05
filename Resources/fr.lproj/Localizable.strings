@@ -18,3 +18,7 @@
 "shortcut.recording" = "Enregistrement";
 
 "a11y.statusItem" = "reLayout, source de saisie actuelle : %@";
+
+"settings.language" = "Langue :";
+"settings.language.system" = "Par défaut du système";
+"settings.undoHint" = "Double-appui pour annuler";

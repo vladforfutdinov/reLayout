@@ -18,3 +18,7 @@
 "shortcut.recording" = "Grabando";
 
 "a11y.statusItem" = "reLayout, fuente de entrada actual: %@";
+
+"settings.language" = "Idioma:";
+"settings.language.system" = "Predeterminado del sistema";
+"settings.undoHint" = "Doble pulsación para deshacer";

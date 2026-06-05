@@ -18,3 +18,7 @@
 "shortcut.recording" = "Aufnahme";
 
 "a11y.statusItem" = "reLayout, aktuelle Eingabequelle: %@";
+
+"settings.language" = "Sprache:";
+"settings.language.system" = "Systemstandard";
+"settings.undoHint" = "Doppeltippen zum Widerrufen";

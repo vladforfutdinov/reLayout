@@ -18,3 +18,7 @@
 "shortcut.recording" = "記録中";
 
 "a11y.statusItem" = "reLayout、現在の入力ソース：%@";
+
+"settings.language" = "言語：";
+"settings.language.system" = "システムのデフォルト";
+"settings.undoHint" = "ダブルタップで取り消し";

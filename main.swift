@@ -6,7 +6,47 @@ import ServiceManagement
 
 // Localized UI string. Keys live in <lang>.lproj/Localizable.strings (copied
 // into the app bundle by build.sh). Missing key -> the key itself is returned.
-func L(_ key: String) -> String { NSLocalizedString(key, comment: "") }
+//
+// Loc.bundle is the active localization. Default = .main (follows the system
+// language). A Settings override points it at a specific <lang>.lproj so the UI
+// can switch language live, without relaunch.
+enum Loc {
+    // 12 supported UI languages, in menu order. code -> native display name.
+    static let languages: [(code: String, name: String)] = [
+        ("en", "English"), ("ru", "Русский"), ("uk", "Українська"),
+        ("be", "Беларуская"), ("de", "Deutsch"), ("fr", "Français"),
+        ("es", "Español"), ("pt", "Português"), ("pl", "Polski"),
+        ("zh-Hans", "简体中文"), ("ja", "日本語"), ("ko", "한국어"),
+    ]
+    private static let key = "language"   // UserDefaults; absent/"" = follow system
+    private(set) static var bundle: Bundle = .main
+
+    static var override: String? {
+        let v = UserDefaults.standard.string(forKey: key)
+        return (v?.isEmpty ?? true) ? nil : v
+    }
+
+    static func apply(_ code: String?) {
+        if let code, !code.isEmpty {
+            UserDefaults.standard.set(code, forKey: key)
+        } else {
+            UserDefaults.standard.removeObject(forKey: key)
+        }
+        load()
+    }
+
+    static func load() {
+        if let code = override,
+           let path = Bundle.main.path(forResource: code, ofType: "lproj"),
+           let b = Bundle(path: path) {
+            bundle = b
+        } else {
+            bundle = .main
+        }
+    }
+}
+
+func L(_ key: String) -> String { Loc.bundle.localizedString(forKey: key, value: key, table: nil) }
 
 // Debug trace to /tmp/relayout.log. Compiled out unless built with -DDEBUG:
 // these lines include the user's selected text, which must never be written to
@@ -471,6 +511,7 @@ final class AppController: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ note: Notification) {
+        Loc.load()   // apply saved language override before any UI is built
         promptAccessibilityIfNeeded()
         loadHotkey()
         installHotKeyHandler()
@@ -623,7 +664,10 @@ final class AppController: NSObject, NSApplicationDelegate {
                 .link: URL(string: "https://github.com/vladforfutdinov/reLayout") as Any,
                 .font: NSFont.systemFont(ofSize: 11),
             ])
-        NSApp.orderFrontStandardAboutPanel(options: [.credits: credits])
+        NSApp.orderFrontStandardAboutPanel(options: [
+            .credits: credits,
+            .applicationIcon: NSImage(size: NSSize(width: 1, height: 1)),   // 1×1 transparent → no logo
+        ])
     }
 
     @objc private func openKeyboardSettings() {
@@ -818,6 +862,11 @@ final class AppController: NSObject, NSApplicationDelegate {
             conflict.stringValue = String(format: L("settings.conflict"), w)
         }
 
+        // small secondary hint under the hotkey field: double-tap to undo
+        let undoHint = NSTextField(labelWithString: L("settings.undoHint"))
+        undoHint.font = .systemFont(ofSize: 11)
+        undoHint.textColor = .secondaryLabelColor
+
         let cb = NSButton(checkboxWithTitle: L("settings.openAtLogin"), target: self, action: #selector(toggleLogin))
         cb.state = loginEnabled() ? .on : .off
         loginCheckbox = cb
@@ -825,18 +874,37 @@ final class AppController: NSObject, NSApplicationDelegate {
         let layouts = NSTextField(labelWithString: layoutListText())
         layouts.textColor = .secondaryLabelColor
 
+        // language picker: "System Default" + the 12 native names; tag = code ("" = system)
+        let langPopup = NSPopUpButton(frame: .zero, pullsDown: false)
+        langPopup.addItem(withTitle: L("settings.language.system"))
+        langPopup.lastItem?.tag = 0
+        for (i, lang) in Loc.languages.enumerated() {
+            langPopup.addItem(withTitle: lang.name)
+            langPopup.lastItem?.tag = i + 1
+        }
+        if let code = Loc.override, let idx = Loc.languages.firstIndex(where: { $0.code == code }) {
+            langPopup.selectItem(withTag: idx + 1)
+        } else {
+            langPopup.selectItem(withTag: 0)
+        }
+        langPopup.target = self
+        langPopup.action = #selector(changeLanguage(_:))
+
         let grid = NSGridView(views: [
             [caption(""), cb],
             [caption(L("settings.layouts")), layouts],
+            [caption(L("settings.language")), langPopup],
             [caption(L("settings.hotkey")), hkRow],
             [NSGridCell.emptyContentView, conflict],
+            [NSGridCell.emptyContentView, undoHint],
         ])
         grid.rowSpacing = 10
         grid.columnSpacing = 10
         grid.column(at: 0).xPlacement = .trailing
         grid.rowAlignment = .none
         for i in 0..<grid.numberOfRows { grid.row(at: i).yPlacement = .center }
-        grid.row(at: 3).topPadding = 0   // tuck conflict under the field
+        grid.row(at: 4).topPadding = 0   // tuck conflict under the hotkey field
+        grid.row(at: 5).topPadding = 0   // tuck undo hint right below
         grid.translatesAutoresizingMaskIntoConstraints = false
         content.addSubview(grid)
         NSLayoutConstraint.activate([
@@ -862,6 +930,16 @@ final class AppController: NSObject, NSApplicationDelegate {
     @objc private func toggleLogin() {
         setLogin(loginCheckbox?.state == .on)
         loginCheckbox?.state = loginEnabled() ? .on : .off   // reflect real state
+    }
+
+    // Language picker changed: tag 0 = follow system, else Loc.languages[tag-1].
+    // Re-localize live by rebuilding the menu and recreating the Settings window.
+    @objc private func changeLanguage(_ sender: NSPopUpButton) {
+        let tag = sender.selectedTag()
+        Loc.apply(tag == 0 ? nil : Loc.languages[tag - 1].code)
+        setupMenu()
+        if let w = settingsWindow { settingsWindow = nil; w.close() }
+        DispatchQueue.main.async { self.openReLayoutSettings() }
     }
 
     private func loginEnabled() -> Bool {

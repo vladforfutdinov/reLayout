@@ -18,3 +18,7 @@
 "shortcut.recording" = "Nagrywanie";
 
 "a11y.statusItem" = "reLayout, bieżące źródło wprowadzania: %@";
+
+"settings.language" = "Język:";
+"settings.language.system" = "Domyślny systemu";
+"settings.undoHint" = "Dotknij dwukrotnie, aby cofnąć";

@@ -18,3 +18,7 @@
 "shortcut.recording" = "기록 중";
 
 "a11y.statusItem" = "reLayout, 현재 입력 소스: %@";
+
+"settings.language" = "언어:";
+"settings.language.system" = "시스템 기본값";
+"settings.undoHint" = "두 번 누르면 실행 취소";

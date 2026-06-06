@@ -238,10 +238,12 @@ jobs:
           ";!@Install@!UTF-8!`r`nRunProgram=`"ReLayoutWin.exe`"`r`n;!@InstallEnd@!`r`n" |
             Set-Content -Path $cfg -NoNewline -Encoding utf8
 
-          $portable = "dist/reLayout-windows-$arch.exe"
-          $fs = [System.IO.File]::Create((Join-Path $PWD $portable))
-          foreach ($part in @($sfx, $cfg, $arc)) {
-            $bytes = [System.IO.File]::ReadAllBytes((Join-Path $PWD $part))
+          $portable = Join-Path $PWD "dist/reLayout-windows-$arch.exe"
+          # Concatenate full paths in order (stub is absolute; cfg/arc are cwd-relative).
+          $parts = @($sfx, (Resolve-Path $cfg).Path, (Resolve-Path $arc).Path)
+          $fs = [System.IO.File]::Create($portable)
+          foreach ($part in $parts) {
+            $bytes = [System.IO.File]::ReadAllBytes($part)
             $fs.Write($bytes, 0, $bytes.Length)
           }
           $fs.Close()

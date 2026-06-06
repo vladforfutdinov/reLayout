@@ -154,8 +154,11 @@ jobs:
 
   # Windows distributables for x64 and arm64. Each arch builds natively on its
   # own runner (cross-compiling the Swift Windows toolchain is not supported),
-  # so no QEMU/cross SDK. Output: a portable zip (ReLayoutWin.exe + the Swift
-  # runtime DLLs it links, so it runs without a separate Swift install).
+  # so no QEMU/cross SDK. Two outputs per arch:
+  #   * a portable single ReLayoutWin.exe (Swift runtime statically linked, so
+  #     no DLL folder — download and run)
+  #   * an Inno Setup installer (setup.exe: per-user install, Start Menu +
+  #     Startup shortcut, uninstaller)
   build-windows:
     needs: build            # macOS job creates the GitHub Release on tag; wait so release-upload below finds it
     strategy:
@@ -166,8 +169,8 @@ jobs:
           # toolchain can't import the WinSDK module — clang's intrinsics modules
           # (arm64intr.h / arm_acle.h) collide with the Windows SDK's aarch64
           # intrinsics. Fixed in later toolchains, so pin arm64 to 6.3.2.
-          - { arch: x64,   runner: windows-latest,  build_arch: amd64, swift_version: swift-6.1-release,   swift_build: 6.1-RELEASE }
-          - { arch: arm64, runner: windows-11-arm,   build_arch: arm64, swift_version: swift-6.3.2-release, swift_build: 6.3.2-RELEASE }
+          - { arch: x64,   runner: windows-latest,  build_arch: amd64, swift_version: swift-6.1-release,   swift_build: 6.1-RELEASE,   iss_arch: x64compatible }
+          - { arch: arm64, runner: windows-11-arm,   build_arch: arm64, swift_version: swift-6.3.2-release, swift_build: 6.3.2-RELEASE, iss_arch: arm64 }
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v5
@@ -182,43 +185,77 @@ jobs:
       - name: Show toolchain
         run: swift --version
 
-      - name: Build (release)
-        run: swift build -c release --product ReLayoutWin
+      - name: Build (release, static stdlib)
+        # --static-swift-stdlib folds the Swift runtime into the exe so the
+        # distributable is a single self-contained ReLayoutWin.exe (no DLLs).
+        run: swift build -c release --product ReLayoutWin --static-swift-stdlib
 
-      - name: Stage portable zip (exe + Swift runtime DLLs)
+      - name: Stage portable exe + verify it is self-contained
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $arch  = '${{ matrix.arch }}'
-          $stage = "dist/reLayout-windows-$arch"
-          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+          $arch = '${{ matrix.arch }}'
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
 
-          # swift build emits ReLayoutWin.exe under the release bin dir
-          $exe = Get-ChildItem -Recurse -Path .build -Filter 'ReLayoutWin.exe' |
-                 Where-Object { $_.FullName -match '\\release\\' } | Select-Object -First 1
-          if (-not $exe) { throw 'ReLayoutWin.exe not found under .build' }
-          Copy-Item $exe.FullName $stage
+          $built = Get-ChildItem -Recurse -Path .build -Filter 'ReLayoutWin.exe' |
+                   Where-Object { $_.FullName -match '\\release\\' } | Select-Object -First 1
+          if (-not $built) { throw 'ReLayoutWin.exe not found under .build' }
 
-          # The exe links the Swift runtime dynamically. Find the PATH entry that
-          # holds swiftCore.dll (the toolchain's Runtimes bin) and ship those DLLs
-          # alongside the exe so it runs on a machine without Swift installed.
-          $rt = ($env:PATH -split ';' | Where-Object {
-                   $_ -and (Test-Path (Join-Path $_ 'swiftCore.dll')) } | Select-Object -First 1)
-          if (-not $rt) { throw 'swiftCore.dll not found on PATH — cannot bundle runtime' }
-          Copy-Item (Join-Path $rt '*.dll') $stage
+          $portable = "dist/reLayout-windows-$arch.exe"
+          Copy-Item $built.FullName $portable -Force
 
-          $zip = "dist/reLayout-windows-$arch.zip"
-          Compress-Archive -Path "$stage/*" -DestinationPath $zip -Force
-          Get-ChildItem $stage | Select-Object Name,Length
-          Write-Host "Built $zip"
+          # Fail loudly if static linking did not take — i.e. the exe still
+          # imports the Swift runtime DLLs. Locate dumpbin via vswhere.
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          if (Test-Path $vswhere) {
+            $vc = & $vswhere -latest -find '**\dumpbin.exe' | Select-Object -First 1
+            if ($vc) {
+              $deps = & $vc /dependents $portable
+              $bad  = $deps | Select-String -Pattern 'swift.*\.dll' -AllMatches
+              if ($bad) {
+                $deps | Write-Host
+                throw "portable exe still imports Swift DLLs — --static-swift-stdlib did not produce a self-contained binary"
+              }
+              Write-Host 'OK: no Swift DLL imports — exe is self-contained'
+            } else { Write-Host 'dumpbin not found; skipping dependency check' }
+          } else { Write-Host 'vswhere not found; skipping dependency check' }
 
-      - name: Upload distributable artifact
+          '{0}  {1:N0} bytes' -f (Split-Path $portable -Leaf), (Get-Item $portable).Length | Write-Host
+
+      - name: Build installer (Inno Setup)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $arch = '${{ matrix.arch }}'
+          choco install innosetup -y --no-progress | Out-Null
+          $iscc = Get-ChildItem 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe',
+                                 'C:\Program Files\Inno Setup 6\ISCC.exe' -ErrorAction SilentlyContinue |
+                  Select-Object -First 1
+          if (-not $iscc) { throw 'ISCC.exe (Inno Setup) not found after install' }
+
+          $ver = '${{ github.ref_name }}' -replace '^v',''
+          if (-not $ver -or '${{ github.event_name }}' -ne 'push') { $ver = '0.0.0-dev' }
+
+          & $iscc.FullName `
+            "/DAppVer=$ver" `
+            "/DSrcExe=$(Resolve-Path "dist/reLayout-windows-$arch.exe")" `
+            "/DOutDir=$(Resolve-Path dist)" `
+            "/DOutBase=reLayout-windows-$arch-setup" `
+            "/DArchAllowed=${{ matrix.iss_arch }}" `
+            "/DArch64=${{ matrix.iss_arch }}" `
+            packaging/windows/relayout.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC failed ($LASTEXITCODE)" }
+          Get-ChildItem dist -Filter '*.exe' | Select-Object Name,Length | Format-Table -Auto | Out-String | Write-Host
+
+      - name: Upload distributable artifacts
         env:
           FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
         uses: actions/upload-artifact@v4
         with:
           name: relayout-windows-${{ matrix.arch }}
-          path: dist/reLayout-windows-${{ matrix.arch }}.zip
+          path: |
+            dist/reLayout-windows-${{ matrix.arch }}.exe
+            dist/reLayout-windows-${{ matrix.arch }}-setup.exe
           if-no-files-found: error
 
       - name: Attach to Release (on tag)
@@ -226,4 +263,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload "${GITHUB_REF_NAME}" "dist/reLayout-windows-${{ matrix.arch }}.zip" --clobber
+        run: |
+          gh release upload "${GITHUB_REF_NAME}" \
+            "dist/reLayout-windows-${{ matrix.arch }}.exe" \
+            "dist/reLayout-windows-${{ matrix.arch }}-setup.exe" --clobber

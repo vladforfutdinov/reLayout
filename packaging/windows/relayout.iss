@@ -5,7 +5,7 @@
 ;
 ; Driven entirely by ISCC /D defines from CI (scripts/windows nothing else needed):
 ;   AppVer       version string, e.g. 1.2.7
-;   SrcExe       path to the built ReLayoutWin.exe
+;   SrcDir       directory holding ReLayoutWin.exe + the Swift runtime DLLs
 ;   OutDir       directory to write the setup .exe into
 ;   OutBase      output base filename (no extension), e.g. reLayout-windows-x64-setup
 ;   ArchAllowed  Inno ArchitecturesAllowed value (x64compatible | arm64)
@@ -14,8 +14,8 @@
 #ifndef AppVer
   #define AppVer "0.0.0"
 #endif
-#ifndef SrcExe
-  #define SrcExe "..\..\dist\ReLayoutWin.exe"
+#ifndef SrcDir
+  #define SrcDir "..\..\dist\payload"
 #endif
 #ifndef OutDir
   #define OutDir "..\..\dist"
@@ -48,7 +48,7 @@ ArchitecturesInstallIn64BitMode={#Arch64}
 WizardStyle=modern
 
 [Files]
-Source: "{#SrcExe}"; DestDir: "{app}"; DestName: "ReLayoutWin.exe"; Flags: ignoreversion
+Source: "{#SrcDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{autoprograms}\reLayout"; Filename: "{app}\ReLayoutWin.exe"

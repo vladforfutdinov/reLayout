@@ -3,6 +3,7 @@ name: build
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:        # build distributables on demand (ad-hoc signed, no notarization)
 
 permissions:
   contents: write   # needed to create a Release on tags
@@ -50,7 +51,11 @@ jobs:
 
       - name: Build
         env:
-          # embed Sparkle only for release builds; main/PR stay framework-free
+          # CI always packages the release-named ReLayout.app (never the "(dev)"
+          # variant) so make-dmg.sh / packaging find dist/ReLayout.app — both on
+          # tag pushes and manual workflow_dispatch runs.
+          RELAYOUT_RELEASE: '1'
+          # embed Sparkle only for tag releases; dispatch builds stay framework-free
           WITH_SPARKLE: ${{ startsWith(github.ref, 'refs/tags/v') && '1' || '0' }}
         run: ./scripts/build.sh            # signs with $SIGN_IDENTITY if set, else ad-hoc
 
@@ -89,6 +94,16 @@ jobs:
           export AC_API_KEY_PATH="$RUNNER_TEMP/ac.p8"
           ./scripts/notarize.sh dist/reLayout.dmg   # submit + staple the dmg itself (offline first-mount)
           rm -f "$RUNNER_TEMP/ac.p8"
+
+      - name: Upload distributables (workflow_dispatch only)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: relayout-dist
+          path: |
+            dist/reLayout.dmg
+            dist/reLayout.zip
+          if-no-files-found: error
 
       - name: Release (on tag)
         if: startsWith(github.ref, 'refs/tags/v')

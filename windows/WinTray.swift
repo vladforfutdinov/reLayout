@@ -7,12 +7,11 @@ import WinSDK
 
 private let trayCallback = UINT(WM_APP) + 1
 
-private let menuStartup:  UINT = 1
-private let menuKeyboard: UINT = 2
-private let menuAbout:    UINT = 3
-private let menuQuit:     UINT = 4
+private let menuSettings: UINT = 1
+private let menuStartup:  UINT = 2
+private let menuQuit:     UINT = 3
 
-private let aboutURL = "https://github.com/vladforfutdinov/reLayout"
+let aboutURL = "https://github.com/vladforfutdinov/reLayout"
 
 private var trayHwnd: HWND?
 private var nid = NOTIFYICONDATAW()
@@ -31,7 +30,7 @@ private func exePath() -> String {
     return String(decoding: buf.prefix(while: { $0 != 0 }), as: UTF16.self)
 }
 
-private func startupEnabled() -> Bool {
+func startupEnabled() -> Bool {
     var key: HKEY?
     let opened = runSubKey.withCString(encodedAs: UTF16.self) {
         RegOpenKeyExW(kHKCU, $0, 0, REGSAM(0x0001 /* KEY_QUERY_VALUE */), &key)  // 0 == ERROR_SUCCESS
@@ -44,7 +43,7 @@ private func startupEnabled() -> Bool {
     return found == 0
 }
 
-private func setStartup(_ on: Bool) {
+func setStartup(_ on: Bool) {
     var key: HKEY?
     let opened = runSubKey.withCString(encodedAs: UTF16.self) {
         RegOpenKeyExW(kHKCU, $0, 0, REGSAM(0x0002 /* KEY_SET_VALUE */), &key)
@@ -68,7 +67,7 @@ private func setStartup(_ on: Bool) {
 
 // MARK: - shell helpers
 
-private func openExternally(_ s: String) {
+func openExternally(_ s: String) {
     s.withCString(encodedAs: UTF16.self) { file in
         "open".withCString(encodedAs: UTF16.self) { op in
             _ = ShellExecuteW(nil, op, file, nil, nil, Int32(SW_SHOWNORMAL))
@@ -90,11 +89,9 @@ private func showTrayMenu(_ hwnd: HWND?) {
     appendItem(menu, 0, "reLayout", flags: disabled)
     appendItem(menu, 0, "Convert: Ctrl+Alt+R", flags: disabled)
     _ = AppendMenuW(menu, UINT(MF_SEPARATOR), 0, nil)
+    appendItem(menu, menuSettings, "Settings…")
     let startupFlags = UINT(MF_STRING) | (startupEnabled() ? UINT(MF_CHECKED) : UINT(MF_UNCHECKED))
     appendItem(menu, menuStartup, "Launch at login", flags: startupFlags)
-    _ = AppendMenuW(menu, UINT(MF_SEPARATOR), 0, nil)
-    appendItem(menu, menuKeyboard, "Keyboard settings…")
-    appendItem(menu, menuAbout, "About reLayout")
     _ = AppendMenuW(menu, UINT(MF_SEPARATOR), 0, nil)
     appendItem(menu, menuQuit, "Quit reLayout")
 
@@ -107,9 +104,8 @@ private func showTrayMenu(_ hwnd: HWND?) {
 
 private func handleCommand(_ id: UINT) {
     switch id {
+    case menuSettings: openSettings()
     case menuStartup:  setStartup(!startupEnabled())
-    case menuKeyboard: openExternally("ms-settings:keyboard")
-    case menuAbout:    openExternally(aboutURL)
     case menuQuit:     PostQuitMessage(0)
     default:           break
     }
@@ -148,7 +144,10 @@ func setupTray() -> Bool {
     nid.uID = 1
     nid.uFlags = UINT(NIF_ICON) | UINT(NIF_MESSAGE) | UINT(NIF_TIP)
     nid.uCallbackMessage = trayCallback
-    nid.hIcon = LoadIconW(nil, UnsafePointer<WCHAR>(bitPattern: 32512))   // MAKEINTRESOURCE(IDI_APPLICATION)
+    // Our embedded app icon (resource id 1 from relayout.rc); fall back to the
+    // system application icon if the resource is somehow missing.
+    nid.hIcon = LoadIconW(GetModuleHandleW(nil), UnsafePointer<WCHAR>(bitPattern: 1))
+             ?? LoadIconW(nil, UnsafePointer<WCHAR>(bitPattern: 32512))
     // Tooltip shown on hover.
     let tip = Array("reLayout — Ctrl+Alt+R".utf16) + [0]
     withUnsafeMutableBytes(of: &nid.szTip) { dst in

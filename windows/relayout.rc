@@ -1,0 +1,5 @@
+// Windows resource script: embeds the app icon (id 1) so Explorer shows it on
+// the .exe and the tray/Settings windows can LoadIcon it. Compiled by llvm-rc
+// in CI and linked into ReLayoutWin via -Xlinker. Icon id 1 is also the lowest,
+// so Explorer/Alt-Tab pick it as the application icon automatically.
+1 ICON "relayout.ico"

@@ -188,7 +188,16 @@ jobs:
         run: swift --version
 
       - name: Build (release)
-        run: swift build -c release --product ReLayoutWin
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # Compile the icon resource (llvm-rc ships with the Swift toolchain) and
+          # link it into the exe so Explorer/tray/Settings show the app icon.
+          Push-Location windows
+          & llvm-rc /FO "$PWD\..\relayout.res" relayout.rc
+          if ($LASTEXITCODE -ne 0) { throw "llvm-rc failed ($LASTEXITCODE)" }
+          Pop-Location
+          swift build -c release --product ReLayoutWin -Xlinker "$((Resolve-Path relayout.res).Path)"
 
       - name: Stage payload (exe + Swift runtime DLLs)
         shell: pwsh

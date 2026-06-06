@@ -162,8 +162,12 @@ jobs:
       fail-fast: false      # don't kill arm64 if x64 fails, and vice-versa
       matrix:
         include:
-          - { arch: x64,   runner: windows-latest,  build_arch: amd64 }
-          - { arch: arm64, runner: windows-11-arm,   build_arch: arm64 }
+          # x64 builds clean on 6.1. arm64 needs >=6.3: on 6.1 the native arm64
+          # toolchain can't import the WinSDK module — clang's intrinsics modules
+          # (arm64intr.h / arm_acle.h) collide with the Windows SDK's aarch64
+          # intrinsics. Fixed in later toolchains, so pin arm64 to 6.3.2.
+          - { arch: x64,   runner: windows-latest,  build_arch: amd64, swift_version: swift-6.1-release,   swift_build: 6.1-RELEASE }
+          - { arch: arm64, runner: windows-11-arm,   build_arch: arm64, swift_version: swift-6.3.2-release, swift_build: 6.3.2-RELEASE }
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v5
@@ -171,26 +175,12 @@ jobs:
       - name: Install Swift toolchain
         uses: compnerd/gha-setup-swift@main
         with:
-          swift-version: swift-6.1-release
-          swift-build: 6.1-RELEASE
+          swift-version: ${{ matrix.swift_version }}
+          swift-build: ${{ matrix.swift_build }}
           build_arch: ${{ matrix.build_arch }}   # native arm64 toolchain on the arm runner (else it installs amd64 and emits x86_64)
 
       - name: Show toolchain
         run: swift --version
-
-      # Windows SDK 10.0.26100's winnt.h defines the _ARM64_BARRIER_* enum AND
-      # pulls in clang's bundled arm64intr.h, which defines it too — so importing
-      # the WinSDK module on arm64 fails with "reference to '_ARM64_BARRIER_ISH'
-      # is ambiguous". Drop clang's duplicate header; the SDK's definition stands.
-      - name: Work around WinSDK/clang arm64intr.h clash (arm64 only)
-        if: matrix.arch == 'arm64'
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $dupes = Get-ChildItem "$env:LOCALAPPDATA\Programs\Swift\Toolchains" -Recurse -Filter arm64intr.h -ErrorAction SilentlyContinue |
-                   Where-Object { $_.FullName -match 'clang\\include' }
-          if (-not $dupes) { Write-Host 'no clang arm64intr.h found (toolchain may already be fixed)'; exit 0 }
-          $dupes | ForEach-Object { Write-Host "removing $($_.FullName)"; Remove-Item $_.FullName -Force }
 
       - name: Build (release)
         run: swift build -c release --product ReLayoutWin

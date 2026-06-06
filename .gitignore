@@ -1,10 +1,7 @@
-# build output
-ReLayout.app/
-ReLayout (dev).app/
+# build output (.app/.dmg/.zip produced by scripts/build.sh + make-dmg.sh)
+/dist/
 *.o
 *.swiftmodule
-*.zip
-*.dmg
 .sparkle/
 
 # debug

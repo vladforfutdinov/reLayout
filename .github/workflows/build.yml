@@ -52,10 +52,10 @@ jobs:
         env:
           # embed Sparkle only for release builds; main/PR stay framework-free
           WITH_SPARKLE: ${{ startsWith(github.ref, 'refs/tags/v') && '1' || '0' }}
-        run: ./build.sh            # signs with $SIGN_IDENTITY if set, else ad-hoc
+        run: ./scripts/build.sh            # signs with $SIGN_IDENTITY if set, else ad-hoc
 
       - name: Test
-        run: ./run-tests.sh
+        run: ./scripts/run-tests.sh
 
       - name: Notarize + staple (release only)
         if: startsWith(github.ref, 'refs/tags/v')
@@ -67,15 +67,15 @@ jobs:
           set -euo pipefail
           printf '%s' "$AC_API_KEY_P8_BASE64" | base64 --decode > "$RUNNER_TEMP/ac.p8"
           export AC_API_KEY_PATH="$RUNNER_TEMP/ac.p8"
-          ditto -c -k --keepParent ReLayout.app "$RUNNER_TEMP/notarize.zip"
-          ./notarize.sh "$RUNNER_TEMP/notarize.zip" ReLayout.app   # staple the app
+          ditto -c -k --keepParent dist/ReLayout.app "$RUNNER_TEMP/notarize.zip"
+          ./scripts/notarize.sh "$RUNNER_TEMP/notarize.zip" dist/ReLayout.app   # staple the app
           rm -f "$RUNNER_TEMP/ac.p8"
 
       - name: Package (zip + dmg)
         run: |
           set -euo pipefail
-          ditto -c -k --keepParent ReLayout.app reLayout.zip   # contains the stapled app
-          ./make-dmg.sh
+          ditto -c -k --keepParent dist/ReLayout.app dist/reLayout.zip   # contains the stapled app
+          ./scripts/make-dmg.sh
 
       - name: Notarize + staple DMG (release only)
         if: startsWith(github.ref, 'refs/tags/v')
@@ -87,7 +87,7 @@ jobs:
           set -euo pipefail
           printf '%s' "$AC_API_KEY_P8_BASE64" | base64 --decode > "$RUNNER_TEMP/ac.p8"
           export AC_API_KEY_PATH="$RUNNER_TEMP/ac.p8"
-          ./notarize.sh reLayout.dmg   # submit + staple the dmg itself (offline first-mount)
+          ./scripts/notarize.sh dist/reLayout.dmg   # submit + staple the dmg itself (offline first-mount)
           rm -f "$RUNNER_TEMP/ac.p8"
 
       - name: Release (on tag)
@@ -95,7 +95,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "${GITHUB_REF_NAME}" reLayout.dmg reLayout.zip \
+          gh release create "${GITHUB_REF_NAME}" dist/reLayout.dmg dist/reLayout.zip \
             --title "${GITHUB_REF_NAME}" --generate-notes
 
       - name: Publish Sparkle appcast to GitHub Pages (release only)
@@ -110,7 +110,7 @@ jobs:
           fi
           GEN="$(ls .sparkle/*/bin/generate_appcast | head -1)"
           printf '%s' "$SPARKLE_ED_PRIVATE_KEY" > "$RUNNER_TEMP/ed_priv"
-          SRC="$RUNNER_TEMP/appcast-src"; mkdir -p "$SRC"; cp reLayout.zip "$SRC/"
+          SRC="$RUNNER_TEMP/appcast-src"; mkdir -p "$SRC"; cp dist/reLayout.zip "$SRC/"
           "$GEN" --ed-key-file "$RUNNER_TEMP/ed_priv" \
             --download-url-prefix "https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/" \
             "$SRC"
@@ -131,4 +131,4 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           TAP_DEPLOY_KEY: ${{ secrets.TAP_DEPLOY_KEY }}   # SSH deploy key (write) on homebrew-relayout
-        run: ./packaging/homebrew/update-cask.sh "${GITHUB_REF_NAME#v}" reLayout.dmg
+        run: ./packaging/homebrew/update-cask.sh "${GITHUB_REF_NAME#v}" dist/reLayout.dmg

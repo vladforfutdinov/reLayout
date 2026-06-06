@@ -1,7 +1,7 @@
 // Unit tests for reLayout's pure logic (conversion engine + hotkey display helpers).
 //
 // Built only under -DTESTING, where main.swift's GUI bootstrap is compiled out and
-// this file supplies the entry point. Run via ./run-tests.sh. Hermetic: the
+// this file supplies the entry point. Run via ./scripts/run-tests.sh. Hermetic: the
 // transliteration engine is exercised with injected fixture layouts (FakeLayout),
 // so no installed keyboard layout is required.
 

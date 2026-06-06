@@ -40,14 +40,14 @@ First launch asks for **Accessibility** (needed to read selection / send keystro
 ## Build from source
 
 ```sh
-./make-cert.sh     # one-time: self-signed identity so the Accessibility grant survives rebuilds
-./build.sh         # -> ReLayout.app
-./make-dmg.sh      # optional: -> reLayout.dmg (drag-to-Applications installer)
-open ./ReLayout.app
+./scripts/make-cert.sh     # one-time: self-signed identity so the Accessibility grant survives rebuilds
+./scripts/build.sh         # -> dist/ReLayout.app
+./scripts/make-dmg.sh      # optional: -> dist/reLayout.dmg (drag-to-Applications installer)
+open ./dist/ReLayout.app
 ```
 
 Signed/notarized release builds are produced by CI on a `vX.Y.Z` tag — see
-[RELEASING.md](RELEASING.md) for the signing setup and required secrets.
+[RELEASING.md](docs/RELEASING.md) for the signing setup and required secrets.
 
 ## Use
 
@@ -115,7 +115,7 @@ an outlined `УК` for Ukrainian), tinting/dimming with the menu bar. Updates on
 
 The UI follows the system language, localized to 12: English, Russian, Ukrainian, Belarusian,
 German, French, Spanish, Portuguese, Polish, Simplified Chinese, Japanese, Korean. Strings live
-in `Resources/<lang>.lproj/Localizable.strings`; `build.sh` copies them into the bundle. (The
+in `Resources/<lang>.lproj/Localizable.strings`; `scripts/build.sh` copies them into the bundle. (The
 names of conflicting macOS system shortcuts shown in Settings are reported in English.)
 
 ## Limitations
@@ -128,8 +128,8 @@ names of conflicting macOS system shortcuts shown in Settings are reported in En
 ## Diagnostics
 
 ```sh
-./ReLayout.app/Contents/MacOS/ReLayout --enabled    # list enabled sources in order
-./ReLayout.app/Contents/MacOS/ReLayout --selftest   # sample conversions, no GUI
+./dist/ReLayout.app/Contents/MacOS/ReLayout --enabled    # list enabled sources in order
+./dist/ReLayout.app/Contents/MacOS/ReLayout --selftest   # sample conversions, no GUI
 ```
 
 ## Updates

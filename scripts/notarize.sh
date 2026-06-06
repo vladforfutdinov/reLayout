@@ -2,7 +2,7 @@
 # Notarize a built (Developer ID-signed) artifact with Apple and staple the
 # ticket. Uses an App Store Connect API key — no Apple ID / 2FA.
 #
-#   ./notarize.sh <submit-file> [staple-target]
+#   ./scripts/notarize.sh <submit-file> [staple-target]
 #
 # <submit-file>   what to upload (notarytool wants a .zip/.dmg/.pkg container)
 # [staple-target] what to staple the ticket onto (default: the submit file).
@@ -14,7 +14,7 @@
 #   AC_API_KEY_ID     the key's Key ID
 #   AC_API_ISSUER_ID  the issuer ID (UUID)
 set -euo pipefail
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."
 
 SUBMIT="${1:?usage: notarize.sh <submit-file> [staple-target]}"
 STAPLE="${2:-$SUBMIT}"

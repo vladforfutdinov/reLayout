@@ -1,6 +1,6 @@
 #!/bin/bash
 set -euo pipefail
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."
 
 # Version, in precedence order:
 #   1. RELAYOUT_VERSION env (manual override)
@@ -24,15 +24,19 @@ BUILD="$(git rev-list --count HEAD 2>/dev/null || echo 0)"
 if git describe --tags --exact-match >/dev/null 2>&1; then IS_RELEASE=1; else IS_RELEASE=0; fi
 [ "${RELAYOUT_RELEASE:-}" = "1" ] && IS_RELEASE=1
 [ "${RELAYOUT_DEV:-}" = "1" ] && IS_RELEASE=0
+# Build artifacts (.app/.dmg/.zip) live under dist/ — kept out of the repo root
+# and gitignored. Distinct from SwiftPM's .build/.
+OUT="dist"
 if [ "$IS_RELEASE" = "1" ]; then
-    APP="ReLayout.app";        BUNDLE_ID="com.vlad.relayout";     DISPLAY_NAME="reLayout"
+    APP="$OUT/ReLayout.app";        BUNDLE_ID="com.vlad.relayout";     DISPLAY_NAME="reLayout"
 else
-    APP="ReLayout (dev).app";  BUNDLE_ID="com.vlad.relayout.dev"; DISPLAY_NAME="reLayout (dev)"
+    APP="$OUT/ReLayout (dev).app";  BUNDLE_ID="com.vlad.relayout.dev"; DISPLAY_NAME="reLayout (dev)"
 fi
 
+mkdir -p "$OUT"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS"
-cp Info.plist "$APP/Contents/Info.plist"
+cp macos/Info.plist "$APP/Contents/Info.plist"
 
 # localizations: copy each <lang>.lproj/Localizable.strings into the bundle
 mkdir -p "$APP/Contents/Resources"
@@ -113,12 +117,12 @@ if [ "${WITH_SPARKLE:-0}" = "1" ]; then
                  -Xlinker -rpath -Xlinker @executable_path/../Frameworks)
 fi
 
-swiftc "${SWIFT_FLAGS[@]}" -o "$APP/Contents/MacOS/ReLayout" main.swift Core/*.swift "${LINK_FLAGS[@]}"
+swiftc "${SWIFT_FLAGS[@]}" -o "$APP/Contents/MacOS/ReLayout" macos/main.swift Core/*.swift "${LINK_FLAGS[@]}"
 
 # Signing, in precedence order:
 #   1. SIGN_IDENTITY set (CI / release) -> Developer ID Application + Hardened
 #      Runtime + secure timestamp. This is what notarization requires.
-#   2. local self-signed "ReLayout Self Signed" (run ./make-cert.sh once) so the
+#   2. local self-signed "ReLayout Self Signed" (run ./scripts/make-cert.sh once) so the
 #      Accessibility grant survives rebuilds during development.
 #   3. ad-hoc fallback.
 # When Sparkle is embedded, sign it (and its nested XPC/helpers) FIRST, then the
@@ -147,7 +151,7 @@ elif security find-identity -v -p codesigning | grep -q "$SELF"; then
     sign_app "$SELF" "no"
     echo "signed: $SELF (local dev)"
 else
-    echo "WARNING: no signing identity — run ./make-cert.sh first. Ad-hoc signing (grant will re-prompt)."
+    echo "WARNING: no signing identity — run ./scripts/make-cert.sh first. Ad-hoc signing (grant will re-prompt)."
     codesign --force --deep --sign - "$APP"
 fi
 

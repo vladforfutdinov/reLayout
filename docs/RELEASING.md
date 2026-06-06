@@ -56,11 +56,11 @@ Release builds embed [Sparkle](https://sparkle-project.org) and check
 
 1. Build once with Sparkle to fetch the tools, then generate the EdDSA keypair:
    ```sh
-   WITH_SPARKLE=1 ./build.sh
+   WITH_SPARKLE=1 ./scripts/build.sh
    .sparkle/*/bin/generate_keys            # stores the private key in your keychain
    .sparkle/*/bin/generate_keys -p         # prints the PUBLIC key
    ```
-   - Put the **public** key in `Info.plist` → `SUPublicEDKey` (replace
+   - Put the **public** key in `macos/Info.plist` → `SUPublicEDKey` (replace
      `REPLACE_WITH_SPARKLE_PUBLIC_ED_KEY`).
    - Export the **private** key and add it as the secret **`SPARKLE_ED_PRIVATE_KEY`**:
      ```sh
@@ -87,11 +87,11 @@ Watch it: `gh run watch` · verify: `gh release view vX.Y.Z`.
 ## Local signed build (optional)
 
 ```sh
-SIGN_IDENTITY="Developer ID Application: NAME (TEAMID)" ./build.sh
-ditto -c -k --keepParent ReLayout.app notarize.zip
-AC_API_KEY_PATH=AuthKey.p8 AC_API_KEY_ID=… AC_API_ISSUER_ID=… ./notarize.sh notarize.zip ReLayout.app
-./make-dmg.sh
+SIGN_IDENTITY="Developer ID Application: NAME (TEAMID)" ./scripts/build.sh
+ditto -c -k --keepParent dist/ReLayout.app notarize.zip
+AC_API_KEY_PATH=AuthKey.p8 AC_API_KEY_ID=… AC_API_ISSUER_ID=… ./scripts/notarize.sh notarize.zip dist/ReLayout.app
+./scripts/make-dmg.sh
 ```
 
 Without `SIGN_IDENTITY`, `build.sh` falls back to the local self-signed identity
-(`./make-cert.sh`) or ad-hoc — fine for development, not for distribution.
+(`./scripts/make-cert.sh`) or ad-hoc — fine for development, not for distribution.

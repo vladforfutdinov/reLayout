@@ -10,6 +10,29 @@ private let idChkStartup:  Int = 101
 private let idBtnKeyboard: Int = 102
 private let idBtnClose:    Int = 103
 private let idLnkAbout:    Int = 104
+private let idHotkey:      Int = 105
+private let idBtnReset:    Int = 106
+private let idBtnApply:    Int = 107
+
+// Hotkey control messages (commctrl.h) — not surfaced to Swift.
+private let HKM_SETHOTKEY = UINT(WM_USER) + 1
+private let HKM_GETHOTKEY = UINT(WM_USER) + 2
+
+// HOTKEYF_* (control) <-> MOD_* (RegisterHotKey) bit conversions.
+private func modToHotkeyf(_ mods: UINT) -> UInt {
+    var f: UInt = 0
+    if mods & UINT(MOD_ALT)     != 0 { f |= 4 }   // HOTKEYF_ALT
+    if mods & UINT(MOD_CONTROL) != 0 { f |= 2 }   // HOTKEYF_CONTROL
+    if mods & UINT(MOD_SHIFT)   != 0 { f |= 1 }   // HOTKEYF_SHIFT
+    return f
+}
+private func hotkeyfToMod(_ f: UInt) -> UINT {
+    var m: UINT = 0
+    if f & 4 != 0 { m |= UINT(MOD_ALT) }
+    if f & 2 != 0 { m |= UINT(MOD_CONTROL) }
+    if f & 1 != 0 { m |= UINT(MOD_SHIFT) }
+    return m
+}
 
 private var settingsHwnd: HWND?
 private var settingsClassW = Array("ReLayoutSettingsWnd".utf16) + [0]
@@ -48,18 +71,41 @@ private func layoutsLine() -> String {
     return names.isEmpty ? "Layouts:  —" : "Layouts:  " + names.joined(separator: "  ·  ")
 }
 
+private func setHotkeyControl(_ hwnd: HWND?, _ mods: UINT, _ vk: UINT) {
+    let f = modToHotkeyf(mods)
+    SendMessageW(GetDlgItem(hwnd, Int32(idHotkey)), HKM_SETHOTKEY, WPARAM(UInt(vk) | (f << 8)), 0)
+}
+
+private func applyHotkeyFromControl(_ hwnd: HWND?) {
+    let raw = UInt(bitPattern: SendMessageW(GetDlgItem(hwnd, Int32(idHotkey)), HKM_GETHOTKEY, 0, 0))
+    let vk  = UINT(raw & 0xFF)
+    let f   = (raw >> 8) & 0xFF
+    guard vk != 0 else { return }            // no main key chosen — ignore
+    let mods = hotkeyfToMod(f)
+    saveHotkey(mods: mods, vk: vk)
+    _ = registerConvertHotkey(mods, vk)
+}
+
 private func buildControls(_ hwnd: HWND?) {
-    _ = makeControl("STATIC", layoutsLine(),                 0,  20, 16, 340, 20, hwnd, 0)
-    _ = makeControl("STATIC", "Convert hotkey:  Ctrl + Alt + R", 0, 20, 42, 340, 20, hwnd, 0)
+    _ = makeControl("STATIC", layoutsLine(), 0, 20, 16, 340, 20, hwnd, 0)
+
+    _ = makeControl("STATIC", "Hotkey:", 0, 20, 50, 56, 20, hwnd, 0)
+    _ = makeControl("msctls_hotkey32", "", Int32(WS_TABSTOP), 80, 48, 150, 24, hwnd, idHotkey)
+    let cur = loadHotkey()
+    setHotkeyControl(hwnd, cur.mods, cur.vk)
+    _ = makeControl("BUTTON", "Reset", Int32(WS_TABSTOP), 240, 47, 58, 26, hwnd, idBtnReset)
+    _ = makeControl("BUTTON", "Apply", Int32(WS_TABSTOP), 304, 47, 58, 26, hwnd, idBtnApply)
+
     let chk = makeControl("BUTTON", "Launch at login",
-                          Int32(BS_AUTOCHECKBOX) | Int32(WS_TABSTOP), 20, 76, 220, 22, hwnd, idChkStartup)
+                          Int32(BS_AUTOCHECKBOX) | Int32(WS_TABSTOP), 20, 88, 220, 22, hwnd, idChkStartup)
     SendMessageW(chk, UINT(BM_SETCHECK), WPARAM(startupEnabled() ? 1 : 0), 0)
+
     _ = makeControl("BUTTON", "Keyboard settings…",
-                    Int32(WS_TABSTOP), 20, 116, 170, 30, hwnd, idBtnKeyboard)
+                    Int32(WS_TABSTOP), 20, 128, 170, 30, hwnd, idBtnKeyboard)
     _ = makeControl("SysLink", "<a>About reLayout</a>",
-                    Int32(WS_TABSTOP), 210, 122, 150, 22, hwnd, idLnkAbout)
+                    Int32(WS_TABSTOP), 210, 134, 150, 22, hwnd, idLnkAbout)
     _ = makeControl("BUTTON", "Close",
-                    Int32(WS_TABSTOP), 250, 162, 100, 30, hwnd, idBtnClose)
+                    Int32(WS_TABSTOP), 262, 176, 100, 30, hwnd, idBtnClose)
 }
 
 private func sizeAndCenter(_ hwnd: HWND?) {
@@ -70,7 +116,7 @@ private func sizeAndCenter(_ hwnd: HWND?) {
     let ncw = (wr.right - wr.left) - (cr.right - cr.left)
     let nch = (wr.bottom - wr.top) - (cr.bottom - cr.top)
     let w = sc(380) + ncw
-    let h = sc(206) + nch
+    let h = sc(218) + nch
     var mi = MONITORINFO(); mi.cbSize = DWORD(MemoryLayout<MONITORINFO>.size)
     GetMonitorInfoW(MonitorFromWindow(hwnd, DWORD(MONITOR_DEFAULTTONEAREST)), &mi)
     let x = mi.rcWork.left + ((mi.rcWork.right - mi.rcWork.left) - w) / 2
@@ -99,6 +145,8 @@ private func settingsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lPa
             let checked = SendMessageW(GetDlgItem(hwnd, Int32(idChkStartup)), UINT(BM_GETCHECK), 0, 0)
             setStartup(checked == LRESULT(BST_CHECKED))
         case idBtnKeyboard: openExternally("ms-settings:keyboard")
+        case idBtnReset:    setHotkeyControl(hwnd, defaultHotkey.mods, defaultHotkey.vk); applyHotkeyFromControl(hwnd)
+        case idBtnApply:    applyHotkeyFromControl(hwnd)
         case idBtnClose:    DestroyWindow(hwnd)
         default: break
         }
@@ -128,7 +176,7 @@ func openSettings() {
     // SysLink lives in ComCtl32 — make sure its class is registered.
     var icc = INITCOMMONCONTROLSEX()
     icc.dwSize = DWORD(MemoryLayout<INITCOMMONCONTROLSEX>.size)
-    icc.dwICC  = DWORD(ICC_LINK_CLASS) | DWORD(ICC_STANDARD_CLASSES)
+    icc.dwICC  = DWORD(ICC_LINK_CLASS) | DWORD(ICC_HOTKEY_CLASS) | DWORD(ICC_STANDARD_CLASSES)
     InitCommonControlsEx(&icc)
 
     if !settingsClassRegistered {

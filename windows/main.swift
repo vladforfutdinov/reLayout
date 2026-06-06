@@ -24,14 +24,23 @@ func performRetype() {
 }
 
 let hotkeyID: Int32 = 1
-// MVP default: Ctrl+Alt+R (NOREPEAT so holding doesn't spam).
-let mods = UINT(MOD_CONTROL) | UINT(MOD_ALT) | UINT(MOD_NOREPEAT)
-if !RegisterHotKey(nil, hotkeyID, mods, UINT(0x52)) {
-    print("reLayout: failed to register hotkey")
-    exit(1)
+
+// (Re)register the global convert hotkey, replacing any prior registration.
+// NOREPEAT so holding the combo doesn't spam. Called at startup and whenever
+// the hotkey is changed in Settings.
+@discardableResult
+func registerConvertHotkey(_ mods: UINT, _ vk: UINT) -> Bool {
+    UnregisterHotKey(nil, hotkeyID)
+    return RegisterHotKey(nil, hotkeyID, mods | UINT(MOD_NOREPEAT), vk)
+}
+
+// Load the saved hotkey (default Ctrl+Alt+R); if it can't be registered (e.g. a
+// saved combo is taken by another app) fall back to the default.
+let savedHotkey = loadHotkey()
+if !registerConvertHotkey(savedHotkey.mods, savedHotkey.vk) {
+    _ = registerConvertHotkey(UINT(MOD_CONTROL) | UINT(MOD_ALT), UINT(0x52))
 }
 _ = setupTray()
-print("reLayout (Windows MVP) — hotkey: Ctrl+Alt+R. Tray right-click → Quit.")
 
 var msg = MSG()
 while GetMessageW(&msg, nil, 0, 0) {

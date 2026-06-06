@@ -18,7 +18,18 @@ var targets: [Target] = [
 // (the manifest is evaluated on the build host). macOS `swift test` ignores it.
 #if os(Windows)
 targets.append(
-    .executableTarget(name: "ReLayoutWin", dependencies: ["ReLayoutCore"], path: "windows")
+    .executableTarget(
+        name: "ReLayoutWin",
+        dependencies: ["ReLayoutCore"],
+        path: "windows",
+        // Link as a GUI-subsystem app so launching it does NOT pop a console
+        // window — reLayout is a tray app. /ENTRY:mainCRTStartup keeps the
+        // normal C `main` entry (the GUI subsystem would otherwise want WinMain).
+        linkerSettings: [
+            .unsafeFlags(["-Xlinker", "/SUBSYSTEM:WINDOWS",
+                          "-Xlinker", "/ENTRY:mainCRTStartup"])
+        ]
+    )
 )
 #endif
 

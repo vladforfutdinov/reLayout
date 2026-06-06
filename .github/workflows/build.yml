@@ -162,8 +162,8 @@ jobs:
       fail-fast: false      # don't kill arm64 if x64 fails, and vice-versa
       matrix:
         include:
-          - { arch: x64,   runner: windows-latest }
-          - { arch: arm64, runner: windows-11-arm }
+          - { arch: x64,   runner: windows-latest,  build_arch: amd64 }
+          - { arch: arm64, runner: windows-11-arm,   build_arch: arm64 }
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v5
@@ -171,8 +171,9 @@ jobs:
       - name: Install Swift toolchain
         uses: compnerd/gha-setup-swift@main
         with:
-          branch: swift-6.1-release
-          tag: 6.1-RELEASE
+          swift-version: swift-6.1-release
+          swift-build: 6.1-RELEASE
+          build_arch: ${{ matrix.build_arch }}   # native arm64 toolchain on the arm runner (else it installs amd64 and emits x86_64)
 
       - name: Show toolchain
         run: swift --version

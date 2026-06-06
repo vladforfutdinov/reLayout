@@ -1,24 +1,118 @@
 import WinSDK
 
-// Minimal system-tray presence: a hidden window receives the tray callback and
-// shows a right-click menu with Quit. (Live layout badge / Settings come later.)
+// System-tray presence: a hidden window receives the tray callback and shows a
+// right-click menu. Menu mirrors the macOS app: a header, the convert hotkey
+// hint, a launch-at-login toggle, a shortcut to Windows keyboard settings, an
+// About link, and Quit. (Live layout badge / Settings UI come later.)
 
 private let trayCallback = UINT(WM_APP) + 1
-private let menuQuit: UINT = 1
+
+private let menuStartup:  UINT = 1
+private let menuKeyboard: UINT = 2
+private let menuAbout:    UINT = 3
+private let menuQuit:     UINT = 4
+
+private let aboutURL = "https://github.com/vladforfutdinov/reLayout"
+
 private var trayHwnd: HWND?
 private var nid = NOTIFYICONDATAW()
 private var classNameW = Array("ReLayoutTrayWnd".utf16) + [0]
 
+// HKEY_CURRENT_USER is a cast macro in WinSDK and isn't surfaced to Swift.
+private let kHKCU = HKEY(bitPattern: 0x8000_0001)!
+private let runSubKey   = "Software\\Microsoft\\Windows\\CurrentVersion\\Run"
+private let runValueKey = "reLayout"
+
+// MARK: - launch at login (HKCU\...\Run value pointing at this exe)
+
+private func exePath() -> String {
+    var buf = [WCHAR](repeating: 0, count: 1024)
+    _ = GetModuleFileNameW(nil, &buf, DWORD(buf.count))
+    return String(decoding: buf.prefix(while: { $0 != 0 }), as: UTF16.self)
+}
+
+private func startupEnabled() -> Bool {
+    var key: HKEY?
+    let opened = runSubKey.withCString(encodedAs: UTF16.self) {
+        RegOpenKeyExW(kHKCU, $0, 0, REGSAM(0x0001 /* KEY_QUERY_VALUE */), &key)  // 0 == ERROR_SUCCESS
+    }
+    guard opened == 0, let key else { return false }
+    defer { RegCloseKey(key) }
+    let found = runValueKey.withCString(encodedAs: UTF16.self) {
+        RegQueryValueExW(key, $0, nil, nil, nil, nil)
+    }
+    return found == 0
+}
+
+private func setStartup(_ on: Bool) {
+    var key: HKEY?
+    let opened = runSubKey.withCString(encodedAs: UTF16.self) {
+        RegOpenKeyExW(kHKCU, $0, 0, REGSAM(0x0002 /* KEY_SET_VALUE */), &key)
+    }
+    guard opened == 0, let key else { return }
+    defer { RegCloseKey(key) }
+    runValueKey.withCString(encodedAs: UTF16.self) { namePtr in
+        if on {
+            // Quote the path so a Program Files path with spaces survives.
+            let value = Array("\"\(exePath())\"".utf16) + [0]
+            value.withUnsafeBytes { raw in
+                _ = RegSetValueExW(key, namePtr, 0, DWORD(1 /* REG_SZ */),
+                                   raw.bindMemory(to: BYTE.self).baseAddress,
+                                   DWORD(raw.count))
+            }
+        } else {
+            _ = RegDeleteValueW(key, namePtr)
+        }
+    }
+}
+
+// MARK: - shell helpers
+
+private func openExternally(_ s: String) {
+    s.withCString(encodedAs: UTF16.self) { file in
+        "open".withCString(encodedAs: UTF16.self) { op in
+            _ = ShellExecuteW(nil, op, file, nil, nil, Int32(SW_SHOWNORMAL))
+        }
+    }
+}
+
+// MARK: - menu
+
+private func appendItem(_ menu: HMENU?, _ id: UINT, _ title: String, flags: UINT = UINT(MF_STRING)) {
+    title.withCString(encodedAs: UTF16.self) { p in
+        _ = AppendMenuW(menu, flags, UINT_PTR(id), p)
+    }
+}
+
 private func showTrayMenu(_ hwnd: HWND?) {
     guard let menu = CreatePopupMenu() else { return }
-    "Quit reLayout".withCString(encodedAs: UTF16.self) { p in
-        _ = AppendMenuW(menu, UINT(MF_STRING), UINT_PTR(menuQuit), p)
-    }
+    let disabled = UINT(MF_STRING) | UINT(MF_GRAYED)
+    appendItem(menu, 0, "reLayout", flags: disabled)
+    appendItem(menu, 0, "Convert: Ctrl+Alt+R", flags: disabled)
+    _ = AppendMenuW(menu, UINT(MF_SEPARATOR), 0, nil)
+    let startupFlags = UINT(MF_STRING) | (startupEnabled() ? UINT(MF_CHECKED) : UINT(MF_UNCHECKED))
+    appendItem(menu, menuStartup, "Launch at login", flags: startupFlags)
+    _ = AppendMenuW(menu, UINT(MF_SEPARATOR), 0, nil)
+    appendItem(menu, menuKeyboard, "Keyboard settings…")
+    appendItem(menu, menuAbout, "About reLayout")
+    _ = AppendMenuW(menu, UINT(MF_SEPARATOR), 0, nil)
+    appendItem(menu, menuQuit, "Quit reLayout")
+
     var pt = POINT()
     GetCursorPos(&pt)
     SetForegroundWindow(hwnd)   // so the menu dismisses on outside click
     _ = TrackPopupMenu(menu, UINT(TPM_RIGHTBUTTON), pt.x, pt.y, 0, hwnd, nil)
     DestroyMenu(menu)
+}
+
+private func handleCommand(_ id: UINT) {
+    switch id {
+    case menuStartup:  setStartup(!startupEnabled())
+    case menuKeyboard: openExternally("ms-settings:keyboard")
+    case menuAbout:    openExternally(aboutURL)
+    case menuQuit:     PostQuitMessage(0)
+    default:           break
+    }
 }
 
 // Top-level (capture-free) so it can be used as a C WNDPROC function pointer.
@@ -28,7 +122,7 @@ private func trayWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lParam:
         let ev = UINT(truncatingIfNeeded: lParam) & 0xFFFF
         if ev == UINT(WM_RBUTTONUP) || ev == UINT(WM_LBUTTONUP) { showTrayMenu(hwnd) }
     case UINT(WM_COMMAND):
-        if (UINT(truncatingIfNeeded: wParam) & 0xFFFF) == menuQuit { PostQuitMessage(0) }
+        handleCommand(UINT(truncatingIfNeeded: wParam) & 0xFFFF)
     case UINT(WM_DESTROY):
         PostQuitMessage(0)
     default:
@@ -52,9 +146,16 @@ func setupTray() -> Bool {
     nid.cbSize = DWORD(MemoryLayout<NOTIFYICONDATAW>.size)
     nid.hWnd = hwnd
     nid.uID = 1
-    nid.uFlags = UINT(NIF_ICON) | UINT(NIF_MESSAGE)
+    nid.uFlags = UINT(NIF_ICON) | UINT(NIF_MESSAGE) | UINT(NIF_TIP)
     nid.uCallbackMessage = trayCallback
     nid.hIcon = LoadIconW(nil, UnsafePointer<WCHAR>(bitPattern: 32512))   // MAKEINTRESOURCE(IDI_APPLICATION)
+    // Tooltip shown on hover.
+    let tip = Array("reLayout — Ctrl+Alt+R".utf16) + [0]
+    withUnsafeMutableBytes(of: &nid.szTip) { dst in
+        tip.withUnsafeBytes { src in
+            memcpy(dst.baseAddress, src.baseAddress, min(dst.count, src.count))
+        }
+    }
     return Shell_NotifyIconW(DWORD(NIM_ADD), &nid)
 }
 

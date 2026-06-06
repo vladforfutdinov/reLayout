@@ -77,9 +77,9 @@ private func setHotkeyControl(_ hwnd: HWND?, _ mods: UINT, _ vk: UINT) {
 }
 
 private func applyHotkeyFromControl(_ hwnd: HWND?) {
-    let raw = UInt(bitPattern: SendMessageW(GetDlgItem(hwnd, Int32(idHotkey)), HKM_GETHOTKEY, 0, 0))
+    let raw = SendMessageW(GetDlgItem(hwnd, Int32(idHotkey)), HKM_GETHOTKEY, 0, 0)  // LRESULT
     let vk  = UINT(raw & 0xFF)
-    let f   = (raw >> 8) & 0xFF
+    let f   = UInt((raw >> 8) & 0xFF)
     guard vk != 0 else { return }            // no main key chosen — ignore
     let mods = hotkeyfToMod(f)
     saveHotkey(mods: mods, vk: vk)

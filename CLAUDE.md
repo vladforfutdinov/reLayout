@@ -34,6 +34,7 @@ dist/        build output (.app/.dmg/.zip) — gitignored
 
 ```sh
 ./scripts/make-cert.sh   # one-time: self-signed identity so Accessibility grant survives rebuilds
+./scripts/run.sh         # dev loop: killall + dev build + relaunch
 ./scripts/build.sh       # -> ReLayout.app (or "ReLayout (dev).app" for non-tag builds)
 ./scripts/run-tests.sh   # build & run unit tests (-DTESTING; entry point swaps to macos/tests.swift)
 ./scripts/make-dmg.sh    # -> reLayout.dmg drag-to-Applications installer

@@ -97,6 +97,10 @@ jobs:
 
       - name: Upload distributables (workflow_dispatch only)
         if: github.event_name == 'workflow_dispatch'
+        # upload-artifact@v4 is a Node-20 JS action (deprecated 2026-06-16);
+        # run it on Node 24 so it keeps working past the cutoff.
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
         uses: actions/upload-artifact@v4
         with:
           name: relayout-dist

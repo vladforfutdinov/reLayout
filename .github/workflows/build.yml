@@ -178,6 +178,20 @@ jobs:
       - name: Show toolchain
         run: swift --version
 
+      # Windows SDK 10.0.26100's winnt.h defines the _ARM64_BARRIER_* enum AND
+      # pulls in clang's bundled arm64intr.h, which defines it too — so importing
+      # the WinSDK module on arm64 fails with "reference to '_ARM64_BARRIER_ISH'
+      # is ambiguous". Drop clang's duplicate header; the SDK's definition stands.
+      - name: Work around WinSDK/clang arm64intr.h clash (arm64 only)
+        if: matrix.arch == 'arm64'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dupes = Get-ChildItem "$env:LOCALAPPDATA\Programs\Swift\Toolchains" -Recurse -Filter arm64intr.h -ErrorAction SilentlyContinue |
+                   Where-Object { $_.FullName -match 'clang\\include' }
+          if (-not $dupes) { Write-Host 'no clang arm64intr.h found (toolchain may already be fixed)'; exit 0 }
+          $dupes | ForEach-Object { Write-Host "removing $($_.FullName)"; Remove-Item $_.FullName -Force }
+
       - name: Build (release)
         run: swift build -c release --product ReLayoutWin
 

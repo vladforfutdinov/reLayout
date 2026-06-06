@@ -3,3 +3,6 @@
 // in CI and linked into ReLayoutWin via -Xlinker. Icon id 1 is also the lowest,
 // so Explorer/Alt-Tab pick it as the application icon automatically.
 1 ICON "relayout.ico"
+// App manifest (RT_MANIFEST = 24): pulls in ComCtl32 v6 for themed controls +
+// the SysLink class, and declares per-monitor-v2 DPI awareness.
+1 24 "app.manifest"

@@ -27,7 +27,8 @@ targets.append(
         // normal C `main` entry (the GUI subsystem would otherwise want WinMain).
         linkerSettings: [
             .unsafeFlags(["-Xlinker", "/SUBSYSTEM:WINDOWS",
-                          "-Xlinker", "/ENTRY:mainCRTStartup"])
+                          "-Xlinker", "/ENTRY:mainCRTStartup"]),
+            .linkedLibrary("comctl32")   // SysLink control in the Settings window
         ]
     )
 )

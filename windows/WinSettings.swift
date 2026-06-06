@@ -1,22 +1,31 @@
 import WinSDK
 
-// A small native Settings window opened from the tray menu. MVP controls:
-// launch-at-login checkbox, the convert-hotkey hint, and shortcuts to the
-// Windows keyboard settings and the project page. Lives on the app's single
-// UI thread, so the main GetMessage loop drives it — no separate loop here.
+// Native Settings window opened from the tray. Themed (ComCtl32 v6 via the app
+// manifest), Segoe UI, DPI-scaled and centered. Content mirrors the macOS
+// Settings: a live "Layouts" line, the convert-hotkey hint, a launch-at-login
+// checkbox, a shortcut to Windows keyboard settings, and an About link.
+// Lives on the app's single UI thread, so the main GetMessage loop drives it.
 
 private let idChkStartup:  Int = 101
 private let idBtnKeyboard: Int = 102
-private let idBtnAbout:    Int = 103
-private let idBtnClose:    Int = 104
+private let idBtnClose:    Int = 103
+private let idLnkAbout:    Int = 104
 
 private var settingsHwnd: HWND?
 private var settingsClassW = Array("ReLayoutSettingsWnd".utf16) + [0]
 private var settingsClassRegistered = false
 
-private let guiFont = GetStockObject(DEFAULT_GUI_FONT)
+private var uiDpi: Int32 = 96
+private var uiFont: HFONT?
+
+// NM_CLICK / NM_RETURN as UINT (NM_FIRST is 0, so these are 0u-2 / 0u-4).
+private let nmClick  = UINT(bitPattern: -2)
+private let nmReturn = UINT(bitPattern: -4)
+
+private func sc(_ v: Int32) -> Int32 { v * uiDpi / 96 }   // scale a 96-dpi coord
+
 private func applyFont(_ h: HWND?) {
-    SendMessageW(h, UINT(WM_SETFONT), unsafeBitCast(guiFont, to: WPARAM.self), LPARAM(1))
+    SendMessageW(h, UINT(WM_SETFONT), unsafeBitCast(uiFont, to: WPARAM.self), LPARAM(1))
 }
 
 private func makeControl(_ cls: String, _ text: String, _ style: Int32,
@@ -27,37 +36,78 @@ private func makeControl(_ cls: String, _ text: String, _ style: Int32,
         text.withCString(encodedAs: UTF16.self) { txtP in
             let ctl = CreateWindowExW(0, clsP, txtP,
                                       DWORD(UInt32(bitPattern: style)) | DWORD(WS_CHILD) | DWORD(WS_VISIBLE),
-                                      x, y, w, h, parent, HMENU(bitPattern: id), hInst, nil)
+                                      sc(x), sc(y), sc(w), sc(h), parent, HMENU(bitPattern: id), hInst, nil)
             applyFont(ctl)
             return ctl
         }
     }
 }
 
+private func layoutsLine() -> String {
+    let names = WinLayout.installedList().map { $0.displayName }
+    return names.isEmpty ? "Layouts:  —" : "Layouts:  " + names.joined(separator: "  ·  ")
+}
+
 private func buildControls(_ hwnd: HWND?) {
-    _ = makeControl("STATIC", "reLayout", 0, 20, 16, 320, 22, hwnd, 0)
-    _ = makeControl("STATIC", "Convert hotkey:  Ctrl + Alt + R", 0, 20, 44, 320, 20, hwnd, 0)
+    _ = makeControl("STATIC", layoutsLine(),                 0,  20, 16, 340, 20, hwnd, 0)
+    _ = makeControl("STATIC", "Convert hotkey:  Ctrl + Alt + R", 0, 20, 42, 340, 20, hwnd, 0)
     let chk = makeControl("BUTTON", "Launch at login",
-                          Int32(BS_AUTOCHECKBOX), 20, 78, 220, 22, hwnd, idChkStartup)
+                          Int32(BS_AUTOCHECKBOX) | Int32(WS_TABSTOP), 20, 76, 220, 22, hwnd, idChkStartup)
     SendMessageW(chk, UINT(BM_SETCHECK), WPARAM(startupEnabled() ? 1 : 0), 0)
-    _ = makeControl("BUTTON", "Keyboard settings…", 0, 20, 118, 170, 28, hwnd, idBtnKeyboard)
-    _ = makeControl("BUTTON", "About (GitHub)",      0, 200, 118, 150, 28, hwnd, idBtnAbout)
-    _ = makeControl("BUTTON", "Close",               0, 250, 162, 100, 30, hwnd, idBtnClose)
+    _ = makeControl("BUTTON", "Keyboard settings…",
+                    Int32(WS_TABSTOP), 20, 116, 170, 30, hwnd, idBtnKeyboard)
+    _ = makeControl("SysLink", "<a>About reLayout</a>",
+                    Int32(WS_TABSTOP), 210, 122, 150, 22, hwnd, idLnkAbout)
+    _ = makeControl("BUTTON", "Close",
+                    Int32(WS_TABSTOP), 250, 162, 100, 30, hwnd, idBtnClose)
+}
+
+private func sizeAndCenter(_ hwnd: HWND?) {
+    // Grow to fit the scaled client area, using the actual (already DPI-correct)
+    // non-client delta — avoids AdjustWindowRectExForDpi's BOOL parameter.
+    var wr = RECT(); GetWindowRect(hwnd, &wr)
+    var cr = RECT(); GetClientRect(hwnd, &cr)
+    let ncw = (wr.right - wr.left) - (cr.right - cr.left)
+    let nch = (wr.bottom - wr.top) - (cr.bottom - cr.top)
+    let w = sc(380) + ncw
+    let h = sc(206) + nch
+    var mi = MONITORINFO(); mi.cbSize = DWORD(MemoryLayout<MONITORINFO>.size)
+    GetMonitorInfoW(MonitorFromWindow(hwnd, DWORD(MONITOR_DEFAULTTONEAREST)), &mi)
+    let x = mi.rcWork.left + ((mi.rcWork.right - mi.rcWork.left) - w) / 2
+    let y = mi.rcWork.top  + ((mi.rcWork.bottom - mi.rcWork.top) - h) / 2
+    SetWindowPos(hwnd, nil, x, y, w, h, UINT(SWP_NOZORDER))
 }
 
 private func settingsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lParam: LPARAM) -> LRESULT {
     switch msg {
     case UINT(WM_CREATE):
+        let dpi = GetDpiForWindow(hwnd)
+        uiDpi = dpi > 0 ? Int32(dpi) : 96
+        let face = "Segoe UI"
+        uiFont = face.withCString(encodedAs: UTF16.self) { f in
+            CreateFontW(-(9 * uiDpi / 72), 0, 0, 0, Int32(FW_NORMAL),
+                        0, 0, 0,
+                        DWORD(DEFAULT_CHARSET), DWORD(OUT_DEFAULT_PRECIS),
+                        DWORD(CLIP_DEFAULT_PRECIS), DWORD(CLEARTYPE_QUALITY),
+                        DWORD(DEFAULT_PITCH), f)
+        }
         buildControls(hwnd)
+        sizeAndCenter(hwnd)
     case UINT(WM_COMMAND):
         switch Int(UInt(truncatingIfNeeded: wParam) & 0xFFFF) {
         case idChkStartup:
             let checked = SendMessageW(GetDlgItem(hwnd, Int32(idChkStartup)), UINT(BM_GETCHECK), 0, 0)
             setStartup(checked == LRESULT(BST_CHECKED))
         case idBtnKeyboard: openExternally("ms-settings:keyboard")
-        case idBtnAbout:    openExternally(aboutURL)
         case idBtnClose:    DestroyWindow(hwnd)
         default: break
+        }
+    case UINT(WM_NOTIFY):
+        if let raw = UnsafeRawPointer(bitPattern: Int(lParam)) {
+            let hdr = raw.assumingMemoryBound(to: NMHDR.self).pointee
+            if hdr.idFrom == UINT_PTR(idLnkAbout), hdr.code == nmClick || hdr.code == nmReturn {
+                openExternally(aboutURL)
+            }
         }
     case UINT(WM_DESTROY):
         settingsHwnd = nil          // NB: do NOT PostQuitMessage — only this window closes
@@ -68,12 +118,19 @@ private func settingsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lPa
 }
 
 func openSettings() {
-    if let existing = settingsHwnd {           // already open — just focus it
+    if let existing = settingsHwnd {            // already open — just focus it
         ShowWindow(existing, SW_SHOW)
         SetForegroundWindow(existing)
         return
     }
     let hInst = GetModuleHandleW(nil)
+
+    // SysLink lives in ComCtl32 — make sure its class is registered.
+    var icc = INITCOMMONCONTROLSEX()
+    icc.dwSize = DWORD(MemoryLayout<INITCOMMONCONTROLSEX>.size)
+    icc.dwICC  = DWORD(ICC_LINK_CLASS) | DWORD(ICC_STANDARD_CLASSES)
+    InitCommonControlsEx(&icc)
+
     if !settingsClassRegistered {
         settingsClassW.withUnsafeBufferPointer { name in
             var wc = WNDCLASSW()
@@ -87,11 +144,12 @@ func openSettings() {
         }
         settingsClassRegistered = true
     }
+
     let style = DWORD(WS_OVERLAPPED) | DWORD(WS_CAPTION) | DWORD(WS_SYSMENU)
     settingsHwnd = settingsClassW.withUnsafeBufferPointer { name in
         "reLayout — Settings".withCString(encodedAs: UTF16.self) { title in
             CreateWindowExW(0, name.baseAddress, title, style,
-                            Int32(CW_USEDEFAULT), Int32(CW_USEDEFAULT), 380, 230,
+                            Int32(CW_USEDEFAULT), Int32(CW_USEDEFAULT), 400, 240,
                             nil, nil, hInst, nil)
         }
     }

@@ -22,6 +22,17 @@ final class WinLayout: LayoutMaps {
         build()
     }
 
+    /// Human-readable language name for this layout (e.g. "Ukrainian", "English"),
+    /// derived from the LANGID. Falls back to the hex id if lookup fails.
+    var displayName: String {
+        let lcid = DWORD(unsafeBitCast(hkl, to: UInt.self) & 0xFFFF)
+        var loc = [WCHAR](repeating: 0, count: 85)   // LOCALE_NAME_MAX_LENGTH
+        guard LCIDToLocaleName(lcid, &loc, Int32(loc.count), 0) > 0 else { return id }
+        var disp = [WCHAR](repeating: 0, count: 128)
+        let m = GetLocaleInfoEx(&loc, DWORD(0x6f /* LOCALE_SLOCALIZEDLANGUAGENAME */), &disp, Int32(disp.count))
+        return m > 1 ? String(decoding: disp.prefix(Int(m - 1)), as: UTF16.self) : id
+    }
+
     /// All installed keyboard layouts, in system order.
     static func installedList() -> [WinLayout] {
         let n = GetKeyboardLayoutList(0, nil)

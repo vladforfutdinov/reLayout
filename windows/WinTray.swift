@@ -10,6 +10,10 @@ private let trayCallback = UINT(WM_APP) + 1
 private let menuSettings: UINT = 1
 private let menuStartup:  UINT = 2
 private let menuQuit:     UINT = 3
+private let menuLayoutBase: UINT = 200    // installed-layout items use 200, 201, …
+
+private var menuLayouts: [WinLayout] = [] // captured when the menu is shown
+private var prevForeground: HWND?         // app that was active before we popped the menu
 
 let aboutURL = "https://github.com/vladforfutdinov/reLayout"
 
@@ -105,9 +109,20 @@ private func hotkeyLabel() -> String {
 
 private func showTrayMenu(_ hwnd: HWND?) {
     guard let menu = CreatePopupMenu() else { return }
-    let disabled = UINT(MF_STRING) | UINT(MF_GRAYED)
-    appendItem(menu, 0, "reLayout", flags: disabled)
-    _ = AppendMenuW(menu, UINT(MF_SEPARATOR), 0, nil)
+
+    // Layout chooser mirroring the system input switcher: every installed layout,
+    // a checkmark on the active one, click to switch the previously-active app.
+    prevForeground = GetForegroundWindow()
+    menuLayouts = WinLayout.installedList()
+    let tid = GetWindowThreadProcessId(prevForeground, nil)
+    let curLow = unsafeBitCast(GetKeyboardLayout(tid), to: UInt.self) & 0xFFFF
+    for (i, lay) in menuLayouts.enumerated() {
+        let on = (unsafeBitCast(lay.hkl, to: UInt.self) & 0xFFFF) == curLow
+        let flags = UINT(MF_STRING) | (on ? UINT(MF_CHECKED) : UINT(MF_UNCHECKED))
+        appendItem(menu, menuLayoutBase + UINT(i), lay.displayName, flags: flags)
+    }
+    if !menuLayouts.isEmpty { _ = AppendMenuW(menu, UINT(MF_SEPARATOR), 0, nil) }
+
     appendItem(menu, menuSettings, "Settings…")
     let startupFlags = UINT(MF_STRING) | (startupEnabled() ? UINT(MF_CHECKED) : UINT(MF_UNCHECKED))
     appendItem(menu, menuStartup, "Launch at login", flags: startupFlags)
@@ -122,6 +137,11 @@ private func showTrayMenu(_ hwnd: HWND?) {
 }
 
 private func handleCommand(_ id: UINT) {
+    // Layout chooser item -> switch the previously-active app to that layout.
+    if id >= menuLayoutBase, Int(id - menuLayoutBase) < menuLayouts.count {
+        switchLayout(to: menuLayouts[Int(id - menuLayoutBase)], target: prevForeground)
+        return
+    }
     switch id {
     case menuSettings: openSettings()
     case menuStartup:  setStartup(!startupEnabled())

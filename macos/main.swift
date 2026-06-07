@@ -417,7 +417,7 @@ final class SettingsWindow: NSWindow {
 
 // MARK: - App controller
 
-final class AppController: NSObject, NSApplicationDelegate {
+final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     static let shared = AppController()
 
     private var statusItem: NSStatusItem!
@@ -632,9 +632,24 @@ final class AppController: NSObject, NSApplicationDelegate {
             updateStatusIcon()
         }
         let menu = NSMenu()
-        let info = NSMenuItem(title: layoutInfoTitle(), action: nil, keyEquivalent: "")
-        info.isEnabled = false
-        menu.addItem(info)
+        menu.delegate = self          // rebuilt on open so the active-layout checkmark is live
+        rebuildMenu(menu)
+        statusItem.menu = menu
+    }
+
+    // Rebuild the menu contents — the layout chooser's checkmark must reflect the
+    // current input source each time the menu opens.
+    private func rebuildMenu(_ menu: NSMenu) {
+        menu.removeAllItems()
+        // Layout chooser mirroring the system input menu: every enabled layout,
+        // a checkmark on the active one, click to switch the system input source.
+        let curID = currentSourceID()
+        for lay in Layout.enabledList() {
+            let item = NSMenuItem(title: localizedSourceName(lay.source), action: #selector(selectLayout(_:)), keyEquivalent: "")
+            item.state = (lay.id == curID) ? .on : .off
+            item.representedObject = lay
+            menu.addItem(item)
+        }
         menu.addItem(.separator())
 #if SPARKLE
         menu.addItem(NSMenuItem(title: L("menu.checkUpdates"), action: #selector(checkForUpdates), keyEquivalent: ""))
@@ -645,15 +660,13 @@ final class AppController: NSObject, NSApplicationDelegate {
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: L("menu.quit"), action: #selector(quit), keyEquivalent: "q"))
         for it in menu.items where it.action != nil { it.target = self }
-        statusItem.menu = menu
     }
 
-    private func layoutInfoTitle() -> String {
-        let names = Layout.enabledList().map {
-            $0.id.replacingOccurrences(of: "com.apple.keylayout.", with: "")
-        }
-        let list = names.isEmpty ? "—" : names.joined(separator: " · ")
-        return "\(list) [ \(hotKeyDisplay) ]"
+    func menuNeedsUpdate(_ menu: NSMenu) { rebuildMenu(menu) }
+
+    @objc private func selectLayout(_ sender: NSMenuItem) {
+        guard let lay = sender.representedObject as? Layout else { return }
+        TISSelectInputSource(lay.source)   // switch the system input source (main thread)
     }
 
     @objc private func quit() { NSApp.terminate(nil) }

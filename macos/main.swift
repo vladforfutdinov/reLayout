@@ -680,6 +680,8 @@ final class AppController: NSObject, NSApplicationDelegate {
         if let t = keyTap { CGEvent.tapEnable(tap: t, enable: false); CFMachPortInvalidate(t); keyTap = nil }
         tapArmed = false
         tapPolluted = false
+        tapInterrupted = false
+        lastTriggerTime = 0   // don't let a stale double-tap timer carry into a new hotkey
     }
 
     // Tear down whatever is active, then install the current mode.

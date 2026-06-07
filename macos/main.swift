@@ -1151,6 +1151,18 @@ final class AppController: NSObject, NSApplicationDelegate {
         return c
     }
 
+    // Cmd+X (cut): reads AND removes the selection in one step. Used by the
+    // clipboard fallback instead of Cmd+C — it dodges DeepL's Cmd+C-Cmd+C watcher,
+    // and the converted text is typed back in its place. nil if nothing was cut.
+    private func cutSelection(_ pb: NSPasteboard) -> String? {
+        let before = pb.changeCount
+        postKey(CGKeyCode(kVK_ANSI_X), .maskCommand)
+        usleep(120_000)
+        guard pb.changeCount != before, let c = pb.string(forType: .string), !c.isEmpty else { return nil }
+        dbg("read via Cmd+X: \(c.debugDescription)")
+        return c
+    }
+
     func performRetype() {
         guard AXIsProcessTrusted() else {
             DispatchQueue.main.async { self.promptAccessibilityIfNeeded() }
@@ -1178,11 +1190,8 @@ final class AppController: NSObject, NSApplicationDelegate {
         var clipboardTouched = false
 
         var sel: String?
-        // The first AX read right after the hotkey can transiently return nil
-        // (focus settling), which would drop us to the clipboard path and pop
-        // DeepL on the first conversion. Retry once before giving up on AX.
-        var ax = axSelectedText()
-        if ax == nil { usleep(60_000); ax = axSelectedText() }
+        var removedSelection = false   // Cmd+X cut the text -> restore it if convert fails
+        let ax = axSelectedText()
         if let ax {
             // AX path — never touches the clipboard (DeepL stays quiet)
             if !ax.isEmpty {
@@ -1196,22 +1205,19 @@ final class AppController: NSObject, NSApplicationDelegate {
                 if let s, !s.isEmpty { dbg("read via AX: \(s.debugDescription)"); sel = s }
             }
         } else {
-            // AX unavailable -> clipboard fallback (Cmd+C), which overwrites the
-            // pasteboard; remember the prior string so we can put it back.
+            // AX unavailable -> clipboard fallback via Cmd+X (cut). Cut reads AND
+            // removes the selection, dodges DeepL's Cmd+C-Cmd+C watcher, and lets us
+            // type the result back in place. Save the prior clipboard to restore it.
             clipboardSaved = pb.string(forType: .string)
             clipboardTouched = true
-            sel = copySelection(pb)
+            sel = cutSelection(pb)
             if sel == nil {
-                // Nothing selected -> grab the current line (Shift+Cmd+Left) and copy
-                // it. This is a 2nd Cmd+C; space it out so DeepL & co. don't read the
-                // pair as their Cmd+C-Cmd+C trigger. (Only genuinely AX-less apps reach
-                // here — the AX path above handles no-selection without the clipboard.)
                 dbg("no selection -> Shift+Cmd+Left")
-                usleep(700_000)
                 postKey(CGKeyCode(kVK_LeftArrow), [.maskShift, .maskCommand])
                 usleep(120_000)
-                sel = copySelection(pb)
+                sel = cutSelection(pb)
             }
+            removedSelection = (sel != nil)
         }
 
         // convert() touches TIS APIs, which must run on the main thread (macOS 26
@@ -1219,6 +1225,7 @@ final class AppController: NSObject, NSApplicationDelegate {
         guard let text = sel, !text.isEmpty,
               let r = DispatchQueue.main.sync(execute: { self.convert(text) }) else {
             dbg("nothing to convert")
+            if removedSelection, let cut = sel { typeUnicode(cut) }   // put back what we cut
             if clipboardTouched { restoreClipboard(clipboardSaved) }
             return
         }

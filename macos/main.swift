@@ -1226,12 +1226,19 @@ final class AppController: NSObject, NSApplicationDelegate {
         } else {
             // AX unavailable -> clipboard fallback (Cmd+C), which overwrites the
             // pasteboard; remember the prior string so we can put it back.
-            // Only ONE Cmd+C here: a no-selection retry would fire a second Cmd+C,
-            // which DeepL & co. read as their Cmd+C-Cmd+C trigger. (The AX path
-            // above still does the Shift+Cmd+Left no-selection grab, no clipboard.)
             clipboardSaved = pb.string(forType: .string)
             clipboardTouched = true
             sel = copySelection(pb)
+            if sel == nil {
+                // Nothing selected -> grab the current line (Shift+Cmd+Left) and copy
+                // it. This is a 2nd Cmd+C; space it out so DeepL & co. don't read the
+                // pair as their Cmd+C-Cmd+C trigger.
+                dbg("no selection -> Shift+Cmd+Left")
+                usleep(350_000)
+                postKey(CGKeyCode(kVK_LeftArrow), [.maskShift, .maskCommand])
+                usleep(120_000)
+                sel = copySelection(pb)
+            }
         }
 
         // convert() touches TIS APIs, which must run on the main thread (macOS 26

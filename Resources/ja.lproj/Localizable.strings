@@ -27,3 +27,4 @@
 "settings.menubar.layout" = "レイアウト状態";
 "settings.menubar.static" = "静的アイコン";
 "settings.autoUpdate" = "自動的にアップデートを確認";
+"settings.doubleTap" = "ダブルタップで実行";

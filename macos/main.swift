@@ -470,6 +470,16 @@ final class AppController: NSObject, NSApplicationDelegate {
     fileprivate var tapInterrupted = false    // set by the key tap (file-scope callback)
     private var tapPolluted = false   // an out-of-set modifier appeared this cycle
 
+    // "Trigger on double-tap": fire only on the second hotkey activation within
+    // doubleTapWindow. While on, undo (press-again-to-revert) is disabled — a
+    // second double-tap would otherwise be ambiguous.
+    private var hotKeyDoubleTap: Bool {
+        get { UserDefaults.standard.bool(forKey: "hkDoubleTap") }
+        set { UserDefaults.standard.set(newValue, forKey: "hkDoubleTap") }
+    }
+    private var lastTriggerTime = 0.0
+    private let doubleTapWindow = 0.35
+
     // settings
     private var settingsWindow: NSWindow?
     private weak var shortcutField: ShortcutField?
@@ -695,13 +705,27 @@ final class AppController: NSObject, NSApplicationDelegate {
 
     // MARK: hotkey
 
+    // Single entry point for both hotkey modes. With "Trigger on double-tap"
+    // enabled, the conversion runs only on the second activation within
+    // doubleTapWindow; otherwise it runs on every activation.
+    func triggerHotkey() {
+        guard hotKeyDoubleTap else { worker.async { self.performRetype() }; return }
+        let now = ProcessInfo.processInfo.systemUptime
+        if now - lastTriggerTime <= doubleTapWindow {
+            lastTriggerTime = 0                       // consumed — next press starts fresh
+            worker.async { self.performRetype() }
+        } else {
+            lastTriggerTime = now                     // first tap; wait for the second
+        }
+    }
+
     private func installHotKeyHandler() {
         guard !handlerInstalled else { return }
         var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard),
                                  eventKind: UInt32(kEventHotKeyPressed))
         let ih = InstallEventHandler(GetApplicationEventTarget(), { _, _, _ in
             dbg("hotkey fired")
-            AppController.shared.worker.async { AppController.shared.performRetype() }
+            AppController.shared.triggerHotkey()
             return noErr
         }, 1, &spec, nil, nil)
         handlerInstalled = (ih == noErr)
@@ -783,7 +807,7 @@ final class AppController: NSObject, NSApplicationDelegate {
             // key/mouse interruption, released quickly.
             if tapArmed, !tapInterrupted, !tapPolluted,
                ProcessInfo.processInfo.systemUptime - tapArmTime < 0.6 {
-                worker.async { self.performRetype() }
+                triggerHotkey()
             }
             tapArmed = false
             tapPolluted = false   // reset for the next press cycle
@@ -926,14 +950,23 @@ final class AppController: NSObject, NSApplicationDelegate {
         }
         conflict.isHidden = conflict.stringValue.isEmpty   // no empty line when no conflict
 
+        // "Trigger on double-tap" toggle. When on, the convert action fires only
+        // on a double activation, and the press-again-to-undo gesture is disabled.
+        let doubleTapCb = NSButton(checkboxWithTitle: L("settings.doubleTap"),
+                                   target: self, action: #selector(toggleDoubleTap(_:)))
+        doubleTapCb.font = .systemFont(ofSize: 11)
+        doubleTapCb.state = hotKeyDoubleTap ? .on : .off
+
         // small secondary hint under the hotkey field: double-tap to undo
+        // (hidden when the double-tap trigger is on, since undo is then disabled)
         let undoHint = NSTextField(labelWithString: L("settings.undoHint"))
         undoHint.font = .systemFont(ofSize: 11)
         undoHint.textColor = .secondaryLabelColor
+        undoHint.isHidden = hotKeyDoubleTap
 
-        // hotkey field + (optional) conflict warning + undo hint, stacked tight
-        // under the "Hotkey:" caption — no gap from separate grid rows.
-        let hkColumn = NSStackView(views: [hkRow, conflict, undoHint])
+        // hotkey field + double-tap toggle + (optional) conflict + undo hint,
+        // stacked tight under the "Hotkey:" caption — no gap from separate rows.
+        let hkColumn = NSStackView(views: [hkRow, doubleTapCb, conflict, undoHint])
         hkColumn.orientation = .vertical
         hkColumn.alignment = .leading
         hkColumn.spacing = 4
@@ -1008,6 +1041,14 @@ final class AppController: NSObject, NSApplicationDelegate {
     @objc private func toggleLogin() {
         setLogin(loginCheckbox?.state == .on)
         loginCheckbox?.state = loginEnabled() ? .on : .off   // reflect real state
+    }
+
+    @objc private func toggleDoubleTap(_ sender: NSButton) {
+        hotKeyDoubleTap = (sender.state == .on)
+        lastTriggerTime = 0
+        // rebuild Settings so the undo hint shows/hides to match
+        if let w = settingsWindow { settingsWindow = nil; w.close() }
+        DispatchQueue.main.async { self.openReLayoutSettings() }
     }
 
     // Language picker changed: tag 0 = follow system, else Loc.languages[tag-1].
@@ -1148,9 +1189,10 @@ final class AppController: NSObject, NSApplicationDelegate {
             return
         }
 
-        // Double-tap undo: a second hotkey within undoWindow of a conversion
-        // reverses it instead of converting again.
-        if let last = lastConversion,
+        // Press-again undo: a second hotkey within undoWindow of a conversion
+        // reverses it. Disabled when "Trigger on double-tap" is on — a second
+        // double-tap would be ambiguous with the trigger itself.
+        if !hotKeyDoubleTap, let last = lastConversion,
            ProcessInfo.processInfo.systemUptime - last.time < undoWindow {
             lastConversion = nil
             performUndo(last)

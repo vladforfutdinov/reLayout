@@ -27,3 +27,4 @@
 "settings.menubar.layout" = "Текущая раскладка";
 "settings.menubar.static" = "Статичная иконка";
 "settings.autoUpdate" = "Автоматически проверять обновления";
+"settings.doubleTap" = "Срабатывать по двойному нажатию";

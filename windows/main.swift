@@ -16,6 +16,23 @@ private struct LastConvert {
 private var lastConvert: LastConvert?
 private let undoWindowMs: DWORD = 1500
 
+// "Trigger on double-tap": fire only on the second hotkey press within the
+// window. While on, undo (press-again) is disabled — it would clash.
+private var lastTriggerTick: DWORD = 0
+private let doubleTapWindowMs: DWORD = 350
+
+// Called for every WM_HOTKEY; gates the conversion on a double-press when enabled.
+func triggerHotkey() {
+    guard loadDoubleTap() else { performRetype(); return }
+    let now = GetTickCount()
+    if now &- lastTriggerTick <= doubleTapWindowMs {
+        lastTriggerTick = 0
+        performRetype()
+    } else {
+        lastTriggerTick = now
+    }
+}
+
 // Source = current (foreground) layout. Target = the other-script enabled layout,
 // else simply the other one. The converted result is left selected, so pressing
 // the hotkey again right away (selection unchanged) undoes the conversion.
@@ -33,8 +50,8 @@ func performRetype() {
     guard let text = sel, !text.isEmpty else { return }
 
     // Undo: only when the still-selected text IS our last output and it's recent.
-    // This never hijacks a fresh conversion of a different selection.
-    if let last = lastConvert, GetTickCount() &- last.at <= undoWindowMs, text == last.converted {
+    // Disabled when double-tap triggering is on (a second double-tap would clash).
+    if !loadDoubleTap(), let last = lastConvert, GetTickCount() &- last.at <= undoWindowMs, text == last.converted {
         sendUnicode(last.original)
         selectLeft(last.original.count)        // keep it selected for repeat-undo/redo
         Sleep(20)
@@ -77,7 +94,7 @@ _ = setupTray()
 var msg = MSG()
 while GetMessageW(&msg, nil, 0, 0) {
     if msg.message == UINT(WM_HOTKEY), Int32(truncatingIfNeeded: msg.wParam) == hotkeyID {
-        performRetype()
+        triggerHotkey()
     }
     TranslateMessage(&msg)
     DispatchMessageW(&msg)

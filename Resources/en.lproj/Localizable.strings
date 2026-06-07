@@ -27,3 +27,4 @@
 "settings.menubar.layout" = "Layout state";
 "settings.menubar.static" = "Static icon";
 "settings.autoUpdate" = "Automatically check for updates";
+"settings.doubleTap" = "Trigger on double-tap";

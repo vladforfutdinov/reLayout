@@ -27,3 +27,4 @@
 "settings.menubar.layout" = "Belegungsstatus";
 "settings.menubar.static" = "Statisches Symbol";
 "settings.autoUpdate" = "Automatisch nach Updates suchen";
+"settings.doubleTap" = "Bei Doppeltipp auslösen";

@@ -96,6 +96,7 @@ private func applyHotkeyFromControl(_ hwnd: HWND?) {
     let mods = hotkeyfToMod(f)
     saveHotkey(mods: mods, vk: vk)
     _ = registerConvertHotkey(mods, vk)
+    updateTrayTooltip()      // keep the tray tooltip/menu hint in sync
 }
 
 private func buildControls(_ hwnd: HWND?) {

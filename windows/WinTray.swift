@@ -83,11 +83,31 @@ private func appendItem(_ menu: HMENU?, _ id: UINT, _ title: String, flags: UINT
     }
 }
 
+// Localized key name for a virtual-key (e.g. "R", "F2"), via the scan code.
+private func keyName(_ vk: UINT) -> String {
+    let scan = MapVirtualKeyW(vk, 0 /* MAPVK_VK_TO_VSC */)
+    var buf = [WCHAR](repeating: 0, count: 32)
+    let n = GetKeyNameTextW(LONG(scan << 16), &buf, Int32(buf.count))
+    return n > 0 ? String(decoding: buf.prefix(Int(n)), as: UTF16.self) : "?"
+}
+
+// Human label for the current convert hotkey, e.g. "Ctrl+Alt+R".
+private func hotkeyLabel() -> String {
+    let hk = loadHotkey()
+    var parts: [String] = []
+    if hk.mods & UINT(MOD_CONTROL) != 0 { parts.append("Ctrl") }
+    if hk.mods & UINT(MOD_ALT)     != 0 { parts.append("Alt") }
+    if hk.mods & UINT(MOD_SHIFT)   != 0 { parts.append("Shift") }
+    if hk.mods & UINT(MOD_WIN)     != 0 { parts.append("Win") }
+    parts.append(keyName(hk.vk))
+    return parts.joined(separator: "+")
+}
+
 private func showTrayMenu(_ hwnd: HWND?) {
     guard let menu = CreatePopupMenu() else { return }
     let disabled = UINT(MF_STRING) | UINT(MF_GRAYED)
     appendItem(menu, 0, "reLayout", flags: disabled)
-    appendItem(menu, 0, "Convert: Ctrl+Alt+R", flags: disabled)
+    appendItem(menu, 0, "Convert: \(hotkeyLabel())", flags: disabled)
     _ = AppendMenuW(menu, UINT(MF_SEPARATOR), 0, nil)
     appendItem(menu, menuSettings, "Settings…")
     let startupFlags = UINT(MF_STRING) | (startupEnabled() ? UINT(MF_CHECKED) : UINT(MF_UNCHECKED))
@@ -123,6 +143,23 @@ private func appIcon() -> HICON? {
         ?? LoadIconW(nil, UnsafePointer<WCHAR>(bitPattern: 32512))
 }
 
+// True when the taskbar uses the light theme (so the layout-code icon should be
+// drawn in dark text, matching the system input indicator).
+private func taskbarUsesLightTheme() -> Bool {
+    var data: DWORD = 0
+    var cb = DWORD(MemoryLayout<DWORD>.size)
+    let r = "Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize".withCString(encodedAs: UTF16.self) { sp in
+        "SystemUsesLightTheme".withCString(encodedAs: UTF16.self) { vp in
+            withUnsafeMutablePointer(to: &data) { dp in
+                dp.withMemoryRebound(to: UInt8.self, capacity: MemoryLayout<DWORD>.size) { bp in
+                    RegGetValueW(kHKCU, sp, vp, DWORD(0x18 /* RRF_RT_REG_DWORD */), nil, bp, &cb)
+                }
+            }
+        }
+    }
+    return r == 0 && data == 1
+}
+
 // Two-letter code for the foreground layout, e.g. "EN", "UK".
 // Cheap (no map building) so the 400 ms poll stays light.
 private func currentLayoutCode() -> String {
@@ -149,39 +186,31 @@ private func makeTextIcon(_ text: String) -> HICON? {
     guard let dib = CreateDIBSection(hdc, &bmi, 0 /* DIB_RGB_COLORS */, &bits, nil, 0) else { return nil }
     let oldBmp = SelectObject(hdc, dib)
 
-    // Dark rounded tile so the white code stays readable on any taskbar colour.
-    // (Pixels left at rgb 0 become transparent via the alpha pass below.)
-    let dark = COLORREF(0x0028_2828)
-    let brush = CreateSolidBrush(dark)
-    let pen   = CreatePen(0 /* PS_SOLID */, 1, dark)
-    let oldBrush = SelectObject(hdc, brush)
-    let oldPen   = SelectObject(hdc, pen)
-    RoundRect(hdc, 0, 0, S, S, 10, 10)
-    SelectObject(hdc, oldBrush)
-    SelectObject(hdc, oldPen)
-    DeleteObject(brush)
-    DeleteObject(pen)
-
+    // Draw the code in WHITE first; we use its intensity as the alpha coverage,
+    // then recolour to the taskbar-theme text colour (no background tile, like
+    // the system input indicator). Sized to fit a 3-letter code.
     let font: HFONT? = "Segoe UI".withCString(encodedAs: UTF16.self) { f in
-        CreateFontW(-26, 0, 0, 0, 600 /* FW_SEMIBOLD */, 0, 0, 0,
+        CreateFontW(-16, 0, 0, 0, 600 /* FW_SEMIBOLD */, 0, 0, 0,
                     DWORD(DEFAULT_CHARSET), DWORD(OUT_DEFAULT_PRECIS),
                     DWORD(CLIP_DEFAULT_PRECIS), DWORD(CLEARTYPE_QUALITY),
                     DWORD(DEFAULT_PITCH), f)
     }
     let oldFont = SelectObject(hdc, font)
     SetBkMode(hdc, 1 /* TRANSPARENT */)
-    SetTextColor(hdc, COLORREF(0x00FF_FFFF))   // white
+    SetTextColor(hdc, COLORREF(0x00FF_FFFF))   // white — coverage source
     var rc = RECT(left: 0, top: 0, right: S, bottom: S)
     text.withCString(encodedAs: UTF16.self) { p in
         _ = DrawTextW(hdc, p, -1, &rc, UINT(0x25) /* DT_CENTER|DT_VCENTER|DT_SINGLELINE */)
     }
     GdiFlush()
 
+    // Recolour: alpha = white coverage, RGB = theme text colour (straight alpha).
+    let dark: UInt32 = taskbarUsesLightTheme() ? 0x0020_2020 : 0x00FF_FFFF   // dark text on light taskbar
     if let p = bits {
         let px = p.assumingMemoryBound(to: UInt32.self)
         for i in 0..<Int(S * S) {
-            let rgb = px[i] & 0x00FF_FFFF
-            px[i] = rgb != 0 ? (rgb | 0xFF00_0000) : 0
+            let cov = px[i] & 0xFF                       // white intensity (any channel)
+            px[i] = cov == 0 ? 0 : ((cov << 24) | dark)
         }
     }
 
@@ -274,16 +303,28 @@ func setupTray() -> Bool {
     // system application icon if the resource is somehow missing.
     nid.hIcon = LoadIconW(GetModuleHandleW(nil), UnsafePointer<WCHAR>(bitPattern: 1))
              ?? LoadIconW(nil, UnsafePointer<WCHAR>(bitPattern: 32512))
-    // Tooltip shown on hover.
-    let tip = Array("reLayout — Ctrl+Alt+R".utf16) + [0]
+    writeTooltip()                              // hover tooltip = "reLayout — <hotkey>"
+    let added = Shell_NotifyIconW(DWORD(NIM_ADD), &nid)
+    applyTrayMode()          // honor saved tray mode (may start the layout-poll timer)
+    return added
+}
+
+// Fill nid.szTip from the current hotkey (does not push to the shell on its own).
+private func writeTooltip() {
+    let tip = Array("reLayout — \(hotkeyLabel())".utf16) + [0]
     withUnsafeMutableBytes(of: &nid.szTip) { dst in
+        memset(dst.baseAddress, 0, dst.count)
         tip.withUnsafeBytes { src in
             memcpy(dst.baseAddress, src.baseAddress, min(dst.count, src.count))
         }
     }
-    let added = Shell_NotifyIconW(DWORD(NIM_ADD), &nid)
-    applyTrayMode()          // honor saved tray mode (may start the layout-poll timer)
-    return added
+}
+
+// Refresh the hover tooltip after the hotkey changes (called from Settings).
+func updateTrayTooltip() {
+    guard trayHwnd != nil else { return }
+    writeTooltip()
+    _ = Shell_NotifyIconW(DWORD(NIM_MODIFY), &nid)
 }
 
 func removeTray() {

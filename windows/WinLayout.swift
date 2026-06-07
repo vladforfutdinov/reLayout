@@ -55,7 +55,7 @@ final class WinLayout: LayoutMaps {
         var disp = [WCHAR](repeating: 0, count: 128)
         let m = GetLocaleInfoEx(&loc, DWORD(0x6f /* LOCALE_SLOCALIZEDLANGUAGENAME */), &disp, Int32(disp.count))
         let name = m > 1 ? String(decoding: disp.prefix(Int(m - 1)), as: UTF16.self) : "?"
-        return String(name.prefix(2)).uppercased()
+        return String(name.prefix(3)).uppercased()   // ENG / UKR / RUS, like the system indicator
     }
 
     /// Layout of the foreground window's input thread.

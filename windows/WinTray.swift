@@ -111,12 +111,122 @@ private func handleCommand(_ id: UINT) {
     }
 }
 
+// MARK: - tray icon mode (static logo vs live layout code)
+
+private let trayTimerID = UINT_PTR(1)
+private var trayMode = 0           // 0 = static logo, 1 = live layout code
+private var lastTrayCode = ""
+private var dynamicIcon: HICON?    // current text icon, owned (DestroyIcon on swap)
+
+private func appIcon() -> HICON? {
+    LoadIconW(GetModuleHandleW(nil), UnsafePointer<WCHAR>(bitPattern: 1))
+        ?? LoadIconW(nil, UnsafePointer<WCHAR>(bitPattern: 32512))
+}
+
+// Two-letter code for the foreground layout, e.g. "EN", "UK".
+private func currentLayoutCode() -> String {
+    guard let cur = WinLayout.current() else { return "?" }
+    return String(cur.displayName.prefix(2)).uppercased()
+}
+
+// Render a 32×32 icon with `text` (white glyph, transparent elsewhere) via a
+// 32-bit top-down DIB; alpha is set opaque wherever GDI drew the text.
+private func makeTextIcon(_ text: String) -> HICON? {
+    let S: Int32 = 32
+    guard let screen = GetDC(nil) else { return nil }
+    defer { ReleaseDC(nil, screen) }
+    guard let hdc = CreateCompatibleDC(screen) else { return nil }
+    defer { DeleteDC(hdc) }
+
+    var bmi = BITMAPINFO()
+    bmi.bmiHeader.biSize = DWORD(MemoryLayout<BITMAPINFOHEADER>.size)
+    bmi.bmiHeader.biWidth = S
+    bmi.bmiHeader.biHeight = -S            // top-down
+    bmi.bmiHeader.biPlanes = 1
+    bmi.bmiHeader.biBitCount = 32
+    bmi.bmiHeader.biCompression = 0        // BI_RGB
+    var bits: UnsafeMutableRawPointer?
+    guard let dib = CreateDIBSection(hdc, &bmi, 0 /* DIB_RGB_COLORS */, &bits, nil, 0) else { return nil }
+    let oldBmp = SelectObject(hdc, dib)
+
+    let font: HFONT? = "Segoe UI".withCString(encodedAs: UTF16.self) { f in
+        CreateFontW(-26, 0, 0, 0, 600 /* FW_SEMIBOLD */, 0, 0, 0,
+                    DWORD(DEFAULT_CHARSET), DWORD(OUT_DEFAULT_PRECIS),
+                    DWORD(CLIP_DEFAULT_PRECIS), DWORD(CLEARTYPE_QUALITY),
+                    DWORD(DEFAULT_PITCH), f)
+    }
+    let oldFont = SelectObject(hdc, font)
+    SetBkMode(hdc, 1 /* TRANSPARENT */)
+    SetTextColor(hdc, COLORREF(0x00FF_FFFF))   // white
+    var rc = RECT(left: 0, top: 0, right: S, bottom: S)
+    text.withCString(encodedAs: UTF16.self) { p in
+        _ = DrawTextW(hdc, p, -1, &rc, UINT(0x25) /* DT_CENTER|DT_VCENTER|DT_SINGLELINE */)
+    }
+    GdiFlush()
+
+    if let p = bits {
+        let px = p.assumingMemoryBound(to: UInt32.self)
+        for i in 0..<Int(S * S) {
+            let rgb = px[i] & 0x00FF_FFFF
+            px[i] = rgb != 0 ? (rgb | 0xFF00_0000) : 0
+        }
+    }
+
+    SelectObject(hdc, oldFont)
+    SelectObject(hdc, oldBmp)
+    if let font { DeleteObject(font) }
+
+    var ii = ICONINFO()
+    ii.fIcon = true
+    ii.hbmColor = dib
+    ii.hbmMask = CreateBitmap(S, S, 1, 1, nil)   // dummy; alpha channel carries shape
+    let icon = CreateIconIndirect(&ii)
+    if let m = ii.hbmMask { DeleteObject(m) }
+    DeleteObject(dib)
+    return icon
+}
+
+private func setTrayIcon(_ icon: HICON?) {
+    nid.hIcon = icon
+    _ = Shell_NotifyIconW(DWORD(NIM_MODIFY), &nid)
+}
+
+private func refreshTrayIcon() {
+    guard trayMode == 1 else { return }
+    let code = currentLayoutCode()
+    guard code != lastTrayCode else { return }
+    lastTrayCode = code
+    let newIcon = makeTextIcon(code)
+    setTrayIcon(newIcon)
+    if let old = dynamicIcon { DestroyIcon(old) }
+    dynamicIcon = newIcon
+}
+
+// Apply the saved tray mode: start polling for layout changes, or revert to the
+// static logo. Called at startup and when the Settings combo changes.
+func applyTrayMode() {
+    trayMode = loadTrayMode()
+    guard let hwnd = trayHwnd else { return }
+    if trayMode == 1 {
+        lastTrayCode = ""
+        refreshTrayIcon()
+        _ = SetTimer(hwnd, trayTimerID, 400, nil)
+    } else {
+        _ = KillTimer(hwnd, trayTimerID)
+        setTrayIcon(appIcon())
+        if let old = dynamicIcon { DestroyIcon(old); dynamicIcon = nil }
+        lastTrayCode = ""
+    }
+}
+
 // Top-level (capture-free) so it can be used as a C WNDPROC function pointer.
 private func trayWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lParam: LPARAM) -> LRESULT {
     switch msg {
     case trayCallback:
         let ev = UINT(truncatingIfNeeded: lParam) & 0xFFFF
         if ev == UINT(WM_RBUTTONUP) || ev == UINT(WM_LBUTTONUP) { showTrayMenu(hwnd) }
+    case UINT(WM_TIMER):
+        refreshTrayIcon()
     case UINT(WM_COMMAND):
         handleCommand(UINT(truncatingIfNeeded: wParam) & 0xFFFF)
     case UINT(WM_DESTROY):
@@ -155,7 +265,9 @@ func setupTray() -> Bool {
             memcpy(dst.baseAddress, src.baseAddress, min(dst.count, src.count))
         }
     }
-    return Shell_NotifyIconW(DWORD(NIM_ADD), &nid)
+    let added = Shell_NotifyIconW(DWORD(NIM_ADD), &nid)
+    applyTrayMode()          // honor saved tray mode (may start the layout-poll timer)
+    return added
 }
 
 func removeTray() {

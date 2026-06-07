@@ -13,6 +13,18 @@ private let idLnkAbout:    Int = 104
 private let idHotkey:      Int = 105
 private let idBtnReset:    Int = 106
 private let idBtnApply:    Int = 107
+private let idCombo:       Int = 108
+
+// ComboBox messages (winuser.h) — not surfaced to Swift.
+private let CB_ADDSTRING_ = UINT(0x0143)
+private let CB_SETCURSEL_ = UINT(0x014E)
+private let CB_GETCURSEL_ = UINT(0x0147)
+
+private func cbAdd(_ combo: HWND?, _ s: String) {
+    s.withCString(encodedAs: UTF16.self) { p in
+        _ = SendMessageW(combo, CB_ADDSTRING_, 0, LPARAM(Int(bitPattern: UnsafeRawPointer(p))))
+    }
+}
 
 // Hotkey control messages (commctrl.h) — not surfaced to Swift.
 private let HKM_SETHOTKEY = UINT(WM_USER) + 1
@@ -96,23 +108,31 @@ private func buildControls(_ hwnd: HWND?) {
     _ = makeControl("BUTTON", "Reset", Int32(WS_TABSTOP), 240, 47, 58, 26, hwnd, idBtnReset)
     _ = makeControl("BUTTON", "Apply", Int32(WS_TABSTOP), 304, 47, 58, 26, hwnd, idBtnApply)
 
+    _ = makeControl("STATIC", "Tray icon:", 0, 20, 88, 56, 20, hwnd, 0)
+    let combo = makeControl("COMBOBOX", "",
+                            Int32(0x0003) /* CBS_DROPDOWNLIST */ | Int32(WS_VSCROLL) | Int32(WS_TABSTOP),
+                            80, 84, 170, 160, hwnd, idCombo)
+    cbAdd(combo, "Static logo")
+    cbAdd(combo, "Layout code")
+    SendMessageW(combo, CB_SETCURSEL_, WPARAM(loadTrayMode()), 0)
+
     let chk = makeControl("BUTTON", "Launch at login",
-                          Int32(BS_AUTOCHECKBOX) | Int32(WS_TABSTOP), 20, 88, 220, 22, hwnd, idChkStartup)
+                          Int32(BS_AUTOCHECKBOX) | Int32(WS_TABSTOP), 20, 124, 220, 22, hwnd, idChkStartup)
     SendMessageW(chk, UINT(BM_SETCHECK), WPARAM(startupEnabled() ? 1 : 0), 0)
 
     _ = makeControl("BUTTON", "Keyboard settings…",
-                    Int32(WS_TABSTOP), 20, 128, 170, 30, hwnd, idBtnKeyboard)
+                    Int32(WS_TABSTOP), 20, 160, 170, 30, hwnd, idBtnKeyboard)
 
     // ── About section (folded in from the old standalone About link) ──
-    _ = makeControl("STATIC", "", 0x0010 /* SS_ETCHEDHORZ */, 20, 170, 342, 1, hwnd, 0)
-    _ = makeControl("STATIC", "reLayout  ·  version \(appVersion)", 0, 20, 182, 342, 20, hwnd, 0)
-    _ = makeControl("STATIC", "Retype selection in the correct keyboard layout", 0, 20, 202, 342, 20, hwnd, 0)
-    _ = makeControl("STATIC", "© 2026 Volodymyr Forfutdinov", 0, 20, 222, 342, 20, hwnd, 0)
+    _ = makeControl("STATIC", "", 0x0010 /* SS_ETCHEDHORZ */, 20, 202, 342, 1, hwnd, 0)
+    _ = makeControl("STATIC", "reLayout  ·  version \(appVersion)", 0, 20, 214, 342, 20, hwnd, 0)
+    _ = makeControl("STATIC", "Retype selection in the correct keyboard layout", 0, 20, 234, 342, 20, hwnd, 0)
+    _ = makeControl("STATIC", "© 2026 Volodymyr Forfutdinov", 0, 20, 254, 342, 20, hwnd, 0)
     _ = makeControl("SysLink", "<a>github.com/vladforfutdinov/reLayout</a>",
-                    Int32(WS_TABSTOP), 20, 244, 342, 22, hwnd, idLnkAbout)
+                    Int32(WS_TABSTOP), 20, 276, 342, 22, hwnd, idLnkAbout)
 
     _ = makeControl("BUTTON", "Close",
-                    Int32(WS_TABSTOP), 262, 276, 100, 30, hwnd, idBtnClose)
+                    Int32(WS_TABSTOP), 262, 308, 100, 30, hwnd, idBtnClose)
 }
 
 private func sizeAndCenter(_ hwnd: HWND?) {
@@ -123,7 +143,7 @@ private func sizeAndCenter(_ hwnd: HWND?) {
     let ncw = (wr.right - wr.left) - (cr.right - cr.left)
     let nch = (wr.bottom - wr.top) - (cr.bottom - cr.top)
     let w = sc(380) + ncw
-    let h = sc(320) + nch
+    let h = sc(352) + nch
     var mi = MONITORINFO(); mi.cbSize = DWORD(MemoryLayout<MONITORINFO>.size)
     GetMonitorInfoW(MonitorFromWindow(hwnd, DWORD(MONITOR_DEFAULTTONEAREST)), &mi)
     let x = mi.rcWork.left + ((mi.rcWork.right - mi.rcWork.left) - w) / 2
@@ -147,7 +167,9 @@ private func settingsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lPa
         buildControls(hwnd)
         sizeAndCenter(hwnd)
     case UINT(WM_COMMAND):
-        switch Int(UInt(truncatingIfNeeded: wParam) & 0xFFFF) {
+        let w = UInt(truncatingIfNeeded: wParam)
+        let code = Int((w >> 16) & 0xFFFF)
+        switch Int(w & 0xFFFF) {
         case idChkStartup:
             let checked = SendMessageW(GetDlgItem(hwnd, Int32(idChkStartup)), UINT(BM_GETCHECK), 0, 0)
             setStartup(checked == LRESULT(BST_CHECKED))
@@ -155,6 +177,10 @@ private func settingsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lPa
         case idBtnReset:    setHotkeyControl(hwnd, defaultHotkey.mods, defaultHotkey.vk); applyHotkeyFromControl(hwnd)
         case idBtnApply:    applyHotkeyFromControl(hwnd)
         case idBtnClose:    DestroyWindow(hwnd)
+        case idCombo where code == 1:   // CBN_SELCHANGE
+            let sel = SendMessageW(GetDlgItem(hwnd, Int32(idCombo)), CB_GETCURSEL_, 0, 0)
+            saveTrayMode(Int(sel))
+            applyTrayMode()
         default: break
         }
     case UINT(WM_NOTIFY):

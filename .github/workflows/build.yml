@@ -162,6 +162,8 @@ jobs:
   #   * Inno Setup installer (setup.exe) — per-user install, Start Menu +
   #     Startup shortcut, uninstaller.
   build-windows:
+    # Windows is frozen: build on manual dispatch only, NOT on tag releases.
+    if: github.event_name == 'workflow_dispatch'
     needs: build            # macOS job creates the GitHub Release on tag; wait so release-upload below finds it
     strategy:
       fail-fast: false      # don't kill arm64 if x64 fails, and vice-versa

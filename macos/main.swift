@@ -417,7 +417,7 @@ final class SettingsWindow: NSWindow {
 
 // MARK: - App controller
 
-final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
+final class AppController: NSObject, NSApplicationDelegate {
     static let shared = AppController()
 
     private var statusItem: NSStatusItem!
@@ -519,13 +519,6 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // empty for keyboard layouts), so we redraw the same look: a rounded box with the
     // source's native-language abbreviation (УК / РУ / A), as a template image that
     // adapts to light/dark menu bars.
-    // Menu-bar icon mode (persisted). false = live layout-state badge (default),
-    // true = the static app icon.
-    private var menuBarStatic: Bool {
-        get { UserDefaults.standard.bool(forKey: "menuBarStatic") }
-        set { UserDefaults.standard.set(newValue, forKey: "menuBarStatic") }
-    }
-
     // Appearance-matched "rL" wordmark: white glyph on dark, black on light.
     private func menuGlyphImage(for appearance: NSAppearance) -> NSImage? {
         let dark = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
@@ -534,31 +527,18 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func updateStatusIcon() {
         guard let button = statusItem?.button else { return }
-        if menuBarStatic {
-            // The "rL" wordmark is monochrome, so use it as a TEMPLATE image: the
-            // system tints it to the menu-bar foreground colour itself (white on a
-            // dark bar, black on a light bar) — correct even when the bar's tint
-            // doesn't match the app's Light/Dark appearance (e.g. wallpaper-driven).
-            let glyph = (NSImage(named: "for-light-text-1024")?.copy() as? NSImage)
-                ?? NSApp.applicationIconImage ?? NSImage()
-            glyph.size = NSSize(width: 18, height: 18)
-            glyph.isTemplate = true
-            button.image = glyph
-            button.imagePosition = .imageOnly
-            button.title = ""
-            button.setAccessibilityLabel("reLayout")
-            return
-        }
-        guard let srcRef = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue() else { return }
-        let badge = badgeImage(abbrev(srcRef))
-        // The badge is a template image with no inherent meaning to VoiceOver;
-        // describe the current input source so the menu-bar item is announced.
-        let name = localizedSourceName(srcRef)
-        badge.accessibilityDescription = name
-        button.image = badge
+        // Always the static "rL" wordmark. It's monochrome, so use it as a TEMPLATE
+        // image: the system tints it to the menu-bar foreground colour (white on a
+        // dark bar, black on a light bar), correct even when the bar's tint doesn't
+        // match the app's Light/Dark appearance (e.g. wallpaper-driven).
+        let glyph = (NSImage(named: "for-light-text-1024")?.copy() as? NSImage)
+            ?? NSApp.applicationIconImage ?? NSImage()
+        glyph.size = NSSize(width: 18, height: 18)
+        glyph.isTemplate = true
+        button.image = glyph
         button.imagePosition = .imageOnly
         button.title = ""
-        button.setAccessibilityLabel(String(format: L("a11y.statusItem"), name))
+        button.setAccessibilityLabel("reLayout")
     }
 
     private func localizedSourceName(_ src: TISInputSource) -> String {
@@ -632,25 +612,6 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
             updateStatusIcon()
         }
         let menu = NSMenu()
-        menu.delegate = self          // rebuilt on open so the active-layout checkmark is live
-        rebuildMenu(menu)
-        statusItem.menu = menu
-    }
-
-    // Rebuild the menu contents — the layout chooser's checkmark must reflect the
-    // current input source each time the menu opens.
-    private func rebuildMenu(_ menu: NSMenu) {
-        menu.removeAllItems()
-        // Layout chooser mirroring the system input menu: every enabled layout,
-        // a checkmark on the active one, click to switch the system input source.
-        let curID = currentSourceID()
-        for lay in Layout.enabledList() {
-            let item = NSMenuItem(title: localizedSourceName(lay.source), action: #selector(selectLayout(_:)), keyEquivalent: "")
-            item.state = (lay.id == curID) ? .on : .off
-            item.representedObject = lay
-            menu.addItem(item)
-        }
-        menu.addItem(.separator())
 #if SPARKLE
         menu.addItem(NSMenuItem(title: L("menu.checkUpdates"), action: #selector(checkForUpdates), keyEquivalent: ""))
 #endif
@@ -660,13 +621,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: L("menu.quit"), action: #selector(quit), keyEquivalent: "q"))
         for it in menu.items where it.action != nil { it.target = self }
-    }
-
-    func menuNeedsUpdate(_ menu: NSMenu) { rebuildMenu(menu) }
-
-    @objc private func selectLayout(_ sender: NSMenuItem) {
-        guard let lay = sender.representedObject as? Layout else { return }
-        TISSelectInputSource(lay.source)   // switch the system input source (main thread)
+        statusItem.menu = menu
     }
 
     @objc private func quit() { NSApp.terminate(nil) }
@@ -959,9 +914,6 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         cb.state = loginEnabled() ? .on : .off
         loginCheckbox = cb
 
-        let layouts = NSTextField(labelWithString: layoutListText())
-        layouts.textColor = .secondaryLabelColor
-
         // language picker: "System Default" + bundled languages; tag 0 = system, n = Loc.languages[n-1]
         let langPopup = NSPopUpButton(frame: .zero, pullsDown: false)
         langPopup.addItem(withTitle: L("settings.language.system"))
@@ -977,14 +929,6 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         langPopup.target = self
         langPopup.action = #selector(changeLanguage(_:))
-
-        // menu-bar icon: live layout state (tag 0) vs static app icon (tag 1)
-        let menuBarPopup = NSPopUpButton(frame: .zero, pullsDown: false)
-        menuBarPopup.addItem(withTitle: L("settings.menubar.layout"));  menuBarPopup.lastItem?.tag = 0
-        menuBarPopup.addItem(withTitle: L("settings.menubar.static"));  menuBarPopup.lastItem?.tag = 1
-        menuBarPopup.selectItem(withTag: menuBarStatic ? 1 : 0)
-        menuBarPopup.target = self
-        menuBarPopup.action = #selector(changeMenuBarIcon(_:))
 
         // link-style button that opens the standard About panel
         let aboutLink = NSButton(title: L("menu.about"), target: self, action: #selector(showAbout))
@@ -1003,9 +947,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         autoUpdateCb.state = (updater?.updater.automaticallyChecksForUpdates ?? true) ? .on : .off
         rows.append([caption(""), autoUpdateCb])
 #endif
-        rows.append([caption(L("settings.layouts")), layouts])
         rows.append([caption(L("settings.language")), langPopup])
-        rows.append([caption(L("settings.menubar")), menuBarPopup])
         let hotkeyRowIndex = rows.count
         rows.append([caption(L("settings.hotkey")), hkColumn])
         rows.append([NSGridCell.emptyContentView, aboutLink])
@@ -1033,11 +975,6 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         w.makeKeyAndOrderFront(nil)
     }
 
-    private func layoutListText() -> String {
-        let names = Layout.enabledList().map { $0.id.replacingOccurrences(of: "com.apple.keylayout.", with: "") }
-        return names.isEmpty ? "—" : names.joined(separator: " · ")
-    }
-
     @objc private func toggleLogin() {
         setLogin(loginCheckbox?.state == .on)
         loginCheckbox?.state = loginEnabled() ? .on : .off   // reflect real state
@@ -1051,11 +988,6 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         setupMenu()
         if let w = settingsWindow { settingsWindow = nil; w.close() }
         DispatchQueue.main.async { self.openReLayoutSettings() }
-    }
-
-    @objc private func changeMenuBarIcon(_ sender: NSPopUpButton) {
-        menuBarStatic = (sender.selectedTag() == 1)
-        updateStatusIcon()
     }
 
     private func loginEnabled() -> Bool {

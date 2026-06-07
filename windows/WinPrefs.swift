@@ -7,7 +7,6 @@ private let prefsHKCU = HKEY(bitPattern: 0x8000_0001)!
 private let prefsSubKey   = "Software\\reLayout"
 private let keyHotkeyMods = "HotkeyMods"
 private let keyHotkeyVK   = "HotkeyVK"
-private let keyTrayMode   = "TrayMode"
 
 private let kKeyQuery: REGSAM = 0x0001   // KEY_QUERY_VALUE
 private let kKeySet:   REGSAM = 0x0002   // KEY_SET_VALUE
@@ -65,16 +64,5 @@ func saveHotkey(mods: UINT, vk: UINT) {
         writeDword(key, keyHotkeyMods, DWORD(mods))
         writeDword(key, keyHotkeyVK, DWORD(vk))
         return true
-    }
-}
-
-// Tray icon mode: 0 = static logo (default), 1 = live layout code (e.g. "EN").
-func loadTrayMode() -> Int {
-    Int(withPrefsKey(write: false) { readDword($0, keyTrayMode) } ?? 0)
-}
-
-func saveTrayMode(_ mode: Int) {
-    _ = withPrefsKey(write: true) { key -> Bool in
-        writeDword(key, keyTrayMode, DWORD(mode)); return true
     }
 }

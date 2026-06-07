@@ -87,12 +87,11 @@ func readSelection() -> String? {
     return clipboardText()
 }
 
-// Ask a window to switch to the given layout (defaults to the foreground one).
-func switchLayout(to dst: WinLayout, target: HWND?) {
+// Ask the foreground window to switch to the given layout.
+func switchLayout(to dst: WinLayout) {
     let lp = unsafeBitCast(dst.hkl, to: LPARAM.self)
-    _ = PostMessageW(target, UINT(WM_INPUTLANGCHANGEREQUEST), 0, lp)
+    _ = PostMessageW(GetForegroundWindow(), UINT(WM_INPUTLANGCHANGEREQUEST), 0, lp)
 }
-func switchLayout(to dst: WinLayout) { switchLayout(to: dst, target: GetForegroundWindow()) }
 
 // Wait briefly for the hotkey's modifiers to be released before synthesizing input.
 func waitModifiersReleased() {

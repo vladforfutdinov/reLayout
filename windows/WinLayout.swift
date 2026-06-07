@@ -44,22 +44,6 @@ final class WinLayout: LayoutMaps {
         return out
     }
 
-    /// Cheap 2-letter code (e.g. "EN") for the foreground layout WITHOUT building
-    /// the char<->stroke maps — used by the tray indicator's frequent polling.
-    static func currentDisplayCode() -> String {
-        let tid = GetWindowThreadProcessId(GetForegroundWindow(), nil)
-        guard let h = GetKeyboardLayout(tid) else { return "?" }
-        let lcid = DWORD(unsafeBitCast(h, to: UInt.self) & 0xFFFF)
-        var loc = [WCHAR](repeating: 0, count: 85)
-        guard LCIDToLocaleName(lcid, &loc, Int32(loc.count), 0) > 0 else { return "?" }
-        var disp = [WCHAR](repeating: 0, count: 128)
-        // NATIVE language name so the code is in the layout's own script, like the
-        // system indicator: Ukrainian -> "українська" -> "УКР", English -> "ENG".
-        let m = GetLocaleInfoEx(&loc, DWORD(0x04 /* LOCALE_SNATIVELANGUAGENAME */), &disp, Int32(disp.count))
-        let name = m > 1 ? String(decoding: disp.prefix(Int(m - 1)), as: UTF16.self) : "?"
-        return String(name.prefix(3)).uppercased()
-    }
-
     /// Layout of the foreground window's input thread.
     static func current() -> WinLayout? {
         let tid = GetWindowThreadProcessId(GetForegroundWindow(), nil)

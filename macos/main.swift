@@ -478,7 +478,7 @@ final class AppController: NSObject, NSApplicationDelegate {
         set { UserDefaults.standard.set(newValue, forKey: "hkDoubleTap") }
     }
     private var lastTriggerTime = 0.0
-    private let doubleTapWindow = 0.35
+    private let doubleTapWindow = 0.5
 
     // settings
     private var settingsWindow: NSWindow?

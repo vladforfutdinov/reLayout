@@ -22,7 +22,15 @@ private let undoWindowMs: DWORD = 1500
 func performRetype() {
     guard let cur = WinLayout.current() else { return }
     waitModifiersReleased()
-    guard let text = readSelection(), !text.isEmpty else { return }
+
+    // Read the selection; if nothing is selected, grab the current line up to the
+    // caret (Shift+Home) so the hotkey still converts what was just typed.
+    var sel = readSelection()
+    if sel == nil || sel!.isEmpty {
+        selectToLineStart()
+        sel = readSelection()
+    }
+    guard let text = sel, !text.isEmpty else { return }
 
     // Undo: only when the still-selected text IS our last output and it's recent.
     // This never hijacks a fresh conversion of a different selection.

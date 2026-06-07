@@ -53,9 +53,11 @@ final class WinLayout: LayoutMaps {
         var loc = [WCHAR](repeating: 0, count: 85)
         guard LCIDToLocaleName(lcid, &loc, Int32(loc.count), 0) > 0 else { return "?" }
         var disp = [WCHAR](repeating: 0, count: 128)
-        let m = GetLocaleInfoEx(&loc, DWORD(0x6f /* LOCALE_SLOCALIZEDLANGUAGENAME */), &disp, Int32(disp.count))
+        // NATIVE language name so the code is in the layout's own script, like the
+        // system indicator: Ukrainian -> "українська" -> "УКР", English -> "ENG".
+        let m = GetLocaleInfoEx(&loc, DWORD(0x04 /* LOCALE_SNATIVELANGUAGENAME */), &disp, Int32(disp.count))
         let name = m > 1 ? String(decoding: disp.prefix(Int(m - 1)), as: UTF16.self) : "?"
-        return String(name.prefix(3)).uppercased()   // ENG / UKR / RUS, like the system indicator
+        return String(name.prefix(3)).uppercased()
     }
 
     /// Layout of the foreground window's input thread.

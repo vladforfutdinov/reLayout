@@ -107,7 +107,6 @@ private func showTrayMenu(_ hwnd: HWND?) {
     guard let menu = CreatePopupMenu() else { return }
     let disabled = UINT(MF_STRING) | UINT(MF_GRAYED)
     appendItem(menu, 0, "reLayout", flags: disabled)
-    appendItem(menu, 0, "Convert: \(hotkeyLabel())", flags: disabled)
     _ = AppendMenuW(menu, UINT(MF_SEPARATOR), 0, nil)
     appendItem(menu, menuSettings, "Settings…")
     let startupFlags = UINT(MF_STRING) | (startupEnabled() ? UINT(MF_CHECKED) : UINT(MF_UNCHECKED))
@@ -188,19 +187,22 @@ private func makeTextIcon(_ text: String) -> HICON? {
 
     // Draw the code in WHITE first; we use its intensity as the alpha coverage,
     // then recolour to the taskbar-theme text colour (no background tile, like
-    // the system input indicator). Sized to fit a 3-letter code.
-    let font: HFONT? = "Segoe UI".withCString(encodedAs: UTF16.self) { f in
-        CreateFontW(-16, 0, 0, 0, 600 /* FW_SEMIBOLD */, 0, 0, 0,
-                    DWORD(DEFAULT_CHARSET), DWORD(OUT_DEFAULT_PRECIS),
-                    DWORD(CLIP_DEFAULT_PRECIS), DWORD(CLEARTYPE_QUALITY),
-                    DWORD(DEFAULT_PITCH), f)
-    }
+    // the system input indicator). Use the system UI font, sized large.
+    var ncm = NONCLIENTMETRICSW()
+    ncm.cbSize = DWORD(MemoryLayout<NONCLIENTMETRICSW>.size)
+    _ = SystemParametersInfoW(UINT(0x0029 /* SPI_GETNONCLIENTMETRICS */), ncm.cbSize, &ncm, 0)
+    var lf = ncm.lfMessageFont
+    lf.lfHeight = -22                  // fill the icon — much bigger than before
+    lf.lfWeight = 600                  // semibold
+    let font = CreateFontIndirectW(&lf)
+
     let oldFont = SelectObject(hdc, font)
     SetBkMode(hdc, 1 /* TRANSPARENT */)
     SetTextColor(hdc, COLORREF(0x00FF_FFFF))   // white — coverage source
     var rc = RECT(left: 0, top: 0, right: S, bottom: S)
     text.withCString(encodedAs: UTF16.self) { p in
-        _ = DrawTextW(hdc, p, -1, &rc, UINT(0x25) /* DT_CENTER|DT_VCENTER|DT_SINGLELINE */)
+        // DT_NOCLIP (0x100) so a wide 3-letter code isn't clipped at the edges.
+        _ = DrawTextW(hdc, p, -1, &rc, UINT(0x125) /* DT_CENTER|DT_VCENTER|DT_SINGLELINE|DT_NOCLIP */)
     }
     GdiFlush()
 

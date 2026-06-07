@@ -40,6 +40,19 @@ func selectLeft(_ count: Int) {
     send(inputs)
 }
 
+// Select from the caret to the start of the line (Shift+Home) — used when nothing
+// is selected, so the hotkey still converts what was just typed on the line.
+func selectToLineStart() {
+    let shift = WORD(VK_SHIFT)
+    send([
+        keyEvent(vk: shift, scan: 0, flags: 0),
+        keyEvent(vk: WORD(VK_HOME), scan: 0, flags: 0),
+        keyEvent(vk: WORD(VK_HOME), scan: 0, flags: DWORD(KEYEVENTF_KEYUP)),
+        keyEvent(vk: shift, scan: 0, flags: DWORD(KEYEVENTF_KEYUP)),
+    ])
+    Sleep(20)
+}
+
 // Synthesize Ctrl+C to copy the current selection.
 private func sendCtrlC() {
     let ctrl = WORD(VK_CONTROL)

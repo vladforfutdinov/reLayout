@@ -192,16 +192,34 @@ private func makeTextIcon(_ text: String) -> HICON? {
     ncm.cbSize = DWORD(MemoryLayout<NONCLIENTMETRICSW>.size)
     _ = SystemParametersInfoW(UINT(0x0029 /* SPI_GETNONCLIENTMETRICS */), ncm.cbSize, &ncm, 0)
     var lf = ncm.lfMessageFont
-    lf.lfHeight = -22                  // fill the icon — much bigger than before
     lf.lfWeight = 600                  // semibold
-    let font = CreateFontIndirectW(&lf)
+    lf.lfHeight = -20                  // probe size, rescaled to fit below
 
-    let oldFont = SelectObject(hdc, font)
     SetBkMode(hdc, 1 /* TRANSPARENT */)
     SetTextColor(hdc, COLORREF(0x00FF_FFFF))   // white — coverage source
+
+    // Auto-fit: scale the font so the code spans ~92% of the icon width (then clamp
+    // its height so it still fits vertically). Makes the letters as large and wide
+    // as a square icon allows — the system-indicator look.
+    let nChars = Int32(Array(text.utf16).count)
+    var font = CreateFontIndirectW(&lf)
+    var oldFont = SelectObject(hdc, font)
+    var sz = SIZE()
+    text.withCString(encodedAs: UTF16.self) { p in _ = GetTextExtentPoint32W(hdc, p, nChars, &sz) }
+    if sz.cx > 0 {
+        let target = Int32(Double(S) * 0.92)
+        var h = lf.lfHeight * target / sz.cx          // width scales ~linearly with height
+        let maxMag = Int32(Double(S) * 0.80)
+        if -h > maxMag { h = -maxMag }                // don't overflow vertically
+        SelectObject(hdc, oldFont)
+        DeleteObject(font)
+        lf.lfHeight = h
+        font = CreateFontIndirectW(&lf)
+        oldFont = SelectObject(hdc, font)
+    }
+
     var rc = RECT(left: 0, top: 0, right: S, bottom: S)
     text.withCString(encodedAs: UTF16.self) { p in
-        // DT_NOCLIP (0x100) so a wide 3-letter code isn't clipped at the edges.
         _ = DrawTextW(hdc, p, -1, &rc, UINT(0x125) /* DT_CENTER|DT_VCENTER|DT_SINGLELINE|DT_NOCLIP */)
     }
     GdiFlush()

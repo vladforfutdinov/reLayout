@@ -76,9 +76,14 @@ private func clipboardText() -> String? {
 }
 
 // Read the current selection via Ctrl+C (MVP; UI Automation TextPattern later).
+// Returns nil if the copy did NOT change the clipboard — i.e. nothing was
+// selected — so callers can fall back (Shift+Home) instead of converting stale
+// clipboard text.
 func readSelection() -> String? {
+    let before = GetClipboardSequenceNumber()
     sendCtrlC()
     Sleep(120)
+    guard GetClipboardSequenceNumber() != before else { return nil }   // nothing copied
     return clipboardText()
 }
 

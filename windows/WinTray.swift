@@ -149,6 +149,19 @@ private func makeTextIcon(_ text: String) -> HICON? {
     guard let dib = CreateDIBSection(hdc, &bmi, 0 /* DIB_RGB_COLORS */, &bits, nil, 0) else { return nil }
     let oldBmp = SelectObject(hdc, dib)
 
+    // Dark rounded tile so the white code stays readable on any taskbar colour.
+    // (Pixels left at rgb 0 become transparent via the alpha pass below.)
+    let dark = COLORREF(0x0028_2828)
+    let brush = CreateSolidBrush(dark)
+    let pen   = CreatePen(0 /* PS_SOLID */, 1, dark)
+    let oldBrush = SelectObject(hdc, brush)
+    let oldPen   = SelectObject(hdc, pen)
+    RoundRect(hdc, 0, 0, S, S, 10, 10)
+    SelectObject(hdc, oldBrush)
+    SelectObject(hdc, oldPen)
+    DeleteObject(brush)
+    DeleteObject(pen)
+
     let font: HFONT? = "Segoe UI".withCString(encodedAs: UTF16.self) { f in
         CreateFontW(-26, 0, 0, 0, 600 /* FW_SEMIBOLD */, 0, 0, 0,
                     DWORD(DEFAULT_CHARSET), DWORD(OUT_DEFAULT_PRECIS),
@@ -176,10 +189,13 @@ private func makeTextIcon(_ text: String) -> HICON? {
     SelectObject(hdc, oldBmp)
     if let font { DeleteObject(font) }
 
+    // AND mask must be all-zero (the 32-bit alpha channel carries the shape).
+    // CreateBitmap with nil bits is UNINITIALISED -> garbled icon; pass zeros.
+    let maskBytes = [UInt8](repeating: 0, count: Int(S) * 4)   // 1bpp, 4-byte aligned rows
     var ii = ICONINFO()
     ii.fIcon = true
     ii.hbmColor = dib
-    ii.hbmMask = CreateBitmap(S, S, 1, 1, nil)   // dummy; alpha channel carries shape
+    ii.hbmMask = maskBytes.withUnsafeBytes { CreateBitmap(S, S, 1, 1, $0.baseAddress) }
     let icon = CreateIconIndirect(&ii)
     if let m = ii.hbmMask { DeleteObject(m) }
     DeleteObject(dib)

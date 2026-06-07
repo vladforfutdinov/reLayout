@@ -5,9 +5,31 @@ import ReLayoutCore
 // shared engine -> type the result -> switch layout. No tray/GUI yet; runs from a
 // console. Selection-read is the Ctrl+C fallback for now (UI Automation later).
 
+// Last conversion, kept so a second hotkey press within the undo window reverts
+// it (re-select what we typed, put the original back, restore the layout).
+private struct LastConvert {
+    let original: String
+    let converted: String
+    let src: WinLayout
+    let at: DWORD          // GetTickCount() at conversion time
+}
+private var lastConvert: LastConvert?
+private let undoWindowMs: DWORD = 1500
+
 // Source = current (foreground) layout. Target = the other-script enabled layout,
-// else simply the other one.
+// else simply the other one. A repeat press within ~1.5 s undoes instead.
 func performRetype() {
+    // Undo: press again quickly to revert the previous conversion.
+    if let last = lastConvert, GetTickCount() &- last.at <= undoWindowMs {
+        waitModifiersReleased()
+        selectLeft(last.converted.count)
+        sendUnicode(last.original)
+        Sleep(20)
+        switchLayout(to: last.src)
+        lastConvert = nil
+        return
+    }
+
     guard let cur = WinLayout.current() else { return }
     let all = WinLayout.installedList()
     guard all.count >= 2 else { return }
@@ -21,6 +43,7 @@ func performRetype() {
     sendUnicode(out)
     Sleep(20)
     switchLayout(to: dst)
+    lastConvert = LastConvert(original: text, converted: out, src: cur, at: GetTickCount())
 }
 
 let hotkeyID: Int32 = 1

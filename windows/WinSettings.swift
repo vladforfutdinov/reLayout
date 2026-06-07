@@ -102,10 +102,17 @@ private func buildControls(_ hwnd: HWND?) {
 
     _ = makeControl("BUTTON", "Keyboard settings…",
                     Int32(WS_TABSTOP), 20, 128, 170, 30, hwnd, idBtnKeyboard)
-    _ = makeControl("SysLink", "<a>About reLayout</a>",
-                    Int32(WS_TABSTOP), 210, 134, 150, 22, hwnd, idLnkAbout)
+
+    // ── About section (folded in from the old standalone About link) ──
+    _ = makeControl("STATIC", "", 0x0010 /* SS_ETCHEDHORZ */, 20, 170, 342, 1, hwnd, 0)
+    _ = makeControl("STATIC", "reLayout  ·  version \(appVersion)", 0, 20, 182, 342, 20, hwnd, 0)
+    _ = makeControl("STATIC", "Retype selection in the correct keyboard layout", 0, 20, 202, 342, 20, hwnd, 0)
+    _ = makeControl("STATIC", "© 2026 Volodymyr Forfutdinov", 0, 20, 222, 342, 20, hwnd, 0)
+    _ = makeControl("SysLink", "<a>github.com/vladforfutdinov/reLayout</a>",
+                    Int32(WS_TABSTOP), 20, 244, 342, 22, hwnd, idLnkAbout)
+
     _ = makeControl("BUTTON", "Close",
-                    Int32(WS_TABSTOP), 262, 176, 100, 30, hwnd, idBtnClose)
+                    Int32(WS_TABSTOP), 262, 276, 100, 30, hwnd, idBtnClose)
 }
 
 private func sizeAndCenter(_ hwnd: HWND?) {
@@ -116,7 +123,7 @@ private func sizeAndCenter(_ hwnd: HWND?) {
     let ncw = (wr.right - wr.left) - (cr.right - cr.left)
     let nch = (wr.bottom - wr.top) - (cr.bottom - cr.top)
     let w = sc(380) + ncw
-    let h = sc(218) + nch
+    let h = sc(320) + nch
     var mi = MONITORINFO(); mi.cbSize = DWORD(MemoryLayout<MONITORINFO>.size)
     GetMonitorInfoW(MonitorFromWindow(hwnd, DWORD(MONITOR_DEFAULTTONEAREST)), &mi)
     let x = mi.rcWork.left + ((mi.rcWork.right - mi.rcWork.left) - w) / 2

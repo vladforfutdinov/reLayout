@@ -1,12 +1,5 @@
 import WinSDK
 import ReLayoutCore
-import Dispatch
-
-// Conversion runs off the UI thread: it synthesizes input and sleeps for ~200ms,
-// and the low-level keyboard hook is serviced by the UI thread — blocking it past
-// LowLevelHooksTimeout makes Windows silently drop the hook (hotkey dies). So the
-// hook only posts; the actual retype happens on this serial queue.
-private let convertQueue = DispatchQueue(label: "com.vlad.relayout.convert")
 
 // reLayout — Windows. Hotkey -> read selection (clipboard) -> convert with the
 // shared engine -> type the result -> switch layout. (No undo on Windows.)
@@ -18,12 +11,11 @@ private let doubleTapWindowMs: DWORD = 350
 // Called for every hotkey activation (WM_RETYPE from the hook); gates the
 // conversion on a double-press/tap when enabled.
 func triggerHotkey() {
-    func fire() { convertQueue.async { performRetype() } }
-    guard loadDoubleTap() else { fire(); return }
+    guard loadDoubleTap() else { performRetype(); return }
     let now = GetTickCount()
     if now &- lastTriggerTick <= doubleTapWindowMs {
         lastTriggerTick = 0
-        fire()
+        performRetype()
     } else {
         lastTriggerTick = now
     }

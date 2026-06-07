@@ -554,69 +554,6 @@ final class AppController: NSObject, NSApplicationDelegate {
         button.setAccessibilityLabel("reLayout")
     }
 
-    private func localizedSourceName(_ src: TISInputSource) -> String {
-        if let p = TISGetInputSourceProperty(src, kTISPropertyLocalizedName) {
-            return Unmanaged<CFString>.fromOpaque(p).takeUnretainedValue() as String
-        }
-        return abbrev(src)
-    }
-
-    private func abbrev(_ src: TISInputSource) -> String {
-        if let p = TISGetInputSourceProperty(src, kTISPropertyInputSourceID) {
-            let id = Unmanaged<CFString>.fromOpaque(p).takeUnretainedValue() as String
-            if id.contains(".ABC") { return "A" }
-        }
-        // native-language two-letter abbreviation, e.g. uk -> "УК", ru -> "РУ"
-        if let p = TISGetInputSourceProperty(src, kTISPropertyInputSourceLanguages),
-           let langs = Unmanaged<CFArray>.fromOpaque(p).takeUnretainedValue() as? [String],
-           let l0 = langs.first,
-           let nm = Locale(identifier: l0).localizedString(forLanguageCode: l0), !nm.isEmpty {
-            return String(nm.prefix(2)).uppercased()
-        }
-        if let p = TISGetInputSourceProperty(src, kTISPropertyLocalizedName) {
-            let name = Unmanaged<CFString>.fromOpaque(p).takeUnretainedValue() as String
-            return String(name.prefix(2)).uppercased()
-        }
-        return "⇄"
-    }
-
-    private func badgeImage(_ text: String) -> NSImage {
-        // Latin abbreviation (ABC / EN) -> filled light keycap with dark glyph, like
-        // macOS. Cyrillic (УК / РУ) -> outlined box, template (adapts to menu bar).
-        let filled = !text.unicodeScalars.contains { isCyrLetter($0) }
-        let font = NSFont.systemFont(ofSize: 11, weight: .medium)
-        let attrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: NSColor.black]
-        let tsize = (text as NSString).size(withAttributes: attrs)
-
-        // single fixed canvas + fixed box for every layout -> constant menu-bar slot
-        let canvas = NSSize(width: 25, height: 16)
-        let r: CGFloat = 5
-        let img = NSImage(size: canvas)
-        img.lockFocus()
-        let box = NSRect(x: 1, y: 0, width: canvas.width - 2, height: canvas.height)
-        let pt = NSPoint(x: (canvas.width - tsize.width) / 2, y: (canvas.height - tsize.height) / 2)
-        // Both are TEMPLATE images so the menu bar tints + dims them like its own
-        // items (inactive display, dark/light). filled = solid box with the glyph
-        // KNOCKED OUT (transparent), outline = a ring with the glyph drawn.
-        if filled {
-            let p = NSBezierPath(roundedRect: box, xRadius: r, yRadius: r)
-            NSColor.black.setFill(); p.fill()
-            NSGraphicsContext.current?.compositingOperation = .destinationOut
-            (text as NSString).draw(at: pt, withAttributes: attrs)
-            NSGraphicsContext.current?.compositingOperation = .sourceOver
-        } else {
-            let outer = NSBezierPath(roundedRect: box, xRadius: r, yRadius: r)
-            let inner = NSBezierPath(roundedRect: box.insetBy(dx: 1, dy: 1), xRadius: r - 1, yRadius: r - 1)
-            outer.append(inner.reversed)
-            outer.windingRule = .evenOdd
-            NSColor.black.setFill(); outer.fill()
-            (text as NSString).draw(at: pt, withAttributes: attrs)
-        }
-        img.unlockFocus()
-        img.isTemplate = true
-        return img
-    }
-
     // MARK: menu
 
     private func setupMenu() {

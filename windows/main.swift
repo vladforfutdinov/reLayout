@@ -43,8 +43,8 @@ func triggerHotkey() {
 }
 
 // Source = current (foreground) layout. Target = the other-script enabled layout,
-// else simply the other one. The converted result is left selected, so pressing
-// the hotkey again right away (selection unchanged) undoes the conversion.
+// else simply the other one. In single-tap mode the result is left selected so a
+// quick press-again undoes it; in double-tap mode it is not (see below).
 func performRetype() {
     guard let cur = WinLayout.current() else { return }
     waitModifiersReleased()
@@ -75,7 +75,10 @@ func performRetype() {
         ?? all.first(where: { $0.id != cur.id })
     guard let dst, let out = convertWrong(text, src: cur, dst: dst) else { return }
     sendUnicode(out)
-    selectLeft(out.count)                       // re-select the result (Punto-style)
+    // Re-select the result ONLY in single-tap mode, so press-again undoes it. In
+    // double-tap mode we must NOT leave it selected, else the next double-tap would
+    // re-convert our own output instead of fresh text.
+    if !loadDoubleTap() { selectLeft(out.count) }
     Sleep(20)
     switchLayout(to: dst)
     lastConvert = LastConvert(original: text, converted: out, src: cur, at: GetTickCount())

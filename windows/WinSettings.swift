@@ -133,8 +133,9 @@ private func settingsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lPa
             saveDoubleTap(checked == LRESULT(BST_CHECKED))
         case idBtnKeyboard: openExternally("ms-settings:keyboard")
         case idBtnSet:
-            setFieldText(hwnd, idHotkeyField, "Press hotkey…")
-            startHotkeyCapture { mods, vk in applyHotkey(hwnd, mods, vk) }
+            setFieldText(hwnd, idHotkeyField, "Press a key or tap a modifier…")
+            startHotkeyCapture(onLive: { s in setFieldText(hwnd, idHotkeyField, s) },
+                               onDone: { mods, vk in applyHotkey(hwnd, mods, vk) })
         case idBtnReset:    applyHotkey(hwnd, defaultHotkey.mods, defaultHotkey.vk)
         case idBtnClose:    DestroyWindow(hwnd)
         default: break

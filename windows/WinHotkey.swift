@@ -27,6 +27,7 @@ private var comboFired = false
 // capture mode (recording a new hotkey from the Settings window)
 private var capturing = false
 private var captureDone: ((UINT, UINT) -> Void)?
+private var captureLive: ((String) -> Void)?   // live hint while keys are held
 
 // Left/right-specific and generic modifier virtual-keys.
 private let modifierVKs: Set<UINT> = [0x10, 0xA0, 0xA1,   // Shift, LShift, RShift
@@ -87,15 +88,19 @@ private func handleDetect(_ vk: UINT, down: Bool, up: Bool) {
     }
 }
 
+private func endCapture() { capturing = false; captureDone = nil; captureLive = nil }
+
 private func handleCapture(_ vk: UINT, down: Bool, up: Bool) {
-    if down, !isModifierVK(vk) {
-        // a real key -> combo with whatever modifiers are held
-        let cb = captureDone; capturing = false; captureDone = nil
-        cb?(currentMods(), vk)
-    } else if up, isModifierVK(vk) {
-        // only modifiers were pressed -> modifier-tap hotkey on this one
-        let cb = captureDone; capturing = false; captureDone = nil
-        cb?(0, vk)
+    if down {
+        if !isModifierVK(vk) {
+            // a real key -> combo with whatever modifiers are held
+            let cb = captureDone; endCapture(); cb?(currentMods(), vk)
+        } else {
+            captureLive?(keyName(vk))      // live hint, e.g. "Left Shift" — just release to set it
+        }
+    } else if up, isModifierVK(vk), currentMods() == 0 {
+        // a modifier released and nothing else held -> bare-modifier hotkey
+        let cb = captureDone; endCapture(); cb?(0, vk)
     }
 }
 
@@ -135,14 +140,17 @@ func setHotkey(_ mods: UINT, _ vk: UINT) {
     tapArmed = false; comboFired = false
 }
 
-// Enter capture: the next key/combo (or a bare modifier tap) is reported to
-// `completion`, on the main thread.
-func startHotkeyCapture(_ completion: @escaping (UINT, UINT) -> Void) {
-    captureDone = completion
+// Enter capture: held modifiers are reported live via `onLive`; the final
+// key/combo (or a released bare modifier) is reported via `onDone`. Both run on
+// the main thread.
+func startHotkeyCapture(onLive: @escaping (String) -> Void,
+                        onDone: @escaping (UINT, UINT) -> Void) {
+    captureLive = onLive
+    captureDone = onDone
     capturing = true
 }
 
-func cancelHotkeyCapture() { capturing = false; captureDone = nil }
+func cancelHotkeyCapture() { endCapture() }
 
 // Human label, e.g. "Left Shift" (modifier-tap) or "Ctrl+Alt+R" (combo).
 func hotkeyLabel(_ mods: UINT, _ vk: UINT) -> String {

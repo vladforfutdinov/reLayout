@@ -8,23 +8,10 @@ import Dispatch
 // hook only posts; the actual retype happens on this serial queue.
 private let convertQueue = DispatchQueue(label: "com.vlad.relayout.convert")
 
-// reLayout — Windows MVP. Hotkey -> read selection (clipboard) -> convert with the
-// shared engine -> type the result -> switch layout. No tray/GUI yet; runs from a
-// console. Selection-read is the Ctrl+C fallback for now (UI Automation later).
+// reLayout — Windows. Hotkey -> read selection (clipboard) -> convert with the
+// shared engine -> type the result -> switch layout. (No undo on Windows.)
 
-// Last conversion, kept so a second hotkey press within the undo window reverts
-// it (re-select what we typed, put the original back, restore the layout).
-private struct LastConvert {
-    let original: String
-    let converted: String
-    let src: WinLayout
-    let at: DWORD          // GetTickCount() at conversion time
-}
-private var lastConvert: LastConvert?
-private let undoWindowMs: DWORD = 1500
-
-// "Trigger on double-tap": fire only on the second hotkey press within the
-// window. While on, undo (press-again) is disabled — it would clash.
+// "Trigger on double-tap": fire only on the second hotkey press within the window.
 private var lastTriggerTick: DWORD = 0
 private let doubleTapWindowMs: DWORD = 350
 
@@ -43,8 +30,7 @@ func triggerHotkey() {
 }
 
 // Source = current (foreground) layout. Target = the other-script enabled layout,
-// else simply the other one. In single-tap mode the result is left selected so a
-// quick press-again undoes it; in double-tap mode it is not (see below).
+// else simply the other one. Each press converts fresh — no undo on Windows.
 func performRetype() {
     guard let cur = WinLayout.current() else { return }
     waitModifiersReleased()
@@ -58,30 +44,14 @@ func performRetype() {
     }
     guard let text = sel, !text.isEmpty else { return }
 
-    // Undo: only when the still-selected text IS our last output and it's recent.
-    // Disabled when double-tap triggering is on (a second double-tap would clash).
-    if !loadDoubleTap(), let last = lastConvert, GetTickCount() &- last.at <= undoWindowMs, text == last.converted {
-        sendUnicode(last.original)
-        selectLeft(last.original.count)        // keep it selected for repeat-undo/redo
-        Sleep(20)
-        switchLayout(to: last.src)
-        lastConvert = nil
-        return
-    }
-
     let all = WinLayout.installedList()
     guard all.count >= 2 else { return }
     let dst = all.first(where: { $0.isCyrillic != cur.isCyrillic && $0.id != cur.id })
         ?? all.first(where: { $0.id != cur.id })
     guard let dst, let out = convertWrong(text, src: cur, dst: dst) else { return }
     sendUnicode(out)
-    // Re-select the result ONLY in single-tap mode, so press-again undoes it. In
-    // double-tap mode we must NOT leave it selected, else the next double-tap would
-    // re-convert our own output instead of fresh text.
-    if !loadDoubleTap() { selectLeft(out.count) }
     Sleep(20)
     switchLayout(to: dst)
-    lastConvert = LastConvert(original: text, converted: out, src: cur, at: GetTickCount())
 }
 
 // Global hotkey via a low-level keyboard hook (see WinHotkey.swift) so a bare

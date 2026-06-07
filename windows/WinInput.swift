@@ -26,20 +26,6 @@ func sendUnicode(_ s: String) {
     if !inputs.isEmpty { send(inputs) }
 }
 
-// Select the previous `count` caret stops (Shift+Left × count) — used by undo to
-// re-select the text we just typed so the next sendUnicode replaces it.
-func selectLeft(_ count: Int) {
-    guard count > 0 else { return }
-    let shift = WORD(VK_SHIFT)
-    var inputs: [INPUT] = [keyEvent(vk: shift, scan: 0, flags: 0)]
-    for _ in 0..<count {
-        inputs.append(keyEvent(vk: WORD(VK_LEFT), scan: 0, flags: 0))
-        inputs.append(keyEvent(vk: WORD(VK_LEFT), scan: 0, flags: DWORD(KEYEVENTF_KEYUP)))
-    }
-    inputs.append(keyEvent(vk: shift, scan: 0, flags: DWORD(KEYEVENTF_KEYUP)))
-    send(inputs)
-}
-
 // Select from the caret to the start of the line (Shift+Home) — used when nothing
 // is selected, so the hotkey still converts what was just typed on the line.
 func selectToLineStart() {

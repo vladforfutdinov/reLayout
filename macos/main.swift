@@ -734,12 +734,11 @@ final class AppController: NSObject, NSApplicationDelegate {
         // so a key pressed during the hold (e.g. Option+' ) can't lose a race with
         // the modifier-release and mis-fire. (Splitting these across an event tap +
         // NSEvent monitors — two unordered sources — was the bug.)
-        let mask = CGEventMask(
-            (1 << CGEventType.flagsChanged.rawValue) |
-            (1 << CGEventType.keyDown.rawValue) |
-            (1 << CGEventType.leftMouseDown.rawValue) |
-            (1 << CGEventType.rightMouseDown.rawValue) |
-            (1 << CGEventType.otherMouseDown.rawValue))
+        // Built explicitly (one bit per event type) — a single big `1 << … | …`
+        // expression makes the Swift type-checker time out on some toolchains.
+        let types: [CGEventType] = [.flagsChanged, .keyDown, .leftMouseDown, .rightMouseDown, .otherMouseDown]
+        var mask: CGEventMask = 0
+        for t in types { mask |= (CGEventMask(1) << CGEventMask(t.rawValue)) }
         let cb: CGEventTapCallBack = { _, type, event, refcon in
             guard let refcon else { return Unmanaged.passUnretained(event) }
             let me = Unmanaged<AppController>.fromOpaque(refcon).takeUnretainedValue()

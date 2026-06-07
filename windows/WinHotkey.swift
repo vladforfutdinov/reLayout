@@ -98,8 +98,10 @@ private func handleCapture(_ vk: UINT, down: Bool, up: Bool) {
         } else {
             captureLive?(keyName(vk))      // live hint, e.g. "Left Shift" — just release to set it
         }
-    } else if up, isModifierVK(vk), currentMods() == 0 {
-        // a modifier released and nothing else held -> bare-modifier hotkey
+    } else if up, isModifierVK(vk) {
+        // a modifier released (no real key was pressed, else we'd have finalized
+        // above) -> bare-modifier hotkey. Don't test GetAsyncKeyState here: during
+        // this key's own keyUP it still reports as down.
         let cb = captureDone; endCapture(); cb?(0, vk)
     }
 }

@@ -21,7 +21,8 @@ private let undoWindowMs: DWORD = 1500
 private var lastTriggerTick: DWORD = 0
 private let doubleTapWindowMs: DWORD = 350
 
-// Called for every WM_HOTKEY; gates the conversion on a double-press when enabled.
+// Called for every hotkey activation (WM_RETYPE from the hook); gates the
+// conversion on a double-press/tap when enabled.
 func triggerHotkey() {
     guard loadDoubleTap() else { performRetype(); return }
     let now = GetTickCount()
@@ -72,28 +73,15 @@ func performRetype() {
     lastConvert = LastConvert(original: text, converted: out, src: cur, at: GetTickCount())
 }
 
-let hotkeyID: Int32 = 1
-
-// (Re)register the global convert hotkey, replacing any prior registration.
-// NOREPEAT so holding the combo doesn't spam. Called at startup and whenever
-// the hotkey is changed in Settings.
-@discardableResult
-func registerConvertHotkey(_ mods: UINT, _ vk: UINT) -> Bool {
-    UnregisterHotKey(nil, hotkeyID)
-    return RegisterHotKey(nil, hotkeyID, mods | UINT(MOD_NOREPEAT), vk)
-}
-
-// Load the saved hotkey (default Ctrl+Alt+R); if it can't be registered (e.g. a
-// saved combo is taken by another app) fall back to the default.
-let savedHotkey = loadHotkey()
-if !registerConvertHotkey(savedHotkey.mods, savedHotkey.vk) {
-    _ = registerConvertHotkey(UINT(MOD_CONTROL) | UINT(MOD_ALT), UINT(0x52))
-}
+// Global hotkey via a low-level keyboard hook (see WinHotkey.swift) so a bare
+// modifier (e.g. Left Shift) can be a hotkey, which RegisterHotKey can't do.
+// The hook posts WM_RETYPE to this thread; we run the conversion here.
+installHotkeyHook()
 _ = setupTray()
 
 var msg = MSG()
 while GetMessageW(&msg, nil, 0, 0) {
-    if msg.message == UINT(WM_HOTKEY), Int32(truncatingIfNeeded: msg.wParam) == hotkeyID {
+    if msg.message == WM_RETYPE {
         triggerHotkey()
     }
     TranslateMessage(&msg)
@@ -101,4 +89,4 @@ while GetMessageW(&msg, nil, 0, 0) {
 }
 
 removeTray()
-UnregisterHotKey(nil, hotkeyID)
+uninstallHotkeyHook()

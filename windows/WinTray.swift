@@ -83,24 +83,10 @@ private func appendItem(_ menu: HMENU?, _ id: UINT, _ title: String, flags: UINT
     }
 }
 
-// Localized key name for a virtual-key (e.g. "R", "F2"), via the scan code.
-private func keyName(_ vk: UINT) -> String {
-    let scan = MapVirtualKeyW(vk, 0 /* MAPVK_VK_TO_VSC */)
-    var buf = [WCHAR](repeating: 0, count: 32)
-    let n = GetKeyNameTextW(LONG(scan << 16), &buf, Int32(buf.count))
-    return n > 0 ? String(decoding: buf.prefix(Int(n)), as: UTF16.self) : "?"
-}
-
-// Human label for the current convert hotkey, e.g. "Ctrl+Alt+R".
-private func hotkeyLabel() -> String {
+// Label for the current convert hotkey (shared formatter in WinHotkey).
+private func currentHotkeyLabel() -> String {
     let hk = loadHotkey()
-    var parts: [String] = []
-    if hk.mods & UINT(MOD_CONTROL) != 0 { parts.append("Ctrl") }
-    if hk.mods & UINT(MOD_ALT)     != 0 { parts.append("Alt") }
-    if hk.mods & UINT(MOD_SHIFT)   != 0 { parts.append("Shift") }
-    if hk.mods & UINT(MOD_WIN)     != 0 { parts.append("Win") }
-    parts.append(keyName(hk.vk))
-    return parts.joined(separator: "+")
+    return hotkeyLabel(hk.mods, hk.vk)
 }
 
 private func showTrayMenu(_ hwnd: HWND?) {
@@ -170,7 +156,7 @@ func setupTray() -> Bool {
 
 // Fill nid.szTip from the current hotkey (does not push to the shell on its own).
 private func writeTooltip() {
-    let tip = Array("reLayout — \(hotkeyLabel())".utf16) + [0]
+    let tip = Array("reLayout — \(currentHotkeyLabel())".utf16) + [0]
     withUnsafeMutableBytes(of: &nid.szTip) { dst in
         memset(dst.baseAddress, 0, dst.count)
         tip.withUnsafeBytes { src in

@@ -9,30 +9,10 @@ private let idChkStartup:  Int = 101
 private let idBtnKeyboard: Int = 102
 private let idBtnClose:    Int = 103
 private let idLnkAbout:    Int = 104
-private let idHotkey:      Int = 105
-private let idBtnReset:    Int = 106
-private let idBtnApply:    Int = 107
+private let idHotkeyField: Int = 105
+private let idBtnSet:      Int = 106
+private let idBtnReset:    Int = 107
 private let idChkDouble:   Int = 108
-
-// Hotkey control messages (commctrl.h) — not surfaced to Swift.
-private let HKM_SETHOTKEY = UINT(WM_USER) + 1
-private let HKM_GETHOTKEY = UINT(WM_USER) + 2
-
-// HOTKEYF_* (control) <-> MOD_* (RegisterHotKey) bit conversions.
-private func modToHotkeyf(_ mods: UINT) -> UInt {
-    var f: UInt = 0
-    if mods & UINT(MOD_ALT)     != 0 { f |= 4 }   // HOTKEYF_ALT
-    if mods & UINT(MOD_CONTROL) != 0 { f |= 2 }   // HOTKEYF_CONTROL
-    if mods & UINT(MOD_SHIFT)   != 0 { f |= 1 }   // HOTKEYF_SHIFT
-    return f
-}
-private func hotkeyfToMod(_ f: UInt) -> UINT {
-    var m: UINT = 0
-    if f & 4 != 0 { m |= UINT(MOD_ALT) }
-    if f & 2 != 0 { m |= UINT(MOD_CONTROL) }
-    if f & 1 != 0 { m |= UINT(MOD_SHIFT) }
-    return m
-}
 
 private var settingsHwnd: HWND?
 private var settingsClassW = Array("ReLayoutSettingsWnd".utf16) + [0]
@@ -66,29 +46,28 @@ private func makeControl(_ cls: String, _ text: String, _ style: Int32,
     }
 }
 
-private func setHotkeyControl(_ hwnd: HWND?, _ mods: UINT, _ vk: UINT) {
-    let f = modToHotkeyf(mods)
-    SendMessageW(GetDlgItem(hwnd, Int32(idHotkey)), HKM_SETHOTKEY, WPARAM(UInt(vk) | (f << 8)), 0)
+private func setFieldText(_ hwnd: HWND?, _ id: Int, _ s: String) {
+    s.withCString(encodedAs: UTF16.self) { _ = SetWindowTextW(GetDlgItem(hwnd, Int32(id)), $0) }
 }
 
-private func applyHotkeyFromControl(_ hwnd: HWND?) {
-    let raw = SendMessageW(GetDlgItem(hwnd, Int32(idHotkey)), HKM_GETHOTKEY, 0, 0)  // LRESULT
-    let vk  = UINT(raw & 0xFF)
-    let f   = UInt((raw >> 8) & 0xFF)
-    guard vk != 0 else { return }            // no main key chosen — ignore
-    let mods = hotkeyfToMod(f)
+// Apply a captured/reset hotkey: persist, re-arm the hook, refresh UI + tooltip.
+private func applyHotkey(_ hwnd: HWND?, _ mods: UINT, _ vk: UINT) {
     saveHotkey(mods: mods, vk: vk)
-    _ = registerConvertHotkey(mods, vk)
-    updateTrayTooltip()      // keep the tray tooltip/menu hint in sync
+    setHotkey(mods, vk)
+    setFieldText(hwnd, idHotkeyField, hotkeyLabel(mods, vk))
+    updateTrayTooltip()
 }
 
 private func buildControls(_ hwnd: HWND?) {
     _ = makeControl("STATIC", "Hotkey:", 0, 20, 18, 56, 20, hwnd, 0)
-    _ = makeControl("msctls_hotkey32", "", Int32(WS_TABSTOP), 80, 16, 150, 24, hwnd, idHotkey)
+    // Read-only field showing the current hotkey; "Set" captures a new one
+    // (including a bare modifier like Left Shift); "Reset" restores the default.
     let cur = loadHotkey()
-    setHotkeyControl(hwnd, cur.mods, cur.vk)
-    _ = makeControl("BUTTON", "Reset", Int32(WS_TABSTOP), 240, 15, 58, 26, hwnd, idBtnReset)
-    _ = makeControl("BUTTON", "Apply", Int32(WS_TABSTOP), 304, 15, 58, 26, hwnd, idBtnApply)
+    _ = makeControl("EDIT", hotkeyLabel(cur.mods, cur.vk),
+                    Int32(0x0800) /* ES_READONLY */ | Int32(WS_BORDER) | Int32(WS_TABSTOP),
+                    80, 15, 150, 24, hwnd, idHotkeyField)
+    _ = makeControl("BUTTON", "Set",   Int32(WS_TABSTOP), 240, 15, 58, 26, hwnd, idBtnSet)
+    _ = makeControl("BUTTON", "Reset", Int32(WS_TABSTOP), 304, 15, 58, 26, hwnd, idBtnReset)
 
     let dbl = makeControl("BUTTON", "Trigger on double-tap",
                           Int32(BS_AUTOCHECKBOX) | Int32(WS_TABSTOP), 20, 48, 280, 22, hwnd, idChkDouble)
@@ -153,8 +132,10 @@ private func settingsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lPa
             let checked = SendMessageW(GetDlgItem(hwnd, Int32(idChkDouble)), UINT(BM_GETCHECK), 0, 0)
             saveDoubleTap(checked == LRESULT(BST_CHECKED))
         case idBtnKeyboard: openExternally("ms-settings:keyboard")
-        case idBtnReset:    setHotkeyControl(hwnd, defaultHotkey.mods, defaultHotkey.vk); applyHotkeyFromControl(hwnd)
-        case idBtnApply:    applyHotkeyFromControl(hwnd)
+        case idBtnSet:
+            setFieldText(hwnd, idHotkeyField, "Press hotkey…")
+            startHotkeyCapture { mods, vk in applyHotkey(hwnd, mods, vk) }
+        case idBtnReset:    applyHotkey(hwnd, defaultHotkey.mods, defaultHotkey.vk)
         case idBtnClose:    DestroyWindow(hwnd)
         default: break
         }
@@ -166,6 +147,7 @@ private func settingsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lPa
             }
         }
     case UINT(WM_DESTROY):
+        cancelHotkeyCapture()       // don't leave a capture targeting a dead window
         settingsHwnd = nil          // NB: do NOT PostQuitMessage — only this window closes
     default:
         break

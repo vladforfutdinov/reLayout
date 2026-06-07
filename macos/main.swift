@@ -239,6 +239,31 @@ func chordDisplay(_ set: Set<UInt16>) -> String {
 }
 
 // Which modifier KEYS are down, distinguishing left/right via device-dependent bits.
+// Modifier set from a CGEvent's flags. CGEventFlags carries only the
+// device-INDEPENDENT masks (no left/right bits), so we map each group to its
+// canonical (left) keyCode — left and right of a modifier are treated as the
+// same hotkey, which is what users expect.
+func modsFromCGFlags(_ f: CGEventFlags) -> Set<UInt16> {
+    var s = Set<UInt16>()
+    if f.contains(.maskControl)   { s.insert(UInt16(kVK_Control)) }
+    if f.contains(.maskShift)     { s.insert(UInt16(kVK_Shift)) }
+    if f.contains(.maskAlternate) { s.insert(UInt16(kVK_Option)) }
+    if f.contains(.maskCommand)   { s.insert(UInt16(kVK_Command)) }
+    return s
+}
+
+// Right-modifier keyCode -> its left equivalent (canonical), so a chord recorded
+// on either side matches the flag-derived set above.
+func canonicalMod(_ kc: UInt16) -> UInt16 {
+    switch Int(kc) {
+    case kVK_RightCommand: return UInt16(kVK_Command)
+    case kVK_RightShift:   return UInt16(kVK_Shift)
+    case kVK_RightOption:  return UInt16(kVK_Option)
+    case kVK_RightControl: return UInt16(kVK_Control)
+    default:               return kc
+    }
+}
+
 func pressedModKeys(_ f: NSEvent.ModifierFlags) -> Set<UInt16> {
     let raw = f.rawValue
     let map: [(UInt, Int)] = [
@@ -720,8 +745,7 @@ final class AppController: NSObject, NSApplicationDelegate {
             let me = Unmanaged<AppController>.fromOpaque(refcon).takeUnretainedValue()
             switch type {
             case .flagsChanged:
-                me.handleTapFlags(pressedModKeys(NSEvent.ModifierFlags(
-                    rawValue: UInt(truncatingIfNeeded: event.flags.rawValue))))
+                me.handleTapFlags(modsFromCGFlags(event.flags))
             case .keyDown, .leftMouseDown, .rightMouseDown, .otherMouseDown:
                 me.tapInterrupted = true   // a key/mouse during the hold -> not a tap
                 me.tapArmed = false
@@ -745,7 +769,7 @@ final class AppController: NSObject, NSApplicationDelegate {
     // Called from the event tap on every modifier change. `cur` = the modifier
     // keys currently held. Arms on the exact chord, fires on a clean release.
     fileprivate func handleTapFlags(_ cur: Set<UInt16>) {
-        let target = Set(hotKeyChord)
+        let target = Set(hotKeyChord.map(canonicalMod))   // normalize L/R to match cur
         guard !target.isEmpty else { return }
         if cur.isEmpty {
             // fire only on a clean cycle: exact chord, no extra modifier ever, no

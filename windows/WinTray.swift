@@ -165,10 +165,14 @@ private func currentLayoutCode() -> String {
     WinLayout.currentDisplayCode()
 }
 
-// Render a 32×32 icon with `text` (white glyph, transparent elsewhere) via a
-// 32-bit top-down DIB; alpha is set opaque wherever GDI drew the text.
+// Render the layout code as a tray icon that fills its square cell with no
+// padding — drawn at the exact small-icon size (no shell downscaling) using the
+// system UI font: full cell height, condensed width so the 3-letter code fits
+// edge to edge. Text colour follows the taskbar theme; corners stay transparent.
 private func makeTextIcon(_ text: String) -> HICON? {
-    let S: Int32 = 32
+    let S = max(Int32(16), GetSystemMetrics(49 /* SM_CXSMICON */))   // actual tray cell size
+    let nChars = max(Int32(1), Int32(Array(text.utf16).count))
+
     guard let screen = GetDC(nil) else { return nil }
     defer { ReleaseDC(nil, screen) }
     guard let hdc = CreateCompatibleDC(screen) else { return nil }
@@ -185,39 +189,20 @@ private func makeTextIcon(_ text: String) -> HICON? {
     guard let dib = CreateDIBSection(hdc, &bmi, 0 /* DIB_RGB_COLORS */, &bits, nil, 0) else { return nil }
     let oldBmp = SelectObject(hdc, dib)
 
-    // Draw the code in WHITE first; we use its intensity as the alpha coverage,
-    // then recolour to the taskbar-theme text colour (no background tile, like
-    // the system input indicator). Use the system UI font, sized large.
+    // System UI font: full cell height, width condensed to fit nChars across the
+    // cell so the glyphs fill the square (no internal padding).
     var ncm = NONCLIENTMETRICSW()
     ncm.cbSize = DWORD(MemoryLayout<NONCLIENTMETRICSW>.size)
     _ = SystemParametersInfoW(UINT(0x0029 /* SPI_GETNONCLIENTMETRICS */), ncm.cbSize, &ncm, 0)
     var lf = ncm.lfMessageFont
-    lf.lfWeight = 600                  // semibold
-    lf.lfHeight = -20                  // probe size, rescaled to fit below
+    lf.lfWeight = 600                      // semibold
+    lf.lfHeight = -S                       // fill the cell vertically
+    lf.lfWidth  = S / nChars               // condense so nChars span the width
+    let font = CreateFontIndirectW(&lf)
+    let oldFont = SelectObject(hdc, font)
 
     SetBkMode(hdc, 1 /* TRANSPARENT */)
-    SetTextColor(hdc, COLORREF(0x00FF_FFFF))   // white — coverage source
-
-    // Auto-fit: scale the font so the code spans ~92% of the icon width (then clamp
-    // its height so it still fits vertically). Makes the letters as large and wide
-    // as a square icon allows — the system-indicator look.
-    let nChars = Int32(Array(text.utf16).count)
-    var font = CreateFontIndirectW(&lf)
-    var oldFont = SelectObject(hdc, font)
-    var sz = SIZE()
-    text.withCString(encodedAs: UTF16.self) { p in _ = GetTextExtentPoint32W(hdc, p, nChars, &sz) }
-    if sz.cx > 0 {
-        let target = Int32(Double(S) * 0.92)
-        var h = lf.lfHeight * target / sz.cx          // width scales ~linearly with height
-        let maxMag = Int32(Double(S) * 0.80)
-        if -h > maxMag { h = -maxMag }                // don't overflow vertically
-        SelectObject(hdc, oldFont)
-        DeleteObject(font)
-        lf.lfHeight = h
-        font = CreateFontIndirectW(&lf)
-        oldFont = SelectObject(hdc, font)
-    }
-
+    SetTextColor(hdc, COLORREF(0x00FF_FFFF))           // white — used as alpha coverage
     var rc = RECT(left: 0, top: 0, right: S, bottom: S)
     text.withCString(encodedAs: UTF16.self) { p in
         _ = DrawTextW(hdc, p, -1, &rc, UINT(0x125) /* DT_CENTER|DT_VCENTER|DT_SINGLELINE|DT_NOCLIP */)
@@ -225,11 +210,11 @@ private func makeTextIcon(_ text: String) -> HICON? {
     GdiFlush()
 
     // Recolour: alpha = white coverage, RGB = theme text colour (straight alpha).
-    let dark: UInt32 = taskbarUsesLightTheme() ? 0x0020_2020 : 0x00FF_FFFF   // dark text on light taskbar
+    let dark: UInt32 = taskbarUsesLightTheme() ? 0x0020_2020 : 0x00FF_FFFF
     if let p = bits {
         let px = p.assumingMemoryBound(to: UInt32.self)
         for i in 0..<Int(S * S) {
-            let cov = px[i] & 0xFF                       // white intensity (any channel)
+            let cov = px[i] & 0xFF
             px[i] = cov == 0 ? 0 : ((cov << 24) | dark)
         }
     }
@@ -240,7 +225,8 @@ private func makeTextIcon(_ text: String) -> HICON? {
 
     // AND mask must be all-zero (the 32-bit alpha channel carries the shape).
     // CreateBitmap with nil bits is UNINITIALISED -> garbled icon; pass zeros.
-    let maskBytes = [UInt8](repeating: 0, count: Int(S) * 4)   // 1bpp, 4-byte aligned rows
+    let stride = ((Int(S) + 15) / 16) * 2              // 1bpp rows are WORD-aligned
+    let maskBytes = [UInt8](repeating: 0, count: stride * Int(S))
     var ii = ICONINFO()
     ii.fIcon = true
     ii.hbmColor = dib

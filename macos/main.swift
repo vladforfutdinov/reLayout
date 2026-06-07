@@ -485,6 +485,7 @@ final class AppController: NSObject, NSApplicationDelegate {
     private weak var shortcutField: ShortcutField?
     private weak var conflictLabel: NSTextField?
     private weak var loginCheckbox: NSButton?
+    private weak var undoHintLabel: NSTextField?
 
     deinit {
         DistributedNotificationCenter.default().removeObserver(self)
@@ -963,6 +964,7 @@ final class AppController: NSObject, NSApplicationDelegate {
         undoHint.font = .systemFont(ofSize: 11)
         undoHint.textColor = .secondaryLabelColor
         undoHint.isHidden = hotKeyDoubleTap
+        undoHintLabel = undoHint
 
         // hotkey field + double-tap toggle + (optional) conflict + undo hint,
         // stacked tight under the "Hotkey:" caption — no gap from separate rows.
@@ -1046,9 +1048,7 @@ final class AppController: NSObject, NSApplicationDelegate {
     @objc private func toggleDoubleTap(_ sender: NSButton) {
         hotKeyDoubleTap = (sender.state == .on)
         lastTriggerTime = 0
-        // rebuild Settings so the undo hint shows/hides to match
-        if let w = settingsWindow { settingsWindow = nil; w.close() }
-        DispatchQueue.main.async { self.openReLayoutSettings() }
+        undoHintLabel?.isHidden = hotKeyDoubleTap   // update in place — don't recreate the window
     }
 
     // Language picker changed: tag 0 = follow system, else Loc.languages[tag-1].
@@ -1226,15 +1226,12 @@ final class AppController: NSObject, NSApplicationDelegate {
         } else {
             // AX unavailable -> clipboard fallback (Cmd+C), which overwrites the
             // pasteboard; remember the prior string so we can put it back.
+            // Only ONE Cmd+C here: a no-selection retry would fire a second Cmd+C,
+            // which DeepL & co. read as their Cmd+C-Cmd+C trigger. (The AX path
+            // above still does the Shift+Cmd+Left no-selection grab, no clipboard.)
             clipboardSaved = pb.string(forType: .string)
             clipboardTouched = true
             sel = copySelection(pb)
-            if sel == nil {
-                dbg("no selection -> Shift+Cmd+Left")
-                postKey(CGKeyCode(kVK_LeftArrow), [.maskShift, .maskCommand])
-                usleep(120_000)
-                sel = copySelection(pb)
-            }
         }
 
         // convert() touches TIS APIs, which must run on the main thread (macOS 26

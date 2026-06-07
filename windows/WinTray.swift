@@ -124,9 +124,9 @@ private func appIcon() -> HICON? {
 }
 
 // Two-letter code for the foreground layout, e.g. "EN", "UK".
+// Cheap (no map building) so the 400 ms poll stays light.
 private func currentLayoutCode() -> String {
-    guard let cur = WinLayout.current() else { return "?" }
-    return String(cur.displayName.prefix(2)).uppercased()
+    WinLayout.currentDisplayCode()
 }
 
 // Render a 32×32 icon with `text` (white glyph, transparent elsewhere) via a

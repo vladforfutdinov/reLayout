@@ -17,30 +17,31 @@ private var lastConvert: LastConvert?
 private let undoWindowMs: DWORD = 1500
 
 // Source = current (foreground) layout. Target = the other-script enabled layout,
-// else simply the other one. A repeat press within ~1.5 s undoes instead.
+// else simply the other one. The converted result is left selected, so pressing
+// the hotkey again right away (selection unchanged) undoes the conversion.
 func performRetype() {
-    // Undo: press again quickly to revert the previous conversion.
-    if let last = lastConvert, GetTickCount() &- last.at <= undoWindowMs {
-        waitModifiersReleased()
-        selectLeft(last.converted.count)
+    guard let cur = WinLayout.current() else { return }
+    waitModifiersReleased()
+    guard let text = readSelection(), !text.isEmpty else { return }
+
+    // Undo: only when the still-selected text IS our last output and it's recent.
+    // This never hijacks a fresh conversion of a different selection.
+    if let last = lastConvert, GetTickCount() &- last.at <= undoWindowMs, text == last.converted {
         sendUnicode(last.original)
+        selectLeft(last.original.count)        // keep it selected for repeat-undo/redo
         Sleep(20)
         switchLayout(to: last.src)
         lastConvert = nil
         return
     }
 
-    guard let cur = WinLayout.current() else { return }
     let all = WinLayout.installedList()
     guard all.count >= 2 else { return }
     let dst = all.first(where: { $0.isCyrillic != cur.isCyrillic && $0.id != cur.id })
         ?? all.first(where: { $0.id != cur.id })
-    guard let dst else { return }
-
-    waitModifiersReleased()
-    guard let text = readSelection(), !text.isEmpty,
-          let out = convertWrong(text, src: cur, dst: dst) else { return }
+    guard let dst, let out = convertWrong(text, src: cur, dst: dst) else { return }
     sendUnicode(out)
+    selectLeft(out.count)                       // re-select the result (Punto-style)
     Sleep(20)
     switchLayout(to: dst)
     lastConvert = LastConvert(original: text, converted: out, src: cur, at: GetTickCount())

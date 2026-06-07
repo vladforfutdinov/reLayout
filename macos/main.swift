@@ -1178,7 +1178,11 @@ final class AppController: NSObject, NSApplicationDelegate {
         var clipboardTouched = false
 
         var sel: String?
-        let ax = axSelectedText()
+        // The first AX read right after the hotkey can transiently return nil
+        // (focus settling), which would drop us to the clipboard path and pop
+        // DeepL on the first conversion. Retry once before giving up on AX.
+        var ax = axSelectedText()
+        if ax == nil { usleep(60_000); ax = axSelectedText() }
         if let ax {
             // AX path — never touches the clipboard (DeepL stays quiet)
             if !ax.isEmpty {
@@ -1200,9 +1204,10 @@ final class AppController: NSObject, NSApplicationDelegate {
             if sel == nil {
                 // Nothing selected -> grab the current line (Shift+Cmd+Left) and copy
                 // it. This is a 2nd Cmd+C; space it out so DeepL & co. don't read the
-                // pair as their Cmd+C-Cmd+C trigger.
+                // pair as their Cmd+C-Cmd+C trigger. (Only genuinely AX-less apps reach
+                // here — the AX path above handles no-selection without the clipboard.)
                 dbg("no selection -> Shift+Cmd+Left")
-                usleep(350_000)
+                usleep(700_000)
                 postKey(CGKeyCode(kVK_LeftArrow), [.maskShift, .maskCommand])
                 usleep(120_000)
                 sel = copySelection(pb)

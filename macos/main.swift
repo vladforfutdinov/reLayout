@@ -463,9 +463,11 @@ final class AppController: NSObject, NSApplicationDelegate {
 
     // modifier-tap runtime state
     private var tapMonitors: [Any] = []
-    private var tapArmed = false
+    fileprivate var keyTap: CFMachPort?       // CGEventTap that flags key presses during a hold
+    private var keyTapSource: CFRunLoopSource?
+    fileprivate var tapArmed = false
     private var tapArmTime: Double = 0
-    private var tapInterrupted = false
+    fileprivate var tapInterrupted = false    // set by the key tap (file-scope callback)
     private var tapPolluted = false   // an out-of-set modifier appeared this cycle
 
     // settings
@@ -712,6 +714,8 @@ final class AppController: NSObject, NSApplicationDelegate {
         if let r = hotKeyRef { UnregisterEventHotKey(r); hotKeyRef = nil }
         for m in tapMonitors { NSEvent.removeMonitor(m) }
         tapMonitors.removeAll()
+        if let s = keyTapSource { CFRunLoopRemoveSource(CFRunLoopGetMain(), s, .commonModes); keyTapSource = nil }
+        if let t = keyTap { CGEvent.tapEnable(tap: t, enable: false); CFMachPortInvalidate(t); keyTap = nil }
         tapArmed = false
         tapPolluted = false
     }
@@ -735,6 +739,32 @@ final class AppController: NSObject, NSApplicationDelegate {
     // Fire when exactly the configured set of modifier keys is tapped together
     // (pressed as a chord, then fully released) with no symbol key / mouse between.
     private func setupTapMonitors() {
+        // Reliable key-interruption via a CGEventTap (Accessibility-backed). NSEvent's
+        // global keyDown monitor needs Input Monitoring, which we don't request, so a
+        // key pressed during the modifier hold (e.g. Option+є to type "э") could be
+        // missed and the tap mis-fire a conversion. The event tap sees keyDown with
+        // just Accessibility, which we already have.
+        let mask = CGEventMask(1 << CGEventType.keyDown.rawValue)
+        let cb: CGEventTapCallBack = { _, type, event, refcon in
+            guard let refcon else { return Unmanaged.passUnretained(event) }
+            let me = Unmanaged<AppController>.fromOpaque(refcon).takeUnretainedValue()
+            if type == .keyDown {
+                me.tapInterrupted = true
+                me.tapArmed = false
+            } else if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+                if let t = me.keyTap { CGEvent.tapEnable(tap: t, enable: true) }
+            }
+            return Unmanaged.passUnretained(event)
+        }
+        if let tap = CGEvent.tapCreate(tap: .cgSessionEventTap, place: .headInsertEventTap,
+                                       options: .listenOnly, eventsOfInterest: mask, callback: cb,
+                                       userInfo: Unmanaged.passUnretained(self).toOpaque()) {
+            keyTap = tap
+            keyTapSource = CFMachPortCreateRunLoopSource(nil, tap, 0)
+            CFRunLoopAddSource(CFRunLoopGetMain(), keyTapSource, .commonModes)
+            CGEvent.tapEnable(tap: tap, enable: true)
+        }
+
         let onFlags: (NSEvent) -> Void = { [weak self] in self?.handleTapFlags($0) }
         let onOther: (NSEvent) -> Void = { [weak self] _ in self?.tapInterrupted = true; self?.tapArmed = false }
         let busy: NSEvent.EventTypeMask = [.keyDown, .leftMouseDown, .rightMouseDown, .otherMouseDown]

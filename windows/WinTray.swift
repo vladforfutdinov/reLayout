@@ -209,20 +209,35 @@ private func makeTextIcon(_ text: String) -> HICON? {
     guard let dib = CreateDIBSection(hdc, &bmi, 0 /* DIB_RGB_COLORS */, &bits, nil, 0) else { return nil }
     let oldBmp = SelectObject(hdc, dib)
 
-    // System UI font: full cell height, width condensed to fit nChars across the
-    // cell so the glyphs fill the square (no internal padding).
+    // System UI font, NATURAL proportions (no condensing — that distorts the
+    // glyphs). Scale the height so the code spans ~92% of the cell width; for a
+    // 3-letter code this leaves some vertical margin, like the system indicator,
+    // but it's crisp because we render at the real cell size (no downscaling).
     var ncm = NONCLIENTMETRICSW()
     ncm.cbSize = DWORD(MemoryLayout<NONCLIENTMETRICSW>.size)
     _ = SystemParametersInfoW(UINT(0x0029 /* SPI_GETNONCLIENTMETRICS */), ncm.cbSize, &ncm, 0)
     var lf = ncm.lfMessageFont
     lf.lfWeight = 600                      // semibold
-    lf.lfHeight = -S                       // fill the cell vertically
-    lf.lfWidth  = S / nChars               // condense so nChars span the width
-    let font = CreateFontIndirectW(&lf)
-    let oldFont = SelectObject(hdc, font)
+    lf.lfWidth  = 0                        // natural width
 
     SetBkMode(hdc, 1 /* TRANSPARENT */)
     SetTextColor(hdc, COLORREF(0x00FF_FFFF))           // white — used as alpha coverage
+
+    // Probe at full-cell height, measure, then scale to ~92% width.
+    lf.lfHeight = -S
+    var font = CreateFontIndirectW(&lf)
+    var oldFont = SelectObject(hdc, font)
+    var sz = SIZE()
+    text.withCString(encodedAs: UTF16.self) { p in _ = GetTextExtentPoint32W(hdc, p, nChars, &sz) }
+    if sz.cx > 0 {
+        var h = -S * (S * 92 / 100) / sz.cx            // width scales ~linearly with height
+        if -h > S { h = -S }                            // never taller than the cell
+        SelectObject(hdc, oldFont); DeleteObject(font)
+        lf.lfHeight = h
+        font = CreateFontIndirectW(&lf)
+        oldFont = SelectObject(hdc, font)
+    }
+
     var rc = RECT(left: 0, top: 0, right: S, bottom: S)
     text.withCString(encodedAs: UTF16.self) { p in
         _ = DrawTextW(hdc, p, -1, &rc, UINT(0x125) /* DT_CENTER|DT_VCENTER|DT_SINGLELINE|DT_NOCLIP */)

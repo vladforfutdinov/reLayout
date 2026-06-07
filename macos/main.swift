@@ -703,20 +703,32 @@ final class AppController: NSObject, NSApplicationDelegate {
     // Fire when exactly the configured set of modifier keys is tapped together
     // (pressed as a chord, then fully released) with no symbol key / mouse between.
     private func setupTapMonitors() {
-        // Reliable key-interruption via a CGEventTap (Accessibility-backed). NSEvent's
-        // global keyDown monitor needs Input Monitoring, which we don't request, so a
-        // key pressed during the modifier hold (e.g. Option+є to type "э") could be
-        // missed and the tap mis-fire a conversion. The event tap sees keyDown with
-        // just Accessibility, which we already have.
-        let mask = CGEventMask(1 << CGEventType.keyDown.rawValue)
+        // The WHOLE mod-tap detection runs in ONE CGEventTap (Accessibility-backed,
+        // no Input Monitoring needed): the modifier flagsChanged (arm/fire) AND the
+        // key/mouse-down interruption arrive through the same ordered event stream,
+        // so a key pressed during the hold (e.g. Option+' ) can't lose a race with
+        // the modifier-release and mis-fire. (Splitting these across an event tap +
+        // NSEvent monitors — two unordered sources — was the bug.)
+        let mask = CGEventMask(
+            (1 << CGEventType.flagsChanged.rawValue) |
+            (1 << CGEventType.keyDown.rawValue) |
+            (1 << CGEventType.leftMouseDown.rawValue) |
+            (1 << CGEventType.rightMouseDown.rawValue) |
+            (1 << CGEventType.otherMouseDown.rawValue))
         let cb: CGEventTapCallBack = { _, type, event, refcon in
             guard let refcon else { return Unmanaged.passUnretained(event) }
             let me = Unmanaged<AppController>.fromOpaque(refcon).takeUnretainedValue()
-            if type == .keyDown {
-                me.tapInterrupted = true
+            switch type {
+            case .flagsChanged:
+                me.handleTapFlags(pressedModKeys(NSEvent.ModifierFlags(
+                    rawValue: UInt(truncatingIfNeeded: event.flags.rawValue))))
+            case .keyDown, .leftMouseDown, .rightMouseDown, .otherMouseDown:
+                me.tapInterrupted = true   // a key/mouse during the hold -> not a tap
                 me.tapArmed = false
-            } else if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+            case .tapDisabledByTimeout, .tapDisabledByUserInput:
                 if let t = me.keyTap { CGEvent.tapEnable(tap: t, enable: true) }
+            default:
+                break
             }
             return Unmanaged.passUnretained(event)
         }
@@ -728,20 +740,13 @@ final class AppController: NSObject, NSApplicationDelegate {
             CFRunLoopAddSource(CFRunLoopGetMain(), keyTapSource, .commonModes)
             CGEvent.tapEnable(tap: tap, enable: true)
         }
-
-        let onFlags: (NSEvent) -> Void = { [weak self] in self?.handleTapFlags($0) }
-        let onOther: (NSEvent) -> Void = { [weak self] _ in self?.tapInterrupted = true; self?.tapArmed = false }
-        let busy: NSEvent.EventTypeMask = [.keyDown, .leftMouseDown, .rightMouseDown, .otherMouseDown]
-        if let g = NSEvent.addGlobalMonitorForEvents(matching: [.flagsChanged], handler: onFlags) { tapMonitors.append(g) }
-        if let gk = NSEvent.addGlobalMonitorForEvents(matching: busy, handler: onOther) { tapMonitors.append(gk) }
-        if let l = NSEvent.addLocalMonitorForEvents(matching: [.flagsChanged], handler: { onFlags($0); return $0 }) { tapMonitors.append(l) }
-        if let lk = NSEvent.addLocalMonitorForEvents(matching: busy, handler: { onOther($0); return $0 }) { tapMonitors.append(lk) }
     }
 
-    private func handleTapFlags(_ ev: NSEvent) {
+    // Called from the event tap on every modifier change. `cur` = the modifier
+    // keys currently held. Arms on the exact chord, fires on a clean release.
+    fileprivate func handleTapFlags(_ cur: Set<UInt16>) {
         let target = Set(hotKeyChord)
         guard !target.isEmpty else { return }
-        let cur = pressedModKeys(ev.modifierFlags)
         if cur.isEmpty {
             // fire only on a clean cycle: exact chord, no extra modifier ever, no
             // key/mouse interruption, released quickly.

@@ -424,7 +424,9 @@ final class ShortcutField: NSView {
     }
 
     private func handleKeyDown(_ ev: NSEvent) -> NSEvent? {
-        if ev.keyCode == UInt16(kVK_Escape) { stop(finalize: false); return nil }   // cancel
+        // Let Esc through so the Settings window closes normally (its
+        // cancelOperation). Closing resigns focus -> stop() finalizes the sequence.
+        if ev.keyCode == UInt16(kVK_Escape) { return ev }
         comboUsed = true
         let mods = ev.modifierFlags.intersection([.command, .option, .control, .shift])
         guard !mods.intersection([.command, .option, .control]).isEmpty else { return nil } // need a real modifier

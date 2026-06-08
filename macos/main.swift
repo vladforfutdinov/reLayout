@@ -912,6 +912,7 @@ final class AppController: NSObject, NSApplicationDelegate {
         reset.bezelStyle = .accessoryBar
         reset.imageScaling = .scaleProportionallyDown
         reset.toolTip = L("settings.restoreDefault")
+        field.setContentHuggingPriority(.init(1), for: .horizontal)   // let it stretch to fill the row
         let hkRow = NSStackView(views: [field, reset])
         hkRow.orientation = .horizontal
         hkRow.spacing = 8
@@ -1031,6 +1032,7 @@ final class AppController: NSObject, NSApplicationDelegate {
             stack.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -20),
             sep1.widthAnchor.constraint(equalTo: stack.widthAnchor),
             sep2.widthAnchor.constraint(equalTo: stack.widthAnchor),
+            hkRow.widthAnchor.constraint(equalTo: langPopup.widthAnchor),   // hotkey row == language select width
         ])
         content.layoutSubtreeIfNeeded()
         w.setContentSize(content.fittingSize)

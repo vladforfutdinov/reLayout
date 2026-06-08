@@ -998,16 +998,20 @@ final class AppController: NSObject, NSApplicationDelegate {
         name.font = .boldSystemFont(ofSize: 15)
         name.alignment = .center
 
-        // ── grid: language + hotkey ──
-        let grid = NSGridView(views: [
-            [caption(L("settings.language")), langPopup],
-            [caption(L("settings.hotkey")), hkColumn],
-        ])
-        grid.rowSpacing = 10; grid.columnSpacing = 10
-        grid.column(at: 0).xPlacement = .trailing
-        grid.rowAlignment = .none
-        grid.row(at: 0).yPlacement = .center
-        grid.row(at: 1).yPlacement = .top   // hotkey caption aligns to the field
+        // ── labeled rows: language (section A) + hotkey (section B). Separate grids,
+        // but a shared caption-column width keeps "Language:"/"Hotkey:" aligned. ──
+        let capW = ceil(max(caption(L("settings.language")).fittingSize.width,
+                            caption(L("settings.hotkey")).fittingSize.width))
+        let langGrid = NSGridView(views: [[caption(L("settings.language")), langPopup]])
+        let hkGrid   = NSGridView(views: [[caption(L("settings.hotkey")), hkColumn]])
+        for g in [langGrid, hkGrid] {
+            g.rowSpacing = 10; g.columnSpacing = 10
+            g.column(at: 0).xPlacement = .trailing
+            g.column(at: 0).width = capW
+            g.rowAlignment = .none
+        }
+        langGrid.row(at: 0).yPlacement = .center
+        hkGrid.row(at: 0).yPlacement = .top   // hotkey caption aligns to the field
 
         // ── footer: version + link + copyright ──
         let info = Bundle.main.infoDictionary
@@ -1025,15 +1029,16 @@ final class AppController: NSObject, NSApplicationDelegate {
             b.translatesAutoresizingMaskIntoConstraints = false
             return b
         }
-        let sep1 = sep(), sep2 = sep()
+        let sep1 = sep(), sep2 = sep(), sep3 = sep()
 
-        var arranged: [NSView] = [logo, name, sep1, cb, autoCb]
+        // Section A: login + auto-update + language. Section B: auto-correct + hotkey.
+        var arranged: [NSView] = [logo, name, sep1, cb]
 #if SPARKLE
         let autoUpdateCb = makeCheckbox(L("settings.autoUpdate"), #selector(toggleAutoUpdate(_:)),
                                         on: updater?.updater.automaticallyChecksForUpdates ?? true)
         arranged.append(autoUpdateCb)
 #endif
-        arranged += [grid, sep2, version, link, copyright]
+        arranged += [langGrid, sep2, autoCb, hkGrid, sep3, version, link, copyright]
 
         let stack = NSStackView(views: arranged)
         stack.orientation = .vertical
@@ -1042,8 +1047,10 @@ final class AppController: NSObject, NSApplicationDelegate {
         stack.translatesAutoresizingMaskIntoConstraints = false
         stack.setCustomSpacing(14, after: name)   // breathing room around the separators
         stack.setCustomSpacing(14, after: sep1)
-        stack.setCustomSpacing(14, after: grid)
+        stack.setCustomSpacing(14, after: langGrid)   // before sep2
         stack.setCustomSpacing(14, after: sep2)
+        stack.setCustomSpacing(14, after: hkGrid)     // before sep3
+        stack.setCustomSpacing(14, after: sep3)
         content.addSubview(stack)
         NSLayoutConstraint.activate([
             // No fixed width: the stack is pinned on both sides, so the content (and
@@ -1054,7 +1061,8 @@ final class AppController: NSObject, NSApplicationDelegate {
             stack.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -20),
             sep1.widthAnchor.constraint(equalTo: stack.widthAnchor),
             sep2.widthAnchor.constraint(equalTo: stack.widthAnchor),
-            hkRow.widthAnchor.constraint(equalTo: langPopup.widthAnchor),   // hotkey row == language select width
+            sep3.widthAnchor.constraint(equalTo: stack.widthAnchor),
+            hkRow.widthAnchor.constraint(equalTo: langPopup.widthAnchor),   // hotkey field == language popup width
         ])
         content.layoutSubtreeIfNeeded()
         w.setContentSize(content.fittingSize)

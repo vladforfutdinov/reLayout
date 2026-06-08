@@ -488,8 +488,9 @@ final class SettingsWindow: NSWindow {
     override func cancelOperation(_ sender: Any?) { close() }   // Esc
 
     // No main menu (agent app), so Cmd+W has no handler — close on it here.
+    // Match the physical W key (keyCode), so it works on any keyboard layout.
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        if event.modifierFlags.contains(.command), event.charactersIgnoringModifiers == "w" {
+        if event.modifierFlags.contains(.command), event.keyCode == UInt16(kVK_ANSI_W) {
             close(); return true
         }
         return super.performKeyEquivalent(with: event)

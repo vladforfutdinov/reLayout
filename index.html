@@ -30,6 +30,7 @@
   a:hover{text-decoration:underline}
   .wrap{max-width:1080px; margin:0 auto; padding:0 28px}
   .mono{font-family:ui-monospace,SFMono-Regular,Menlo,"SF Mono",monospace}
+  pre,code,.stage,.pill,.kcap,.codechip{font-variant-ligatures:none; font-feature-settings:"liga" 0,"calt" 0}
   code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.85em; background:var(--panel2);
     border:1px solid var(--line); border-radius:7px; padding:2px 7px; color:#cdd8e6; white-space:nowrap}
 
@@ -41,8 +42,9 @@
   .brand img{width:28px; height:28px; border-radius:7px}
   .nav-links{display:flex; align-items:center; gap:22px; font-size:14.5px}
   .nav-links a{color:var(--muted)} .nav-links a:hover{color:var(--fg); text-decoration:none}
-  .nav-cta{padding:8px 16px; border-radius:10px; background:var(--accent); color:#fff; font-weight:600}
-  .nav-cta:hover{background:#3f7bf0; text-decoration:none}
+  nav .nav-cta, nav .nav-cta:link, nav .nav-cta:visited{
+    padding:8px 16px; border-radius:10px; background:var(--accent); color:#fff; font-weight:600}
+  nav .nav-cta:hover{background:#3f7bf0; text-decoration:none; color:#fff}
   @media(max-width:680px){ .nav-links a:not(.nav-cta){display:none} }
 
   /* hero */

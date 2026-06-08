@@ -1074,8 +1074,10 @@ final class AppController: NSObject, NSApplicationDelegate {
         w.center()
 
         settingsWindow = w
+        w.initialFirstResponder = nil
         activateApp()
         w.makeKeyAndOrderFront(nil)
+        w.makeFirstResponder(nil)   // don't leave the first checkbox focused on open
     }
 
     @objc private func openProjectURL() {

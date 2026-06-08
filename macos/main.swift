@@ -638,8 +638,6 @@ final class AppController: NSObject, NSApplicationDelegate {
 #endif
         menu.addItem(NSMenuItem(title: L("menu.settings"), action: #selector(openReLayoutSettings), keyEquivalent: ","))
         menu.addItem(.separator())
-        menu.addItem(NSMenuItem(title: L("menu.openKeyboardSettings"), action: #selector(openKeyboardSettings), keyEquivalent: ""))
-        menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: L("menu.quit"), action: #selector(quit), keyEquivalent: "q"))
         for it in menu.items where it.action != nil { it.target = self }
         statusItem.menu = menu
@@ -691,16 +689,6 @@ final class AppController: NSObject, NSApplicationDelegate {
                     NotificationCenter.default.removeObserver(t); self?.aboutResignObserver = nil
                 }
             }
-        }
-    }
-
-    @objc private func openKeyboardSettings() {
-        let candidates = [
-            "x-apple.systempreferences:com.apple.Keyboard-Settings.extension",
-            "x-apple.systempreferences:com.apple.preference.keyboard",
-        ]
-        for s in candidates {
-            if let url = URL(string: s), NSWorkspace.shared.open(url) { return }
         }
     }
 

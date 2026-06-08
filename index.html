@@ -30,7 +30,7 @@
   a:hover{text-decoration:underline}
   .wrap{max-width:1080px; margin:0 auto; padding:0 28px}
   .mono{font-family:ui-monospace,SFMono-Regular,Menlo,"SF Mono",monospace}
-  pre,code,.stage,.pill,.kcap,.codechip{font-variant-ligatures:none; font-feature-settings:"liga" 0,"calt" 0}
+  pre,code,.stage,.pill,.key,.codechip{font-variant-ligatures:none; font-feature-settings:"liga" 0,"calt" 0}
   code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.85em; background:var(--panel2);
     border:1px solid var(--line); border-radius:7px; padding:2px 7px; color:#cdd8e6; white-space:nowrap}
 
@@ -88,8 +88,12 @@
   .pill{font-family:ui-monospace,Menlo,monospace; font-size:12px; padding:3px 9px; border-radius:7px;
     border:1px solid var(--line); background:#0e131a; color:var(--muted)}
   .pill.on{border-color:var(--accent-line); color:var(--accent); background:var(--accent-soft)}
-  .kcap{margin-left:auto; font-family:ui-monospace,Menlo,monospace; font-size:12px; color:var(--faint);
-    border:1px solid var(--line); border-radius:7px; padding:3px 9px}
+  .keys{display:flex; gap:6px}
+  .key{min-width:30px; height:30px; padding:0 9px; display:flex; align-items:center; justify-content:center;
+    font:600 13px/1 ui-monospace,Menlo,monospace; color:var(--muted);
+    background:linear-gradient(180deg,#1b2129,#12161d); border:1px solid var(--line); border-radius:7px;
+    box-shadow:0 2px 0 #090c11, inset 0 1px 0 rgba(255,255,255,.06)}
+  .key.opt{color:var(--fg)}
   .stage{font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:21px; line-height:1.5}
   .stage .lbl{font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--faint);
     font-family:-apple-system,sans-serif; margin-bottom:6px}
@@ -101,10 +105,17 @@
   .anim .before .err, .anim .after .fix{transition:none}
   .anim .fade-before{animation:fadeBefore 5s ease-in-out infinite}
   .anim .fade-after{animation:fadeAfter 5s ease-in-out infinite}
-  .anim .kcap{animation:keypulse 5s ease-in-out infinite}
+  .anim .key.opt{animation:press 5s ease-in-out infinite}
   @keyframes fadeBefore{0%,38%{opacity:1}48%,90%{opacity:0}100%{opacity:1}}
   @keyframes fadeAfter{0%,40%{opacity:0}50%,88%{opacity:1}98%,100%{opacity:0}}
-  @keyframes keypulse{0%,40%{color:var(--faint);border-color:var(--line)}44%,52%{color:var(--accent);border-color:var(--accent-line);background:var(--accent-soft)}60%,100%{color:var(--faint);border-color:var(--line);background:transparent}}
+  @keyframes press{
+    0%,40%{transform:translateY(0); box-shadow:0 2px 0 #090c11, inset 0 1px 0 rgba(255,255,255,.06);
+      color:var(--fg); border-color:var(--line); background:linear-gradient(180deg,#1b2129,#12161d)}
+    47%,54%{transform:translateY(2px); box-shadow:0 0 0 #090c11, inset 0 1px 0 rgba(255,255,255,.06), 0 0 0 2px var(--accent-line);
+      color:var(--accent); border-color:var(--accent-line); background:var(--accent-soft)}
+    62%,100%{transform:translateY(0); box-shadow:0 2px 0 #090c11, inset 0 1px 0 rgba(255,255,255,.06);
+      color:var(--fg); border-color:var(--line); background:linear-gradient(180deg,#1b2129,#12161d)}
+  }
 
   /* sections */
   section{padding:72px 0; border-top:1px solid var(--line)}
@@ -191,7 +202,7 @@
     .reveal{opacity:1; transform:none; transition:none}
     .herologo{animation:none}
     nav{transition:opacity .2s ease}
-    .anim .fade-before,.anim .fade-after,.anim .kcap{animation:none}
+    .anim .fade-before,.anim .fade-after,.anim .key.opt{animation:none}
     .anim .fade-before{opacity:0} .anim .fade-after{opacity:1}
     .btn{transition:none}
   }
@@ -228,7 +239,11 @@
       <div class="demo reveal anim" aria-hidden="true">
         <div class="head">
           <div class="layoutsw"><span class="pill">EN</span><i class="ph ph-arrow-right" style="font-size:13px;color:var(--faint)"></i><span class="pill on">RU</span></div>
-          <span class="kcap">⌥ left Option</span>
+          <div class="keys">
+            <span class="key">⌃</span>
+            <span class="key opt">⌥</span>
+            <span class="key">⌘</span>
+          </div>
         </div>
         <div class="stage">
           <div class="row1">

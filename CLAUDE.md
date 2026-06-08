@@ -18,12 +18,12 @@ At the end of a session (or before `/clear`): run **`/handoff`** — it updates 
 ## Layout
 
 ```
-Core/        shared platform-free engine (SwiftPM module ReLayoutCore)
+Core/        shared platform-free engine + trigram model (SwiftPM module ReLayoutCore)
 macos/       macOS app — main.swift, tests.swift, Info.plist
 windows/     Windows MVP — Win*.swift + main.swift
-Resources/   macOS bundle resources — <lang>.lproj + icon PNGs
+Resources/   macOS bundle resources — <lang>.lproj + icon PNGs + trigram/<lang>.txt
 Tests/       SwiftPM engine tests
-scripts/     build.sh, run-tests.sh, make-cert.sh, make-dmg.sh, notarize.sh
+scripts/     build.sh, run-tests.sh, make-cert.sh, make-dmg.sh, notarize.sh, trigram/
 packaging/   Homebrew cask template + tap-push script
 docs/        ARCHITECTURE.md, RELEASING.md, HISTORY.md, SNAPSHOT.md
 assets/      source art (rL-logo.svg) — not bundled
@@ -50,6 +50,7 @@ Build env vars, the release/notarization flow, and the full architecture (engine
 ## Architecture (one screen)
 
 - **`Core/Engine.swift`** — platform-free conversion engine (no AppKit/Carbon/WinSDK). Shared verbatim by the macOS app, the Windows port (`ReLayoutCore` SwiftPM module), and the tests. Algorithm: `char → (reverse source layout) → KeyStroke → (target layout) → char`, over the actually-installed layouts. Not a char→char table.
+- **`Core/Trigram.swift`** — char-trigram language model for the auto-correct mode. Models generated offline by `scripts/trigram/gen.py`, shipped as `Resources/trigram/<lang>.txt`. Auto-correct is cross-script only (ru/uk ↔ en), default off.
 - **`macos/main.swift`** — the macOS app (single file): localization, hotkey system (combos + modifier taps), AX-first selection read/write, input-source switching, Settings/menu-bar/login-item, Sparkle.
 - **`windows/`** — Windows MVP (`WinLayout`/`WinInput`/`WinTray` + `main.swift`), built only under `#if os(Windows)`.
 

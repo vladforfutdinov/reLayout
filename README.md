@@ -4,7 +4,8 @@ Punto/Caramba-style "retype the selection in the correct keyboard layout" for ma
 tiny menu-bar app. Select (or just type) wrong-layout text, hit the hotkey, and it's
 retyped in the right layout; the system input source flips so you can keep going.
 
-Works with **any** enabled keyboard layouts — not hard-coded to a specific pair.
+Works with **any** enabled keyboard layouts — not hard-coded to a specific pair. An optional
+**auto-correct** mode (default off) fixes wrong-layout words as you type, no hotkey needed.
 
 ## Why it handles `ß`/`æ` → `ы`/`э`
 
@@ -71,18 +72,33 @@ Target layout selection:
 `я сказал ghbdtn` (US active) → `я сказал привет`. If nothing in the selection matches the
 active layout's script, it's a no-op.
 
+## Auto-correct (optional, default off)
+
+A live mode that fixes a wrong-layout word **as you type** — no hotkey. On each word
+boundary it scores the just-typed word with a per-language character-trigram model; if the
+word is improbable in the active layout's language but its converted form is a plausible word
+in the other, it's silently corrected (and the system layout switched). Press the hotkey
+right after to undo.
+
+- **Cross-script only** (Cyrillic ↔ Latin: ru/uk ↔ en). Latin↔Latin pairs (de/fr/es) are
+  deliberately excluded — calibration couldn't hit a safe precision there.
+- **Precision-first:** tuned offline (`scripts/trigram/`) for ≥99% precision, so it stays
+  quiet when unsure.
+- **Per-app exceptions:** a deny-list (seeded with terminals/IDEs) — *Settings → Auto-correct
+  → Exceptions…*. Secure text fields (passwords) are always skipped.
+
 ## Settings
 
-Menu-bar **⇄ → Settings…**:
+Menu-bar **⇄ → Settings…** (the window also shows the About info — version, link, copyright):
 
-- **Startup** — *Open at login* (`SMAppService`).
-- **Layouts** — the enabled input sources, in menu order.
+- **Open at login** (`SMAppService`), and **Automatically check for updates** (release builds).
+- **Auto-correct wrong layout** + **Exceptions…** (see above).
+- **Language** — UI language (System Default or a bundled one).
 - **Hotkey** — an inline recorder field (like System Settings): click it, then press the
-  shortcut. An undo button restores the default. A conflict line warns if the combo is
+  shortcut. A reset button restores the default. A conflict line warns if the combo is
   already a macOS system shortcut.
 
-Settings persist across restarts (hotkey in `UserDefaults`, login item in the system
-registry).
+Settings persist across restarts (`UserDefaults`; login item in the system registry).
 
 ### Hotkey kinds
 
@@ -91,6 +107,12 @@ registry).
   else): right Option, both Options, ⌃ + left Option, … Left/right are distinct. Fires only
   if released quickly with no other key/mouse press between, so normal use (Option+click,
   ⌥+letter) doesn't trigger it.
+- **Tap sequence** — repeat any of the above N times within a short window (e.g. double-tap
+  left Shift). Just record it that many times; there's no separate toggle. Press-again-undo
+  is kept for single-tap hotkeys.
+
+The hotkey is paused while the Settings (or Exceptions) window is focused, so recording a new
+one can't trigger a conversion.
 
 Conflict check covers macOS system shortcuts (`com.apple.symbolichotkeys`) only — per-app
 shortcuts aren't centrally registered, combos the system grabs first (e.g. ⌘Space) can't be

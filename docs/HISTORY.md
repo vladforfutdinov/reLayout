@@ -6,6 +6,19 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
+## v1.2.13 — per-app auto-correct exceptions
+
+- Auto-correct's hardcoded terminal/IDE exclusion set became a user-editable deny-list
+  (`autoExcludedApps` in `UserDefaults`, seeded with the old defaults) (`e88999d`).
+- "Exceptions…" button (next to the Auto-correct checkbox) opens an editor presented as a
+  **sheet** on Settings — modal to it (`fed34de`). Add apps via "Exclude current app" (the
+  last non-self frontmost app, tracked via `didActivateApplication`; stored as a bundle-id
+  string after a weak-ref bug nilled it) or "Choose…" (`NSOpenPanel`). Remove via a per-row
+  button that appears on hover (`ExcRowView` + `NSTrackingArea`, `68e6faa`).
+- The hotkey/auto focus-gate now covers both config windows (Settings + Exceptions),
+  recomputed from the actual key window (`37fe683`, `fed34de`).
+- `settings.exc.*` localization across all 12 languages. Tagged **v1.2.13**.
+
 ## v1.2.12 — Settings rework (single window, three sections)
 
 - Merged the standalone About panel into the Settings window: one auto-sizing window

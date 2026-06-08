@@ -27,3 +27,4 @@
 "settings.exc.addCurrent" = "Excluir app actual";
 "settings.exc.choose" = "Elegir…";
 "settings.exc.remove" = "Quitar";
+"settings.exc.done" = "Listo";

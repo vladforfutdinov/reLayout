@@ -27,3 +27,4 @@
 "settings.exc.addCurrent" = "Исключить текущее приложение";
 "settings.exc.choose" = "Выбрать…";
 "settings.exc.remove" = "Удалить";
+"settings.exc.done" = "Готово";

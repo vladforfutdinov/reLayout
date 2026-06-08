@@ -27,3 +27,4 @@
 "settings.exc.addCurrent" = "排除当前应用";
 "settings.exc.choose" = "选择…";
 "settings.exc.remove" = "移除";
+"settings.exc.done" = "完成";

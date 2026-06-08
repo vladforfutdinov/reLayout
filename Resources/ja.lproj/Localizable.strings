@@ -27,3 +27,4 @@
 "settings.exc.addCurrent" = "現在のアプリを除外";
 "settings.exc.choose" = "選択…";
 "settings.exc.remove" = "削除";
+"settings.exc.done" = "完了";

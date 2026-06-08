@@ -568,7 +568,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     private var settingsIsKey = false   // hotkey + auto-correct are paused while Settings is focused
     private var excWindow: NSWindow?    // auto-correct exceptions editor
     private weak var excTable: NSTableView?
-    private weak var lastActiveApp: NSRunningApplication?   // last non-self frontmost app ("exclude current")
+    private var lastActiveBundleID: String?   // last non-self frontmost app ("exclude current")
     private weak var shortcutField: ShortcutField?
     private weak var conflictLabel: NSTextField?
     private weak var loginCheckbox: NSButton?
@@ -593,8 +593,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
         ) { [weak self] note in
             if let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
-               app.bundleIdentifier != Bundle.main.bundleIdentifier {
-                self?.lastActiveApp = app
+               let bid = app.bundleIdentifier, bid != Bundle.main.bundleIdentifier {
+                self?.lastActiveBundleID = bid
             }
         }
         setupMenu()
@@ -1130,15 +1130,30 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
 
     // MARK: - Auto-correct exceptions (per-app deny-list editor)
 
+    // Presented as a sheet on Settings → modal to it: the user can't refocus Settings
+    // until the sheet is dismissed.
     @objc private func openExceptions() {
-        if let w = excWindow { activateApp(); w.makeKeyAndOrderFront(nil); excTable?.reloadData(); return }
-        let w = SettingsWindow(contentRect: NSRect(x: 0, y: 0, width: 380, height: 280),
-                               styleMask: [.titled, .closable], backing: .buffered, defer: false)
-        w.title = L("settings.exc.title")
+        guard let parent = settingsWindow else { return }
+        let w = excWindow ?? buildExceptionsWindow()
+        excTable?.reloadData()
+        if w.sheetParent == nil { parent.beginSheet(w) }
+    }
+
+    @objc private func excDone() {
+        if let w = excWindow { settingsWindow?.endSheet(w) }
+    }
+
+    private func buildExceptionsWindow() -> NSWindow {
+        let w = SettingsWindow(contentRect: NSRect(x: 0, y: 0, width: 380, height: 300),
+                               styleMask: [.titled], backing: .buffered, defer: false)
         w.isReleasedWhenClosed = false
         let content = NSView()
         content.translatesAutoresizingMaskIntoConstraints = false
         w.contentView = content
+
+        let title = NSTextField(labelWithString: L("settings.exc.title"))
+        title.font = .boldSystemFont(ofSize: 13)
+        title.translatesAutoresizingMaskIntoConstraints = false
 
         let table = NSTableView()
         table.headerView = nil
@@ -1168,15 +1183,18 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         spacer.setContentHuggingPriority(.init(1), for: .horizontal)
         let bar = NSStackView(views: [btn("settings.exc.addCurrent", #selector(excAddCurrent)),
                                       btn("settings.exc.choose", #selector(excChoose)),
+                                      btn("settings.exc.remove", #selector(excRemove)),
                                       spacer,
-                                      btn("settings.exc.remove", #selector(excRemove))])
+                                      btn("settings.exc.done", #selector(excDone))])
         bar.orientation = .horizontal; bar.spacing = 8; bar.distribution = .fill
         bar.translatesAutoresizingMaskIntoConstraints = false
 
-        content.addSubview(scroll); content.addSubview(bar)
+        content.addSubview(title); content.addSubview(scroll); content.addSubview(bar)
         NSLayoutConstraint.activate([
             content.widthAnchor.constraint(equalToConstant: 380),
-            scroll.topAnchor.constraint(equalTo: content.topAnchor, constant: 16),
+            title.topAnchor.constraint(equalTo: content.topAnchor, constant: 16),
+            title.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 16),
+            scroll.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 10),
             scroll.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 16),
             scroll.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -16),
             scroll.heightAnchor.constraint(equalToConstant: 200),
@@ -1186,13 +1204,11 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             bar.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -16),
         ])
         excWindow = w
-        gateOnWindow(w)   // same hotkey/auto pause as Settings while this panel is key
-        activateApp(); w.center(); w.makeKeyAndOrderFront(nil)
-        table.reloadData()
+        return w
     }
 
     @objc private func excAddCurrent() {
-        guard let b = lastActiveApp?.bundleIdentifier else { NSSound.beep(); return }
+        guard let b = lastActiveBundleID else { NSSound.beep(); return }
         addExcluded(b)
     }
 

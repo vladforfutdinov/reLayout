@@ -27,3 +27,4 @@
 "settings.exc.addCurrent" = "Exclure l’app active";
 "settings.exc.choose" = "Choisir…";
 "settings.exc.remove" = "Retirer";
+"settings.exc.done" = "Terminé";

@@ -27,3 +27,4 @@
 "settings.exc.addCurrent" = "현재 앱 제외";
 "settings.exc.choose" = "선택…";
 "settings.exc.remove" = "제거";
+"settings.exc.done" = "완료";

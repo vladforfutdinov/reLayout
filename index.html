@@ -271,7 +271,6 @@
       <div class="demo reveal" aria-hidden="true">
         <div class="head">
           <div class="layoutsw"><span class="pill" id="pSrc">EN</span><i class="ph ph-arrow-right" style="font-size:13px;color:var(--faint)"></i><span class="pill on" id="pDst">RU</span></div>
-          <div class="lbl" id="dLbl">Typing</div>
         </div>
         <div class="stage">
           <div class="line"><span class="pre" id="dPre"></span><span class="dword" id="dWord"></span><span class="caret blink" id="dCaret">▍</span></div>
@@ -493,7 +492,7 @@
   (function(){
     var demo=document.querySelector('.demo'); if(!demo) return;
     var pSrc=document.getElementById('pSrc'), pDst=document.getElementById('pDst'),
-        opt=document.getElementById('optKey'), lbl=document.getElementById('dLbl'),
+        opt=document.getElementById('optKey'),
         pre=document.getElementById('dPre'), word=document.getElementById('dWord'), caret=document.getElementById('dCaret');
     var R=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     var SC=[
@@ -509,14 +508,13 @@
       var s=SC[idx]; clr();
       pre.textContent=s.pre; word.innerHTML=''; opt.classList.remove('lit');
       pSrc.textContent=s.src; pDst.textContent=s.dst; pSrc.classList.add('on'); pDst.classList.remove('on');
-      caret.style.visibility='visible'; caret.classList.add('blink'); lbl.textContent='Typing';
+      caret.style.visibility='visible'; caret.classList.add('blink');
       var i=0;
       (function type(){
         if(i<=s.from.length){ spell(s.from.slice(0,i),'bad'); i++; at(78,type); return; }
-        at(360,function(){ lbl.textContent='Wrong layout'; });
         at(820,function(){ opt.classList.add('lit'); caret.classList.remove('blink'); caret.style.visibility='hidden'; });
         at(1000,function(){
-          lbl.textContent='Fixed'; pSrc.classList.remove('on'); pDst.classList.add('on');
+          pSrc.classList.remove('on'); pDst.classList.add('on');
           word.innerHTML='';
           for(var k=0;k<s.to.length;k++){ var c=document.createElement('span'); c.className='ch good flip'; c.style.animationDelay=(k*55)+'ms'; c.textContent=s.to[k]; word.appendChild(c); }
         });
@@ -527,7 +525,7 @@
     if(R){
       var s0=SC[0]; pre.textContent=s0.pre; spell(s0.to,'good');
       pSrc.textContent=s0.src; pDst.textContent=s0.dst; pSrc.classList.remove('on'); pDst.classList.add('on');
-      caret.style.visibility='hidden'; lbl.textContent='Fixed'; opt.classList.add('lit');
+      caret.style.visibility='hidden'; opt.classList.add('lit');
     } else if('IntersectionObserver' in window){
       var io=new IntersectionObserver(function(es){ es.forEach(function(e){ if(e.isIntersecting){ run(0); io.disconnect(); } }); },{threshold:.35});
       io.observe(demo);

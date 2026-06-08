@@ -1094,25 +1094,30 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         w.center()
 
         settingsWindow = w
-        // Pause the live hotkey + auto-correct whenever Settings is the key window
-        // (the user is configuring there), resume when it loses focus or closes.
-        let nc = NotificationCenter.default
-        nc.addObserver(forName: NSWindow.didBecomeKeyNotification, object: w, queue: .main) { [weak self] _ in
-            self?.setSettingsKey(true)
-        }
-        nc.addObserver(forName: NSWindow.didResignKeyNotification, object: w, queue: .main) { [weak self] _ in
-            self?.setSettingsKey(false)
-        }
-        nc.addObserver(forName: NSWindow.willCloseNotification, object: w, queue: .main) { [weak self] _ in
-            self?.setSettingsKey(false)
-        }
+        gateOnWindow(w)
         w.initialFirstResponder = nil
         activateApp()
         w.makeKeyAndOrderFront(nil)
         w.makeFirstResponder(nil)   // don't leave the first checkbox focused on open
     }
 
-    private func setSettingsKey(_ key: Bool) {
+    // Pause the live hotkey + auto-correct whenever a config window (Settings or the
+    // Exceptions editor) is key, resume when focus leaves both. Recomputed from the
+    // actual key window (async, so the state is settled when switching between them).
+    private func gateOnWindow(_ w: NSWindow) {
+        let nc = NotificationCenter.default
+        for name in [NSWindow.didBecomeKeyNotification, NSWindow.didResignKeyNotification,
+                     NSWindow.willCloseNotification] {
+            nc.addObserver(forName: name, object: w, queue: .main) { [weak self] _ in self?.refreshConfigGate() }
+        }
+    }
+    private func refreshConfigGate() {
+        DispatchQueue.main.async {
+            let key = NSApp.keyWindow
+            self.setConfigKey(key === self.settingsWindow || key === self.excWindow)
+        }
+    }
+    private func setConfigKey(_ key: Bool) {
         guard settingsIsKey != key else { return }
         settingsIsKey = key
         if key { suspendHotkey(); stopAutoMonitor() }
@@ -1181,6 +1186,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             bar.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -16),
         ])
         excWindow = w
+        gateOnWindow(w)   // same hotkey/auto pause as Settings while this panel is key
         activateApp(); w.center(); w.makeKeyAndOrderFront(nil)
         table.reloadData()
     }

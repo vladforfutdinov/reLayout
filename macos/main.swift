@@ -1011,7 +1011,7 @@ final class AppController: NSObject, NSApplicationDelegate {
             g.rowAlignment = .none
         }
         langGrid.row(at: 0).yPlacement = .center
-        hkGrid.row(at: 0).yPlacement = .top   // hotkey caption aligns to the field
+        hkGrid.row(at: 0).yPlacement = .center   // caption centered with the field
 
         // ── footer: version + link + copyright ──
         let info = Bundle.main.infoDictionary

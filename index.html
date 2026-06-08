@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>reLayout — retype wrong-layout text, the Punto/Caramba way</title>
+<meta name="description" content="A tiny macOS menu-bar app that retypes text typed in the wrong keyboard layout. Any layouts, optional auto-correct, AX-first so DeepL stays quiet. Free & open source.">
+<meta property="og:title" content="reLayout">
+<meta property="og:description" content="Retype wrong-layout text in the right layout — Punto/Caramba-style, for macOS.">
+<meta property="og:type" content="website">
+<style>
+  :root{
+    --bg:#0d1117; --bg2:#161b22; --line:#222b36; --fg:#e6edf3; --muted:#8b949e;
+    --accent:#3b82f6; --accent2:#60a5fa; --radius:16px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; background:var(--bg); color:var(--fg);
+    font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--accent2); text-decoration:none}
+  a:hover{text-decoration:underline}
+  .wrap{max-width:920px; margin:0 auto; padding:0 24px}
+  /* hero */
+  header{padding:88px 0 64px; text-align:center;
+    background:radial-gradient(1200px 400px at 50% -120px, rgba(59,130,246,.18), transparent 70%);}
+  .logo{
+    width:96px; height:96px; margin:0 auto 22px; border-radius:24px;
+    background:linear-gradient(180deg,#f7f7f7,#cdcdcd);
+    box-shadow:0 12px 40px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.6);
+    display:flex; align-items:center; justify-content:center;
+    font-family:"Times New Roman",Georgia,serif; font-size:54px; color:#111; letter-spacing:-2px;
+  }
+  .logo b{font-weight:700}
+  h1{font-size:44px; line-height:1.1; margin:0 0 14px; letter-spacing:-1px}
+  .tag{font-size:19px; color:var(--muted); max-width:620px; margin:0 auto 14px}
+  .sub{font-size:14px; color:var(--muted); margin:0 0 30px}
+  .cta{display:flex; gap:12px; justify-content:center; flex-wrap:wrap}
+  .btn{
+    display:inline-block; padding:12px 22px; border-radius:12px; font-weight:600;
+    border:1px solid var(--line); color:var(--fg); background:var(--bg2);
+  }
+  .btn.primary{background:var(--accent); border-color:var(--accent); color:#fff}
+  .btn.primary:hover{background:#2f6fe0; text-decoration:none}
+  .btn:hover{text-decoration:none; border-color:#3a4654}
+  /* demo */
+  .demo{margin:44px auto 0; max-width:560px; background:var(--bg2); border:1px solid var(--line);
+    border-radius:var(--radius); padding:20px 22px; text-align:left; font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .demo .row{display:flex; align-items:center; gap:12px; font-size:15px}
+  .demo .row+.row{margin-top:10px}
+  .demo .bad{color:#ff7b72} .demo .good{color:#3fb950}
+  .demo .arrow{color:var(--muted)}
+  /* sections */
+  section{padding:56px 0; border-top:1px solid var(--line)}
+  h2{font-size:26px; margin:0 0 26px; letter-spacing:-.4px}
+  .grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:16px}
+  .card{background:var(--bg2); border:1px solid var(--line); border-radius:var(--radius); padding:20px}
+  .card h3{margin:0 0 8px; font-size:16px}
+  .card p{margin:0; color:var(--muted); font-size:14.5px}
+  .card .ic{font-size:22px; margin-bottom:10px}
+  /* install */
+  pre{background:#0a0e14; border:1px solid var(--line); border-radius:12px; padding:14px 16px;
+    overflow:auto; font:14px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace; color:#d6dee8}
+  .note{color:var(--muted); font-size:14px}
+  ol.steps{padding-left:20px; color:var(--muted)} ol.steps li{margin:6px 0}
+  footer{padding:48px 0 64px; text-align:center; color:var(--muted); font-size:14px; border-top:1px solid var(--line)}
+  @media (max-width:560px){ h1{font-size:34px} header{padding:64px 0 40px} }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="logo"><span>r</span><b>L</b></div>
+    <h1>reLayout</h1>
+    <p class="tag">Typed in the wrong keyboard layout? Hit one key and reLayout retypes it correctly — Punto/Caramba-style, for macOS.</p>
+    <p class="sub">macOS 13+ · signed &amp; notarized · free &amp; open source</p>
+    <div class="cta">
+      <a class="btn primary" href="https://github.com/vladforfutdinov/reLayout/releases/latest">Download for macOS</a>
+      <a class="btn" href="https://github.com/vladforfutdinov/reLayout">View on GitHub</a>
+    </div>
+
+    <div class="demo">
+      <div class="row"><span class="bad">я сказал ghbdtn</span></div>
+      <div class="row"><span class="arrow">→ tap the hotkey →</span></div>
+      <div class="row"><span class="good">я сказал привет</span></div>
+    </div>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <h2>What it does</h2>
+    <div class="grid">
+      <div class="card"><div class="ic">⇄</div><h3>Any layouts</h3><p>Not hard-coded to a pair — it converts over your actually-installed layouts, via physical key positions. So <code>ß/æ → ы/э</code> just works.</p></div>
+      <div class="card"><div class="ic">⌨️</div><h3>One-key fix</h3><p>Select the garbled text (or none — it grabs back to line start), press the hotkey, done. The system input source flips so you keep going.</p></div>
+      <div class="card"><div class="ic">✨</div><h3>Auto-correct (optional)</h3><p>A trigram language model fixes wrong-layout words <em>as you type</em>, no hotkey. Cross-script, precision-first, default off.</p></div>
+      <div class="card"><div class="ic">↩︎</div><h3>Press-again undo</h3><p>Hit the hotkey again within ~1.5 s to restore the original text and the previous input source.</p></div>
+      <div class="card"><div class="ic">🎯</div><h3>Your own hotkey</h3><p>Record a combo, a modifier tap/chord (e.g. double-tap Shift), or a tap sequence — right in Settings.</p></div>
+      <div class="card"><div class="ic">🤫</div><h3>Reads quietly</h3><p>Accessibility-first read/write — no clipboard churn, so pop-up translators like DeepL stay out of your way.</p></div>
+      <div class="card"><div class="ic">🚫</div><h3>Per-app exceptions</h3><p>Keep auto-correct off in terminals, IDEs, or any app you choose. Password fields are always skipped.</p></div>
+      <div class="card"><div class="ic">🔄</div><h3>Auto-updates</h3><p>Signed, notarized, and kept current via Sparkle. Or install &amp; update through Homebrew.</p></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Install</h2>
+    <div class="grid">
+      <div class="card">
+        <h3>Homebrew</h3>
+        <pre>brew install --cask vladforfutdinov/relayout/relayout</pre>
+        <p class="note">Updates with <code>brew upgrade</code>.</p>
+      </div>
+      <div class="card">
+        <h3>Direct download</h3>
+        <p class="note">Grab <b>reLayout.dmg</b> from the <a href="https://github.com/vladforfutdinov/reLayout/releases/latest">latest release</a> and drag it to Applications.</p>
+      </div>
+    </div>
+    <ol class="steps">
+      <li>Launch reLayout — it lives in the menu bar (<b>⇄</b>).</li>
+      <li>Grant <b>System Settings → Privacy &amp; Security → Accessibility</b>, then relaunch.</li>
+      <li>Select wrong-layout text and tap the hotkey (default: <b>left Option</b>).</li>
+    </ol>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p>Free &amp; open source · <a href="https://github.com/vladforfutdinov/reLayout">github.com/vladforfutdinov/reLayout</a></p>
+    <p>© 2026 Volodymyr Forfutdinov</p>
+  </div>
+</footer>
+
+</body>
+</html>

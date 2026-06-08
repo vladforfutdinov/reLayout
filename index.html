@@ -56,8 +56,15 @@
 
   /* hero */
   header{position:relative; overflow:hidden}
-  header::before{content:""; position:absolute; inset:-200px 0 auto 0; height:520px; pointer-events:none;
-    background:radial-gradient(680px 320px at 28% 12%, var(--accent-soft), transparent 70%)}
+  .aurora{position:absolute; inset:-120px 0 auto 0; height:680px; pointer-events:none; z-index:0; overflow:hidden}
+  .aurora b{position:absolute; border-radius:50%; filter:blur(72px); opacity:.42; mix-blend-mode:screen}
+  .aurora .a1{width:420px; height:420px; background:#3f7bf0; top:-60px; left:6%; animation:drift1 15s ease-in-out infinite}
+  .aurora .a2{width:340px; height:340px; background:#22d3ee; top:30px; right:4%; animation:drift2 18s ease-in-out infinite}
+  .aurora .a3{width:300px; height:300px; background:#6f8cff; bottom:-40px; left:42%; animation:drift3 20s ease-in-out infinite}
+  @keyframes drift1{0%,100%{transform:translate(0,0)}50%{transform:translate(40px,30px)}}
+  @keyframes drift2{0%,100%{transform:translate(0,0)}50%{transform:translate(-50px,40px)}}
+  @keyframes drift3{0%,100%{transform:translate(0,0)}50%{transform:translate(30px,-30px)}}
+  .hero, header .wrap{position:relative; z-index:1}
   .hero{position:relative; display:grid; grid-template-columns:1.05fr .95fr; gap:56px; align-items:center;
     padding:84px 0 76px}
   .herologo{width:84px; height:84px; border-radius:20px; display:block; margin:0 0 24px;
@@ -97,25 +104,20 @@
   .stage{font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:21px; line-height:1.5}
   .stage .lbl{font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--faint);
     font-family:-apple-system,sans-serif; margin-bottom:6px}
-  .stage .before{color:var(--muted)} .stage .before .err{color:var(--bad)}
-  .stage .after{color:var(--fg)} .stage .after .fix{color:var(--good)}
-  .stage .row1{margin-bottom:18px}
-  .swapwrap{position:relative; height:30px}
-  .swapwrap > div{position:absolute; inset:0}
-  .anim .before .err, .anim .after .fix{transition:none}
-  .anim .fade-before{animation:fadeBefore 5s ease-in-out infinite}
-  .anim .fade-after{animation:fadeAfter 5s ease-in-out infinite}
-  .anim .key.opt{animation:press 5s ease-in-out infinite}
-  @keyframes fadeBefore{0%,38%{opacity:1}48%,90%{opacity:0}100%{opacity:1}}
-  @keyframes fadeAfter{0%,40%{opacity:0}50%,88%{opacity:1}98%,100%{opacity:0}}
-  @keyframes press{
-    0%,40%{transform:translateY(0); box-shadow:0 2px 0 #090c11, inset 0 1px 0 rgba(255,255,255,.06);
-      color:var(--fg); border-color:var(--line); background:linear-gradient(180deg,#1b2129,#12161d)}
-    47%,54%{transform:translateY(2px); box-shadow:0 0 0 #090c11, inset 0 1px 0 rgba(255,255,255,.06), 0 0 0 2px var(--accent-line);
-      color:var(--accent); border-color:var(--accent-line); background:var(--accent-soft)}
-    62%,100%{transform:translateY(0); box-shadow:0 2px 0 #090c11, inset 0 1px 0 rgba(255,255,255,.06);
-      color:var(--fg); border-color:var(--line); background:linear-gradient(180deg,#1b2129,#12161d)}
-  }
+  .stage .line{min-height:36px; display:flex; align-items:center; perspective:600px}
+  .stage .pre{color:var(--muted)}
+  .dword{display:inline-block}
+  .dword .ch{display:inline-block; white-space:pre}
+  .dword .ch.bad{color:var(--bad)}
+  .dword .ch.good{color:var(--good)}
+  .dword .ch.flip{animation:flipin .42s cubic-bezier(.2,.85,.25,1) both}
+  @keyframes flipin{0%{opacity:0; transform:translateY(-.5em) rotateX(74deg)}100%{opacity:1; transform:none}}
+  .caret{display:inline-block; width:9px; color:var(--accent)}
+  .caret.blink{animation:blink 1.05s steps(1) infinite}
+  @keyframes blink{50%{opacity:0}}
+  .key.opt.down{transform:translateY(2px); color:var(--accent); border-color:var(--accent-line);
+    background:var(--accent-soft); box-shadow:inset 0 1px 0 rgba(255,255,255,.06), 0 0 0 2px var(--accent-line);
+    transition:all .08s ease}
 
   /* sections */
   section{padding:72px 0; border-top:1px solid var(--line)}
@@ -136,6 +138,14 @@
   .codechip{font-family:ui-monospace,Menlo,monospace; font-size:14px; color:#cdd8e6; background:#0e131a;
     border:1px solid var(--line); border-radius:10px; padding:10px 13px; margin-top:auto; width:fit-content}
   .codechip .b{color:var(--bad)} .codechip .g{color:var(--good)}
+
+  /* edge cases */
+  .edge{display:grid; grid-template-columns:1fr 1fr; gap:2px 34px; margin-top:26px}
+  .edge .row{display:flex; gap:13px; align-items:flex-start; padding:16px 0; border-top:1px solid rgba(255,255,255,.055)}
+  .edge .row i{color:var(--accent); font-size:21px; margin-top:1px; flex:none}
+  .edge .row b{font-weight:600; font-size:15px}
+  .edge .row p{margin:3px 0 0; color:var(--muted); font-size:13.5px; line-height:1.5}
+  @media(max-width:760px){ .edge{grid-template-columns:1fr} }
 
   /* comparison */
   .cmp-scroll{overflow-x:auto; margin-top:26px}
@@ -202,7 +212,8 @@
     .reveal{opacity:1; transform:none; transition:none}
     .herologo{animation:none}
     nav{transition:opacity .2s ease}
-    .anim .fade-before,.anim .fade-after,.anim .key.opt{animation:none}
+    .aurora b{animation:none}
+    .dword .ch.flip{animation:none}
     .anim .fade-before{opacity:0} .anim .fade-after{opacity:1}
     .btn{transition:none}
   }
@@ -223,6 +234,7 @@
 </nav>
 
 <header id="top">
+  <div class="aurora" aria-hidden="true"><b class="a1"></b><b class="a2"></b><b class="a3"></b></div>
   <div class="wrap">
     <div class="hero">
       <div class="reveal">
@@ -236,27 +248,18 @@
         <p class="avail"><b>macOS 13+</b>, signed and notarized. <span class="soon">Windows coming soon.</span></p>
       </div>
 
-      <div class="demo reveal anim" aria-hidden="true">
+      <div class="demo reveal" aria-hidden="true">
         <div class="head">
-          <div class="layoutsw"><span class="pill">EN</span><i class="ph ph-arrow-right" style="font-size:13px;color:var(--faint)"></i><span class="pill on">RU</span></div>
+          <div class="layoutsw"><span class="pill" id="pSrc">EN</span><i class="ph ph-arrow-right" style="font-size:13px;color:var(--faint)"></i><span class="pill on" id="pDst">RU</span></div>
           <div class="keys">
             <span class="key">⌃</span>
-            <span class="key opt">⌥</span>
+            <span class="key opt" id="optKey">⌥</span>
             <span class="key">⌘</span>
           </div>
         </div>
         <div class="stage">
-          <div class="row1">
-            <div class="lbl">You typed</div>
-            <div class="before">я сказал <span class="err">ghbdtn</span></div>
-          </div>
-          <div>
-            <div class="lbl">reLayout fixes it</div>
-            <div class="swapwrap">
-              <div class="fade-before before">я сказал <span class="err">ghbdtn</span></div>
-              <div class="fade-after after">я сказал <span class="fix">привет</span></div>
-            </div>
-          </div>
+          <div class="lbl" id="dLbl">Typing</div>
+          <div class="line"><span class="pre" id="dPre"></span><span class="dword" id="dWord"></span><span class="caret blink" id="dCaret">▍</span></div>
         </div>
       </div>
     </div>
@@ -310,6 +313,23 @@
           <p>Signed, notarized, and auto-updating via Sparkle. Or install and upgrade through Homebrew.</p>
         </div>
       </div>
+    </div>
+  </div>
+</section>
+
+<section id="scenarios">
+  <div class="wrap">
+    <h2 class="reveal">Built for the messy reality</h2>
+    <p class="sec-lede reveal">Real typing is messy. reLayout covers the cases the simple switchers skip.</p>
+    <div class="edge">
+      <div class="row reveal"><i class="ph ph-cursor-text"></i><div><b>Nothing selected?</b><p>It grabs from the caret back to the start of the line, then converts.</p></div></div>
+      <div class="row reveal"><i class="ph ph-magnifying-glass"></i><div><b>Switched layout after mistyping?</b><p>It reads the wrong layout from the text itself, not just the active one.</p></div></div>
+      <div class="row reveal"><i class="ph ph-brackets-curly"></i><div><b>Option-layer characters?</b><p>Even ß and æ map to ы and э. It works on key position, not a letter table.</p></div></div>
+      <div class="row reveal"><i class="ph ph-globe-hemisphere-east"></i><div><b>Any script you use?</b><p>Russian, Ukrainian, anything installed. Convert between whichever two are active.</p></div></div>
+      <div class="row reveal"><i class="ph ph-lock-key"></i><div><b>In a password field?</b><p>Secure text fields are always left alone, hotkey and auto-correct both.</p></div></div>
+      <div class="row reveal"><i class="ph ph-terminal-window"></i><div><b>In a terminal or IDE?</b><p>Excluded by default for auto-correct, and the list is yours to edit.</p></div></div>
+      <div class="row reveal"><i class="ph ph-arrow-counter-clockwise"></i><div><b>Changed your mind?</b><p>Press the hotkey again within ~1.5s to put the original text back.</p></div></div>
+      <div class="row reveal"><i class="ph ph-hand-tap"></i><div><b>Want a chord or a double-tap?</b><p>Record a combo, a modifier tap, or a tap sequence like double Shift.</p></div></div>
     </div>
   </div>
 </section>
@@ -439,6 +459,52 @@
   } else if (navEl) {
     navEl.classList.add('show');
   }
+  // hero conversion demo — type the wrong-layout word, press the key, flip each
+  // letter to the right one. Cycles through real layout pairs.
+  (function(){
+    var demo=document.querySelector('.demo'); if(!demo) return;
+    var pSrc=document.getElementById('pSrc'), pDst=document.getElementById('pDst'),
+        opt=document.getElementById('optKey'), lbl=document.getElementById('dLbl'),
+        pre=document.getElementById('dPre'), word=document.getElementById('dWord'), caret=document.getElementById('dCaret');
+    var R=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var SC=[
+      {pre:'я сказал ', from:'ghbdtn', to:'привет', src:'EN', dst:'RU'},
+      {pre:'I said ',   from:'руддщ',  to:'hello',  src:'RU', dst:'EN'},
+      {pre:'',          from:'lzre.',  to:'дякую',  src:'EN', dst:'UK'}
+    ];
+    var timers=[];
+    function clr(){ timers.forEach(clearTimeout); timers=[]; }
+    function at(ms,fn){ timers.push(setTimeout(fn,ms)); }
+    function spell(str,cls){ word.innerHTML=''; for(var i=0;i<str.length;i++){ var s=document.createElement('span'); s.className='ch '+cls; s.textContent=str[i]; word.appendChild(s);} }
+    function run(idx){
+      var s=SC[idx]; clr();
+      pre.textContent=s.pre; word.innerHTML=''; opt.classList.remove('down');
+      pSrc.textContent=s.src; pDst.textContent=s.dst; pSrc.classList.add('on'); pDst.classList.remove('on');
+      caret.style.visibility='visible'; caret.classList.add('blink'); lbl.textContent='Typing';
+      var i=0;
+      (function type(){
+        if(i<=s.from.length){ spell(s.from.slice(0,i),'bad'); i++; at(78,type); return; }
+        at(360,function(){ lbl.textContent='Wrong layout'; });
+        at(820,function(){ opt.classList.add('down'); caret.classList.remove('blink'); caret.style.visibility='hidden'; });
+        at(1000,function(){
+          lbl.textContent='Fixed'; pSrc.classList.remove('on'); pDst.classList.add('on');
+          word.innerHTML='';
+          for(var k=0;k<s.to.length;k++){ var c=document.createElement('span'); c.className='ch good flip'; c.style.animationDelay=(k*55)+'ms'; c.textContent=s.to[k]; word.appendChild(c); }
+        });
+        at(1260,function(){ opt.classList.remove('down'); });
+        at(2900,function(){ run((idx+1)%SC.length); });
+      })();
+    }
+    if(R){
+      var s0=SC[0]; pre.textContent=s0.pre; spell(s0.to,'good');
+      pSrc.textContent=s0.src; pDst.textContent=s0.dst; pSrc.classList.remove('on'); pDst.classList.add('on');
+      caret.style.visibility='hidden'; lbl.textContent='Fixed';
+    } else if('IntersectionObserver' in window){
+      var io=new IntersectionObserver(function(es){ es.forEach(function(e){ if(e.isIntersecting){ run(0); io.disconnect(); } }); },{threshold:.35});
+      io.observe(demo);
+    } else { run(0); }
+  })();
+
   // scroll reveal (IntersectionObserver, no scroll listener)
   var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   var els = document.querySelectorAll('.reveal');

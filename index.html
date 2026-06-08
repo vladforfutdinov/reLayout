@@ -105,13 +105,16 @@
   /* Apple keyboard corner — the option key lights up when the hotkey fires */
   .kb{margin:22px -26px 0 0; display:flex; flex-direction:column; gap:5px; user-select:none}
   .kb .r{display:flex; gap:5px}
-  /* MacBook Magic Keyboard keycap: flat matte top, faint top sheen, gentle bottom dish */
-  .kbk{position:relative; height:43px; width:44px; flex:none; border-radius:6px;
-    background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,0) 16%),#1b1c1f;
-    border:1px solid #0a0b0d;
-    box-shadow:0 1.5px 1px rgba(0,0,0,.6), inset 0 0 0 .5px rgba(255,255,255,.02), inset 0 -1px 2px rgba(0,0,0,.5);
+  /* MacBook keycap: dark sloped rim (the truncated-pyramid wall) + an inset matte
+     top face that sits slightly recessed, like the real keys in the photo. */
+  .kbk{position:relative; height:45px; width:46px; flex:none; border-radius:9px;
+    background:#070808; box-shadow:0 2px 2px rgba(0,0,0,.55), 0 0 0 .5px rgba(0,0,0,.6);
     display:flex; align-items:center; justify-content:center;
-    font:400 15px/1 -apple-system,BlinkMacSystemFont,sans-serif; color:#c2c6cc}
+    font:400 15px/1 -apple-system,BlinkMacSystemFont,sans-serif; color:#c6cad0}
+  .kbk::before{content:""; position:absolute; inset:2.5px; border-radius:6px; z-index:0;
+    background:linear-gradient(180deg,#2a2c31 0%,#202226 42%,#161719 100%);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.07), inset 0 -3px 5px rgba(0,0,0,.55)}
+  .kbk > *{position:relative; z-index:1}
   .kbk.tab{width:52px} .kbk.caps{width:66px} .kbk.shift{width:92px}
   .kbk.fn{width:46px} .kbk.ctrl,.kbk.opt{width:56px} .kbk.cmd{width:66px}
   .kbk.space{width:150px}
@@ -119,9 +122,10 @@
   .kbk .t{position:absolute; left:8px; top:6px; font-size:9.5px; color:#82868d}
   .kbk .tr{position:absolute; right:8px; top:6px; font-size:13px; color:#9a9ea4}
   .kbk .dot{position:absolute; left:9px; top:9px; width:5px; height:5px; border-radius:50%; background:#3c3f45}
-  .kbk.lit{background:linear-gradient(180deg,#284a8a,#173258); border-color:var(--accent);
-    box-shadow:0 0 0 1px var(--accent), 0 0 26px 3px rgba(79,140,255,.55), inset 0 1px 0 rgba(255,255,255,.16);
-    color:#fff; transform:translateY(1px); transition:all .09s ease}
+  .kbk.lit{box-shadow:0 0 0 1px var(--accent), 0 0 28px 3px rgba(79,140,255,.55), 0 2px 2px rgba(0,0,0,.5);
+    color:#fff; transition:box-shadow .1s ease}
+  .kbk.lit::before{background:linear-gradient(180deg,#2f5494,#163059);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.2), inset 0 -3px 5px rgba(0,0,0,.4)}
   .kbk.lit .c,.kbk.lit .t,.kbk.lit .tr{color:#eaf1ff}
   @media(max-width:520px){ .kbk{height:38px; width:38px; font-size:13px}
     .kbk.tab{width:46px} .kbk.caps{width:56px} .kbk.shift{width:78px}

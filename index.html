@@ -60,16 +60,17 @@
     -webkit-mask-image:linear-gradient(180deg,#000 0%,#000 52%,transparent 96%);
             mask-image:linear-gradient(180deg,#000 0%,#000 52%,transparent 96%)}
   .aurora b{position:absolute; border-radius:50%; filter:blur(88px); opacity:.52; mix-blend-mode:screen}
-  .aurora .a1{width:540px; height:540px; background:#2f6fe0; top:-150px; left:0%;  animation:drift1 17s ease-in-out infinite}
-  .aurora .a2{width:460px; height:460px; background:#16c8e6; top:-60px;  right:-2%; animation:drift2 21s ease-in-out infinite}
-  .aurora .a3{width:480px; height:480px; background:#6f8cff; top:150px;  left:36%; animation:drift3 24s ease-in-out infinite}
-  .aurora .a4{width:400px; height:400px; background:#3f7bf0; top:230px;  right:16%; animation:drift1 19s ease-in-out infinite}
+  .aurora .a1{width:540px; height:540px; background:#2f6fe0; top:-150px; left:0%;  animation:roam1 30s ease-in-out infinite}
+  .aurora .a2{width:460px; height:460px; background:#16c8e6; top:-60px;  right:-2%; animation:roam2 34s ease-in-out infinite}
+  .aurora .a3{width:480px; height:480px; background:#6f8cff; top:150px;  left:36%; animation:roam3 28s ease-in-out infinite}
+  .aurora .a4{width:400px; height:400px; background:#3f7bf0; top:230px;  right:16%; animation:roam4 26s ease-in-out infinite}
   /* frosted glass over the blobs — softens them into a smooth wash */
   .aurora::after{content:""; position:absolute; inset:0;
     backdrop-filter:blur(30px) saturate(125%); -webkit-backdrop-filter:blur(30px) saturate(125%)}
-  @keyframes drift1{0%,100%{transform:translate(0,0)}50%{transform:translate(50px,36px)}}
-  @keyframes drift2{0%,100%{transform:translate(0,0)}50%{transform:translate(-60px,46px)}}
-  @keyframes drift3{0%,100%{transform:translate(0,0)}50%{transform:translate(36px,-34px)}}
+  @keyframes roam1{0%{transform:translate(0,0)}25%{transform:translate(52vw,18vh)}50%{transform:translate(34vw,52vh)}75%{transform:translate(-4vw,30vh)}100%{transform:translate(0,0)}}
+  @keyframes roam2{0%{transform:translate(0,0)}25%{transform:translate(-50vw,22vh)}50%{transform:translate(-18vw,54vh)}75%{transform:translate(-44vw,8vh)}100%{transform:translate(0,0)}}
+  @keyframes roam3{0%{transform:translate(0,0)}25%{transform:translate(40vw,-18vh)}50%{transform:translate(62vw,16vh)}75%{transform:translate(22vw,-6vh)}100%{transform:translate(0,0)}}
+  @keyframes roam4{0%{transform:translate(0,0)}25%{transform:translate(-38vw,-12vh)}50%{transform:translate(-58vw,18vh)}75%{transform:translate(-14vw,30vh)}100%{transform:translate(0,0)}}
   .hero, header .wrap{position:relative; z-index:1}
   .hero{position:relative; display:grid; grid-template-columns:1.05fr .95fr; gap:56px; align-items:center;
     padding:84px 0 76px}

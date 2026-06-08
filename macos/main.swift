@@ -519,7 +519,6 @@ final class AppController: NSObject, NSApplicationDelegate {
     private weak var shortcutField: ShortcutField?
     private weak var conflictLabel: NSTextField?
     private weak var loginCheckbox: NSButton?
-    private weak var undoHintLabel: NSTextField?
 
     deinit {
         DistributedNotificationCenter.default().removeObserver(self)
@@ -939,17 +938,10 @@ final class AppController: NSObject, NSApplicationDelegate {
         doubleTapCb.font = .systemFont(ofSize: 11)
         doubleTapCb.state = hotKeyDoubleTap ? .on : .off
 
-        // small secondary hint under the hotkey field: double-tap to undo
-        // (hidden when the double-tap trigger is on, since undo is then disabled)
-        let undoHint = NSTextField(labelWithString: L("settings.undoHint"))
-        undoHint.font = .systemFont(ofSize: 11)
-        undoHint.textColor = .secondaryLabelColor
-        undoHint.isHidden = hotKeyDoubleTap
-        undoHintLabel = undoHint
-
-        // hotkey field + double-tap toggle + (optional) conflict + undo hint,
-        // stacked tight under the "Hotkey:" caption — no gap from separate rows.
-        let hkColumn = NSStackView(views: [hkRow, doubleTapCb, conflict, undoHint])
+        // hotkey field + double-tap toggle + (optional) conflict warning, stacked
+        // tight under the "Hotkey:" caption. (Undo is simply "press the hotkey again
+        // right after a conversion" — no separate hint needed.)
+        let hkColumn = NSStackView(views: [hkRow, doubleTapCb, conflict])
         hkColumn.orientation = .vertical
         hkColumn.alignment = .leading
         hkColumn.spacing = 4
@@ -1035,7 +1027,6 @@ final class AppController: NSObject, NSApplicationDelegate {
     @objc private func toggleDoubleTap(_ sender: NSButton) {
         hotKeyDoubleTap = (sender.state == .on)
         lastTriggerTime = 0
-        undoHintLabel?.isHidden = hotKeyDoubleTap   // update in place — don't recreate the window
     }
 
     // Language picker changed: tag 0 = follow system, else Loc.languages[tag-1].

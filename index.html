@@ -104,15 +104,15 @@
   .pill.on{border-color:var(--accent-line); color:var(--accent); background:var(--accent-soft)}
   /* Magic Keyboard (space gray): flat matte keycaps, glyph-over-word modifier
      labels at bottom-left. The option key lights up when the hotkey fires. */
-  .kb{margin:22px -26px 0 0; display:flex; flex-direction:column; gap:5px; user-select:none}
-  .kb .r{display:flex; gap:5px}
-  .kbk{position:relative; height:44px; width:46px; flex:none; border-radius:7px;
+  .kb{margin:22px -26px 0 0; display:flex; flex-direction:column; gap:4px; user-select:none}
+  .kb .r{display:flex; gap:4px}
+  .kbk{position:relative; height:44px; width:46px; flex:none; border-radius:5px;
     background:linear-gradient(180deg,#303034,#252528); border:1px solid #141416;
     box-shadow:0 1px 1.5px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.07), inset 0 -2px 3px rgba(0,0,0,.38);
     display:flex; align-items:center; justify-content:center;
     font:400 15px/1 -apple-system,BlinkMacSystemFont,sans-serif; color:#d4d7dc}
   .kbk.shift{width:96px} .kbk.fn{width:48px} .kbk.ctrl,.kbk.opt{width:58px} .kbk.cmd{width:66px}
-  .kbk.space{width:150px}
+  .kbk.space{flex:1; min-width:90px}
   .kbk .c{position:absolute; left:8px; bottom:6px; font-size:10.5px; color:#9da1a8; letter-spacing:.01em; line-height:1}
   .kbk .ml{position:absolute; left:8px; bottom:6px; display:flex; flex-direction:column; align-items:flex-start; gap:3px; line-height:1}
   .kbk .ml .g{font-size:12.5px; color:#c4c8ce; display:flex}
@@ -286,8 +286,6 @@
             <span class="kbk opt" id="optKey"><span class="ml"><span class="g">⌥</span><span class="w">option</span></span></span>
             <span class="kbk cmd"><span class="ml"><span class="g">⌘</span><span class="w">command</span></span></span>
             <span class="kbk space"></span>
-            <span class="kbk cmd"><span class="ml"><span class="g">⌘</span><span class="w">command</span></span></span>
-            <span class="kbk opt"><span class="ml"><span class="g">⌥</span><span class="w">option</span></span></span>
           </div>
         </div>
       </div>

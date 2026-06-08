@@ -103,13 +103,15 @@
     border:1px solid var(--line); background:#0e131a; color:var(--muted)}
   .pill.on{border-color:var(--accent-line); color:var(--accent); background:var(--accent-soft)}
   /* Apple keyboard corner — the option key lights up when the hotkey fires */
-  .kb{margin:22px -26px 0 0; display:flex; flex-direction:column; gap:6px; user-select:none}
-  .kb .r{display:flex; gap:6px}
-  .kbk{position:relative; height:44px; width:44px; flex:none; border-radius:8px;
-    background:linear-gradient(180deg,#202225,#121316); border:1px solid #000;
-    box-shadow:0 2px 3px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.07), inset 0 -3px 6px rgba(0,0,0,.5);
+  .kb{margin:22px -26px 0 0; display:flex; flex-direction:column; gap:5px; user-select:none}
+  .kb .r{display:flex; gap:5px}
+  /* MacBook Magic Keyboard keycap: flat matte top, faint top sheen, gentle bottom dish */
+  .kbk{position:relative; height:43px; width:44px; flex:none; border-radius:6px;
+    background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,0) 16%),#1b1c1f;
+    border:1px solid #0a0b0d;
+    box-shadow:0 1.5px 1px rgba(0,0,0,.6), inset 0 0 0 .5px rgba(255,255,255,.02), inset 0 -1px 2px rgba(0,0,0,.5);
     display:flex; align-items:center; justify-content:center;
-    font:400 15px/1 -apple-system,BlinkMacSystemFont,sans-serif; color:#bfc3c9}
+    font:400 15px/1 -apple-system,BlinkMacSystemFont,sans-serif; color:#c2c6cc}
   .kbk.tab{width:52px} .kbk.caps{width:66px} .kbk.shift{width:92px}
   .kbk.fn{width:46px} .kbk.ctrl,.kbk.opt{width:56px} .kbk.cmd{width:66px}
   .kbk.space{width:150px}

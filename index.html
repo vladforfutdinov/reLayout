@@ -60,10 +60,10 @@
     -webkit-mask-image:linear-gradient(180deg,#000 0%,#000 52%,transparent 96%);
             mask-image:linear-gradient(180deg,#000 0%,#000 52%,transparent 96%)}
   .aurora b{position:absolute; border-radius:50%; filter:blur(88px); opacity:.52; mix-blend-mode:screen}
-  .aurora .a1{width:540px; height:540px; background:#2f6fe0; top:-150px; left:0%;  animation:roam1 30s ease-in-out infinite}
-  .aurora .a2{width:460px; height:460px; background:#16c8e6; top:-60px;  right:-2%; animation:roam2 34s ease-in-out infinite}
-  .aurora .a3{width:480px; height:480px; background:#6f8cff; top:150px;  left:36%; animation:roam3 28s ease-in-out infinite}
-  .aurora .a4{width:400px; height:400px; background:#3f7bf0; top:230px;  right:16%; animation:roam4 26s ease-in-out infinite}
+  .aurora .a1{width:540px; height:540px; background:#2f6fe0; top:-150px; left:0%;  animation:roam1 62s ease-in-out infinite}
+  .aurora .a2{width:460px; height:460px; background:#16c8e6; top:-60px;  right:-2%; animation:roam2 72s ease-in-out infinite}
+  .aurora .a3{width:480px; height:480px; background:#6f8cff; top:150px;  left:36%; animation:roam3 58s ease-in-out infinite}
+  .aurora .a4{width:400px; height:400px; background:#3f7bf0; top:230px;  right:16%; animation:roam4 54s ease-in-out infinite}
   /* frosted glass over the blobs — softens them into a smooth wash */
   .aurora::after{content:""; position:absolute; inset:0;
     backdrop-filter:blur(30px) saturate(125%); -webkit-backdrop-filter:blur(30px) saturate(125%)}
@@ -96,14 +96,14 @@
 
   /* conversion demo (the actual transform, animated) */
   .demo{background:linear-gradient(180deg,var(--panel),var(--panel2)); border:1px solid var(--line);
-    border-radius:20px; padding:26px; box-shadow:0 30px 80px -30px rgba(0,0,0,.7)}
+    border-radius:20px; padding:26px; overflow:hidden; box-shadow:0 30px 80px -30px rgba(0,0,0,.7)}
   .demo .head{display:flex; align-items:center; justify-content:space-between; margin-bottom:22px}
   .layoutsw{display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--muted)}
   .pill{font-family:ui-monospace,Menlo,monospace; font-size:12px; padding:3px 9px; border-radius:7px;
     border:1px solid var(--line); background:#0e131a; color:var(--muted)}
   .pill.on{border-color:var(--accent-line); color:var(--accent); background:var(--accent-soft)}
   /* Apple keyboard corner — the option key lights up when the hotkey fires */
-  .kb{margin-top:22px; display:flex; flex-direction:column; gap:6px; user-select:none}
+  .kb{margin:22px -26px 0 0; display:flex; flex-direction:column; gap:6px; user-select:none}
   .kb .r{display:flex; gap:6px}
   .kbk{position:relative; height:44px; width:44px; flex:none; border-radius:8px;
     background:linear-gradient(180deg,#202225,#121316); border:1px solid #000;
@@ -111,8 +111,8 @@
     display:flex; align-items:center; justify-content:center;
     font:400 15px/1 -apple-system,BlinkMacSystemFont,sans-serif; color:#bfc3c9}
   .kbk.tab{width:52px} .kbk.caps{width:66px} .kbk.shift{width:92px}
-  .kbk.fn{width:46px} .kbk.ctrl,.kbk.opt,.kbk.cmd{width:56px}
-  .kbk.space{flex:1; min-width:60px}
+  .kbk.fn{width:46px} .kbk.ctrl,.kbk.opt{width:56px} .kbk.cmd{width:66px}
+  .kbk.space{width:150px}
   .kbk .c{position:absolute; left:8px; bottom:6px; font-size:10.5px; color:#9a9ea4; letter-spacing:.01em; line-height:1}
   .kbk .t{position:absolute; left:8px; top:6px; font-size:9.5px; color:#82868d}
   .kbk .tr{position:absolute; right:8px; top:6px; font-size:13px; color:#9a9ea4}
@@ -279,7 +279,7 @@
         <div class="kb" aria-hidden="true">
           <div class="r">
             <span class="kbk shift"><span class="c">shift</span></span>
-            <span class="kbk">Z</span><span class="kbk">X</span><span class="kbk">C</span><span class="kbk">V</span><span class="kbk">B</span>
+            <span class="kbk">Z</span><span class="kbk">X</span><span class="kbk">C</span><span class="kbk">V</span><span class="kbk">B</span><span class="kbk">N</span><span class="kbk">M</span>
           </div>
           <div class="r">
             <span class="kbk fn"><span class="c">fn</span></span>
@@ -287,6 +287,8 @@
             <span class="kbk opt" id="optKey"><span class="t">alt</span><span class="c">option</span></span>
             <span class="kbk cmd"><span class="tr">⌘</span><span class="c">command</span></span>
             <span class="kbk space"></span>
+            <span class="kbk cmd"><span class="tr">⌘</span><span class="c">command</span></span>
+            <span class="kbk opt"><span class="t">alt</span><span class="c">option</span></span>
           </div>
         </div>
       </div>

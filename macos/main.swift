@@ -564,6 +564,7 @@ final class AppController: NSObject, NSApplicationDelegate {
 
     // settings
     private var settingsWindow: NSWindow?
+    private var settingsIsKey = false   // hotkey + auto-correct are paused while Settings is focused
     private weak var shortcutField: ShortcutField?
     private weak var conflictLabel: NSTextField?
     private weak var loginCheckbox: NSButton?
@@ -714,6 +715,11 @@ final class AppController: NSObject, NSApplicationDelegate {
     // Tear down whatever is active, then install the current mode.
     private func applyHotkey() {
         suspendHotkey()
+        // The hotkey is disabled while the Settings window is focused: the user is
+        // configuring/recording there, so taps must not trigger a retype (which could
+        // also leak our synthetic Cmd+X into the field/doc). setSettingsKey re-applies
+        // once Settings loses focus or closes.
+        guard !settingsIsKey else { return }
 
         switch hotKeyMode {
         case .carbon:
@@ -1055,10 +1061,29 @@ final class AppController: NSObject, NSApplicationDelegate {
         w.center()
 
         settingsWindow = w
+        // Pause the live hotkey + auto-correct whenever Settings is the key window
+        // (the user is configuring there), resume when it loses focus or closes.
+        let nc = NotificationCenter.default
+        nc.addObserver(forName: NSWindow.didBecomeKeyNotification, object: w, queue: .main) { [weak self] _ in
+            self?.setSettingsKey(true)
+        }
+        nc.addObserver(forName: NSWindow.didResignKeyNotification, object: w, queue: .main) { [weak self] _ in
+            self?.setSettingsKey(false)
+        }
+        nc.addObserver(forName: NSWindow.willCloseNotification, object: w, queue: .main) { [weak self] _ in
+            self?.setSettingsKey(false)
+        }
         w.initialFirstResponder = nil
         activateApp()
         w.makeKeyAndOrderFront(nil)
         w.makeFirstResponder(nil)   // don't leave the first checkbox focused on open
+    }
+
+    private func setSettingsKey(_ key: Bool) {
+        guard settingsIsKey != key else { return }
+        settingsIsKey = key
+        if key { suspendHotkey(); stopAutoMonitor() }
+        else { applyHotkey(); applyAutoMode() }
     }
 
     @objc private func openProjectURL() {
@@ -1226,7 +1251,7 @@ final class AppController: NSObject, NSApplicationDelegate {
         "net.kovidgoyal.kitty", "com.github.wez.wezterm",
     ]
 
-    func applyAutoMode() { autoMode ? startAutoMonitor() : stopAutoMonitor() }
+    func applyAutoMode() { (autoMode && !settingsIsKey) ? startAutoMonitor() : stopAutoMonitor() }
 
     private func startAutoMonitor() {
         guard autoTap == nil else { return }

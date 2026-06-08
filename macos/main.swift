@@ -991,8 +991,8 @@ final class AppController: NSObject, NSApplicationDelegate {
         let logo = NSImageView()
         logo.image = NSApp.applicationIconImage
         logo.imageScaling = .scaleProportionallyUpOrDown
+        logo.imageAlignment = .alignCenter   // stays centered though the view spans full width
         logo.translatesAutoresizingMaskIntoConstraints = false
-        logo.widthAnchor.constraint(equalToConstant: 64).isActive = true
         logo.heightAnchor.constraint(equalToConstant: 64).isActive = true
         let name = NSTextField(labelWithString: "reLayout")
         name.font = .boldSystemFont(ofSize: 15)
@@ -1006,7 +1006,7 @@ final class AppController: NSObject, NSApplicationDelegate {
         let hkGrid   = NSGridView(views: [[caption(L("settings.hotkey")), hkColumn]])
         for g in [langGrid, hkGrid] {
             g.rowSpacing = 10; g.columnSpacing = 10
-            g.column(at: 0).xPlacement = .trailing
+            g.column(at: 0).xPlacement = .leading
             g.column(at: 0).width = capW
             g.rowAlignment = .none
         }
@@ -1019,7 +1019,7 @@ final class AppController: NSObject, NSApplicationDelegate {
         let version = makeSecondaryLabel(verStr.isEmpty ? "" : "Version \(verStr)")
         let url = "github.com/vladforfutdinov/reLayout"
         let link = NSButton(title: url, target: self, action: #selector(openProjectURL))
-        link.isBordered = false; link.bezelStyle = .inline
+        link.isBordered = false; link.bezelStyle = .inline; link.alignment = .center
         link.attributedTitle = NSAttributedString(string: url, attributes: [
             .foregroundColor: NSColor.linkColor, .font: NSFont.systemFont(ofSize: 11)])
         let copyright = makeSecondaryLabel((info?["NSHumanReadableCopyright"] as? String) ?? "")
@@ -1042,7 +1042,7 @@ final class AppController: NSObject, NSApplicationDelegate {
 
         let stack = NSStackView(views: arranged)
         stack.orientation = .vertical
-        stack.alignment = .centerX
+        stack.alignment = .leading   // checkbox rows + grid labels flush left
         stack.spacing = 8
         stack.translatesAutoresizingMaskIntoConstraints = false
         stack.setCustomSpacing(14, after: name)   // breathing room around the separators
@@ -1063,6 +1063,13 @@ final class AppController: NSObject, NSApplicationDelegate {
             sep2.widthAnchor.constraint(equalTo: stack.widthAnchor),
             sep3.widthAnchor.constraint(equalTo: stack.widthAnchor),
             hkRow.widthAnchor.constraint(equalTo: langPopup.widthAnchor),   // hotkey field == language popup width
+            // span full width so their centered content stays centered while the
+            // stack itself is leading-aligned (checkboxes / grid labels flush left)
+            logo.widthAnchor.constraint(equalTo: stack.widthAnchor),
+            name.widthAnchor.constraint(equalTo: stack.widthAnchor),
+            version.widthAnchor.constraint(equalTo: stack.widthAnchor),
+            link.widthAnchor.constraint(equalTo: stack.widthAnchor),
+            copyright.widthAnchor.constraint(equalTo: stack.widthAnchor),
         ])
         content.layoutSubtreeIfNeeded()
         w.setContentSize(content.fittingSize)

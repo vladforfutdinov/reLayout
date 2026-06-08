@@ -89,6 +89,29 @@ public func tokenize(_ text: String) -> [Substring] {
     return tokens
 }
 
+// Majority script across the letter-bearing word tokens of `text`.
+// true = Cyrillic dominates, false = Latin dominates, nil = no letters or a tie.
+// Used to detect the "wrong" layout from the text itself when the system's
+// current layout no longer matches what was typed (user switched after mistyping).
+public func dominantScript(_ text: String) -> Bool? {
+    var cyr = 0, lat = 0
+    for t in tokenize(text) where !(t.first?.isWhitespace ?? true) {
+        if hasCyr(t) { cyr += 1 } else if hasLatin(t) { lat += 1 }
+    }
+    if cyr > lat { return true }
+    if lat > cyr { return false }
+    return nil
+}
+
+// True if `text` has at least one word token of the given script (Cyrillic if
+// `cyrillic`, else Latin-without-Cyrillic).
+public func textHasScript(_ text: String, cyrillic: Bool) -> Bool {
+    for t in tokenize(text) where !(t.first?.isWhitespace ?? true) {
+        if cyrillic ? hasCyr(t) : (hasLatin(t) && !hasCyr(t)) { return true }
+    }
+    return false
+}
+
 // Per-word conversion. The "wrong" words are those typed in `src` (the active/wrong
 // layout) — identified by script — and only those are converted to `dst`.
 //   src Cyrillic -> convert words containing Cyrillic

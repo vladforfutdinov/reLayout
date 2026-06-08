@@ -73,4 +73,22 @@ final class EngineTests: XCTestCase {
     func testTokenizePreservesRuns() {
         XCTAssertEqual(tokenize("a  b\tc").map(String.init), ["a", "  ", "b", "\t", "c"])
     }
+
+    func testDominantScript() {
+        XCTAssertEqual(dominantScript("ghbdtn"), false)              // all Latin
+        XCTAssertEqual(dominantScript("привет"), true)               // all Cyrillic
+        XCTAssertEqual(dominantScript("ghbdtn ghbdtn слово"), false) // Latin majority
+        XCTAssertEqual(dominantScript("привет привет hello"), true)  // Cyrillic majority
+        XCTAssertNil(dominantScript("ghbdtn слово"))                 // 1:1 tie
+        XCTAssertNil(dominantScript("123 !!!"))                      // no letters
+        XCTAssertNil(dominantScript("   "))
+    }
+
+    func testTextHasScript() {
+        XCTAssertTrue(textHasScript("ghbdtn слово", cyrillic: true))
+        XCTAssertTrue(textHasScript("ghbdtn слово", cyrillic: false))
+        XCTAssertFalse(textHasScript("ghbdtn", cyrillic: true))      // no Cyrillic
+        XCTAssertFalse(textHasScript("привет", cyrillic: false))     // no Latin
+        XCTAssertFalse(textHasScript("123", cyrillic: true))
+    }
 }

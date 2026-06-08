@@ -1080,6 +1080,19 @@ final class AppController: NSObject, NSApplicationDelegate {
         guard let curIdx = enabled.firstIndex(where: { $0.id == curID }) else { return nil }
         let cur = enabled[curIdx]
 
+        // Hybrid source detection: normally the wrong layout is the active one (you
+        // pressed the hotkey right after mistyping). But if the text contains NONE
+        // of the current layout's script, you switched layout after typing — detect
+        // the wrong layout from the text instead, and convert back to the current
+        // (target) layout. Common case is untouched -> no regression.
+        if !textHasScript(text, cyrillic: cur.isCyrillic),
+           let wrongCyr = dominantScript(text), wrongCyr != cur.isCyrillic,
+           let src = enabled.first(where: { $0.isCyrillic == wrongCyr }),
+           let out = convertWrong(text, src: src, dst: cur) {
+            dbg("convert[detected] src=\(src.id) -> dst=\(cur.id)")
+            return (out, cur, src)
+        }
+
         let target: Layout
         if enabled.count == 2 {
             target = enabled[curIdx == 0 ? 1 : 0]

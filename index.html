@@ -103,23 +103,27 @@
     border:1px solid var(--line); background:#0e131a; color:var(--muted)}
   .pill.on{border-color:var(--accent-line); color:var(--accent); background:var(--accent-soft)}
   /* Apple keyboard corner — the option key lights up when the hotkey fires */
-  .kb{margin-top:22px; display:flex; flex-direction:column; gap:7px; user-select:none}
-  .kb .r{display:flex; gap:7px}
-  .kbk{position:relative; height:42px; width:42px; flex:none; border-radius:9px;
-    background:linear-gradient(180deg,#1a1c20,#0e1013); border:1px solid #05060a;
-    box-shadow:0 2px 0 #050608, inset 0 1px 0 rgba(255,255,255,.06);
+  .kb{margin-top:22px; display:flex; flex-direction:column; gap:6px; user-select:none}
+  .kb .r{display:flex; gap:6px}
+  .kbk{position:relative; height:44px; width:44px; flex:none; border-radius:8px;
+    background:linear-gradient(180deg,#202225,#121316); border:1px solid #000;
+    box-shadow:0 2px 3px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.07), inset 0 -3px 6px rgba(0,0,0,.5);
     display:flex; align-items:center; justify-content:center;
-    font:500 14px/1 -apple-system,BlinkMacSystemFont,sans-serif; color:#c4c9d0}
-  .kbk.caps{width:62px} .kbk.shift{width:84px} .kbk.ctrl,.kbk.fn,.kbk.opt,.kbk.cmd{width:54px}
+    font:400 15px/1 -apple-system,BlinkMacSystemFont,sans-serif; color:#bfc3c9}
+  .kbk.tab{width:52px} .kbk.caps{width:66px} .kbk.shift{width:92px}
+  .kbk.fn{width:46px} .kbk.ctrl,.kbk.opt,.kbk.cmd{width:56px}
   .kbk.space{flex:1; min-width:60px}
-  .kbk .c{position:absolute; left:8px; bottom:6px; font-size:10px; color:#868b94; letter-spacing:.01em}
-  .kbk .t{position:absolute; left:8px; top:5px; font-size:9px; color:#6b7079}
-  .kbk .g{font-size:13px; color:#aeb4bd}
-  .kbk.lit{background:linear-gradient(180deg,#22407c,#163050); border-color:var(--accent);
-    box-shadow:0 0 0 1px var(--accent), 0 0 24px 2px rgba(79,140,255,.5), inset 0 1px 0 rgba(255,255,255,.14);
+  .kbk .c{position:absolute; left:8px; bottom:6px; font-size:10.5px; color:#9a9ea4; letter-spacing:.01em; line-height:1}
+  .kbk .t{position:absolute; left:8px; top:6px; font-size:9.5px; color:#82868d}
+  .kbk .tr{position:absolute; right:8px; top:6px; font-size:13px; color:#9a9ea4}
+  .kbk .dot{position:absolute; left:9px; top:9px; width:5px; height:5px; border-radius:50%; background:#3c3f45}
+  .kbk.lit{background:linear-gradient(180deg,#284a8a,#173258); border-color:var(--accent);
+    box-shadow:0 0 0 1px var(--accent), 0 0 26px 3px rgba(79,140,255,.55), inset 0 1px 0 rgba(255,255,255,.16);
     color:#fff; transform:translateY(1px); transition:all .09s ease}
-  .kbk.lit .c,.kbk.lit .t,.kbk.lit .g{color:#eaf1ff}
-  @media(max-width:520px){ .kbk{height:38px; width:38px} .kbk.caps{width:54px} .kbk.shift{width:72px} .kbk.ctrl,.kbk.fn,.kbk.opt,.kbk.cmd{width:48px} }
+  .kbk.lit .c,.kbk.lit .t,.kbk.lit .tr{color:#eaf1ff}
+  @media(max-width:520px){ .kbk{height:38px; width:38px; font-size:13px}
+    .kbk.tab{width:46px} .kbk.caps{width:56px} .kbk.shift{width:78px}
+    .kbk.fn{width:40px} .kbk.ctrl,.kbk.opt,.kbk.cmd{width:48px} }
   .stage{font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:21px; line-height:1.5}
   .demo .lbl{font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--faint);
     font-family:-apple-system,sans-serif}
@@ -274,18 +278,22 @@
         </div>
         <div class="kb" aria-hidden="true">
           <div class="r">
-            <span class="kbk caps"><span class="c">caps lock</span></span>
+            <span class="kbk tab"><span class="c">tab</span></span>
+            <span class="kbk">Q</span><span class="kbk">W</span><span class="kbk">E</span><span class="kbk">R</span><span class="kbk">T</span>
+          </div>
+          <div class="r">
+            <span class="kbk caps"><span class="dot"></span><span class="c">caps lock</span></span>
             <span class="kbk">A</span><span class="kbk">S</span><span class="kbk">D</span><span class="kbk">F</span><span class="kbk">G</span>
           </div>
           <div class="r">
-            <span class="kbk shift"><span class="g">⇧</span><span class="c">shift</span></span>
+            <span class="kbk shift"><span class="c">shift</span></span>
             <span class="kbk">Z</span><span class="kbk">X</span><span class="kbk">C</span><span class="kbk">V</span><span class="kbk">B</span>
           </div>
           <div class="r">
             <span class="kbk fn"><span class="c">fn</span></span>
-            <span class="kbk ctrl"><span class="g">⌃</span><span class="c">control</span></span>
-            <span class="kbk opt" id="optKey"><span class="t">alt</span><span class="g">⌥</span><span class="c">option</span></span>
-            <span class="kbk cmd"><span class="g">⌘</span><span class="c">command</span></span>
+            <span class="kbk ctrl"><span class="c">control</span></span>
+            <span class="kbk opt" id="optKey"><span class="t">alt</span><span class="c">option</span></span>
+            <span class="kbk cmd"><span class="tr">⌘</span><span class="c">command</span></span>
             <span class="kbk space"></span>
           </div>
         </div>

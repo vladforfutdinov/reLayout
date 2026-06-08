@@ -534,6 +534,7 @@ final class AppController: NSObject, NSApplicationDelegate {
         loadHotkey()
         installHotKeyHandler()
         applyHotkey()
+        applyAutoMode()          // start the auto-correct monitor if enabled
         setupMenu()
         // mirror the system input-source indicator in the menu bar
         let dnc = DistributedNotificationCenter.default()
@@ -609,6 +610,10 @@ final class AppController: NSObject, NSApplicationDelegate {
     }
 
     @objc private func quit() { NSApp.terminate(nil) }
+
+    @objc private func toggleAutoCorrect(_ sender: NSButton) {
+        autoMode = (sender.state == .on)   // setter starts/stops the monitor
+    }
 
 #if SPARKLE
     @objc private func checkForUpdates() { updater?.checkForUpdates(nil) }
@@ -979,7 +984,13 @@ final class AppController: NSObject, NSApplicationDelegate {
             .foregroundColor: NSColor.linkColor, .font: NSFont.systemFont(ofSize: 11),
         ])
 
-        var rows: [[NSView]] = [[caption(""), cb]]
+        let autoCb = NSButton(checkboxWithTitle: L("settings.autoCorrect"),
+                              target: self, action: #selector(toggleAutoCorrect(_:)))
+        autoCb.controlSize = .regular
+        autoCb.font = .systemFont(ofSize: NSFont.systemFontSize(for: .regular))
+        autoCb.state = autoMode ? .on : .off
+
+        var rows: [[NSView]] = [[caption(""), cb], [caption(""), autoCb]]
 #if SPARKLE
         let autoUpdateCb = NSButton(checkboxWithTitle: L("settings.autoUpdate"),
                                     target: self, action: #selector(toggleAutoUpdate(_:)))
@@ -1067,12 +1078,18 @@ final class AppController: NSObject, NSApplicationDelegate {
         }
     }
 
+    // Marker stamped on our synthesized events so the auto-mode key monitor can
+    // ignore them (else our own corrections would feed back into the buffer).
+    static let synthMarker: Int64 = 0x52_4C_41_59   // "RLAY"
+
     private func postKey(_ keyCode: CGKeyCode, _ flags: CGEventFlags) {
         let src = CGEventSource(stateID: .combinedSessionState)
         let down = CGEvent(keyboardEventSource: src, virtualKey: keyCode, keyDown: true)
         let up = CGEvent(keyboardEventSource: src, virtualKey: keyCode, keyDown: false)
         down?.flags = flags
         up?.flags = flags
+        down?.setIntegerValueField(.eventSourceUserData, value: Self.synthMarker)
+        up?.setIntegerValueField(.eventSourceUserData, value: Self.synthMarker)
         down?.post(tap: .cghidEventTap)
         up?.post(tap: .cghidEventTap)
     }
@@ -1157,6 +1174,109 @@ final class AppController: NSObject, NSApplicationDelegate {
         }
         guard let b = best else { return nil }
         return (b.0, b.1)
+    }
+
+    // MARK: - auto-mode live monitor
+
+    var autoMode: Bool {
+        get { UserDefaults.standard.bool(forKey: "autoMode") }
+        set { UserDefaults.standard.set(newValue, forKey: "autoMode"); applyAutoMode() }
+    }
+    fileprivate var autoTap: CFMachPort?
+    private var autoTapSource: CFRunLoopSource?
+    fileprivate var autoBuffer = ""
+
+    // Apps where auto-correct stays off (terminals, IDEs, etc.).
+    private let autoExcludedApps: Set<String> = [
+        "com.apple.Terminal", "com.googlecode.iterm2", "com.microsoft.VSCode",
+        "com.apple.dt.Xcode", "com.sublimetext.4", "org.alacritty",
+        "net.kovidgoyal.kitty", "com.github.wez.wezterm",
+    ]
+
+    func applyAutoMode() { autoMode ? startAutoMonitor() : stopAutoMonitor() }
+
+    private func startAutoMonitor() {
+        guard autoTap == nil else { return }
+        let mask = CGEventMask(1) << CGEventType.keyDown.rawValue
+        let cb: CGEventTapCallBack = { _, type, event, refcon in
+            guard let refcon else { return Unmanaged.passUnretained(event) }
+            let me = Unmanaged<AppController>.fromOpaque(refcon).takeUnretainedValue()
+            if type == .keyDown,
+               event.getIntegerValueField(.eventSourceUserData) != AppController.synthMarker {
+                var len = 0
+                var buf = [UniChar](repeating: 0, count: 4)
+                event.keyboardGetUnicodeString(maxStringLength: 4, actualStringLength: &len, unicodeString: &buf)
+                me.autoFeed(String(utf16CodeUnits: buf, count: len))
+            } else if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+                if let t = me.autoTap { CGEvent.tapEnable(tap: t, enable: true) }
+            }
+            return Unmanaged.passUnretained(event)
+        }
+        guard let tap = CGEvent.tapCreate(tap: .cgSessionEventTap, place: .headInsertEventTap,
+                                          options: .listenOnly, eventsOfInterest: mask, callback: cb,
+                                          userInfo: Unmanaged.passUnretained(self).toOpaque()) else { return }
+        autoTap = tap
+        autoTapSource = CFMachPortCreateRunLoopSource(nil, tap, 0)
+        CFRunLoopAddSource(CFRunLoopGetMain(), autoTapSource, .commonModes)
+        CGEvent.tapEnable(tap: tap, enable: true)
+    }
+
+    private func stopAutoMonitor() {
+        if let s = autoTapSource { CFRunLoopRemoveSource(CFRunLoopGetMain(), s, .commonModes); autoTapSource = nil }
+        if let t = autoTap { CGEvent.tapEnable(tap: t, enable: false); CFMachPortInvalidate(t); autoTap = nil }
+        autoBuffer = ""
+    }
+
+    // Feed a produced character into the word buffer; evaluate on a word boundary.
+    fileprivate func autoFeed(_ s: String) {
+        if s == " " || s == "\r" || s == "\n" || s == "\t" {
+            autoEvaluate(boundary: s); autoBuffer = ""
+        } else if s.count == 1, let c = s.first, c.isLetter {
+            autoBuffer.append(c)
+            if autoBuffer.count > 64 { autoBuffer.removeFirst(autoBuffer.count - 64) }
+        } else {
+            autoBuffer = ""   // punctuation / navigation / delete -> end the run
+        }
+    }
+
+    private func autoEvaluate(boundary: String) {
+        let word = autoBuffer
+        guard word.count >= 3, !isAutoExcluded() else { return }
+        let enabled = Layout.enabledList()
+        guard let cur = enabled.first(where: { $0.id == currentSourceID() }),
+              let d = autoDecide(word, cur: cur, enabled: enabled) else { return }
+        let srcSource = cur.source
+        worker.async {
+            self.autoCorrect(word: word, boundary: boundary,
+                             target: d.target, srcSource: srcSource, out: d.out)
+        }
+    }
+
+    // Delete the wrong word (+ the boundary just typed), retype the converted text
+    // and boundary, switch the system layout. Records it so the hotkey undo reverts.
+    private func autoCorrect(word: String, boundary: String, target: Layout,
+                             srcSource: TISInputSource, out: String) {
+        waitModifiersReleased()
+        for _ in 0..<(word.count + boundary.count) { postKey(CGKeyCode(kVK_Delete), []) }
+        usleep(10_000)
+        typeUnicode(out + boundary)
+        usleep(10_000)
+        DispatchQueue.main.sync { _ = TISSelectInputSource(target.source) }
+        lastConversion = Conversion(original: word + boundary, typed: out + boundary,
+                                    srcSource: srcSource, time: ProcessInfo.processInfo.systemUptime)
+    }
+
+    private func isAutoExcluded() -> Bool {
+        if let bid = NSWorkspace.shared.frontmostApplication?.bundleIdentifier,
+           autoExcludedApps.contains(bid) { return true }
+        let sys = AXUIElementCreateSystemWide()
+        var el: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(sys, kAXFocusedUIElementAttribute as CFString, &el) == .success,
+              let el, CFGetTypeID(el) == AXUIElementGetTypeID() else { return false }
+        var sub: CFTypeRef?
+        if AXUIElementCopyAttributeValue(el as! AXUIElement, kAXSubroleAttribute as CFString, &sub) == .success,
+           let s = sub as? String, s == (kAXSecureTextFieldSubrole as String) { return true }
+        return false
     }
 
     // The target implied by the NON-wrong (other-script) words in the selection,
@@ -1330,11 +1450,13 @@ final class AppController: NSObject, NSApplicationDelegate {
             if let down = CGEvent(keyboardEventSource: src, virtualKey: 0, keyDown: true) {
                 down.flags = []
                 down.keyboardSetUnicodeString(stringLength: units.count, unicodeString: units)
+                down.setIntegerValueField(.eventSourceUserData, value: Self.synthMarker)
                 down.post(tap: .cgSessionEventTap)
             }
             if let up = CGEvent(keyboardEventSource: src, virtualKey: 0, keyDown: false) {
                 up.flags = []
                 up.keyboardSetUnicodeString(stringLength: units.count, unicodeString: units)
+                up.setIntegerValueField(.eventSourceUserData, value: Self.synthMarker)
                 up.post(tap: .cgSessionEventTap)
             }
             usleep(1500)   // small gap so slow apps don't drop characters

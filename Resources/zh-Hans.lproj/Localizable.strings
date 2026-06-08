@@ -28,3 +28,4 @@
 "settings.menubar.static" = "静态图标";
 "settings.autoUpdate" = "自动检查更新";
 "settings.doubleTap" = "双击触发";
+"settings.autoCorrect" = "自动纠正键盘布局";

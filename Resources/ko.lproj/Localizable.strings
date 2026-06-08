@@ -28,3 +28,4 @@
 "settings.menubar.static" = "정적 아이콘";
 "settings.autoUpdate" = "자동으로 업데이트 확인";
 "settings.doubleTap" = "더블 탭으로 실행";
+"settings.autoCorrect" = "잘못된 레이아웃 자동 교정";

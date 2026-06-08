@@ -28,3 +28,4 @@
 "settings.menubar.static" = "Static icon";
 "settings.autoUpdate" = "Automatically check for updates";
 "settings.doubleTap" = "Trigger on double-tap";
+"settings.autoCorrect" = "Auto-correct wrong layout";

@@ -28,3 +28,4 @@
 "settings.menubar.static" = "静的アイコン";
 "settings.autoUpdate" = "自動的にアップデートを確認";
 "settings.doubleTap" = "ダブルタップで実行";
+"settings.autoCorrect" = "レイアウトを自動修正";

@@ -28,3 +28,4 @@
 "settings.menubar.static" = "Statyczna ikona";
 "settings.autoUpdate" = "Automatycznie sprawdzaj aktualizacje";
 "settings.doubleTap" = "Uruchom podwójnym naciśnięciem";
+"settings.autoCorrect" = "Autokorekta układu";

@@ -28,3 +28,4 @@
 "settings.menubar.static" = "Статична іконка";
 "settings.autoUpdate" = "Автоматично перевіряти оновлення";
 "settings.doubleTap" = "Спрацьовувати подвійним натисканням";
+"settings.autoCorrect" = "Автовиправлення розкладки";

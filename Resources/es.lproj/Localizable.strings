@@ -28,3 +28,4 @@
 "settings.menubar.static" = "Icono estático";
 "settings.autoUpdate" = "Buscar actualizaciones automáticamente";
 "settings.doubleTap" = "Activar con doble pulsación";
+"settings.autoCorrect" = "Autocorregir distribución";

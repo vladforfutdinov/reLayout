@@ -28,3 +28,4 @@
 "settings.menubar.static" = "Ícone estático";
 "settings.autoUpdate" = "Procurar atualizações automaticamente";
 "settings.doubleTap" = "Acionar com toque duplo";
+"settings.autoCorrect" = "Corrigir layout automaticamente";

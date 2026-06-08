@@ -46,6 +46,10 @@ def score(word, model):
 EN = ["qwertyuiop[]", "asdfghjkl;'", "zxcvbnm,."]
 RU = ["йцукенгшщзхъ", "фывапролджэ", "ячсмитьбю"]
 UK = ["йцукенгшщзхї", "фівапролджє", "ячсмитьбю"]
+# Latin<->Latin (approximate; same physical positions as EN)
+DE = ["qwertzuiopü+", "asdfghjklöä",  "yxcvbnm,."]   # QWERTZ: y<->z, umlauts
+FR = ["azertyuiop^$", "qsdfghjklmù",  "wxcvbn,;."]   # AZERTY: a<->q, z<->w
+ES = ["qwertyuiop`+", "asdfghjklñ´",  "zxcvbnm,."]   # Spanish: ñ, dead accent
 
 def build_map(lang_rows):
     to_en, to_lang = {}, {}
@@ -121,6 +125,9 @@ def main():
     for name, rows, mpath, tpath in [
         ("ru<->en", RU, "models/ru.txt", "holdout/ru_test.txt"),
         ("uk<->en", UK, "models/uk.txt", "holdout/uk_test.txt"),
+        ("de<->en", DE, "models/de.txt", "holdout/de_test.txt"),
+        ("fr<->en", FR, "models/fr.txt", "holdout/fr_test.txt"),
+        ("es<->en", ES, "models/es.txt", "holdout/es_test.txt"),
     ]:
         lm = load_model(f"{HERE}/{mpath}")
         lw = words(f"{HERE}/{tpath}")

@@ -84,6 +84,24 @@ final class EngineTests: XCTestCase {
         XCTAssertNil(dominantScript("   "))
     }
 
+    func testTrigramModel() {
+        let m = TrigramModel(text: """
+        # tiny model
+        floor -10
+        ^^a -1
+        ^ab -1
+        abc -1
+        bc$ -1
+        """)!
+        // "abc" -> ^^abc$ -> ^^a ^ab abc bc$, all -1 -> mean -1
+        XCTAssertEqual(m.score("abc"), -1, accuracy: 0.0001)
+        // all-unseen trigrams -> floor
+        XCTAssertEqual(m.score("xyz"), -10, accuracy: 0.0001)
+        // a "real" word scores higher than junk
+        XCTAssertGreaterThan(m.score("abc"), m.score("xyz"))
+        XCTAssertNil(TrigramModel(text: "no floor here\nabc -1"))   // missing floor
+    }
+
     func testTextHasScript() {
         XCTAssertTrue(textHasScript("ghbdtn слово", cyrillic: true))
         XCTAssertTrue(textHasScript("ghbdtn слово", cyrillic: false))

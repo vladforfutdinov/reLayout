@@ -1060,12 +1060,12 @@ final class AppController: NSObject, NSApplicationDelegate {
         stack.setCustomSpacing(14, after: grid)
         stack.setCustomSpacing(14, after: sep2)
         content.addSubview(stack)
-        let width: CGFloat = 300
         NSLayoutConstraint.activate([
+            content.widthAnchor.constraint(equalToConstant: 340),   // fixes the window width
+            stack.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 20),
+            stack.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -20),
             stack.topAnchor.constraint(equalTo: content.topAnchor, constant: 20),
             stack.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -20),
-            stack.centerXAnchor.constraint(equalTo: content.centerXAnchor),
-            stack.widthAnchor.constraint(equalToConstant: width),
             sep1.widthAnchor.constraint(equalTo: stack.widthAnchor),
             sep2.widthAnchor.constraint(equalTo: stack.widthAnchor),
         ])

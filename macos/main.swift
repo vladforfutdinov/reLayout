@@ -500,6 +500,66 @@ final class SettingsWindow: NSWindow {
     }
 }
 
+// One row of the auto-correct exceptions table: app icon + name, plus a remove
+// button that only appears while the pointer is over the row.
+final class ExcRowView: NSTableCellView {
+    private var bid = ""
+    var onDelete: ((String) -> Void)?
+    private let icon = NSImageView()
+    private let label = NSTextField(labelWithString: "")
+    private let delBtn = NSButton()
+    private var track: NSTrackingArea?
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        for v in [icon, label, delBtn] { v.translatesAutoresizingMaskIntoConstraints = false; addSubview(v) }
+        label.lineBreakMode = .byTruncatingTail
+        delBtn.isBordered = false
+        delBtn.bezelStyle = .accessoryBar
+        delBtn.image = NSImage(systemSymbolName: "minus.circle.fill", accessibilityDescription: nil)
+        delBtn.imageScaling = .scaleProportionallyDown
+        delBtn.contentTintColor = .secondaryLabelColor
+        delBtn.target = self
+        delBtn.action = #selector(del)
+        delBtn.isHidden = true
+        NSLayoutConstraint.activate([
+            icon.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 2),
+            icon.centerYAnchor.constraint(equalTo: centerYAnchor),
+            icon.widthAnchor.constraint(equalToConstant: 16),
+            icon.heightAnchor.constraint(equalToConstant: 16),
+            label.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 6),
+            label.centerYAnchor.constraint(equalTo: centerYAnchor),
+            label.trailingAnchor.constraint(lessThanOrEqualTo: delBtn.leadingAnchor, constant: -6),
+            delBtn.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),
+            delBtn.centerYAnchor.constraint(equalTo: centerYAnchor),
+            delBtn.widthAnchor.constraint(equalToConstant: 16),
+            delBtn.heightAnchor.constraint(equalToConstant: 16),
+        ])
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    func configure(name: String, icon img: NSImage, bid: String, tip: String, onDelete: @escaping (String) -> Void) {
+        self.bid = bid
+        label.stringValue = name
+        icon.image = img
+        delBtn.toolTip = tip
+        delBtn.isHidden = true
+        self.onDelete = onDelete
+    }
+
+    @objc private func del() { onDelete?(bid) }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let t = track { removeTrackingArea(t) }
+        let t = NSTrackingArea(rect: bounds, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect],
+                               owner: self, userInfo: nil)
+        addTrackingArea(t); track = t
+    }
+    override func mouseEntered(with event: NSEvent) { delBtn.isHidden = false }
+    override func mouseExited(with event: NSEvent) { delBtn.isHidden = true }
+}
+
 // MARK: - App controller
 
 final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSource, NSTableViewDelegate {
@@ -1183,7 +1243,6 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         spacer.setContentHuggingPriority(.init(1), for: .horizontal)
         let bar = NSStackView(views: [btn("settings.exc.addCurrent", #selector(excAddCurrent)),
                                       btn("settings.exc.choose", #selector(excChoose)),
-                                      btn("settings.exc.remove", #selector(excRemove)),
                                       spacer,
                                       btn("settings.exc.done", #selector(excDone))])
         bar.orientation = .horizontal; bar.spacing = 8; bar.distribution = .fill
@@ -1222,13 +1281,6 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         for url in p.urls { if let b = Bundle(url: url)?.bundleIdentifier { addExcluded(b) } }
     }
 
-    @objc private func excRemove() {
-        guard let t = excTable else { return }
-        let rows = t.selectedRowIndexes
-        guard !rows.isEmpty else { return }
-        autoExcludedApps = autoExcludedApps.enumerated().filter { !rows.contains($0.offset) }.map { $0.element }
-        t.reloadData()
-    }
 
     private func addExcluded(_ bid: String) {
         var list = autoExcludedApps
@@ -1252,26 +1304,20 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     func numberOfRows(in tableView: NSTableView) -> Int { autoExcludedApps.count }
 
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
-        let info = appInfo(autoExcludedApps[row])
-        let iv = NSImageView(image: info.icon)
-        iv.translatesAutoresizingMaskIntoConstraints = false
-        let tf = NSTextField(labelWithString: info.name)
-        tf.lineBreakMode = .byTruncatingTail
-        tf.translatesAutoresizingMaskIntoConstraints = false
-        tf.toolTip = autoExcludedApps[row]
-        let cell = NSTableCellView()
-        cell.addSubview(iv); cell.addSubview(tf)
-        cell.textField = tf
-        NSLayoutConstraint.activate([
-            iv.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 2),
-            iv.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
-            iv.widthAnchor.constraint(equalToConstant: 16),
-            iv.heightAnchor.constraint(equalToConstant: 16),
-            tf.leadingAnchor.constraint(equalTo: iv.trailingAnchor, constant: 6),
-            tf.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -2),
-            tf.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
-        ])
+        let bid = autoExcludedApps[row]
+        let info = appInfo(bid)
+        let id = NSUserInterfaceItemIdentifier("exc")
+        let cell = (tableView.makeView(withIdentifier: id, owner: self) as? ExcRowView) ?? ExcRowView(frame: .zero)
+        cell.identifier = id
+        cell.configure(name: info.name, icon: info.icon, bid: bid, tip: L("settings.exc.remove")) { [weak self] b in
+            self?.removeExcluded(b)
+        }
         return cell
+    }
+
+    private func removeExcluded(_ bid: String) {
+        autoExcludedApps = autoExcludedApps.filter { $0 != bid }
+        excTable?.reloadData()
     }
 
     @objc private func toggleLogin() {

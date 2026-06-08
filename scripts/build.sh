@@ -42,6 +42,9 @@ cp macos/Info.plist "$APP/Contents/Info.plist"
 mkdir -p "$APP/Contents/Resources"
 cp -R Resources/*.lproj "$APP/Contents/Resources/"
 
+# auto-mode trigram language models (Resources/trigram/<lang>.txt)
+cp -R Resources/trigram "$APP/Contents/Resources/" 2>/dev/null || true
+
 # app icon: composite the black "rL" wordmark onto an OPAQUE light rounded tile,
 # so it stays visible on any background (Finder, the Sparkle updater window, Get
 # Info) — a transparent glyph would vanish dark-on-dark. CFBundleIconFile=AppIcon.

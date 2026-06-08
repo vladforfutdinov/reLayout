@@ -106,6 +106,15 @@ final class Layout: LayoutMaps {
     private(set) var strokeToChar: [KeyStroke: String] = [:]
     private(set) var isCyrillic = false
 
+    // BCP-47 language of this layout (e.g. "ru", "uk", "en"), for the auto-mode
+    // trigram model lookup. nil if the source reports no language.
+    var languageCode: String? {
+        guard let p = TISGetInputSourceProperty(source, kTISPropertyInputSourceLanguages),
+              let langs = Unmanaged<CFArray>.fromOpaque(p).takeUnretainedValue() as? [String]
+        else { return nil }
+        return langs.first.map { String($0.prefix(2)) }   // "ru-RU" -> "ru"
+    }
+
     init?(_ src: TISInputSource) {
         source = src
         guard let idPtr = TISGetInputSourceProperty(src, kTISPropertyInputSourceID) else { return nil }
@@ -1107,6 +1116,47 @@ final class AppController: NSObject, NSApplicationDelegate {
         dbg("convert cur=\(cur.id) -> target=\(target.id)")
         guard let out = convertWrong(text, src: cur, dst: target) else { return nil }
         return (out, target, cur)
+    }
+
+    // MARK: - auto-mode (trigram detection)
+
+    // Calibrated for ~99% precision on cross-script pairs (see scripts/trigram).
+    private let autoGarbage: Float = -2.5   // word looks like junk in its own language
+    private let autoMargin:  Float = 0.5    // converted form must beat it by this much
+
+    private var trigramCache: [String: TrigramModel?] = [:]
+    private func trigram(_ lang: String) -> TrigramModel? {
+        if let c = trigramCache[lang] { return c }
+        let m = Bundle.main.url(forResource: lang, withExtension: "txt", subdirectory: "trigram")
+            .flatMap { try? String(contentsOf: $0, encoding: .utf8) }
+            .flatMap { TrigramModel(text: $0) }
+        trigramCache[lang] = m
+        return m
+    }
+
+    // Decide whether a just-typed word `w` (in layout `cur`) was typed in the wrong
+    // layout, and to which cross-script target. Returns (target, converted) or nil.
+    // Auto fires ONLY between layouts of different scripts (Cyrillic<->Latin), where
+    // detection is reliable; same-script pairs always return nil.
+    func autoDecide(_ w: String, cur: Layout, enabled: [Layout]) -> (target: Layout, out: String)? {
+        guard w.count >= 3, w.unicodeScalars.allSatisfy({ $0.properties.isAlphabetic }) else { return nil }
+        guard let curLang = cur.languageCode, let curModel = trigram(curLang) else { return nil }
+        let targets = enabled.filter { $0.isCyrillic != cur.isCyrillic }   // cross-script only
+        guard !targets.isEmpty else { return nil }
+
+        let sTyped = curModel.score(w)
+        guard sTyped < autoGarbage else { return nil }   // already plausible -> leave it
+
+        var best: (Layout, String, Float)?
+        for t in targets {
+            guard let out = convertWrong(w, src: cur, dst: t), out != w,
+                  let tLang = t.languageCode, let tModel = trigram(tLang) else { continue }
+            let sAlt = tModel.score(out)
+            guard sAlt - sTyped > autoMargin else { continue }
+            if best == nil || sAlt > best!.2 { best = (t, out, sAlt) }
+        }
+        guard let b = best else { return nil }
+        return (b.0, b.1)
     }
 
     // The target implied by the NON-wrong (other-script) words in the selection,

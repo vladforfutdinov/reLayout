@@ -560,6 +560,7 @@ final class AppController: NSObject, NSApplicationDelegate {
     private var tapSeqCount = 0
     private var tapSeqTime = 0.0
     private let doubleTapWindow = 0.5
+    private let modTapHoldWindow = 0.6   // max chord-hold duration to count as a tap
 
     // settings
     private var settingsWindow: NSWindow?
@@ -703,8 +704,7 @@ final class AppController: NSObject, NSApplicationDelegate {
         if let r = hotKeyRef { UnregisterEventHotKey(r); hotKeyRef = nil }
         for m in tapMonitors { NSEvent.removeMonitor(m) }
         tapMonitors.removeAll()
-        if let s = keyTapSource { CFRunLoopRemoveSource(CFRunLoopGetMain(), s, .commonModes); keyTapSource = nil }
-        if let t = keyTap { CGEvent.tapEnable(tap: t, enable: false); CFMachPortInvalidate(t); keyTap = nil }
+        removeEventTap(&keyTap, &keyTapSource)
         tapArmed = false
         tapPolluted = false
         tapInterrupted = false
@@ -725,6 +725,21 @@ final class AppController: NSObject, NSApplicationDelegate {
             setupTapMonitors()
             dbg("modTap hotkey chord=\(hotKeyChord)")
         }
+    }
+
+    // Create a listen-only session event tap, add it to the main run loop, enable it.
+    private func installEventTap(_ mask: CGEventMask, _ callback: CGEventTapCallBack) -> (CFMachPort, CFRunLoopSource?)? {
+        guard let tap = CGEvent.tapCreate(tap: .cgSessionEventTap, place: .headInsertEventTap,
+                                          options: .listenOnly, eventsOfInterest: mask, callback: callback,
+                                          userInfo: Unmanaged.passUnretained(self).toOpaque()) else { return nil }
+        let src = CFMachPortCreateRunLoopSource(nil, tap, 0)
+        CFRunLoopAddSource(CFRunLoopGetMain(), src, .commonModes)
+        CGEvent.tapEnable(tap: tap, enable: true)
+        return (tap, src)
+    }
+    private func removeEventTap(_ tap: inout CFMachPort?, _ source: inout CFRunLoopSource?) {
+        if let s = source { CFRunLoopRemoveSource(CFRunLoopGetMain(), s, .commonModes); source = nil }
+        if let t = tap { CGEvent.tapEnable(tap: t, enable: false); CFMachPortInvalidate(t); tap = nil }
     }
 
     // Fire when exactly the configured set of modifier keys is tapped together
@@ -757,14 +772,7 @@ final class AppController: NSObject, NSApplicationDelegate {
             }
             return Unmanaged.passUnretained(event)
         }
-        if let tap = CGEvent.tapCreate(tap: .cgSessionEventTap, place: .headInsertEventTap,
-                                       options: .listenOnly, eventsOfInterest: mask, callback: cb,
-                                       userInfo: Unmanaged.passUnretained(self).toOpaque()) {
-            keyTap = tap
-            keyTapSource = CFMachPortCreateRunLoopSource(nil, tap, 0)
-            CFRunLoopAddSource(CFRunLoopGetMain(), keyTapSource, .commonModes)
-            CGEvent.tapEnable(tap: tap, enable: true)
-        }
+        if let (tap, src) = installEventTap(mask, cb) { keyTap = tap; keyTapSource = src }
     }
 
     // Called from the event tap on every modifier change. `cur` = the modifier
@@ -776,7 +784,7 @@ final class AppController: NSObject, NSApplicationDelegate {
             // fire only on a clean cycle: exact chord, no extra modifier ever, no
             // key/mouse interruption, released quickly.
             if tapArmed, !tapInterrupted, !tapPolluted,
-               ProcessInfo.processInfo.systemUptime - tapArmTime < 0.6 {
+               ProcessInfo.processInfo.systemUptime - tapArmTime < modTapHoldWindow {
                 triggerHotkey()
             }
             tapArmed = false
@@ -873,6 +881,21 @@ final class AppController: NSObject, NSApplicationDelegate {
         else { NSApp.activate(ignoringOtherApps: true) }
     }
 
+    // Settings widget builders (shared styling).
+    private func makeCheckbox(_ title: String, _ action: Selector, on: Bool) -> NSButton {
+        let b = NSButton(checkboxWithTitle: title, target: self, action: action)
+        b.font = .systemFont(ofSize: NSFont.systemFontSize(for: .regular))
+        b.state = on ? .on : .off
+        return b
+    }
+    private func makeSecondaryLabel(_ text: String) -> NSTextField {
+        let l = NSTextField(labelWithString: text)
+        l.font = .systemFont(ofSize: 11)
+        l.textColor = .secondaryLabelColor
+        l.alignment = .center
+        return l
+    }
+
     @objc private func openReLayoutSettings() {
         if let w = settingsWindow {
             activateApp()
@@ -937,10 +960,7 @@ final class AppController: NSObject, NSApplicationDelegate {
         hkColumn.alignment = .leading
         hkColumn.spacing = 4
 
-        let cb = NSButton(checkboxWithTitle: L("settings.openAtLogin"), target: self, action: #selector(toggleLogin))
-        cb.controlSize = .regular
-        cb.font = .systemFont(ofSize: NSFont.systemFontSize(for: .regular))
-        cb.state = loginEnabled() ? .on : .off
+        let cb = makeCheckbox(L("settings.openAtLogin"), #selector(toggleLogin), on: loginEnabled())
         loginCheckbox = cb
 
         // language picker: "System Default" + bundled languages; tag 0 = system, n = Loc.languages[n-1]
@@ -959,10 +979,7 @@ final class AppController: NSObject, NSApplicationDelegate {
         langPopup.target = self
         langPopup.action = #selector(changeLanguage(_:))
 
-        let autoCb = NSButton(checkboxWithTitle: L("settings.autoCorrect"),
-                              target: self, action: #selector(toggleAutoCorrect(_:)))
-        autoCb.font = .systemFont(ofSize: NSFont.systemFontSize(for: .regular))
-        autoCb.state = autoMode ? .on : .off
+        let autoCb = makeCheckbox(L("settings.autoCorrect"), #selector(toggleAutoCorrect(_:)), on: autoMode)
 
         // ── header: logo + name ──
         let logo = NSImageView()
@@ -989,15 +1006,13 @@ final class AppController: NSObject, NSApplicationDelegate {
         // ── footer: version + link + copyright ──
         let info = Bundle.main.infoDictionary
         let verStr = (info?["RLVersionFull"] as? String) ?? (info?["CFBundleShortVersionString"] as? String) ?? ""
-        let version = NSTextField(labelWithString: verStr.isEmpty ? "" : "Version \(verStr)")
-        version.font = .systemFont(ofSize: 11); version.textColor = .secondaryLabelColor; version.alignment = .center
+        let version = makeSecondaryLabel(verStr.isEmpty ? "" : "Version \(verStr)")
         let url = "github.com/vladforfutdinov/reLayout"
         let link = NSButton(title: url, target: self, action: #selector(openProjectURL))
         link.isBordered = false; link.bezelStyle = .inline
         link.attributedTitle = NSAttributedString(string: url, attributes: [
             .foregroundColor: NSColor.linkColor, .font: NSFont.systemFont(ofSize: 11)])
-        let copyright = NSTextField(labelWithString: (info?["NSHumanReadableCopyright"] as? String) ?? "")
-        copyright.font = .systemFont(ofSize: 11); copyright.textColor = .secondaryLabelColor; copyright.alignment = .center
+        let copyright = makeSecondaryLabel((info?["NSHumanReadableCopyright"] as? String) ?? "")
 
         func sep() -> NSBox {
             let b = NSBox(); b.boxType = .separator
@@ -1008,10 +1023,8 @@ final class AppController: NSObject, NSApplicationDelegate {
 
         var arranged: [NSView] = [logo, name, sep1, cb, autoCb]
 #if SPARKLE
-        let autoUpdateCb = NSButton(checkboxWithTitle: L("settings.autoUpdate"),
-                                    target: self, action: #selector(toggleAutoUpdate(_:)))
-        autoUpdateCb.font = .systemFont(ofSize: NSFont.systemFontSize(for: .regular))
-        autoUpdateCb.state = (updater?.updater.automaticallyChecksForUpdates ?? true) ? .on : .off
+        let autoUpdateCb = makeCheckbox(L("settings.autoUpdate"), #selector(toggleAutoUpdate(_:)),
+                                        on: updater?.updater.automaticallyChecksForUpdates ?? true)
         arranged.append(autoUpdateCb)
 #endif
         arranged += [grid, sep2, version, link, copyright]
@@ -1101,6 +1114,7 @@ final class AppController: NSObject, NSApplicationDelegate {
     // Marker stamped on our synthesized events so the auto-mode key monitor can
     // ignore them (else our own corrections would feed back into the buffer).
     static let synthMarker: Int64 = 0x52_4C_41_59   // "RLAY"
+    private func markSynth(_ e: CGEvent?) { e?.setIntegerValueField(.eventSourceUserData, value: Self.synthMarker) }
 
     private func postKey(_ keyCode: CGKeyCode, _ flags: CGEventFlags) {
         let src = CGEventSource(stateID: .combinedSessionState)
@@ -1108,8 +1122,7 @@ final class AppController: NSObject, NSApplicationDelegate {
         let up = CGEvent(keyboardEventSource: src, virtualKey: keyCode, keyDown: false)
         down?.flags = flags
         up?.flags = flags
-        down?.setIntegerValueField(.eventSourceUserData, value: Self.synthMarker)
-        up?.setIntegerValueField(.eventSourceUserData, value: Self.synthMarker)
+        markSynth(down); markSynth(up)
         down?.post(tap: .cghidEventTap)
         up?.post(tap: .cghidEventTap)
     }
@@ -1235,18 +1248,12 @@ final class AppController: NSObject, NSApplicationDelegate {
             }
             return Unmanaged.passUnretained(event)
         }
-        guard let tap = CGEvent.tapCreate(tap: .cgSessionEventTap, place: .headInsertEventTap,
-                                          options: .listenOnly, eventsOfInterest: mask, callback: cb,
-                                          userInfo: Unmanaged.passUnretained(self).toOpaque()) else { return }
-        autoTap = tap
-        autoTapSource = CFMachPortCreateRunLoopSource(nil, tap, 0)
-        CFRunLoopAddSource(CFRunLoopGetMain(), autoTapSource, .commonModes)
-        CGEvent.tapEnable(tap: tap, enable: true)
+        guard let (tap, src) = installEventTap(mask, cb) else { return }
+        autoTap = tap; autoTapSource = src
     }
 
     private func stopAutoMonitor() {
-        if let s = autoTapSource { CFRunLoopRemoveSource(CFRunLoopGetMain(), s, .commonModes); autoTapSource = nil }
-        if let t = autoTap { CGEvent.tapEnable(tap: t, enable: false); CFMachPortInvalidate(t); autoTap = nil }
+        removeEventTap(&autoTap, &autoTapSource)
         autoBuffer = ""
     }
 
@@ -1478,13 +1485,13 @@ final class AppController: NSObject, NSApplicationDelegate {
             if let down = CGEvent(keyboardEventSource: src, virtualKey: 0, keyDown: true) {
                 down.flags = []
                 down.keyboardSetUnicodeString(stringLength: units.count, unicodeString: units)
-                down.setIntegerValueField(.eventSourceUserData, value: Self.synthMarker)
+                markSynth(down)
                 down.post(tap: .cgSessionEventTap)
             }
             if let up = CGEvent(keyboardEventSource: src, virtualKey: 0, keyDown: false) {
                 up.flags = []
                 up.keyboardSetUnicodeString(stringLength: units.count, unicodeString: units)
-                up.setIntegerValueField(.eventSourceUserData, value: Self.synthMarker)
+                markSynth(up)
                 up.post(tap: .cgSessionEventTap)
             }
             usleep(1500)   // small gap so slow apps don't drop characters

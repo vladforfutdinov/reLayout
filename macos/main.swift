@@ -934,8 +934,13 @@ final class AppController: NSObject, NSApplicationDelegate {
             self?.commitHotkey(mode, code, mods, chord, taps, disp)
         }
         field.onRecordingChanged = { [weak self] active in
-            // suspend the live hotkey while recording so it can't fire and steal focus
-            if active { self?.suspendHotkey() } else { self?.applyHotkey() }
+            // Suspend BOTH the live hotkey and the auto-correct monitor while
+            // recording, so nothing fires (or auto-edits) on the keys being captured.
+            if active {
+                self?.suspendHotkey(); self?.stopAutoMonitor()
+            } else {
+                self?.applyHotkey(); self?.applyAutoMode()
+            }
         }
         shortcutField = field
         let resetIcon = NSImage(systemSymbolName: "arrow.uturn.backward", accessibilityDescription: L("settings.restoreDefault"))

@@ -487,13 +487,15 @@ final class ShortcutField: NSView {
 final class SettingsWindow: NSWindow {
     override func cancelOperation(_ sender: Any?) { close() }   // Esc
 
-    // No main menu (agent app), so Cmd+W has no handler — close on it here.
-    // Match the physical W key (keyCode), so it works on any keyboard layout.
+    // No main menu (agent app), so Cmd+W / Cmd+Q have no handler. Handle them here,
+    // matching the physical keys (keyCode) so it works on any keyboard layout.
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        if event.modifierFlags.contains(.command), event.keyCode == UInt16(kVK_ANSI_W) {
-            close(); return true
+        guard event.modifierFlags.contains(.command) else { return super.performKeyEquivalent(with: event) }
+        switch Int(event.keyCode) {
+        case kVK_ANSI_W: close(); return true
+        case kVK_ANSI_Q: NSApp.terminate(nil); return true
+        default: return super.performKeyEquivalent(with: event)
         }
-        return super.performKeyEquivalent(with: event)
     }
 }
 

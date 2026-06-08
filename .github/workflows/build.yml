@@ -142,8 +142,8 @@ jobs:
           cp "$SRC/appcast.xml" "$OUT/appcast.xml"
           ( cd "$OUT"
             git add appcast.xml
-            git -c user.name='github-actions[bot]' \
-                -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            git -c user.name='Vlad Forfutdinov' \
+                -c user.email='2155546+vladforfutdinov@users.noreply.github.com' \
               commit -m "appcast ${GITHUB_REF_NAME}" || { echo "no change"; exit 0; }
             git push origin gh-pages )
 

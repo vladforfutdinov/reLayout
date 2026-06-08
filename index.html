@@ -57,8 +57,14 @@
   .card p{margin:0; color:var(--muted); font-size:14.5px}
   .card .ic{font-size:22px; margin-bottom:10px}
   /* install */
-  pre{background:#0a0e14; border:1px solid var(--line); border-radius:12px; padding:14px 16px;
+  .col{display:flex; flex-direction:column; gap:16px}
+  pre{background:#0a0e14; border:1px solid var(--line); border-radius:12px; padding:14px 56px 14px 16px;
     overflow:auto; font:14px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace; color:#d6dee8}
+  .codeblock{position:relative}
+  .copy{position:absolute; top:8px; right:8px; padding:4px 10px; font-size:12px; font-weight:600;
+    color:var(--fg); background:var(--bg2); border:1px solid var(--line); border-radius:8px; cursor:pointer}
+  .copy:hover{border-color:#3a4654}
+  .copy.ok{color:#3fb950; border-color:#2a4a35}
   .note{color:var(--muted); font-size:14px}
   ol.steps{padding-left:20px; color:var(--muted)} ol.steps li{margin:6px 0}
   footer{padding:48px 0 64px; text-align:center; color:var(--muted); font-size:14px; border-top:1px solid var(--line)}
@@ -105,10 +111,13 @@
 <section>
   <div class="wrap">
     <h2>Install</h2>
-    <div class="grid">
+    <div class="col">
       <div class="card">
         <h3>Homebrew</h3>
-        <pre>brew install --cask vladforfutdinov/relayout/relayout</pre>
+        <div class="codeblock">
+          <pre>brew install --cask vladforfutdinov/relayout/relayout</pre>
+          <button class="copy" type="button" aria-label="Copy command">Copy</button>
+        </div>
         <p class="note">Updates with <code>brew upgrade</code>.</p>
       </div>
       <div class="card">
@@ -130,6 +139,18 @@
     <p>© 2026 Volodymyr Forfutdinov</p>
   </div>
 </footer>
+
+<script>
+  document.querySelectorAll('.copy').forEach(function(b){
+    b.addEventListener('click', function(){
+      var code = b.parentElement.querySelector('pre').innerText.trim();
+      navigator.clipboard.writeText(code).then(function(){
+        b.textContent = 'Copied'; b.classList.add('ok');
+        setTimeout(function(){ b.textContent = 'Copy'; b.classList.remove('ok'); }, 1200);
+      });
+    });
+  });
+</script>
 
 </body>
 </html>

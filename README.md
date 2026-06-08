@@ -163,3 +163,7 @@ appcast, checked in the background). Or trigger it from the menu-bar
 ## Autostart
 
 Toggle *Open at login* in Settings, or System Settings → General → Login Items → `ReLayout.app`.
+
+## License
+
+[MIT](LICENSE) © 2026 Volodymyr Forfutdinov.

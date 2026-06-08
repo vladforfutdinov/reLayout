@@ -6,6 +6,50 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
+## v1.2.12 — Settings rework (single window, three sections)
+
+- Merged the standalone About panel into the Settings window: one auto-sizing window
+  (logo / name / sections / footer); removed `showAbout`, `aboutResignObserver`,
+  `menuGlyphImage` (`112ba26`, later cleanup `7168935`).
+- Fixed the window opening invisible (content view had no width constraint →
+  `fittingSize` collapsed) — pin the stack on both sides + auto-fit width
+  (`879f303`, `e384b3a`).
+- Regrouped into three separator-divided sections: login + auto-update + language /
+  auto-correct + hotkey / version + link + copyright (`52c27e3`). Checkbox rows and
+  grid captions left-aligned, logo/name/footer kept centered, Hotkey caption
+  vertically centered with the field (`82b467f`, `0eccd12`). Hotkey field width ==
+  language popup (`034bbed`).
+- `Cmd+W` (close) and `Cmd+Q` (quit) handled in `SettingsWindow` by physical keyCode
+  so they work on any layout (no main menu in an agent app) (`8e693b1`, `0d85bf3`,
+  `554ff9b`). First checkbox no longer grabs focus on open (`c979861`).
+- Tagged **v1.2.12**.
+
+## v1.2.11 — auto-correct mode + tap-sequence hotkey
+
+- **Auto-correct (trigram detector).** Phase 0: char-trigram language model
+  (`Core/Trigram.swift`) + offline calibration (`scripts/trigram/gen.py`,
+  `calibrate.py`) sweeping θ_garbage/θ_margin for ≥99% precision; confirmed
+  Latin↔Latin (de/fr/es) not viable, so the mode is **cross-script only** (ru/uk ↔ en)
+  (`363808d`, `cf5f12c`). Phase 1: decision logic + bundled models in
+  `Resources/trigram/`, then a live `keyDown` monitor that auto-fixes the last word;
+  default **off** (`098f040`, `4542cc9`). Engine gained `dominantScript` /
+  `textHasScript` (`Core/Engine.swift`).
+- **Hotkey is now a recorded tap-sequence** — dropped the "Trigger on double-tap"
+  checkbox; the recorder accumulates N taps within a window (`b08782a`). Reset works
+  mid-recording; Esc closes Settings instead of cancelling (`71be83a`, `aaacfe4`).
+  Press-again-undo simplified — the standalone double-tap-to-undo hint removed
+  (`b234723`, `cf6e002`).
+- **Focus-gate fix:** live hotkey + auto-correct suspended while the Settings window
+  is key — committing a tap-sequence no longer re-arms the hotkey under the still-
+  focused recorder (which fired a retype and fed the synthetic Cmd+X back into the
+  field) (`5d97a22`, `5355bc3`).
+- Removed the "Keyboard settings" menu item (`d8040b7`). CI appcast commits now
+  authored by the repo owner — no stray bot/user contributor (`343c1d2`, `f11d85d`).
+- **Refactor, no behavior change:** extracted `installEventTap`/`removeEventTap`,
+  `makeCheckbox`/`makeSecondaryLabel`, `markSynth`, and Core `wordTokens`; removed 9
+  unused localization keys (`6d0f5b6`, `7168935`).
+- Tagged **v1.2.11**. (Windows excluded from tag releases — macOS-only.)
+
 ## Repo reorg + handoff docs
 
 - Added cross-session context machinery: `CLAUDE.md` (lean onboarding) +

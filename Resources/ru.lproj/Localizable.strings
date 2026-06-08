@@ -20,3 +20,10 @@
 "menu.checkUpdates" = "Проверить обновления…";
 "settings.autoUpdate" = "Автоматически проверять обновления";
 "settings.autoCorrect" = "Автоисправление раскладки";
+
+// auto-correct exceptions
+"settings.exceptions" = "Исключения…";
+"settings.exc.title" = "Исключения авто-исправления";
+"settings.exc.addCurrent" = "Исключить текущее приложение";
+"settings.exc.choose" = "Выбрать…";
+"settings.exc.remove" = "Удалить";

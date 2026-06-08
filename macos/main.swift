@@ -1,6 +1,7 @@
 import Cocoa
 import Carbon.HIToolbox
 import ServiceManagement
+import UniformTypeIdentifiers
 #if SPARKLE
 import Sparkle   // only linked in release builds (build.sh WITH_SPARKLE=1)
 #endif
@@ -501,7 +502,7 @@ final class SettingsWindow: NSWindow {
 
 // MARK: - App controller
 
-final class AppController: NSObject, NSApplicationDelegate {
+final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSource, NSTableViewDelegate {
     static let shared = AppController()
 
     private var statusItem: NSStatusItem!
@@ -565,6 +566,9 @@ final class AppController: NSObject, NSApplicationDelegate {
     // settings
     private var settingsWindow: NSWindow?
     private var settingsIsKey = false   // hotkey + auto-correct are paused while Settings is focused
+    private var excWindow: NSWindow?    // auto-correct exceptions editor
+    private weak var excTable: NSTableView?
+    private weak var lastActiveApp: NSRunningApplication?   // last non-self frontmost app ("exclude current")
     private weak var shortcutField: ShortcutField?
     private weak var conflictLabel: NSTextField?
     private weak var loginCheckbox: NSButton?
@@ -583,6 +587,16 @@ final class AppController: NSObject, NSApplicationDelegate {
         installHotKeyHandler()
         applyHotkey()
         applyAutoMode()          // start the auto-correct monitor if enabled
+        // Track the last non-self frontmost app so "Exclude current app" can target
+        // it (once our Settings/Exceptions window is key, WE are frontmost).
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
+        ) { [weak self] note in
+            if let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
+               app.bundleIdentifier != Bundle.main.bundleIdentifier {
+                self?.lastActiveApp = app
+            }
+        }
         setupMenu()
         // mirror the system input-source indicator in the menu bar
         let dnc = DistributedNotificationCenter.default()
@@ -986,6 +1000,10 @@ final class AppController: NSObject, NSApplicationDelegate {
         langPopup.action = #selector(changeLanguage(_:))
 
         let autoCb = makeCheckbox(L("settings.autoCorrect"), #selector(toggleAutoCorrect(_:)), on: autoMode)
+        let excBtn = NSButton(title: L("settings.exceptions"), target: self, action: #selector(openExceptions))
+        excBtn.bezelStyle = .rounded; excBtn.controlSize = .small
+        let autoRow = NSStackView(views: [autoCb, excBtn])
+        autoRow.orientation = .horizontal; autoRow.spacing = 12; autoRow.alignment = .centerY
 
         // ── header: logo + name ──
         let logo = NSImageView()
@@ -1038,7 +1056,7 @@ final class AppController: NSObject, NSApplicationDelegate {
                                         on: updater?.updater.automaticallyChecksForUpdates ?? true)
         arranged.append(autoUpdateCb)
 #endif
-        arranged += [langGrid, sep2, autoCb, hkGrid, sep3, version, link, copyright]
+        arranged += [langGrid, sep2, autoRow, hkGrid, sep3, version, link, copyright]
 
         let stack = NSStackView(views: arranged)
         stack.orientation = .vertical
@@ -1103,6 +1121,135 @@ final class AppController: NSObject, NSApplicationDelegate {
 
     @objc private func openProjectURL() {
         if let u = URL(string: "https://github.com/vladforfutdinov/reLayout") { NSWorkspace.shared.open(u) }
+    }
+
+    // MARK: - Auto-correct exceptions (per-app deny-list editor)
+
+    @objc private func openExceptions() {
+        if let w = excWindow { activateApp(); w.makeKeyAndOrderFront(nil); excTable?.reloadData(); return }
+        let w = SettingsWindow(contentRect: NSRect(x: 0, y: 0, width: 380, height: 280),
+                               styleMask: [.titled, .closable], backing: .buffered, defer: false)
+        w.title = L("settings.exc.title")
+        w.isReleasedWhenClosed = false
+        let content = NSView()
+        content.translatesAutoresizingMaskIntoConstraints = false
+        w.contentView = content
+
+        let table = NSTableView()
+        table.headerView = nil
+        table.rowHeight = 24
+        table.usesAlternatingRowBackgroundColors = true
+        table.allowsMultipleSelection = true
+        let col = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("app"))
+        col.resizingMask = .autoresizingMask
+        table.addTableColumn(col)
+        table.dataSource = self
+        table.delegate = self
+        excTable = table
+        let scroll = NSScrollView()
+        scroll.documentView = table
+        scroll.hasVerticalScroller = true
+        scroll.borderType = .bezelBorder
+        scroll.translatesAutoresizingMaskIntoConstraints = false
+
+        func btn(_ key: String, _ sel: Selector) -> NSButton {
+            let b = NSButton(title: L(key), target: self, action: sel)
+            b.bezelStyle = .rounded; b.controlSize = .small
+            b.translatesAutoresizingMaskIntoConstraints = false
+            return b
+        }
+        let spacer = NSView()
+        spacer.translatesAutoresizingMaskIntoConstraints = false
+        spacer.setContentHuggingPriority(.init(1), for: .horizontal)
+        let bar = NSStackView(views: [btn("settings.exc.addCurrent", #selector(excAddCurrent)),
+                                      btn("settings.exc.choose", #selector(excChoose)),
+                                      spacer,
+                                      btn("settings.exc.remove", #selector(excRemove))])
+        bar.orientation = .horizontal; bar.spacing = 8; bar.distribution = .fill
+        bar.translatesAutoresizingMaskIntoConstraints = false
+
+        content.addSubview(scroll); content.addSubview(bar)
+        NSLayoutConstraint.activate([
+            content.widthAnchor.constraint(equalToConstant: 380),
+            scroll.topAnchor.constraint(equalTo: content.topAnchor, constant: 16),
+            scroll.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 16),
+            scroll.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -16),
+            scroll.heightAnchor.constraint(equalToConstant: 200),
+            bar.topAnchor.constraint(equalTo: scroll.bottomAnchor, constant: 10),
+            bar.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 16),
+            bar.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -16),
+            bar.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -16),
+        ])
+        excWindow = w
+        activateApp(); w.center(); w.makeKeyAndOrderFront(nil)
+        table.reloadData()
+    }
+
+    @objc private func excAddCurrent() {
+        guard let b = lastActiveApp?.bundleIdentifier else { NSSound.beep(); return }
+        addExcluded(b)
+    }
+
+    @objc private func excChoose() {
+        let p = NSOpenPanel()
+        p.allowedContentTypes = [.application]
+        p.allowsMultipleSelection = true
+        p.canChooseDirectories = false
+        p.directoryURL = URL(fileURLWithPath: "/Applications")
+        guard p.runModal() == .OK else { return }
+        for url in p.urls { if let b = Bundle(url: url)?.bundleIdentifier { addExcluded(b) } }
+    }
+
+    @objc private func excRemove() {
+        guard let t = excTable else { return }
+        let rows = t.selectedRowIndexes
+        guard !rows.isEmpty else { return }
+        autoExcludedApps = autoExcludedApps.enumerated().filter { !rows.contains($0.offset) }.map { $0.element }
+        t.reloadData()
+    }
+
+    private func addExcluded(_ bid: String) {
+        var list = autoExcludedApps
+        guard !list.contains(bid) else { return }
+        list.append(bid)
+        autoExcludedApps = list
+        excTable?.reloadData()
+    }
+
+    // Resolve a bundle id to a display name + icon (generic fallback if not installed).
+    private func appInfo(_ bid: String) -> (name: String, icon: NSImage) {
+        if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bid) {
+            let name = FileManager.default.displayName(atPath: url.path)
+            return (name.hasSuffix(".app") ? String(name.dropLast(4)) : name,
+                    NSWorkspace.shared.icon(forFile: url.path))
+        }
+        let fallback = NSImage(systemSymbolName: "app.dashed", accessibilityDescription: nil) ?? NSImage()
+        return (bid, fallback)
+    }
+
+    func numberOfRows(in tableView: NSTableView) -> Int { autoExcludedApps.count }
+
+    func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
+        let info = appInfo(autoExcludedApps[row])
+        let iv = NSImageView(image: info.icon)
+        iv.translatesAutoresizingMaskIntoConstraints = false
+        let tf = NSTextField(labelWithString: info.name)
+        tf.lineBreakMode = .byTruncatingTail
+        tf.translatesAutoresizingMaskIntoConstraints = false
+        tf.toolTip = autoExcludedApps[row]
+        let cell = NSTableCellView()
+        cell.addSubview(iv); cell.addSubview(tf)
+        cell.textField = tf
+        NSLayoutConstraint.activate([
+            iv.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 2),
+            iv.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
+            iv.widthAnchor.constraint(equalToConstant: 16),
+            iv.heightAnchor.constraint(equalToConstant: 16),
+            tf.leadingAnchor.constraint(equalTo: iv.trailingAnchor, constant: 6),
+            tf.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -2),
+            tf.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
+        ])
+        return cell
     }
 
     @objc private func toggleLogin() {
@@ -1259,12 +1406,18 @@ final class AppController: NSObject, NSApplicationDelegate {
     private var autoTapSource: CFRunLoopSource?
     fileprivate var autoBuffer = ""
 
-    // Apps where auto-correct stays off (terminals, IDEs, etc.).
-    private let autoExcludedApps: Set<String> = [
+    // Apps where auto-correct stays off — a user-editable deny-list (Settings >
+    // Auto-correct > Exceptions…). Seeded once with common terminals/IDEs.
+    private static let defaultExcludedApps: [String] = [
         "com.apple.Terminal", "com.googlecode.iterm2", "com.microsoft.VSCode",
         "com.apple.dt.Xcode", "com.sublimetext.4", "org.alacritty",
         "net.kovidgoyal.kitty", "com.github.wez.wezterm",
     ]
+    var autoExcludedApps: [String] {
+        get { UserDefaults.standard.array(forKey: "autoExcludedApps") as? [String]
+                ?? AppController.defaultExcludedApps }
+        set { UserDefaults.standard.set(newValue, forKey: "autoExcludedApps") }
+    }
 
     func applyAutoMode() { (autoMode && !settingsIsKey) ? startAutoMonitor() : stopAutoMonitor() }
 
@@ -1343,7 +1496,7 @@ final class AppController: NSObject, NSApplicationDelegate {
 
     private func isAutoExcluded() -> Bool {
         if let bid = NSWorkspace.shared.frontmostApplication?.bundleIdentifier,
-           autoExcludedApps.contains(bid) { return true }
+           autoExcludedApps.contains(bid) { return true }   // user deny-list
         let sys = AXUIElementCreateSystemWide()
         var el: CFTypeRef?
         guard AXUIElementCopyAttributeValue(sys, kAXFocusedUIElementAttribute as CFString, &el) == .success,

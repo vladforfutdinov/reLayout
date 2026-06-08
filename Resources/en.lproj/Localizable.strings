@@ -20,3 +20,10 @@
 "menu.checkUpdates" = "Check for Updates…";
 "settings.autoUpdate" = "Automatically check for updates";
 "settings.autoCorrect" = "Auto-correct wrong layout";
+
+// auto-correct exceptions
+"settings.exceptions" = "Exceptions…";
+"settings.exc.title" = "Auto-correct exceptions";
+"settings.exc.addCurrent" = "Exclude current app";
+"settings.exc.choose" = "Choose…";
+"settings.exc.remove" = "Remove";

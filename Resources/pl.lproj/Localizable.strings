@@ -20,3 +20,10 @@
 "menu.checkUpdates" = "Sprawdź aktualizacje…";
 "settings.autoUpdate" = "Automatycznie sprawdzaj aktualizacje";
 "settings.autoCorrect" = "Autokorekta układu";
+
+// auto-correct exceptions
+"settings.exceptions" = "Wyjątki…";
+"settings.exc.title" = "Wyjątki autokorekty";
+"settings.exc.addCurrent" = "Wyklucz bieżącą aplikację";
+"settings.exc.choose" = "Wybierz…";
+"settings.exc.remove" = "Usuń";

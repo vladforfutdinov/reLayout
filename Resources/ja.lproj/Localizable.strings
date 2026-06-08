@@ -20,3 +20,10 @@
 "menu.checkUpdates" = "アップデートを確認…";
 "settings.autoUpdate" = "自動的にアップデートを確認";
 "settings.autoCorrect" = "レイアウトを自動修正";
+
+// auto-correct exceptions
+"settings.exceptions" = "例外…";
+"settings.exc.title" = "自動修正の除外";
+"settings.exc.addCurrent" = "現在のアプリを除外";
+"settings.exc.choose" = "選択…";
+"settings.exc.remove" = "削除";

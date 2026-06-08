@@ -20,3 +20,10 @@
 "menu.checkUpdates" = "Buscar actualizaciones…";
 "settings.autoUpdate" = "Buscar actualizaciones automáticamente";
 "settings.autoCorrect" = "Autocorregir distribución";
+
+// auto-correct exceptions
+"settings.exceptions" = "Excepciones…";
+"settings.exc.title" = "Excepciones de autocorrección";
+"settings.exc.addCurrent" = "Excluir app actual";
+"settings.exc.choose" = "Elegir…";
+"settings.exc.remove" = "Quitar";

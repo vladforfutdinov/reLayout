@@ -20,3 +20,10 @@
 "menu.checkUpdates" = "Праверыць абнаўленні…";
 "settings.autoUpdate" = "Аўтаматычна правяраць абнаўленні";
 "settings.autoCorrect" = "Аўтавыпраўленне раскладкі";
+
+// auto-correct exceptions
+"settings.exceptions" = "Выключэнні…";
+"settings.exc.title" = "Выключэнні аўтавыпраўлення";
+"settings.exc.addCurrent" = "Выключыць бягучую праграму";
+"settings.exc.choose" = "Выбраць…";
+"settings.exc.remove" = "Выдаліць";

@@ -20,3 +20,10 @@
 "menu.checkUpdates" = "업데이트 확인…";
 "settings.autoUpdate" = "자동으로 업데이트 확인";
 "settings.autoCorrect" = "잘못된 레이아웃 자동 교정";
+
+// auto-correct exceptions
+"settings.exceptions" = "예외…";
+"settings.exc.title" = "자동 수정 예외";
+"settings.exc.addCurrent" = "현재 앱 제외";
+"settings.exc.choose" = "선택…";
+"settings.exc.remove" = "제거";

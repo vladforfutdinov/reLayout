@@ -20,3 +20,10 @@
 "menu.checkUpdates" = "检查更新…";
 "settings.autoUpdate" = "自动检查更新";
 "settings.autoCorrect" = "自动纠正键盘布局";
+
+// auto-correct exceptions
+"settings.exceptions" = "例外…";
+"settings.exc.title" = "自动更正例外";
+"settings.exc.addCurrent" = "排除当前应用";
+"settings.exc.choose" = "选择…";
+"settings.exc.remove" = "移除";

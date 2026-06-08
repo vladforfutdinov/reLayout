@@ -10,7 +10,7 @@
 "settings.title" = "Ajustes de reLayout";
 "settings.openAtLogin" = "Abrir al iniciar sesión";
 "settings.layouts" = "Distribuciones:";
-"settings.hotkey" = "Atajo/Secuencia:";
+"settings.hotkey" = "Atajo:";
 "settings.conflict" = "⚠︎ ya lo usa %@";
 "settings.restoreDefault" = "Restaurar valor predeterminado";
 

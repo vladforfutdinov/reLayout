@@ -10,7 +10,7 @@
 "settings.title" = "Réglages de reLayout";
 "settings.openAtLogin" = "Ouvrir à la connexion";
 "settings.layouts" = "Dispositions :";
-"settings.hotkey" = "Raccourci/Séquence :";
+"settings.hotkey" = "Raccourci :";
 "settings.conflict" = "⚠︎ déjà utilisé par %@";
 "settings.restoreDefault" = "Rétablir la valeur par défaut";
 

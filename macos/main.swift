@@ -412,8 +412,10 @@ final class ShortcutField: NSView {
         }
     }
 
-    // finalize=true commits an in-progress sequence (click away / re-click); Esc
-    // passes false to discard the not-yet-saved current sequence.
+    // Stop recording without saving (e.g. the Reset button applies its own value).
+    func endRecording() { stop(finalize: false) }
+
+    // finalize=true commits an in-progress sequence (click away / re-click).
     private func stop(finalize: Bool = true) {
         guard recording else { return }
         if let m = monitor { NSEvent.removeMonitor(m); monitor = nil }
@@ -871,6 +873,7 @@ final class AppController: NSObject, NSApplicationDelegate {
         (.modTap, UInt32(kVK_ANSI_R), UInt32(controlKey | optionKey), [UInt16(kVK_Option)], "left ⌥")
 
     @objc private func resetHotkey() {
+        shortcutField?.endRecording()      // a recording in progress must not override the reset
         let d = AppController.defaultHotkey
         commitHotkey(d.0, d.1, d.2, d.3, 1, d.4)
         shortcutField?.display = d.4

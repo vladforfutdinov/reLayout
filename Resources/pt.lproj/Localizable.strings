@@ -10,7 +10,7 @@
 "settings.title" = "Definições do reLayout";
 "settings.openAtLogin" = "Abrir ao iniciar sessão";
 "settings.layouts" = "Disposições:";
-"settings.hotkey" = "Atalho/Sequência:";
+"settings.hotkey" = "Atalho:";
 "settings.conflict" = "⚠︎ já é usado por %@";
 "settings.restoreDefault" = "Restaurar predefinição";
 

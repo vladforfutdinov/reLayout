@@ -10,7 +10,7 @@
 "settings.title" = "reLayout 设置";
 "settings.openAtLogin" = "登录时打开";
 "settings.layouts" = "布局：";
-"settings.hotkey" = "快捷键/序列：";
+"settings.hotkey" = "快捷键：";
 "settings.conflict" = "⚠︎ 已被 %@ 占用";
 "settings.restoreDefault" = "恢复默认";
 

@@ -10,7 +10,7 @@
 "settings.title" = "Налады reLayout";
 "settings.openAtLogin" = "Запускаць пры ўваходзе";
 "settings.layouts" = "Раскладкі:";
-"settings.hotkey" = "Хоткей/Паслядоўнасць:";
+"settings.hotkey" = "Спалучэнне:";
 "settings.conflict" = "⚠︎ ужо выкарыстоўваецца: %@";
 "settings.restoreDefault" = "Скінуць да прадвызначанага";
 

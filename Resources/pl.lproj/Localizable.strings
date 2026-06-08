@@ -10,7 +10,7 @@
 "settings.title" = "Ustawienia reLayout";
 "settings.openAtLogin" = "Otwórz przy logowaniu";
 "settings.layouts" = "Układy:";
-"settings.hotkey" = "Skrót/Sekwencja:";
+"settings.hotkey" = "Skrót:";
 "settings.conflict" = "⚠︎ używane już przez %@";
 "settings.restoreDefault" = "Przywróć domyślne";
 

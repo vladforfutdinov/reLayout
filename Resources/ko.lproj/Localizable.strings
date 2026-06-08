@@ -10,7 +10,7 @@
 "settings.title" = "reLayout 설정";
 "settings.openAtLogin" = "로그인 시 열기";
 "settings.layouts" = "레이아웃:";
-"settings.hotkey" = "단축키/시퀀스:";
+"settings.hotkey" = "단축키:";
 "settings.conflict" = "⚠︎ 이미 %@에서 사용 중입니다";
 "settings.restoreDefault" = "기본값 복원";
 

@@ -993,47 +993,81 @@ final class AppController: NSObject, NSApplicationDelegate {
         langPopup.target = self
         langPopup.action = #selector(changeLanguage(_:))
 
-        // link-style button that opens the standard About panel
-        let aboutLink = NSButton(title: L("menu.about"), target: self, action: #selector(showAbout))
-        aboutLink.isBordered = false
-        aboutLink.bezelStyle = .inline
-        aboutLink.attributedTitle = NSAttributedString(string: L("menu.about"), attributes: [
-            .foregroundColor: NSColor.linkColor, .font: NSFont.systemFont(ofSize: 11),
-        ])
-
         let autoCb = NSButton(checkboxWithTitle: L("settings.autoCorrect"),
                               target: self, action: #selector(toggleAutoCorrect(_:)))
-        autoCb.controlSize = .regular
         autoCb.font = .systemFont(ofSize: NSFont.systemFontSize(for: .regular))
         autoCb.state = autoMode ? .on : .off
 
-        var rows: [[NSView]] = [[caption(""), cb], [caption(""), autoCb]]
+        // ── header: logo + name ──
+        let logo = NSImageView()
+        logo.image = NSApp.applicationIconImage
+        logo.imageScaling = .scaleProportionallyUpOrDown
+        logo.translatesAutoresizingMaskIntoConstraints = false
+        logo.widthAnchor.constraint(equalToConstant: 64).isActive = true
+        logo.heightAnchor.constraint(equalToConstant: 64).isActive = true
+        let name = NSTextField(labelWithString: "reLayout")
+        name.font = .boldSystemFont(ofSize: 15)
+        name.alignment = .center
+
+        // ── grid: language + hotkey ──
+        let grid = NSGridView(views: [
+            [caption(L("settings.language")), langPopup],
+            [caption(L("settings.hotkey")), hkColumn],
+        ])
+        grid.rowSpacing = 10; grid.columnSpacing = 10
+        grid.column(at: 0).xPlacement = .trailing
+        grid.rowAlignment = .none
+        grid.row(at: 0).yPlacement = .center
+        grid.row(at: 1).yPlacement = .top   // hotkey caption aligns to the field
+
+        // ── footer: version + link + copyright ──
+        let info = Bundle.main.infoDictionary
+        let verStr = (info?["RLVersionFull"] as? String) ?? (info?["CFBundleShortVersionString"] as? String) ?? ""
+        let version = NSTextField(labelWithString: verStr.isEmpty ? "" : "Version \(verStr)")
+        version.font = .systemFont(ofSize: 11); version.textColor = .secondaryLabelColor; version.alignment = .center
+        let url = "github.com/vladforfutdinov/reLayout"
+        let link = NSButton(title: url, target: self, action: #selector(openProjectURL))
+        link.isBordered = false; link.bezelStyle = .inline
+        link.attributedTitle = NSAttributedString(string: url, attributes: [
+            .foregroundColor: NSColor.linkColor, .font: NSFont.systemFont(ofSize: 11)])
+        let copyright = NSTextField(labelWithString: (info?["NSHumanReadableCopyright"] as? String) ?? "")
+        copyright.font = .systemFont(ofSize: 11); copyright.textColor = .secondaryLabelColor; copyright.alignment = .center
+
+        func sep() -> NSBox {
+            let b = NSBox(); b.boxType = .separator
+            b.translatesAutoresizingMaskIntoConstraints = false
+            return b
+        }
+        let sep1 = sep(), sep2 = sep()
+
+        var arranged: [NSView] = [logo, name, sep1, cb, autoCb]
 #if SPARKLE
         let autoUpdateCb = NSButton(checkboxWithTitle: L("settings.autoUpdate"),
                                     target: self, action: #selector(toggleAutoUpdate(_:)))
-        autoUpdateCb.controlSize = .regular
         autoUpdateCb.font = .systemFont(ofSize: NSFont.systemFontSize(for: .regular))
         autoUpdateCb.state = (updater?.updater.automaticallyChecksForUpdates ?? true) ? .on : .off
-        rows.append([caption(""), autoUpdateCb])
+        arranged.append(autoUpdateCb)
 #endif
-        rows.append([caption(L("settings.language")), langPopup])
-        let hotkeyRowIndex = rows.count
-        rows.append([caption(L("settings.hotkey")), hkColumn])
-        rows.append([NSGridCell.emptyContentView, aboutLink])
-        let grid = NSGridView(views: rows)
-        grid.rowSpacing = 10
-        grid.columnSpacing = 10
-        grid.column(at: 0).xPlacement = .trailing
-        grid.rowAlignment = .none
-        for i in 0..<grid.numberOfRows { grid.row(at: i).yPlacement = .center }
-        grid.row(at: hotkeyRowIndex).yPlacement = .top   // caption aligns to the field, not the stack center
-        grid.translatesAutoresizingMaskIntoConstraints = false
-        content.addSubview(grid)
+        arranged += [grid, sep2, version, link, copyright]
+
+        let stack = NSStackView(views: arranged)
+        stack.orientation = .vertical
+        stack.alignment = .centerX
+        stack.spacing = 8
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        stack.setCustomSpacing(14, after: name)   // breathing room around the separators
+        stack.setCustomSpacing(14, after: sep1)
+        stack.setCustomSpacing(14, after: grid)
+        stack.setCustomSpacing(14, after: sep2)
+        content.addSubview(stack)
+        let width: CGFloat = 300
         NSLayoutConstraint.activate([
-            grid.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 20),
-            grid.trailingAnchor.constraint(lessThanOrEqualTo: content.trailingAnchor, constant: -20),
-            grid.topAnchor.constraint(equalTo: content.topAnchor, constant: 20),
-            grid.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -20),
+            stack.topAnchor.constraint(equalTo: content.topAnchor, constant: 20),
+            stack.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -20),
+            stack.centerXAnchor.constraint(equalTo: content.centerXAnchor),
+            stack.widthAnchor.constraint(equalToConstant: width),
+            sep1.widthAnchor.constraint(equalTo: stack.widthAnchor),
+            sep2.widthAnchor.constraint(equalTo: stack.widthAnchor),
         ])
         content.layoutSubtreeIfNeeded()
         w.setContentSize(content.fittingSize)
@@ -1042,6 +1076,10 @@ final class AppController: NSObject, NSApplicationDelegate {
         settingsWindow = w
         activateApp()
         w.makeKeyAndOrderFront(nil)
+    }
+
+    @objc private func openProjectURL() {
+        if let u = URL(string: "https://github.com/vladforfutdinov/reLayout") { NSWorkspace.shared.open(u) }
     }
 
     @objc private func toggleLogin() {

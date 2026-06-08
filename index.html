@@ -34,8 +34,11 @@
   code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.85em; background:var(--panel2);
     border:1px solid var(--line); border-radius:7px; padding:2px 7px; color:#cdd8e6; white-space:nowrap}
 
-  /* nav — floating glass capsule */
-  nav{position:sticky; top:12px; z-index:50; padding:0 16px; margin-top:12px}
+  /* nav — floating glass capsule, revealed once the hero logo scrolls away */
+  nav{position:fixed; top:12px; left:0; right:0; z-index:50; padding:0 16px;
+    transform:translateY(-150%); opacity:0; pointer-events:none;
+    transition:transform .42s cubic-bezier(.16,1,.3,1), opacity .3s ease}
+  nav.show{transform:none; opacity:1; pointer-events:auto}
   nav .bar{max-width:940px; margin:0 auto; height:56px; display:flex; align-items:center; justify-content:space-between;
     padding:0 10px 0 18px; border:1px solid var(--line); border-radius:999px;
     background:rgba(18,22,29,.72); backdrop-filter:saturate(160%) blur(14px); -webkit-backdrop-filter:saturate(160%) blur(14px);
@@ -123,6 +126,26 @@
     border:1px solid var(--line); border-radius:10px; padding:10px 13px; margin-top:auto; width:fit-content}
   .codechip .b{color:var(--bad)} .codechip .g{color:var(--good)}
 
+  /* comparison */
+  .cmp-scroll{overflow-x:auto; margin-top:26px}
+  .cmp{width:100%; min-width:520px; border-collapse:collapse; font-size:15px}
+  .cmp th,.cmp td{padding:14px 18px; text-align:left; vertical-align:middle}
+  .cmp th:not(:first-child),.cmp td:not(:first-child){text-align:center; width:184px}
+  .cmp thead th{font-size:13.5px; font-weight:600; color:var(--muted)}
+  .cmp thead .us{color:var(--accent); font-weight:700; font-size:15px}
+  .cmp tbody td{border-top:1px solid rgba(255,255,255,.055)}
+  .cmp .feat{color:var(--fg)}
+  .cmp .us{background:var(--accent-soft)}
+  .cmp tbody tr:last-child .us{border-bottom-left-radius:12px; border-bottom-right-radius:12px}
+  .cmp thead .us{border-top-left-radius:12px; border-top-right-radius:12px}
+  .cmp i{font-size:19px; vertical-align:-3px}
+  .cmp .yes{color:var(--good)} .cmp .par{color:var(--muted)} .cmp .no{color:var(--faint)}
+  .cmp .val{font-weight:600; color:var(--accent)}
+  .cmp small{display:block; font-size:11.5px; color:var(--faint); margin-top:3px; line-height:1.3}
+  .legend{margin-top:14px; font-size:13px; color:var(--faint); display:flex; gap:18px; flex-wrap:wrap}
+  .legend span{display:inline-flex; align-items:center; gap:6px}
+  .legend i{font-size:16px; vertical-align:-2px}
+
   /* install */
   .col{display:flex; flex-direction:column; gap:16px}
   .card{background:var(--panel); border:1px solid var(--line); border-radius:var(--r-card); padding:22px 24px}
@@ -167,6 +190,7 @@
     html{scroll-behavior:auto}
     .reveal{opacity:1; transform:none; transition:none}
     .herologo{animation:none}
+    nav{transition:opacity .2s ease}
     .anim .fade-before,.anim .fade-after,.anim .kcap{animation:none}
     .anim .fade-before{opacity:0} .anim .fade-after{opacity:1}
     .btn{transition:none}
@@ -275,6 +299,73 @@
   </div>
 </section>
 
+<section id="compare">
+  <div class="wrap">
+    <h2 class="reveal">How it compares</h2>
+    <p class="sec-lede reveal">Everything the popular layout switchers do, plus what they usually don't: any installed layout, a clipboard-free read, and open source.</p>
+
+    <div class="cmp-scroll reveal">
+      <table class="cmp">
+        <thead>
+          <tr><th></th><th class="us">reLayout</th><th>Typical switcher</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="feat">Convert the selection by hotkey</td>
+            <td class="us"><i class="ph ph-check yes"></i></td>
+            <td><i class="ph ph-check yes"></i></td>
+          </tr>
+          <tr>
+            <td class="feat">Auto-correct while typing</td>
+            <td class="us"><i class="ph ph-check yes"></i><small>trigram, opt-in</small></td>
+            <td><i class="ph ph-check yes"></i></td>
+          </tr>
+          <tr>
+            <td class="feat">Undo the last fix</td>
+            <td class="us"><i class="ph ph-check yes"></i></td>
+            <td><i class="ph ph-check yes"></i></td>
+          </tr>
+          <tr>
+            <td class="feat">Switch the system input source</td>
+            <td class="us"><i class="ph ph-check yes"></i></td>
+            <td><i class="ph ph-check yes"></i></td>
+          </tr>
+          <tr>
+            <td class="feat">Per-app exceptions</td>
+            <td class="us"><i class="ph ph-check yes"></i></td>
+            <td><i class="ph ph-minus par"></i><small>sometimes</small></td>
+          </tr>
+          <tr>
+            <td class="feat">Works with any installed layouts</td>
+            <td class="us"><i class="ph ph-check yes"></i><small>by key position</small></td>
+            <td><i class="ph ph-x no"></i><small>often fixed RU/EN</small></td>
+          </tr>
+          <tr>
+            <td class="feat">Reads without the clipboard</td>
+            <td class="us"><i class="ph ph-check yes"></i><small>Accessibility API</small></td>
+            <td><i class="ph ph-x no"></i><small>clipboard churn</small></td>
+          </tr>
+          <tr>
+            <td class="feat">Open source and free</td>
+            <td class="us"><span class="val">MIT</span></td>
+            <td><i class="ph ph-x no"></i><small>often closed or paid</small></td>
+          </tr>
+          <tr>
+            <td class="feat">Native, no Electron</td>
+            <td class="us"><span class="val">1.6 MB</span></td>
+            <td><i class="ph ph-minus par"></i><small>varies</small></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="legend reveal">
+      <span><i class="ph ph-check yes"></i> yes</span>
+      <span><i class="ph ph-minus par"></i> partial</span>
+      <span><i class="ph ph-x no"></i> no</span>
+    </div>
+  </div>
+</section>
+
 <section id="install">
   <div class="wrap">
     <h2 class="reveal">Install</h2>
@@ -323,6 +414,16 @@
       });
     });
   });
+  // reveal the floating nav only once the hero logo has scrolled out of view
+  var heroLogo = document.querySelector('.herologo');
+  var navEl = document.querySelector('nav');
+  if (heroLogo && navEl && 'IntersectionObserver' in window) {
+    new IntersectionObserver(function(es){
+      es.forEach(function(e){ navEl.classList.toggle('show', !e.isIntersecting); });
+    }, { threshold:0 }).observe(heroLogo);
+  } else if (navEl) {
+    navEl.classList.add('show');
+  }
   // scroll reveal (IntersectionObserver, no scroll listener)
   var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   var els = document.querySelectorAll('.reveal');

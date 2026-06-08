@@ -89,7 +89,7 @@ right after to undo.
 
 ## Settings
 
-Menu-bar **⇄ → Settings…** (the window also shows the About info — version, link, copyright):
+Menu-bar **rL → Settings…** (the window also shows the About info — version, link, copyright):
 
 - **Open at login** (`SMAppService`), and **Automatically check for updates** (release builds).
 - **Auto-correct wrong layout** + **Exceptions…** (see above).
@@ -158,7 +158,7 @@ names of conflicting macOS system shortcuts shown in Settings are reported in En
 
 Release builds auto-update via [Sparkle](https://sparkle-project.org) (EdDSA-signed
 appcast, checked in the background). Or trigger it from the menu-bar
-**⇄ → Check for Updates…**.
+**rL → Check for Updates…**.
 
 ## Autostart
 

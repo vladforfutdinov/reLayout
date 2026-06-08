@@ -1,6 +1,4 @@
-"menu.about" = "À propos de reLayout";
 "menu.settings" = "Réglages…";
-"menu.openKeyboardSettings" = "Ouvrir les réglages du clavier…";
 "menu.quit" = "Quitter reLayout";
 
 "alert.needLayouts.title" = "reLayout : au moins 2 dispositions de clavier requises";
@@ -9,7 +7,6 @@
 
 "settings.title" = "Réglages de reLayout";
 "settings.openAtLogin" = "Ouvrir à la connexion";
-"settings.layouts" = "Dispositions :";
 "settings.hotkey" = "Raccourci :";
 "settings.conflict" = "⚠︎ déjà utilisé par %@";
 "settings.restoreDefault" = "Rétablir la valeur par défaut";
@@ -17,15 +14,9 @@
 "shortcut.placeholder" = "Saisir le raccourci…";
 "shortcut.recording" = "Enregistrement";
 
-"a11y.statusItem" = "reLayout, source de saisie actuelle : %@";
 
 "settings.language" = "Langue :";
 "settings.language.system" = "Par défaut du système";
-"settings.undoHint" = "Double-appui pour annuler";
 "menu.checkUpdates" = "Rechercher les mises à jour…";
-"settings.menubar" = "Barre des menus :";
-"settings.menubar.layout" = "État de la disposition";
-"settings.menubar.static" = "Icône statique";
 "settings.autoUpdate" = "Rechercher les mises à jour automatiquement";
-"settings.doubleTap" = "Déclencher par double appui";
 "settings.autoCorrect" = "Corriger la disposition automatiquement";

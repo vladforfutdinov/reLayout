@@ -1,6 +1,4 @@
-"menu.about" = "Sobre o reLayout";
 "menu.settings" = "Definições…";
-"menu.openKeyboardSettings" = "Abrir Definições de Teclado…";
 "menu.quit" = "Encerrar reLayout";
 
 "alert.needLayouts.title" = "reLayout: são necessárias pelo menos 2 disposições de teclado";
@@ -9,7 +7,6 @@
 
 "settings.title" = "Definições do reLayout";
 "settings.openAtLogin" = "Abrir ao iniciar sessão";
-"settings.layouts" = "Disposições:";
 "settings.hotkey" = "Atalho:";
 "settings.conflict" = "⚠︎ já é usado por %@";
 "settings.restoreDefault" = "Restaurar predefinição";
@@ -17,15 +14,9 @@
 "shortcut.placeholder" = "Introduza o atalho…";
 "shortcut.recording" = "A gravar";
 
-"a11y.statusItem" = "reLayout, fonte de entrada atual: %@";
 
 "settings.language" = "Idioma:";
 "settings.language.system" = "Predefinição do sistema";
-"settings.undoHint" = "Toque duplo para desfazer";
 "menu.checkUpdates" = "Procurar atualizações…";
-"settings.menubar" = "Barra de menus:";
-"settings.menubar.layout" = "Estado da disposição";
-"settings.menubar.static" = "Ícone estático";
 "settings.autoUpdate" = "Procurar atualizações automaticamente";
-"settings.doubleTap" = "Acionar com toque duplo";
 "settings.autoCorrect" = "Corrigir layout automaticamente";

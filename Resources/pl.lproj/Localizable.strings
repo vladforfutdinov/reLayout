@@ -1,6 +1,4 @@
-"menu.about" = "reLayout — informacje";
 "menu.settings" = "Ustawienia…";
-"menu.openKeyboardSettings" = "Otwórz ustawienia klawiatury…";
 "menu.quit" = "Zakończ reLayout";
 
 "alert.needLayouts.title" = "reLayout: wymagane są co najmniej 2 układy klawiatury";
@@ -9,7 +7,6 @@
 
 "settings.title" = "Ustawienia reLayout";
 "settings.openAtLogin" = "Otwórz przy logowaniu";
-"settings.layouts" = "Układy:";
 "settings.hotkey" = "Skrót:";
 "settings.conflict" = "⚠︎ używane już przez %@";
 "settings.restoreDefault" = "Przywróć domyślne";
@@ -17,15 +14,9 @@
 "shortcut.placeholder" = "Wpisz skrót…";
 "shortcut.recording" = "Nagrywanie";
 
-"a11y.statusItem" = "reLayout, bieżące źródło wprowadzania: %@";
 
 "settings.language" = "Język:";
 "settings.language.system" = "Domyślny systemu";
-"settings.undoHint" = "Dotknij dwukrotnie, aby cofnąć";
 "menu.checkUpdates" = "Sprawdź aktualizacje…";
-"settings.menubar" = "Pasek menu:";
-"settings.menubar.layout" = "Stan układu";
-"settings.menubar.static" = "Statyczna ikona";
 "settings.autoUpdate" = "Automatycznie sprawdzaj aktualizacje";
-"settings.doubleTap" = "Uruchom podwójnym naciśnięciem";
 "settings.autoCorrect" = "Autokorekta układu";

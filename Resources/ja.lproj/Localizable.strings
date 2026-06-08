@@ -1,6 +1,4 @@
-"menu.about" = "reLayout について";
 "menu.settings" = "設定…";
-"menu.openKeyboardSettings" = "キーボード設定を開く…";
 "menu.quit" = "reLayout を終了";
 
 "alert.needLayouts.title" = "reLayout：キーボードレイアウトが2つ以上必要です";
@@ -9,7 +7,6 @@
 
 "settings.title" = "reLayout 設定";
 "settings.openAtLogin" = "ログイン時に開く";
-"settings.layouts" = "レイアウト：";
 "settings.hotkey" = "ショートカット：";
 "settings.conflict" = "⚠︎ %@ で既に使用されています";
 "settings.restoreDefault" = "デフォルトに戻す";
@@ -17,15 +14,9 @@
 "shortcut.placeholder" = "ショートカットを入力…";
 "shortcut.recording" = "記録中";
 
-"a11y.statusItem" = "reLayout、現在の入力ソース：%@";
 
 "settings.language" = "言語：";
 "settings.language.system" = "システムのデフォルト";
-"settings.undoHint" = "ダブルタップで取り消し";
 "menu.checkUpdates" = "アップデートを確認…";
-"settings.menubar" = "メニューバー：";
-"settings.menubar.layout" = "レイアウト状態";
-"settings.menubar.static" = "静的アイコン";
 "settings.autoUpdate" = "自動的にアップデートを確認";
-"settings.doubleTap" = "ダブルタップで実行";
 "settings.autoCorrect" = "レイアウトを自動修正";

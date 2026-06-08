@@ -1,6 +1,4 @@
-"menu.about" = "Про reLayout";
 "menu.settings" = "Параметри…";
-"menu.openKeyboardSettings" = "Відкрити параметри клавіатури…";
 "menu.quit" = "Завершити reLayout";
 
 "alert.needLayouts.title" = "reLayout: потрібно щонайменше 2 розкладки клавіатури";
@@ -9,7 +7,6 @@
 
 "settings.title" = "Параметри reLayout";
 "settings.openAtLogin" = "Запускати під час входу";
-"settings.layouts" = "Розкладки:";
 "settings.hotkey" = "Скорочення:";
 "settings.conflict" = "⚠︎ вже використовується: %@";
 "settings.restoreDefault" = "Відновити типове";
@@ -17,15 +14,9 @@
 "shortcut.placeholder" = "Натисніть скорочення…";
 "shortcut.recording" = "Запис";
 
-"a11y.statusItem" = "reLayout, поточне джерело введення: %@";
 
 "settings.language" = "Мова:";
 "settings.language.system" = "Як у системі";
-"settings.undoHint" = "Подвійне натискання — скасування";
 "menu.checkUpdates" = "Перевірити оновлення…";
-"settings.menubar" = "Меню-бар:";
-"settings.menubar.layout" = "Поточна розкладка";
-"settings.menubar.static" = "Статична іконка";
 "settings.autoUpdate" = "Автоматично перевіряти оновлення";
-"settings.doubleTap" = "Спрацьовувати подвійним натисканням";
 "settings.autoCorrect" = "Автовиправлення розкладки";

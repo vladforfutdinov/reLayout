@@ -506,7 +506,6 @@ final class AppController: NSObject, NSApplicationDelegate {
     private var hotKeyRef: EventHotKeyRef?
     private var handlerInstalled = false
     private var appearanceObservation: NSKeyValueObservation?   // refresh static icon on dark/light switch
-    private var aboutResignObserver: Any?                       // close About panel when it loses focus
 
 #if SPARKLE
     // Sparkle auto-updater. startingUpdater:true begins scheduled checks against
@@ -608,16 +607,6 @@ final class AppController: NSObject, NSApplicationDelegate {
         }
     }
 
-    // macOS renders the menu-bar input indicator itself (kTISPropertyIconImageURL is
-    // empty for keyboard layouts), so we redraw the same look: a rounded box with the
-    // source's native-language abbreviation (УК / РУ / A), as a template image that
-    // adapts to light/dark menu bars.
-    // Appearance-matched "rL" wordmark: white glyph on dark, black on light.
-    private func menuGlyphImage(for appearance: NSAppearance) -> NSImage? {
-        let dark = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
-        return NSImage(named: dark ? "for-dark-text-1024" : "for-light-text-1024")
-    }
-
     private func updateStatusIcon() {
         guard let button = statusItem?.button else { return }
         // Always the static "rL" wordmark. It's monochrome, so use it as a TEMPLATE
@@ -665,41 +654,6 @@ final class AppController: NSObject, NSApplicationDelegate {
     }
 #endif
 
-    // Standard macOS About panel. Name/version/icon/copyright come from Info.plist
-    // (CFBundleName, CFBundleShortVersionString, CFBundleVersion,
-    // NSHumanReadableCopyright); we add the project link as clickable credits.
-    @objc private func showAbout() {
-        activateApp()
-        let credits = NSAttributedString(
-            string: "github.com/vladforfutdinov/reLayout",
-            attributes: [
-                .link: URL(string: "https://github.com/vladforfutdinov/reLayout") as Any,
-                .font: NSFont.systemFont(ofSize: 11),
-            ])
-        // theme-matched keycap (the bundled AppIcon.icns is a single static image)
-        var options: [NSApplication.AboutPanelOptionKey: Any] = [.credits: credits]
-        if let icon = menuGlyphImage(for: NSApp.effectiveAppearance) {
-            options[.applicationIcon] = icon
-        }
-        // show the full git version (release tag vs dev describe) on the version line
-        if let full = Bundle.main.object(forInfoDictionaryKey: "RLVersionFull") as? String, !full.isEmpty {
-            options[.applicationVersion] = full
-        }
-        NSApp.orderFrontStandardAboutPanel(options: options)
-
-        // close the panel as soon as it loses focus
-        if let token = aboutResignObserver { NotificationCenter.default.removeObserver(token); aboutResignObserver = nil }
-        if let panel = NSApp.keyWindow {
-            aboutResignObserver = NotificationCenter.default.addObserver(
-                forName: NSWindow.didResignKeyNotification, object: panel, queue: .main
-            ) { [weak self, weak panel] _ in
-                panel?.close()
-                if let t = self?.aboutResignObserver {
-                    NotificationCenter.default.removeObserver(t); self?.aboutResignObserver = nil
-                }
-            }
-        }
-    }
 
     private func reportMissingLayouts() {
         let a = NSAlert()

@@ -1,6 +1,4 @@
-"menu.about" = "Über reLayout";
 "menu.settings" = "Einstellungen…";
-"menu.openKeyboardSettings" = "Tastatureinstellungen öffnen…";
 "menu.quit" = "reLayout beenden";
 
 "alert.needLayouts.title" = "reLayout: mindestens 2 Tastaturbelegungen erforderlich";
@@ -9,7 +7,6 @@
 
 "settings.title" = "reLayout-Einstellungen";
 "settings.openAtLogin" = "Beim Anmelden öffnen";
-"settings.layouts" = "Belegungen:";
 "settings.hotkey" = "Tastenkürzel:";
 "settings.conflict" = "⚠︎ wird bereits verwendet von %@";
 "settings.restoreDefault" = "Standard wiederherstellen";
@@ -17,15 +14,9 @@
 "shortcut.placeholder" = "Kurzbefehl eingeben…";
 "shortcut.recording" = "Aufnahme";
 
-"a11y.statusItem" = "reLayout, aktuelle Eingabequelle: %@";
 
 "settings.language" = "Sprache:";
 "settings.language.system" = "Systemstandard";
-"settings.undoHint" = "Doppeltippen zum Widerrufen";
 "menu.checkUpdates" = "Nach Updates suchen…";
-"settings.menubar" = "Menüleiste:";
-"settings.menubar.layout" = "Belegungsstatus";
-"settings.menubar.static" = "Statisches Symbol";
 "settings.autoUpdate" = "Automatisch nach Updates suchen";
-"settings.doubleTap" = "Bei Doppeltipp auslösen";
 "settings.autoCorrect" = "Layout automatisch korrigieren";

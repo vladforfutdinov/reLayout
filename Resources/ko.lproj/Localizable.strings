@@ -1,6 +1,4 @@
-"menu.about" = "reLayout 정보";
 "menu.settings" = "설정…";
-"menu.openKeyboardSettings" = "키보드 설정 열기…";
 "menu.quit" = "reLayout 종료";
 
 "alert.needLayouts.title" = "reLayout: 키보드 레이아웃이 2개 이상 필요합니다";
@@ -9,7 +7,6 @@
 
 "settings.title" = "reLayout 설정";
 "settings.openAtLogin" = "로그인 시 열기";
-"settings.layouts" = "레이아웃:";
 "settings.hotkey" = "단축키:";
 "settings.conflict" = "⚠︎ 이미 %@에서 사용 중입니다";
 "settings.restoreDefault" = "기본값 복원";
@@ -17,15 +14,9 @@
 "shortcut.placeholder" = "단축키 입력…";
 "shortcut.recording" = "기록 중";
 
-"a11y.statusItem" = "reLayout, 현재 입력 소스: %@";
 
 "settings.language" = "언어:";
 "settings.language.system" = "시스템 기본값";
-"settings.undoHint" = "두 번 누르면 실행 취소";
 "menu.checkUpdates" = "업데이트 확인…";
-"settings.menubar" = "메뉴 막대:";
-"settings.menubar.layout" = "레이아웃 상태";
-"settings.menubar.static" = "정적 아이콘";
 "settings.autoUpdate" = "자동으로 업데이트 확인";
-"settings.doubleTap" = "더블 탭으로 실행";
 "settings.autoCorrect" = "잘못된 레이아웃 자동 교정";

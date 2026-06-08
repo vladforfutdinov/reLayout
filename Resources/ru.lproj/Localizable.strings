@@ -1,6 +1,4 @@
-"menu.about" = "О приложении reLayout";
 "menu.settings" = "Настройки…";
-"menu.openKeyboardSettings" = "Открыть настройки клавиатуры…";
 "menu.quit" = "Завершить reLayout";
 
 "alert.needLayouts.title" = "reLayout: нужно минимум 2 раскладки клавиатуры";
@@ -9,7 +7,6 @@
 
 "settings.title" = "Настройки reLayout";
 "settings.openAtLogin" = "Запускать при входе";
-"settings.layouts" = "Раскладки:";
 "settings.hotkey" = "Сочетание:";
 "settings.conflict" = "⚠︎ уже используется: %@";
 "settings.restoreDefault" = "Сбросить по умолчанию";
@@ -17,15 +14,9 @@
 "shortcut.placeholder" = "Нажмите сочетание…";
 "shortcut.recording" = "Запись";
 
-"a11y.statusItem" = "reLayout, текущий источник ввода: %@";
 
 "settings.language" = "Язык:";
 "settings.language.system" = "Как в системе";
-"settings.undoHint" = "Двойное нажатие — отмена";
 "menu.checkUpdates" = "Проверить обновления…";
-"settings.menubar" = "Меню-бар:";
-"settings.menubar.layout" = "Текущая раскладка";
-"settings.menubar.static" = "Статичная иконка";
 "settings.autoUpdate" = "Автоматически проверять обновления";
-"settings.doubleTap" = "Срабатывать по двойному нажатию";
 "settings.autoCorrect" = "Автоисправление раскладки";

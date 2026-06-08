@@ -1,6 +1,4 @@
-"menu.about" = "About reLayout";
 "menu.settings" = "Settings…";
-"menu.openKeyboardSettings" = "Open Keyboard Settings…";
 "menu.quit" = "Quit reLayout";
 
 "alert.needLayouts.title" = "reLayout: need at least 2 keyboard layouts";
@@ -9,7 +7,6 @@
 
 "settings.title" = "reLayout Settings";
 "settings.openAtLogin" = "Open at login";
-"settings.layouts" = "Layouts:";
 "settings.hotkey" = "Hotkey:";
 "settings.conflict" = "⚠︎ also used by %@";
 "settings.restoreDefault" = "Restore default";
@@ -17,15 +14,9 @@
 "shortcut.placeholder" = "Type shortcut…";
 "shortcut.recording" = "Recording";
 
-"a11y.statusItem" = "reLayout, current input source: %@";
 
 "settings.language" = "Language:";
 "settings.language.system" = "System Default";
-"settings.undoHint" = "Double-tap to undo";
 "menu.checkUpdates" = "Check for Updates…";
-"settings.menubar" = "Menu bar:";
-"settings.menubar.layout" = "Layout state";
-"settings.menubar.static" = "Static icon";
 "settings.autoUpdate" = "Automatically check for updates";
-"settings.doubleTap" = "Trigger on double-tap";
 "settings.autoCorrect" = "Auto-correct wrong layout";

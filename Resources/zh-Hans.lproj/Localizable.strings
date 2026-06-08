@@ -1,6 +1,4 @@
-"menu.about" = "关于 reLayout";
 "menu.settings" = "设置…";
-"menu.openKeyboardSettings" = "打开键盘设置…";
 "menu.quit" = "退出 reLayout";
 
 "alert.needLayouts.title" = "reLayout：至少需要 2 种键盘布局";
@@ -9,7 +7,6 @@
 
 "settings.title" = "reLayout 设置";
 "settings.openAtLogin" = "登录时打开";
-"settings.layouts" = "布局：";
 "settings.hotkey" = "快捷键：";
 "settings.conflict" = "⚠︎ 已被 %@ 占用";
 "settings.restoreDefault" = "恢复默认";
@@ -17,15 +14,9 @@
 "shortcut.placeholder" = "输入快捷键…";
 "shortcut.recording" = "正在录制";
 
-"a11y.statusItem" = "reLayout，当前输入源：%@";
 
 "settings.language" = "语言：";
 "settings.language.system" = "跟随系统";
-"settings.undoHint" = "双击以撤销";
 "menu.checkUpdates" = "检查更新…";
-"settings.menubar" = "菜单栏：";
-"settings.menubar.layout" = "布局状态";
-"settings.menubar.static" = "静态图标";
 "settings.autoUpdate" = "自动检查更新";
-"settings.doubleTap" = "双击触发";
 "settings.autoCorrect" = "自动纠正键盘布局";

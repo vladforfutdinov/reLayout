@@ -102,34 +102,28 @@
   .pill{font-family:ui-monospace,Menlo,monospace; font-size:12px; padding:3px 9px; border-radius:7px;
     border:1px solid var(--line); background:#0e131a; color:var(--muted)}
   .pill.on{border-color:var(--accent-line); color:var(--accent); background:var(--accent-soft)}
-  /* Apple keyboard corner — the option key lights up when the hotkey fires */
+  /* Magic Keyboard (space gray): flat matte keycaps, glyph-over-word modifier
+     labels at bottom-left. The option key lights up when the hotkey fires. */
   .kb{margin:22px -26px 0 0; display:flex; flex-direction:column; gap:5px; user-select:none}
   .kb .r{display:flex; gap:5px}
-  /* MacBook keycap: dark sloped rim (the truncated-pyramid wall) + an inset matte
-     top face that sits slightly recessed, like the real keys in the photo. */
-  .kbk{position:relative; height:45px; width:46px; flex:none; border-radius:9px;
-    background:#070808; box-shadow:0 2px 2px rgba(0,0,0,.55), 0 0 0 .5px rgba(0,0,0,.6);
+  .kbk{position:relative; height:44px; width:46px; flex:none; border-radius:7px;
+    background:linear-gradient(180deg,#303034,#252528); border:1px solid #141416;
+    box-shadow:0 1px 1.5px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.07), inset 0 -2px 3px rgba(0,0,0,.38);
     display:flex; align-items:center; justify-content:center;
-    font:400 15px/1 -apple-system,BlinkMacSystemFont,sans-serif; color:#c6cad0}
-  .kbk::before{content:""; position:absolute; inset:2.5px; border-radius:6px; z-index:0;
-    background:linear-gradient(180deg,#2a2c31 0%,#202226 42%,#161719 100%);
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.07), inset 0 -3px 5px rgba(0,0,0,.55)}
-  .kbk > *{position:relative; z-index:1}
-  .kbk.tab{width:52px} .kbk.caps{width:66px} .kbk.shift{width:92px}
-  .kbk.fn{width:46px} .kbk.ctrl,.kbk.opt{width:56px} .kbk.cmd{width:66px}
+    font:400 15px/1 -apple-system,BlinkMacSystemFont,sans-serif; color:#d4d7dc}
+  .kbk.shift{width:96px} .kbk.fn{width:48px} .kbk.ctrl,.kbk.opt{width:58px} .kbk.cmd{width:66px}
   .kbk.space{width:150px}
-  .kbk .c{position:absolute; left:8px; bottom:6px; font-size:10.5px; color:#9a9ea4; letter-spacing:.01em; line-height:1}
-  .kbk .t{position:absolute; left:8px; top:6px; font-size:9.5px; color:#82868d}
-  .kbk .tr{position:absolute; right:8px; top:6px; font-size:13px; color:#9a9ea4}
-  .kbk .dot{position:absolute; left:9px; top:9px; width:5px; height:5px; border-radius:50%; background:#3c3f45}
-  .kbk.lit{box-shadow:0 0 0 1px var(--accent), 0 0 28px 3px rgba(79,140,255,.55), 0 2px 2px rgba(0,0,0,.5);
+  .kbk .c{position:absolute; left:8px; bottom:6px; font-size:10.5px; color:#9da1a8; letter-spacing:.01em; line-height:1}
+  .kbk .ml{position:absolute; left:8px; bottom:6px; display:flex; flex-direction:column; align-items:flex-start; gap:3px; line-height:1}
+  .kbk .ml .g{font-size:12.5px; color:#c4c8ce; display:flex}
+  .kbk .ml .g i{font-size:12px}
+  .kbk .ml .w{font-size:10px; color:#9da1a8}
+  .kbk.lit{background:linear-gradient(180deg,#2f5494,#1d3c66); border-color:var(--accent);
+    box-shadow:0 0 0 1px var(--accent), 0 0 28px 3px rgba(79,140,255,.55), inset 0 1px 0 rgba(255,255,255,.16);
     color:#fff; transition:box-shadow .1s ease}
-  .kbk.lit::before{background:linear-gradient(180deg,#2f5494,#163059);
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.2), inset 0 -3px 5px rgba(0,0,0,.4)}
-  .kbk.lit .c,.kbk.lit .t,.kbk.lit .tr{color:#eaf1ff}
-  @media(max-width:520px){ .kbk{height:38px; width:38px; font-size:13px}
-    .kbk.tab{width:46px} .kbk.caps{width:56px} .kbk.shift{width:78px}
-    .kbk.fn{width:40px} .kbk.ctrl,.kbk.opt,.kbk.cmd{width:48px} }
+  .kbk.lit .ml .g,.kbk.lit .ml .w,.kbk.lit .c{color:#eaf1ff}
+  @media(max-width:520px){ .kbk{height:38px; width:40px; font-size:13px}
+    .kbk.shift{width:82px} .kbk.fn{width:42px} .kbk.ctrl,.kbk.opt{width:52px} .kbk.cmd{width:60px} }
   .stage{font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:21px; line-height:1.5}
   .demo .lbl{font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--faint);
     font-family:-apple-system,sans-serif}
@@ -287,13 +281,13 @@
             <span class="kbk">Z</span><span class="kbk">X</span><span class="kbk">C</span><span class="kbk">V</span><span class="kbk">B</span><span class="kbk">N</span><span class="kbk">M</span>
           </div>
           <div class="r">
-            <span class="kbk fn"><span class="c">fn</span></span>
-            <span class="kbk ctrl"><span class="c">control</span></span>
-            <span class="kbk opt" id="optKey"><span class="t">alt</span><span class="c">option</span></span>
-            <span class="kbk cmd"><span class="tr">⌘</span><span class="c">command</span></span>
+            <span class="kbk fn"><span class="ml"><span class="g"><i class="ph ph-globe-simple"></i></span><span class="w">fn</span></span></span>
+            <span class="kbk ctrl"><span class="ml"><span class="g">⌃</span><span class="w">control</span></span></span>
+            <span class="kbk opt" id="optKey"><span class="ml"><span class="g">⌥</span><span class="w">option</span></span></span>
+            <span class="kbk cmd"><span class="ml"><span class="g">⌘</span><span class="w">command</span></span></span>
             <span class="kbk space"></span>
-            <span class="kbk cmd"><span class="tr">⌘</span><span class="c">command</span></span>
-            <span class="kbk opt"><span class="t">alt</span><span class="c">option</span></span>
+            <span class="kbk cmd"><span class="ml"><span class="g">⌘</span><span class="w">command</span></span></span>
+            <span class="kbk opt"><span class="ml"><span class="g">⌥</span><span class="w">option</span></span></span>
           </div>
         </div>
       </div>

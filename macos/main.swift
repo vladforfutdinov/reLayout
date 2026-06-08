@@ -485,7 +485,15 @@ final class ShortcutField: NSView {
 
 // Settings window that closes on Esc (macOS convention via cancelOperation).
 final class SettingsWindow: NSWindow {
-    override func cancelOperation(_ sender: Any?) { close() }
+    override func cancelOperation(_ sender: Any?) { close() }   // Esc
+
+    // No main menu (agent app), so Cmd+W has no handler — close on it here.
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if event.modifierFlags.contains(.command), event.charactersIgnoringModifiers == "w" {
+            close(); return true
+        }
+        return super.performKeyEquivalent(with: event)
+    }
 }
 
 // MARK: - App controller

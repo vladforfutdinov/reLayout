@@ -1202,7 +1202,10 @@ final class AppController: NSObject, NSApplicationDelegate {
             guard let refcon else { return Unmanaged.passUnretained(event) }
             let me = Unmanaged<AppController>.fromOpaque(refcon).takeUnretainedValue()
             if type == .keyDown,
-               event.getIntegerValueField(.eventSourceUserData) != AppController.synthMarker {
+               event.getIntegerValueField(.eventSourceUserData) != AppController.synthMarker,
+               !event.flags.contains(.maskCommand), !event.flags.contains(.maskControl) {
+                // Skip shortcuts/combo-hotkeys (Cmd/Ctrl held): not text, and the
+                // combo-hotkey's own key must not clear a pending auto-fix undo.
                 var len = 0
                 var buf = [UniChar](repeating: 0, count: 4)
                 event.keyboardGetUnicodeString(maxStringLength: 4, actualStringLength: &len, unicodeString: &buf)
@@ -1229,6 +1232,11 @@ final class AppController: NSObject, NSApplicationDelegate {
 
     // Feed a produced character into the word buffer; evaluate on a word boundary.
     fileprivate func autoFeed(_ s: String) {
+        // Any real keystroke after an (auto or hotkey) conversion ends its undo
+        // window — the caret has moved on, so a later hotkey press should CONVERT
+        // the new word, not revert the old fix. The undo hotkey itself is a
+        // modifier/Cmd-combo (filtered above), so it never reaches here.
+        lastConversion = nil
         if s == " " || s == "\r" || s == "\n" || s == "\t" {
             autoEvaluate(boundary: s); autoBuffer = ""
         } else if s.count == 1, let c = s.first, c.isLetter {

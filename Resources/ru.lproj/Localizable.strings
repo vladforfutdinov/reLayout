@@ -10,7 +10,7 @@
 "settings.title" = "Настройки reLayout";
 "settings.openAtLogin" = "Запускать при входе";
 "settings.layouts" = "Раскладки:";
-"settings.hotkey" = "Сочетание:";
+"settings.hotkey" = "Хоткей/Последовательность:";
 "settings.conflict" = "⚠︎ уже используется: %@";
 "settings.restoreDefault" = "Сбросить по умолчанию";
 

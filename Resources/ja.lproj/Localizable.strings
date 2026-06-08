@@ -10,7 +10,7 @@
 "settings.title" = "reLayout 設定";
 "settings.openAtLogin" = "ログイン時に開く";
 "settings.layouts" = "レイアウト：";
-"settings.hotkey" = "ショートカット：";
+"settings.hotkey" = "ホットキー/シーケンス：";
 "settings.conflict" = "⚠︎ %@ で既に使用されています";
 "settings.restoreDefault" = "デフォルトに戻す";
 

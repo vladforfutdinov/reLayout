@@ -10,7 +10,7 @@
 "settings.title" = "Параметри reLayout";
 "settings.openAtLogin" = "Запускати під час входу";
 "settings.layouts" = "Розкладки:";
-"settings.hotkey" = "Скорочення:";
+"settings.hotkey" = "Хоткей/Послідовність:";
 "settings.conflict" = "⚠︎ вже використовується: %@";
 "settings.restoreDefault" = "Відновити типове";
 

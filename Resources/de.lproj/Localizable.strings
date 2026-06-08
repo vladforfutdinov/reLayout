@@ -10,7 +10,7 @@
 "settings.title" = "reLayout-Einstellungen";
 "settings.openAtLogin" = "Beim Anmelden öffnen";
 "settings.layouts" = "Belegungen:";
-"settings.hotkey" = "Tastenkürzel:";
+"settings.hotkey" = "Hotkey/Sequenz:";
 "settings.conflict" = "⚠︎ wird bereits verwendet von %@";
 "settings.restoreDefault" = "Standard wiederherstellen";
 

@@ -10,7 +10,7 @@
 "settings.title" = "reLayout Settings";
 "settings.openAtLogin" = "Open at login";
 "settings.layouts" = "Layouts:";
-"settings.hotkey" = "Hotkey:";
+"settings.hotkey" = "Hotkey/Sequence:";
 "settings.conflict" = "⚠︎ also used by %@";
 "settings.restoreDefault" = "Restore default";
 

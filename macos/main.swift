@@ -322,8 +322,8 @@ func symbolicHotkeyName(_ id: Int) -> String {
 
 final class ShortcutField: NSView {
     var display: String { didSet { needsDisplay = true } }
-    // (mode, keyCode, carbonMods, chord, display)
-    var onCommit: ((HKMode, UInt32, UInt32, [UInt16], String) -> Void)?
+    // (mode, keyCode, carbonMods, chord, taps, display)
+    var onCommit: ((HKMode, UInt32, UInt32, [UInt16], Int, String) -> Void)?
     // Called true when recording starts, false when it ends — lets the owner
     // suspend the live hotkey so it doesn't fire (and steal focus) while typing one.
     var onRecordingChanged: ((Bool) -> Void)?
@@ -332,8 +332,21 @@ final class ShortcutField: NSView {
     private var monitor: Any?
     private var peak: Set<UInt16>?
     private var comboUsed = false
-    private var lastCommitted: String?   // dedupe re-commits; also = value shown while recording
     private var committing = false       // suppress resign-triggered stop during commit churn
+
+    // Current sequence being recorded: an activation repeated N times within the
+    // window. A finalize-timer fires `seqWindow` after the last tap; that's when
+    // the sequence is "finished" and committed. The field stays focused so the
+    // user can immediately record a new sequence (which replaces this one).
+    private let seqWindow = 0.45
+    private var seqMode: HKMode?
+    private var seqCode: UInt32 = 0
+    private var seqMods: UInt32 = 0
+    private var seqChord: [UInt16] = []
+    private var seqBase = ""              // base display of the activation (no ×N)
+    private var seqTaps = 0
+    private var seqLastTime: TimeInterval = 0
+    private var seqTimer: DispatchWorkItem?
 
     init(display: String) {
         self.display = display
@@ -368,10 +381,10 @@ final class ShortcutField: NSView {
         path.lineWidth = recording ? 2 : 1
         path.stroke()
 
-        // While recording: show the captured chord once there is one, else the
+        // While recording: show the captured sequence once there is one, else the
         // "Type shortcut…" placeholder.
-        let placeholder = recording && lastCommitted == nil
-        let text = recording ? (lastCommitted ?? L("shortcut.placeholder")) : display
+        let placeholder = recording && seqMode == nil
+        let text = recording ? (seqMode == nil ? L("shortcut.placeholder") : seqDisplay()) : display
         let color: NSColor = placeholder ? .secondaryLabelColor : .labelColor
         let attrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: 13), .foregroundColor: color,
@@ -387,7 +400,8 @@ final class ShortcutField: NSView {
 
     private func start() {
         recording = true
-        peak = nil; comboUsed = false; lastCommitted = nil
+        peak = nil; comboUsed = false
+        seqMode = nil; seqTaps = 0; seqBase = ""; seqTimer?.cancel(); seqTimer = nil
         onRecordingChanged?(true)   // pause the live hotkey while we capture a new one
         window?.makeFirstResponder(self)
         monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged]) { [weak self] ev in
@@ -398,19 +412,24 @@ final class ShortcutField: NSView {
         }
     }
 
-    private func stop() {
+    // finalize=true commits an in-progress sequence (click away / re-click); Esc
+    // passes false to discard the not-yet-saved current sequence.
+    private func stop(finalize: Bool = true) {
+        guard recording else { return }
         if let m = monitor { NSEvent.removeMonitor(m); monitor = nil }
+        seqTimer?.cancel(); seqTimer = nil
+        if finalize, seqMode != nil { finalizeSequence() }
         recording = false
         onRecordingChanged?(false)   // resume the live hotkey
     }
 
     private func handleKeyDown(_ ev: NSEvent) -> NSEvent? {
-        if ev.keyCode == UInt16(kVK_Escape) { stop(); return nil }   // cancel
+        if ev.keyCode == UInt16(kVK_Escape) { stop(finalize: false); return nil }   // cancel
         comboUsed = true
         let mods = ev.modifierFlags.intersection([.command, .option, .control, .shift])
         guard !mods.intersection([.command, .option, .control]).isEmpty else { return nil } // need a real modifier
         let disp = comboDisplay(ev.keyCode, mods, ev.charactersIgnoringModifiers)
-        commit(.carbon, UInt32(ev.keyCode), carbonModsFrom(mods), [], disp)
+        recordActivation(.carbon, UInt32(ev.keyCode), carbonModsFrom(mods), [], disp)
         return nil
     }
 
@@ -418,7 +437,7 @@ final class ShortcutField: NSView {
         let cur = pressedModKeys(ev.modifierFlags)
         if cur.isEmpty {
             if !comboUsed, let p = peak, !p.isEmpty {
-                commit(.modTap, 0, 0, Array(p), chordDisplay(p))
+                recordActivation(.modTap, 0, 0, Array(p), chordDisplay(p))
             }
             peak = nil; comboUsed = false
         } else if peak == nil || cur.count > (peak?.count ?? 0) {
@@ -426,21 +445,37 @@ final class ShortcutField: NSView {
         }
     }
 
-    private func commit(_ mode: HKMode, _ code: UInt32, _ mods: UInt32, _ chord: [UInt16], _ disp: String) {
-        display = disp
-        committing = true                 // onCommit may relayout the window and churn focus
-        defer { committing = false }
-        if disp != lastCommitted {
-            lastCommitted = disp
-            onCommit?(mode, code, mods, chord, disp)
+    private func seqDisplay() -> String { seqTaps > 1 ? "\(seqBase) ×\(seqTaps)" : seqBase }
+
+    // An activation completed. Same activation again within the window extends the
+    // sequence (×N); otherwise it starts a fresh one. (Re)arm the finalize timer —
+    // when it fires (no more taps), the sequence is committed.
+    private func recordActivation(_ mode: HKMode, _ code: UInt32, _ mods: UInt32, _ chord: [UInt16], _ base: String) {
+        let now = ProcessInfo.processInfo.systemUptime
+        if base == seqBase, now - seqLastTime <= seqWindow {
+            seqTaps += 1
+        } else {
+            seqMode = mode; seqCode = code; seqMods = mods; seqChord = chord; seqBase = base; seqTaps = 1
         }
-        // Keep recording (and focus) for BOTH modes so the user can pick another
-        // shortcut without re-clicking — including after a conflict, whose window
-        // resize would otherwise churn focus. Click away / Esc / re-click finalizes.
-        // Don't reset comboUsed here: for a combo it stays set until the trailing
-        // modifier release, so that release isn't mistaken for a chord.
+        seqLastTime = now
+        display = seqDisplay()
+        seqTimer?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.finalizeSequence() }
+        seqTimer = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + seqWindow, execute: work)
+    }
+
+    // The sequence is finished (window elapsed) -> save it. Stay focused so the
+    // user can immediately record a different sequence (which replaces this one).
+    private func finalizeSequence() {
+        guard let mode = seqMode else { return }
+        seqTimer = nil
+        let disp = seqDisplay()
+        display = disp
+        committing = true                 // onCommit relayouts the window / churns focus
+        defer { committing = false }
+        onCommit?(mode, seqCode, seqMods, seqChord, seqTaps, disp)
         window?.makeFirstResponder(self)
-        needsDisplay = true
     }
 }
 
@@ -480,6 +515,7 @@ final class AppController: NSObject, NSApplicationDelegate {
     private var hotKeyCode = UInt32(kVK_ANSI_R)   // carbon: virtual key
     private var hotKeyMods = UInt32(controlKey | optionKey)
     private var hotKeyChord: [UInt16] = [UInt16(kVK_Option)]   // modTap: modifier virtual keys
+    private var hotKeyTaps = 1     // activations within the window to fire (1 = single tap)
     private var hotKeyDisplay = "left⌥"
 
     // Last conversion, for double-tap undo: pressing the hotkey again within
@@ -504,14 +540,11 @@ final class AppController: NSObject, NSApplicationDelegate {
     fileprivate var tapInterrupted = false    // set by the key tap (file-scope callback)
     private var tapPolluted = false   // an out-of-set modifier appeared this cycle
 
-    // "Trigger on double-tap": fire only on the second hotkey activation within
-    // doubleTapWindow. While on, undo (press-again-to-revert) is disabled — a
-    // second double-tap would otherwise be ambiguous.
-    private var hotKeyDoubleTap: Bool {
-        get { UserDefaults.standard.bool(forKey: "hkDoubleTap") }
-        set { UserDefaults.standard.set(newValue, forKey: "hkDoubleTap") }
-    }
-    private var lastTriggerTime = 0.0
+    // Multi-tap hotkeys: a hotkey can require N activations within doubleTapWindow
+    // (e.g. double-tap Shift). The count is part of the recorded hotkey (hotKeyTaps),
+    // so there's no separate toggle. While hotKeyTaps > 1, press-again-undo is off.
+    private var tapSeqCount = 0
+    private var tapSeqTime = 0.0
     private let doubleTapWindow = 0.5
 
     // settings
@@ -681,17 +714,16 @@ final class AppController: NSObject, NSApplicationDelegate {
 
     // MARK: hotkey
 
-    // Single entry point for both hotkey modes. With "Trigger on double-tap"
-    // enabled, the conversion runs only on the second activation within
-    // doubleTapWindow; otherwise it runs on every activation.
+    // Single entry point for both hotkey modes. Fires once the hotkey has been
+    // activated hotKeyTaps times within doubleTapWindow (1 = fire immediately).
     func triggerHotkey() {
-        guard hotKeyDoubleTap else { worker.async { self.performRetype() }; return }
+        if hotKeyTaps <= 1 { worker.async { self.performRetype() }; return }
         let now = ProcessInfo.processInfo.systemUptime
-        if now - lastTriggerTime <= doubleTapWindow {
-            lastTriggerTime = 0                       // consumed — next press starts fresh
+        tapSeqCount = (now - tapSeqTime <= doubleTapWindow) ? tapSeqCount + 1 : 1
+        tapSeqTime = now
+        if tapSeqCount >= hotKeyTaps {
+            tapSeqCount = 0
             worker.async { self.performRetype() }
-        } else {
-            lastTriggerTime = now                     // first tap; wait for the second
         }
     }
 
@@ -719,7 +751,7 @@ final class AppController: NSObject, NSApplicationDelegate {
         tapArmed = false
         tapPolluted = false
         tapInterrupted = false
-        lastTriggerTime = 0   // don't let a stale double-tap timer carry into a new hotkey
+        tapSeqCount = 0; tapSeqTime = 0   // don't carry a stale multi-tap count into a new hotkey
     }
 
     // Tear down whatever is active, then install the current mode.
@@ -816,16 +848,19 @@ final class AppController: NSObject, NSApplicationDelegate {
         hotKeyCode = UInt32(d.integer(forKey: "hkCode"))
         hotKeyMods = UInt32(d.integer(forKey: "hkMods"))
         hotKeyChord = (d.array(forKey: "hkChord") as? [Int])?.map { UInt16($0) } ?? []
+        hotKeyTaps = max(1, d.integer(forKey: "hkTaps"))   // 0 (absent) -> 1
         hotKeyDisplay = d.string(forKey: "hkDisplay") ?? hotKeyDisplay
     }
 
-    private func saveHotkey(mode: HKMode, code: UInt32, mods: UInt32, chord: [UInt16], display: String) {
-        hotKeyMode = mode; hotKeyCode = code; hotKeyMods = mods; hotKeyChord = chord; hotKeyDisplay = display
+    private func saveHotkey(mode: HKMode, code: UInt32, mods: UInt32, chord: [UInt16], taps: Int, display: String) {
+        hotKeyMode = mode; hotKeyCode = code; hotKeyMods = mods; hotKeyChord = chord
+        hotKeyTaps = max(1, taps); hotKeyDisplay = display
         let d = UserDefaults.standard
         d.set(mode.rawValue, forKey: "hkType")
         d.set(Int(code), forKey: "hkCode")
         d.set(Int(mods), forKey: "hkMods")
         d.set(chord.map { Int($0) }, forKey: "hkChord")
+        d.set(hotKeyTaps, forKey: "hkTaps")
         d.set(display, forKey: "hkDisplay")
     }
 
@@ -835,13 +870,13 @@ final class AppController: NSObject, NSApplicationDelegate {
 
     @objc private func resetHotkey() {
         let d = AppController.defaultHotkey
-        commitHotkey(d.0, d.1, d.2, d.3, d.4)
+        commitHotkey(d.0, d.1, d.2, d.3, 1, d.4)
         shortcutField?.display = d.4
     }
 
     // Commit a hotkey captured by the ShortcutField.
-    private func commitHotkey(_ mode: HKMode, _ code: UInt32, _ mods: UInt32, _ chord: [UInt16], _ display: String) {
-        saveHotkey(mode: mode, code: code, mods: mods, chord: chord, display: display)
+    private func commitHotkey(_ mode: HKMode, _ code: UInt32, _ mods: UInt32, _ chord: [UInt16], _ taps: Int, _ display: String) {
+        saveHotkey(mode: mode, code: code, mods: mods, chord: chord, taps: taps, display: display)
         applyHotkey()
         setupMenu()
         let warn = mode == .carbon ? systemHotkeyConflict(keyCode: UInt16(code), cocoaMods: cocoaMods(mods)) : nil
@@ -902,8 +937,8 @@ final class AppController: NSObject, NSApplicationDelegate {
         }
 
         let field = ShortcutField(display: hotKeyDisplay)
-        field.onCommit = { [weak self] mode, code, mods, chord, disp in
-            self?.commitHotkey(mode, code, mods, chord, disp)
+        field.onCommit = { [weak self] mode, code, mods, chord, taps, disp in
+            self?.commitHotkey(mode, code, mods, chord, taps, disp)
         }
         field.onRecordingChanged = { [weak self] active in
             // suspend the live hotkey while recording so it can't fire and steal focus
@@ -931,17 +966,9 @@ final class AppController: NSObject, NSApplicationDelegate {
         }
         conflict.isHidden = conflict.stringValue.isEmpty   // no empty line when no conflict
 
-        // "Trigger on double-tap" toggle. When on, the convert action fires only
-        // on a double activation, and the press-again-to-undo gesture is disabled.
-        let doubleTapCb = NSButton(checkboxWithTitle: L("settings.doubleTap"),
-                                   target: self, action: #selector(toggleDoubleTap(_:)))
-        doubleTapCb.font = .systemFont(ofSize: 11)
-        doubleTapCb.state = hotKeyDoubleTap ? .on : .off
-
-        // hotkey field + double-tap toggle + (optional) conflict warning, stacked
-        // tight under the "Hotkey:" caption. (Undo is simply "press the hotkey again
-        // right after a conversion" — no separate hint needed.)
-        let hkColumn = NSStackView(views: [hkRow, doubleTapCb, conflict])
+        // hotkey field + (optional) conflict warning. The hotkey can be a multi-tap
+        // sequence (e.g. double Shift) — just record it twice; no separate toggle.
+        let hkColumn = NSStackView(views: [hkRow, conflict])
         hkColumn.orientation = .vertical
         hkColumn.alignment = .leading
         hkColumn.spacing = 4
@@ -1024,10 +1051,6 @@ final class AppController: NSObject, NSApplicationDelegate {
         loginCheckbox?.state = loginEnabled() ? .on : .off   // reflect real state
     }
 
-    @objc private func toggleDoubleTap(_ sender: NSButton) {
-        hotKeyDoubleTap = (sender.state == .on)
-        lastTriggerTime = 0
-    }
 
     // Language picker changed: tag 0 = follow system, else Loc.languages[tag-1].
     // Re-localize live by rebuilding the menu and recreating the Settings window.
@@ -1353,7 +1376,7 @@ final class AppController: NSObject, NSApplicationDelegate {
         // Press-again undo: a second hotkey within undoWindow of a conversion
         // reverses it. Disabled when "Trigger on double-tap" is on — a second
         // double-tap would be ambiguous with the trigger itself.
-        if !hotKeyDoubleTap, let last = lastConversion,
+        if hotKeyTaps == 1, let last = lastConversion,
            ProcessInfo.processInfo.systemUptime - last.time < undoWindow {
             lastConversion = nil
             performUndo(last)

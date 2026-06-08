@@ -1025,7 +1025,8 @@ final class AppController: NSObject, NSApplicationDelegate {
         stack.setCustomSpacing(14, after: sep2)
         content.addSubview(stack)
         NSLayoutConstraint.activate([
-            content.widthAnchor.constraint(equalToConstant: 340),   // fixes the window width
+            // No fixed width: the stack is pinned on both sides, so the content (and
+            // window) sizes to the widest control — auto-fit, no empty margin.
             stack.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 20),
             stack.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -20),
             stack.topAnchor.constraint(equalTo: content.topAnchor, constant: 20),

@@ -34,7 +34,7 @@
 AppId={{B7E1F2A0-3C4D-4E5F-9A1B-2C3D4E5F6A7B}
 AppName=reLayout
 AppVersion={#AppVer}
-AppPublisher=Vlad Forfutdinov
+AppPublisher=Volodymyr Forfutdinov
 DefaultDirName={autopf}\reLayout
 DisableProgramGroupPage=yes
 UninstallDisplayIcon={app}\ReLayoutWin.exe

@@ -1,5 +1,7 @@
 # reLayout
 
+**Website:** [vladforfutdinov.github.io/reLayout](https://vladforfutdinov.github.io/reLayout/)
+
 Punto/Caramba-style "retype the selection in the correct keyboard layout" for macOS — a
 tiny menu-bar app. Select (or just type) wrong-layout text, hit the hotkey, and it's
 retyped in the right layout; the system input source flips so you can keep going.

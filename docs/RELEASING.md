@@ -67,7 +67,10 @@ Release builds embed [Sparkle](https://sparkle-project.org) and check
      .sparkle/*/bin/generate_keys -x sparkle_private.key   # the file's contents = the secret
      ```
 2. Enable **GitHub Pages** for the repo, serving the **`gh-pages`** branch (root).
-   CI creates/updates `appcast.xml` there on each release.
+   CI creates/updates `appcast.xml` there on each release. The same branch also
+   hosts the **landing page** (`index.html` + `logo.png`) served at
+   `https://vladforfutdinov.github.io/reLayout/`; the appcast step only touches
+   `appcast.xml`, so it never clobbers the site.
 
 On release, CI signs the embedded `Sparkle.framework` with your Developer ID
 (same Team ID as the app, so Hardened Runtime's library validation passes),

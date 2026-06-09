@@ -6,6 +6,21 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
+## Website + identity rename (post-v1.2.13)
+
+- Added a presentation landing page on the `gh-pages` branch (`index.html` + `logo.png`,
+  alongside the Sparkle `appcast.xml`), served at
+  [vladforfutdinov.github.io/reLayout](https://vladforfutdinov.github.io/reLayout/).
+  Self-contained single file (dark theme, animated wrong→right demo over a Mac keyboard,
+  bento features, a "How it compares" table, Homebrew + DMG install). Iterated through
+  the `design-taste-frontend` skill for an anti-slop pass.
+- Renamed the bundle id `com.vlad.relayout` → **`com.vladforfutdinov.relayout`** (dev:
+  `.dev`) across `build.sh`, `Info.plist`, the Homebrew cask zap path, and docs. Note:
+  this resets the Accessibility grant + saved UserDefaults on first launch of the renamed
+  build (macOS treats it as a new app).
+- Aligned the author name to **Volodymyr Forfutdinov** (appcast commit identity, Windows
+  installer publisher) to match the app copyright and the site. Added the MIT `LICENSE`.
+
 ## v1.2.13 — per-app auto-correct exceptions
 
 - Auto-correct's hardcoded terminal/IDE exclusion set became a user-editable deny-list

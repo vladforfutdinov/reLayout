@@ -8,9 +8,10 @@ work (not per commit). Operational "where are we right now" lives in
 
 ## Website + identity rename (post-v1.2.13)
 
-- Added a presentation landing page on the `gh-pages` branch (`index.html` + `logo.png` +
-  `CNAME`, alongside the Sparkle `appcast.xml`), served at the custom domain
-  [relayout.forfutdinov.com](https://relayout.forfutdinov.com/).
+- Added a presentation landing page on the `gh-pages` branch (`index.html` + `logo.png`,
+  alongside the Sparkle `appcast.xml`), served at
+  [relayout.forfutdinov.com](https://relayout.forfutdinov.com/) by a DigitalOcean static
+  site that deploys from `gh-pages`.
   Self-contained single file (dark theme, animated wrong→right demo over a Mac keyboard,
   bento features, a "How it compares" table, Homebrew + DMG install). Iterated through
   the `design-taste-frontend` skill for an anti-slop pass.

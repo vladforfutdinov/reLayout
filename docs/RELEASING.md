@@ -66,12 +66,12 @@ Release builds embed [Sparkle](https://sparkle-project.org) and check
      ```sh
      .sparkle/*/bin/generate_keys -x sparkle_private.key   # the file's contents = the secret
      ```
-2. Enable **GitHub Pages** for the repo, serving the **`gh-pages`** branch (root).
-   CI creates/updates `appcast.xml` there on each release. The same branch also
-   hosts the **landing page** (`index.html` + `logo.png`) served at
-   `https://relayout.forfutdinov.com/` (custom domain via the `CNAME` file +
-   a DNS `CNAME` record `relayout` → `vladforfutdinov.github.io`); the appcast step
-   only touches `appcast.xml`, so it never clobbers the site or the `CNAME`.
+2. The **`gh-pages`** branch holds both the Sparkle `appcast.xml` and the **landing
+   page** (`index.html` + `logo.png`). It is served at
+   **`https://relayout.forfutdinov.com/`** by a **DigitalOcean static site** that
+   deploys from `gh-pages` (redeploys on push); GitHub Pages also mirrors it at the
+   `github.io` URL. The CI appcast step only touches `appcast.xml`, so it never
+   clobbers the site.
 
 On release, CI signs the embedded `Sparkle.framework` with your Developer ID
 (same Team ID as the app, so Hardened Runtime's library validation passes),

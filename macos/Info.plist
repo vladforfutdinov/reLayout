@@ -46,7 +46,7 @@
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
     <key>SUFeedURL</key>
-    <string>https://vladforfutdinov.github.io/reLayout/appcast.xml</string>
+    <string>https://relayout.forfutdinov.com/appcast.xml</string>
     <key>SUPublicEDKey</key>
     <string>5nsZXP2I7Da5DGBzVPpGrqAkYSXxFZcHMllmtiO7ymY=</string>
     <key>SUEnableAutomaticChecks</key>

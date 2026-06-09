@@ -52,7 +52,7 @@ To rotate: regenerate the key, replace the deploy key on the tap, update the sec
 ### Sparkle auto-update (EdDSA + appcast)
 
 Release builds embed [Sparkle](https://sparkle-project.org) and check
-`SUFeedURL` (`https://vladforfutdinov.github.io/reLayout/appcast.xml`).
+`SUFeedURL` (`https://relayout.forfutdinov.com/appcast.xml`).
 
 1. Build once with Sparkle to fetch the tools, then generate the EdDSA keypair:
    ```sh
@@ -69,8 +69,9 @@ Release builds embed [Sparkle](https://sparkle-project.org) and check
 2. Enable **GitHub Pages** for the repo, serving the **`gh-pages`** branch (root).
    CI creates/updates `appcast.xml` there on each release. The same branch also
    hosts the **landing page** (`index.html` + `logo.png`) served at
-   `https://vladforfutdinov.github.io/reLayout/`; the appcast step only touches
-   `appcast.xml`, so it never clobbers the site.
+   `https://relayout.forfutdinov.com/` (custom domain via the `CNAME` file +
+   a DNS `CNAME` record `relayout` → `vladforfutdinov.github.io`); the appcast step
+   only touches `appcast.xml`, so it never clobbers the site or the `CNAME`.
 
 On release, CI signs the embedded `Sparkle.framework` with your Developer ID
 (same Team ID as the app, so Hardened Runtime's library validation passes),

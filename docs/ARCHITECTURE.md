@@ -17,8 +17,8 @@ Tag `vX.Y.Z` → `.github/workflows/build.yml` signs (Developer ID), notarizes
 `reLayout.dmg` + `reLayout.zip`, updates the Sparkle appcast + Homebrew cask. See
 [`RELEASING.md`](RELEASING.md) for the secret list.
 
-Dev vs release builds use **different bundle IDs** (`com.vlad.relayout` vs
-`com.vlad.relayout.dev`) and different `.app` names so macOS keeps separate
+Dev vs release builds use **different bundle IDs** (`com.vladforfutdinov.relayout` vs
+`com.vladforfutdinov.relayout.dev`) and different `.app` names so macOS keeps separate
 Accessibility grants and UserDefaults.
 
 ## Conversion engine (`Core/Engine.swift`)

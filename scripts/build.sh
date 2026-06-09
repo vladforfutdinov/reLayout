@@ -28,9 +28,9 @@ if git describe --tags --exact-match >/dev/null 2>&1; then IS_RELEASE=1; else IS
 # and gitignored. Distinct from SwiftPM's .build/.
 OUT="dist"
 if [ "$IS_RELEASE" = "1" ]; then
-    APP="$OUT/ReLayout.app";        BUNDLE_ID="com.vlad.relayout";     DISPLAY_NAME="reLayout"
+    APP="$OUT/ReLayout.app";        BUNDLE_ID="com.vladforfutdinov.relayout";     DISPLAY_NAME="reLayout"
 else
-    APP="$OUT/ReLayout (dev).app";  BUNDLE_ID="com.vlad.relayout.dev"; DISPLAY_NAME="reLayout (dev)"
+    APP="$OUT/ReLayout (dev).app";  BUNDLE_ID="com.vladforfutdinov.relayout.dev"; DISPLAY_NAME="reLayout (dev)"
 fi
 
 mkdir -p "$OUT"

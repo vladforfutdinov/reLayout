@@ -20,17 +20,27 @@ Steps:
    - `./scripts/run-tests.sh` green (and `swift test` if the engine changed).
    - The version tag does not already exist (`git tag | grep`).
 
-3. **Draft the release notes.** Read `git log <prevtag>..HEAD --oneline` and the
+3. **Sync the docs.** Scan `git log <prevtag>..HEAD` for behavior changes and make
+   sure the current-state docs still match: `README.md` (user-facing behavior /
+   Use / Settings / Privacy), `docs/ARCHITECTURE.md` (engine algorithm, macOS app
+   description), `CLAUDE.md` (layout/conventions). Grep the docs for the old
+   behavior's terms and the touched symbol names; fix anything that now lies. Docs
+   that describe old behavior are worse than no docs. If a fix is needed, commit it
+   to `main` **before** tagging (the tag must contain it). `docs/HISTORY.md` gets a
+   new append-only block via `/handoff`, not here; `docs/SNAPSHOT.md` is the
+   gitignored working note.
+
+4. **Draft the release notes.** Read `git log <prevtag>..HEAD --oneline` and the
    actual diffs for anything user-visible. Write short markdown: a `## What's new
    in vX.Y.Z` header, one bullet per **user-visible** change in plain language
    (not raw commit titles), with a concrete before/after example where it helps.
    Skip pure internal/refactor/test/doc commits. **Show the draft and get the
    user's OK before tagging** — wording is the point of this command.
 
-4. **Tag and push.** Annotated tag (`git tag -a vX.Y.Z -m "<one-line summary>"`),
+5. **Tag and push.** Annotated tag (`git tag -a vX.Y.Z -m "<one-line summary>"`),
    then `git push origin main` and `git push origin vX.Y.Z`. This starts CI.
 
-5. **Apply the notes — keep the auto Full Changelog.** The release is created
+6. **Apply the notes — keep the auto Full Changelog.** The release is created
    mid-CI by `gh release create … --generate-notes`, so it does not exist at push
    time. `gh release edit --notes-file` *replaces* the body, which would drop the
    auto-generated `**Full Changelog**: …/compare/<prev>...<tag>` link. So combine:
@@ -47,10 +57,10 @@ Steps:
    ```
    Verify with `gh release view vX.Y.Z --json body`.
 
-6. **Report CI.** `gh run list --limit 3` — confirm the `build` (tag) and `core`
+7. **Report CI.** `gh run list --limit 3` — confirm the `build` (tag) and `core`
    runs, surface any failure. Note that the Sparkle appcast carries no
    `<description>`; the GitHub release body is where the notes live.
 
 Don't bump version files (the version comes from the git tag). Don't touch the
-Windows job (frozen; tag releases are macOS-only). See
-[release-notes-on-tag memory] — notes are mandatory on every tag.
+Windows job (frozen; tag releases are macOS-only). Two standing rules apply: notes
+are mandatory on every tag, and the docs must be current before tagging.

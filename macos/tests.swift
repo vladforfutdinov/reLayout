@@ -29,17 +29,18 @@ struct FakeLayout: LayoutMaps {
     var isCyrillic: Bool
 }
 
-// A Latin layout and a Cyrillic layout sharing the same physical keys, so a key
-// that types `g` in Latin types `п` in Cyrillic, etc. The last two rows live on an
-// Option layer (mods != 0) to mirror the real ß/æ <-> ы/э case.
+// A Latin layout and a Ukrainian-Cyrillic layout sharing the same physical keys, so
+// a key that types `g` in Latin types `п` in Cyrillic, etc. The last two rows live on
+// an Option layer (mods != 0) to exercise the modifier path (an Option-layer char
+// mapping to a Cyrillic letter, like the real ß/æ overlap).
 func makeLayouts() -> (latin: FakeLayout, cyr: FakeLayout) {
     // (keyCode, mods, latinChar, cyrChar)
     let rows: [(UInt16, UInt32, String, String)] = [
         (10, 0, "g", "п"), (11, 0, "h", "р"), (12, 0, "b", "и"), (13, 0, "d", "в"),
         (14, 0, "t", "е"), (15, 0, "n", "т"), (16, 0, "e", "у"), (17, 0, "l", "д"),
-        (18, 0, "o", "щ"), (19, 0, "q", "й"), (20, 0, "s", "с"), (21, 0, "k", "л"),
+        (18, 0, "o", "щ"), (19, 0, "q", "й"), (20, 0, "s", "і"), (21, 0, "k", "л"),
         (22, 0, "a", "ф"), (23, 0, "i", "ш"),
-        (100, 1, "ß", "ы"), (101, 1, "æ", "э"),
+        (100, 1, "ß", "є"), (101, 1, "æ", "ї"),
     ]
     var lC2S = [String: KeyStroke](), lS2C = [KeyStroke: String]()
     var cC2S = [String: KeyStroke](), cS2C = [KeyStroke: String]()
@@ -56,30 +57,30 @@ func makeLayouts() -> (latin: FakeLayout, cyr: FakeLayout) {
 
 func testTransliterate() {
     let (latin, cyr) = makeLayouts()
-    eq(transliterate("ghbdtn", from: latin, to: cyr), "привет", "translit latin->cyr full word")
-    eq(transliterate("привет", from: cyr, to: latin), "ghbdtn", "translit cyr->latin full word")
+    eq(transliterate("ghbdsn", from: latin, to: cyr), "привіт", "translit latin->cyr full word")
+    eq(transliterate("привіт", from: cyr, to: latin), "ghbdsn", "translit cyr->latin full word")
     // Unmapped chars pass through verbatim.
     eq(transliterate("g!g", from: latin, to: cyr), "п!п", "translit keeps unmapped chars")
-    eq(transliterate("ßæ", from: latin, to: cyr), "ыэ", "translit option layer ß/æ -> ы/э")
+    eq(transliterate("ßæ", from: latin, to: cyr), "єї", "translit option layer ß/æ -> є/ї")
 }
 
 func testConvertWrongLatinSource() {
     let (latin, cyr) = makeLayouts()
     // Latin "wrong" word converts; Cyrillic words pass through untouched.
-    eq(convertWrong("ghbdtn", src: latin, dst: cyr), "привет", "convert latin word")
-    eq(convertWrong("я сказал ghbdtn", src: latin, dst: cyr), "я сказал привет",
+    eq(convertWrong("ghbdsn", src: latin, dst: cyr), "привіт", "convert latin word")
+    eq(convertWrong("я сказав ghbdsn", src: latin, dst: cyr), "я сказав привіт",
        "convert only the latin word, keep cyrillic words")
-    eq(convertWrong("я написал ßæ", src: latin, dst: cyr), "я написал ыэ",
+    eq(convertWrong("я написав ßæ", src: latin, dst: cyr), "я написав єї",
        "convert option-layer latin word")
     // Already-correct (all-Cyrillic) text -> no change -> nil.
-    check(convertWrong("привет мир", src: latin, dst: cyr) == nil,
+    check(convertWrong("привіт світ", src: latin, dst: cyr) == nil,
           "latin-src: all-cyrillic input returns nil")
 }
 
 func testConvertWrongCyrillicSource() {
     let (latin, cyr) = makeLayouts()
     eq(convertWrong("руддщ", src: cyr, dst: latin), "hello", "convert cyr word -> latin")
-    eq(convertWrong("I said привет", src: cyr, dst: latin), "I said ghbdtn",
+    eq(convertWrong("I said привіт", src: cyr, dst: latin), "I said ghbdsn",
        "cyr-src: convert only the cyrillic word, keep latin words")
     check(convertWrong("hello world", src: cyr, dst: latin) == nil,
           "cyr-src: all-latin input returns nil")
@@ -88,9 +89,9 @@ func testConvertWrongCyrillicSource() {
 func testConvertWrongWhitespace() {
     let (latin, cyr) = makeLayouts()
     // Whitespace runs (incl. multiple spaces / tabs / newlines) preserved exactly.
-    eq(convertWrong("ghbdtn\t\nghbdtn", src: latin, dst: cyr), "привет\t\nпривет",
+    eq(convertWrong("ghbdsn\t\nghbdsn", src: latin, dst: cyr), "привіт\t\nпривіт",
        "whitespace runs preserved")
-    eq(convertWrong("  ghbdtn  ", src: latin, dst: cyr), "  привет  ",
+    eq(convertWrong("  ghbdsn  ", src: latin, dst: cyr), "  привіт  ",
        "leading/trailing spaces preserved")
 }
 

@@ -11,15 +11,16 @@ final class EngineTests: XCTestCase {
         var isCyrillic: Bool
     }
 
-    // Latin and Cyrillic layouts sharing the same physical keys; last two rows on
-    // an Option/AltGr layer (mods != 0) mirror the real ß/æ <-> ы/э case.
+    // Latin and Ukrainian-Cyrillic layouts sharing the same physical keys; last two
+    // rows live on an Option/AltGr layer (mods != 0) to exercise the modifier path
+    // (an Option-layer char mapping to a Cyrillic letter, like the real ß/æ overlap).
     func makeLayouts() -> (latin: FakeLayout, cyr: FakeLayout) {
         let rows: [(UInt16, UInt32, String, String)] = [
             (10, 0, "g", "п"), (11, 0, "h", "р"), (12, 0, "b", "и"), (13, 0, "d", "в"),
             (14, 0, "t", "е"), (15, 0, "n", "т"), (16, 0, "e", "у"), (17, 0, "l", "д"),
-            (18, 0, "o", "щ"), (19, 0, "q", "й"), (20, 0, "s", "с"), (21, 0, "k", "л"),
+            (18, 0, "o", "щ"), (19, 0, "q", "й"), (20, 0, "s", "і"), (21, 0, "k", "л"),
             (22, 0, "a", "ф"), (23, 0, "i", "ш"),
-            (100, 1, "ß", "ы"), (101, 1, "æ", "э"),
+            (100, 1, "ß", "є"), (101, 1, "æ", "ї"),
         ]
         var lC2S = [String: KeyStroke](), lS2C = [KeyStroke: String]()
         var cC2S = [String: KeyStroke](), cS2C = [KeyStroke: String]()
@@ -34,31 +35,31 @@ final class EngineTests: XCTestCase {
 
     func testTransliterate() {
         let (latin, cyr) = makeLayouts()
-        XCTAssertEqual(transliterate("ghbdtn", from: latin, to: cyr), "привет")
-        XCTAssertEqual(transliterate("привет", from: cyr, to: latin), "ghbdtn")
+        XCTAssertEqual(transliterate("ghbdsn", from: latin, to: cyr), "привіт")
+        XCTAssertEqual(transliterate("привіт", from: cyr, to: latin), "ghbdsn")
         XCTAssertEqual(transliterate("g!g", from: latin, to: cyr), "п!п")
-        XCTAssertEqual(transliterate("ßæ", from: latin, to: cyr), "ыэ")
+        XCTAssertEqual(transliterate("ßæ", from: latin, to: cyr), "єї")
     }
 
     func testConvertWrongLatinSource() {
         let (latin, cyr) = makeLayouts()
-        XCTAssertEqual(convertWrong("ghbdtn", src: latin, dst: cyr), "привет")
-        XCTAssertEqual(convertWrong("я сказал ghbdtn", src: latin, dst: cyr), "я сказал привет")
-        XCTAssertEqual(convertWrong("я написал ßæ", src: latin, dst: cyr), "я написал ыэ")
-        XCTAssertNil(convertWrong("привет мир", src: latin, dst: cyr))
+        XCTAssertEqual(convertWrong("ghbdsn", src: latin, dst: cyr), "привіт")
+        XCTAssertEqual(convertWrong("я сказав ghbdsn", src: latin, dst: cyr), "я сказав привіт")
+        XCTAssertEqual(convertWrong("я написав ßæ", src: latin, dst: cyr), "я написав єї")
+        XCTAssertNil(convertWrong("привіт світ", src: latin, dst: cyr))
     }
 
     func testConvertWrongCyrillicSource() {
         let (latin, cyr) = makeLayouts()
         XCTAssertEqual(convertWrong("руддщ", src: cyr, dst: latin), "hello")
-        XCTAssertEqual(convertWrong("I said привет", src: cyr, dst: latin), "I said ghbdtn")
+        XCTAssertEqual(convertWrong("I said привіт", src: cyr, dst: latin), "I said ghbdsn")
         XCTAssertNil(convertWrong("hello world", src: cyr, dst: latin))
     }
 
     func testWhitespacePreserved() {
         let (latin, cyr) = makeLayouts()
-        XCTAssertEqual(convertWrong("ghbdtn\t\nghbdtn", src: latin, dst: cyr), "привет\t\nпривет")
-        XCTAssertEqual(convertWrong("  ghbdtn  ", src: latin, dst: cyr), "  привет  ")
+        XCTAssertEqual(convertWrong("ghbdsn\t\nghbdsn", src: latin, dst: cyr), "привіт\t\nпривіт")
+        XCTAssertEqual(convertWrong("  ghbdsn  ", src: latin, dst: cyr), "  привіт  ")
     }
 
     func testScriptDetection() {
@@ -75,11 +76,11 @@ final class EngineTests: XCTestCase {
     }
 
     func testDominantScript() {
-        XCTAssertEqual(dominantScript("ghbdtn"), false)              // all Latin
-        XCTAssertEqual(dominantScript("привет"), true)               // all Cyrillic
-        XCTAssertEqual(dominantScript("ghbdtn ghbdtn слово"), false) // Latin majority
-        XCTAssertEqual(dominantScript("привет привет hello"), true)  // Cyrillic majority
-        XCTAssertNil(dominantScript("ghbdtn слово"))                 // 1:1 tie
+        XCTAssertEqual(dominantScript("ghbdsn"), false)              // all Latin
+        XCTAssertEqual(dominantScript("привіт"), true)               // all Cyrillic
+        XCTAssertEqual(dominantScript("ghbdsn ghbdsn слово"), false) // Latin majority
+        XCTAssertEqual(dominantScript("привіт привіт hello"), true)  // Cyrillic majority
+        XCTAssertNil(dominantScript("ghbdsn слово"))                 // 1:1 tie
         XCTAssertNil(dominantScript("123 !!!"))                      // no letters
         XCTAssertNil(dominantScript("   "))
     }
@@ -103,10 +104,10 @@ final class EngineTests: XCTestCase {
     }
 
     func testTextHasScript() {
-        XCTAssertTrue(textHasScript("ghbdtn слово", cyrillic: true))
-        XCTAssertTrue(textHasScript("ghbdtn слово", cyrillic: false))
-        XCTAssertFalse(textHasScript("ghbdtn", cyrillic: true))      // no Cyrillic
-        XCTAssertFalse(textHasScript("привет", cyrillic: false))     // no Latin
+        XCTAssertTrue(textHasScript("ghbdsn слово", cyrillic: true))
+        XCTAssertTrue(textHasScript("ghbdsn слово", cyrillic: false))
+        XCTAssertFalse(textHasScript("ghbdsn", cyrillic: true))      // no Cyrillic
+        XCTAssertFalse(textHasScript("привіт", cyrillic: false))     // no Latin
         XCTAssertFalse(textHasScript("123", cyrillic: true))
     }
 
@@ -120,43 +121,43 @@ final class EngineTests: XCTestCase {
 
     func testLineWindowMixedLine() {
         // The bug case: correct cyr word + wrong-layout tail; only the tail windows.
-        let w = window("привет ghbdtn")
-        XCTAssertEqual(w?.tail, " ghbdtn")
+        let w = window("привіт ghbdsn")
+        XCTAssertEqual(w?.tail, " ghbdsn")
         XCTAssertEqual(w?.cyr, false)
         // Mirrored scripts.
-        let v = window("hello ghbdtn привет")
-        XCTAssertEqual(v?.tail, " привет")
+        let v = window("hello ghbdsn привіт")
+        XCTAssertEqual(v?.tail, " привіт")
         XCTAssertEqual(v?.cyr, true)
     }
 
     func testLineWindowWholeLineOneScript() {
         // No other-script letter -> whole line, and no mid-word trim of the head.
-        XCTAssertEqual(window("ghbdtn rfr")?.tail, "ghbdtn rfr")
-        let w = window("привет мир")
-        XCTAssertEqual(w?.tail, "привет мир")
+        XCTAssertEqual(window("ghbdsn rfr")?.tail, "ghbdsn rfr")
+        let w = window("привіт світ")
+        XCTAssertEqual(w?.tail, "привіт світ")
         XCTAssertEqual(w?.cyr, true)
     }
 
     func testLineWindowMixedTokenTrimmedAway() {
         // Stop letter mid-token: the remainder is the stop word's tail -> nothing left.
-        XCTAssertNil(window("приветghbdtn"))
+        XCTAssertNil(window("привітghbdsn"))
     }
 
     func testLineWindowNeutralsSkipped() {
         // Digits/punctuation are neutral: walked over, kept in the window.
-        XCTAssertEqual(window("привет 123 ghbdtn")?.tail, " 123 ghbdtn")
-        XCTAssertEqual(window("привет ghbdtn!!")?.tail, " ghbdtn!!")
+        XCTAssertEqual(window("привіт 123 ghbdsn")?.tail, " 123 ghbdsn")
+        XCTAssertEqual(window("привіт ghbdsn!!")?.tail, " ghbdsn!!")
     }
 
     func testLineWindowMultipleWrongWords() {
-        XCTAssertEqual(window("привет rfr ltkf")?.tail, " rfr ltkf")
+        XCTAssertEqual(window("привіт rfr ltkf")?.tail, " rfr ltkf")
     }
 
     func testLineWindowCJK() {
         // A CJK letter is "another script": stops the walk…
-        XCTAssertEqual(window("今日は ghbdtn")?.tail, " ghbdtn")
+        XCTAssertEqual(window("今日は ghbdsn")?.tail, " ghbdsn")
         // …but can't anchor the wrong script when it ends the line.
-        XCTAssertNil(window("ghbdtn 今日は"))
+        XCTAssertNil(window("ghbdsn 今日は"))
     }
 
     func testLineWindowNothingToAnchor() {
@@ -168,12 +169,12 @@ final class EngineTests: XCTestCase {
     func testLineWindowConvertsOnlyTail() {
         // End-to-end over the fixtures: prefix verbatim + converted window.
         let (latin, cyr) = makeLayouts()
-        let text = "привет ghbdtn"
+        let text = "привіт ghbdsn"
         guard let (start, wrongCyr) = lastWrongWindow(text) else {
             return XCTFail("expected a window")
         }
         XCTAssertFalse(wrongCyr)
         let out = convertWrong(String(text[start...]), src: latin, dst: cyr)
-        XCTAssertEqual(String(text[..<start]) + (out ?? ""), "привет привет")
+        XCTAssertEqual(String(text[..<start]) + (out ?? ""), "привіт привіт")
     }
 }

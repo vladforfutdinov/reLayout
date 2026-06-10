@@ -8,10 +8,11 @@ reLayout is a tiny menu-bar macOS app (with a nascent Windows port) that retypes
 
 ## Session handoff (context across sessions)
 
-Two files keep context between sessions — read both at the start of a session and after `/clear`, before starting new work:
+Three files keep context between sessions — read all at the start of a session and after `/clear`, before starting new work:
 
 - **[`docs/SNAPSHOT.md`](docs/SNAPSHOT.md)** — operational "where are we right now": what's done recently, in progress, known issues, next steps, test status, uncommitted work. **Overwrite sections each session — don't append.** This is a current-state snapshot, not a log.
 - **[`docs/HISTORY.md`](docs/HISTORY.md)** — append-only chronology, newest milestone on top, one block per coherent unit of work (not per commit). This is the durable record.
+- **[`docs/BACKLOG.md`](docs/BACKLOG.md)** — committed backlog of planned-but-not-started work (one section per item, with rationale + remaining steps). Move an item out once it's in progress. Travels with the repo, unlike `SNAPSHOT.md`.
 
 At the end of a session (or before `/clear`): run **`/handoff`** — it updates `docs/SNAPSHOT.md` to the new current state and appends a `docs/HISTORY.md` block for any milestone completed. `docs/HISTORY.md` is committed (travels with the repo); `docs/SNAPSHOT.md` is gitignored — a per-clone working note.
 
@@ -25,7 +26,7 @@ Resources/   macOS bundle resources — <lang>.lproj + icon PNGs + trigram/<lang
 Tests/       SwiftPM engine tests
 scripts/     build.sh, run-tests.sh, make-cert.sh, make-dmg.sh, notarize.sh, trigram/
 packaging/   Homebrew cask template + tap-push script
-docs/        ARCHITECTURE.md, RELEASING.md, HISTORY.md, SNAPSHOT.md
+docs/        ARCHITECTURE.md, RELEASING.md, HISTORY.md, SNAPSHOT.md, BACKLOG.md
 assets/      source art (rL-logo.svg) — not bundled
 dist/        build output (.app/.dmg/.zip) — gitignored
 ```

@@ -5,10 +5,9 @@
 #
 #   ./packaging/homebrew/update-cask.sh <version> <dmg-path>
 #
-# Env:
+# Env (all required once TAP_DEPLOY_KEY is set — CI passes repository variables):
 #   TAP_DEPLOY_KEY       private SSH deploy key (write) for the tap repo (skips if empty)
-#   RELAYOUT_TAP_REPO    owner/name of the tap (default: vladforfutdinov/homebrew-relayout;
-#                        legacy TAP_REPO still honored)
+#   RELAYOUT_TAP_REPO    owner/name of the tap (legacy TAP_REPO still honored)
 #   RELAYOUT_REPO_SLUG   owner/repo the cask's url/homepage point at
 #   RELAYOUT_BUNDLE_ID   bundle id for the zap-trash preferences path
 set -euo pipefail
@@ -16,14 +15,15 @@ cd "$(dirname "$0")/../.."   # repo root
 
 VERSION="${1:?usage: update-cask.sh <version> <dmg-path>}"
 DMG="${2:?usage: update-cask.sh <version> <dmg-path>}"
-TAP_REPO="${RELAYOUT_TAP_REPO:-${TAP_REPO:-vladforfutdinov/homebrew-relayout}}"
-REPO_SLUG="${RELAYOUT_REPO_SLUG:-vladforfutdinov/reLayout}"
-BUNDLE_ID="${RELAYOUT_BUNDLE_ID:-com.vladforfutdinov.relayout}"
 
 if [ -z "${TAP_DEPLOY_KEY:-}" ]; then
     echo "update-cask: TAP_DEPLOY_KEY unset — skipping tap bump"
     exit 0
 fi
+
+TAP_REPO="${RELAYOUT_TAP_REPO:-${TAP_REPO:?set RELAYOUT_TAP_REPO (repository variable) — see docs/RELEASING.md}}"
+REPO_SLUG="${RELAYOUT_REPO_SLUG:?set RELAYOUT_REPO_SLUG (repository variable) — see docs/RELEASING.md}"
+BUNDLE_ID="${RELAYOUT_BUNDLE_ID:?set RELAYOUT_BUNDLE_ID (repository variable) — see docs/RELEASING.md}"
 
 SHA="$(shasum -a 256 "$DMG" | awk '{print $1}')"
 

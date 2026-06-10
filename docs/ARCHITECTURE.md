@@ -10,15 +10,19 @@ the detail it links to.
 - `WITH_SPARKLE=1` — fetch & embed Sparkle 2.6.4 framework, compile with `-D SPARKLE`. CI uses this for releases.
 - `SIGN_IDENTITY` — Developer ID Application identity. Triggers Hardened Runtime + secure timestamp (notarization-ready). Without it, uses `ReLayout Self Signed` if present, else ad-hoc.
 
-Fork identity (defaults = upstream; set as CI repository *variables* or local env —
-they are public values, not secrets; see [`RELEASING.md`](RELEASING.md) → "Forking"):
+Owner identity — **no owner values are hardcoded in the repo.** Resolution order in
+`build.sh`: `RELAYOUT_*` env vars (CI sets them from repository *variables*) →
+`scripts/identity.env` (gitignored local file; copy `identity.env.example`) →
+neutral fallbacks (`com.example.relayout`, repo slug derived from the git origin
+remote, Sparkle disabled). Release builds (`RELAYOUT_RELEASE=1` / exact tag)
+**fail** under the neutral id. See [`RELEASING.md`](RELEASING.md) → "Forking".
 
-- `RELAYOUT_BUNDLE_ID` — base bundle id (dev builds append `.dev`). Default `com.vladforfutdinov.relayout`.
-- `RELAYOUT_DISPLAY_NAME` — app display name (dev appends ` (dev)`). Default `reLayout`.
-- `RELAYOUT_REPO_SLUG` — GitHub `owner/repo` for the About link (injected into the bundle as `RLRepoSlug`) and the Homebrew cask. Default `vladforfutdinov/reLayout`.
-- `RELAYOUT_FEED_URL` — Sparkle `SUFeedURL`. Default `https://relayout.forfutdinov.com/appcast.xml`.
+- `RELAYOUT_BUNDLE_ID` — base bundle id (dev builds append `.dev`).
+- `RELAYOUT_DISPLAY_NAME` — app display name (dev appends ` (dev)`).
+- `RELAYOUT_REPO_SLUG` — GitHub `owner/repo` for the About link (injected into the bundle as `RLRepoSlug`; empty hides the link) and the Homebrew cask.
+- `RELAYOUT_FEED_URL` — Sparkle `SUFeedURL`. Empty → Sparkle keys removed from the bundle, automatic checks disabled.
 - `RELAYOUT_SU_PUBLIC_KEY` — Sparkle `SUPublicEDKey`; **pairs with the `SPARKLE_ED_PRIVATE_KEY` secret** — replace both together.
-- `RELAYOUT_TAP_REPO` — Homebrew tap `owner/name` (read by `packaging/homebrew/update-cask.sh`, not build.sh). Default `vladforfutdinov/homebrew-relayout`.
+- `RELAYOUT_TAP_REPO` — Homebrew tap `owner/name` (read by `packaging/homebrew/update-cask.sh`, not build.sh).
 
 ## Release flow
 
@@ -27,8 +31,8 @@ Tag `vX.Y.Z` → `.github/workflows/build.yml` signs (Developer ID), notarizes
 `reLayout.dmg` + `reLayout.zip`, updates the Sparkle appcast + Homebrew cask. See
 [`RELEASING.md`](RELEASING.md) for the secret list.
 
-Dev vs release builds use **different bundle IDs** (`com.vladforfutdinov.relayout` vs
-`com.vladforfutdinov.relayout.dev`) and different `.app` names so macOS keeps separate
+Dev vs release builds use **different bundle IDs** (the base `RELAYOUT_BUNDLE_ID` vs
+the same id + `.dev`) and different `.app` names so macOS keeps separate
 Accessibility grants and UserDefaults.
 
 ## Conversion engine (`Core/Engine.swift`)

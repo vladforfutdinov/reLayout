@@ -43,7 +43,7 @@ swift test               # cross-platform engine tests via SwiftPM (Tests/ReLayo
 
 Scripts `cd` to the repo root, so they work from anywhere. Build output (`ReLayout.app`, `reLayout.dmg`, `reLayout.zip`) lands under `dist/` (gitignored).
 
-Dev vs release builds use **different bundle IDs** (`com.vladforfutdinov.relayout` vs `com.vladforfutdinov.relayout.dev`) and different `.app` names so macOS keeps separate Accessibility grants and UserDefaults.
+Dev vs release builds use **different bundle IDs** (base `RELAYOUT_BUNDLE_ID` vs the same + `.dev`) and different `.app` names so macOS keeps separate Accessibility grants and UserDefaults. Owner identity (bundle id, repo slug, Sparkle feed/key, tap) is **not hardcoded** — it comes from `RELAYOUT_*` env vars / CI repository variables / gitignored `scripts/identity.env` (copy `identity.env.example`), with neutral fallbacks for identity-less dev builds.
 
 Build env vars, the release/notarization flow, and the full architecture (engine algorithm, macOS file map, Windows port) live in **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)**. Release secrets are in [`docs/RELEASING.md`](docs/RELEASING.md).
 

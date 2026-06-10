@@ -10,7 +10,8 @@ import Sparkle   // only linked in release builds (build.sh WITH_SPARKLE=1)
 
 // GitHub owner/repo this build points at (About link). Injected into the bundle
 // by build.sh from RELAYOUT_REPO_SLUG so forks rebrand without editing sources.
-let repoSlug = (Bundle.main.infoDictionary?["RLRepoSlug"] as? String) ?? "vladforfutdinov/reLayout"
+// Empty (identity-less local build) hides the link in Settings.
+let repoSlug = (Bundle.main.infoDictionary?["RLRepoSlug"] as? String) ?? ""
 
 // Localized UI string. Keys live in <lang>.lproj/Localizable.strings (copied
 // into the app bundle by build.sh). Missing key -> the key itself is returned.
@@ -1104,6 +1105,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         link.isBordered = false; link.bezelStyle = .inline; link.alignment = .center
         link.attributedTitle = NSAttributedString(string: url, attributes: [
             .foregroundColor: NSColor.linkColor, .font: NSFont.systemFont(ofSize: 11)])
+        link.isHidden = repoSlug.isEmpty   // identity-less build: nothing to point at
         let copyright = makeSecondaryLabel((info?["NSHumanReadableCopyright"] as? String) ?? "")
 
         func sep() -> NSBox {
@@ -1189,7 +1191,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     }
 
     @objc private func openProjectURL() {
-        if let u = URL(string: "https://github.com/\(repoSlug)") { NSWorkspace.shared.open(u) }
+        guard !repoSlug.isEmpty, let u = URL(string: "https://github.com/\(repoSlug)") else { return }
+        NSWorkspace.shared.open(u)
     }
 
     // MARK: - Auto-correct exceptions (per-app deny-list editor)

@@ -12,6 +12,8 @@
 
 # editor local history
 .history/
+.idea/
+.vscode/
 
 # SwiftPM
 .build/

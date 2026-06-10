@@ -1,5 +1,8 @@
 # build output (.app/.dmg/.zip produced by scripts/build.sh + make-dmg.sh)
 /dist/
+
+# local owner identity (copy scripts/identity.env.example; CI uses repo variables)
+scripts/identity.env
 *.o
 *.swiftmodule
 .sparkle/

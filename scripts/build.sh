@@ -24,13 +24,34 @@ BUILD="$(git rev-list --count HEAD 2>/dev/null || echo 0)"
 if git describe --tags --exact-match >/dev/null 2>&1; then IS_RELEASE=1; else IS_RELEASE=0; fi
 [ "${RELAYOUT_RELEASE:-}" = "1" ] && IS_RELEASE=1
 [ "${RELAYOUT_DEV:-}" = "1" ] && IS_RELEASE=0
+# Fork/owner identity — no owner values are hardcoded in the repo. Resolution:
+#   1. RELAYOUT_* env vars (CI sets these from repository variables)
+#   2. scripts/identity.env (gitignored local file; copy identity.env.example)
+#   3. neutral fallbacks below (repo slug derived from the git origin remote)
+# SUPublicEDKey pairs with the SPARKLE_ED_PRIVATE_KEY secret: replace BOTH
+# together (see docs/RELEASING.md).
+if [ -f scripts/identity.env ]; then . scripts/identity.env; fi
+RELAYOUT_BUNDLE_ID="${RELAYOUT_BUNDLE_ID:-com.example.relayout}"
+RELAYOUT_DISPLAY_NAME="${RELAYOUT_DISPLAY_NAME:-reLayout}"
+RELAYOUT_REPO_SLUG="${RELAYOUT_REPO_SLUG:-${GITHUB_REPOSITORY:-$(git remote get-url origin 2>/dev/null \
+    | sed -E 's#^(git@github\.com:|https://github\.com/)##; s#\.git$##' | grep -E '^[^/]+/[^/]+$' || true)}}"
+RELAYOUT_FEED_URL="${RELAYOUT_FEED_URL:-}"
+RELAYOUT_SU_PUBLIC_KEY="${RELAYOUT_SU_PUBLIC_KEY:-}"
+
 # Build artifacts (.app/.dmg/.zip) live under dist/ — kept out of the repo root
 # and gitignored. Distinct from SwiftPM's .build/.
 OUT="dist"
 if [ "$IS_RELEASE" = "1" ]; then
-    APP="$OUT/ReLayout.app";        BUNDLE_ID="com.vladforfutdinov.relayout";     DISPLAY_NAME="reLayout"
+    # Refuse to produce a release artifact under the neutral placeholder id —
+    # set repository variables (CI) or scripts/identity.env (local).
+    if [ "$RELAYOUT_BUNDLE_ID" = "com.example.relayout" ]; then
+        echo "ERROR: release build without identity. Set RELAYOUT_BUNDLE_ID (and friends)" >&2
+        echo "       via repository variables or scripts/identity.env — see docs/RELEASING.md." >&2
+        exit 1
+    fi
+    APP="$OUT/ReLayout.app";        BUNDLE_ID="$RELAYOUT_BUNDLE_ID";     DISPLAY_NAME="$RELAYOUT_DISPLAY_NAME"
 else
-    APP="$OUT/ReLayout (dev).app";  BUNDLE_ID="com.vladforfutdinov.relayout.dev"; DISPLAY_NAME="reLayout (dev)"
+    APP="$OUT/ReLayout (dev).app";  BUNDLE_ID="$RELAYOUT_BUNDLE_ID.dev"; DISPLAY_NAME="$RELAYOUT_DISPLAY_NAME (dev)"
 fi
 
 mkdir -p "$OUT"
@@ -96,6 +117,20 @@ cp Resources/for-dark-text-1024.png Resources/for-light-text-1024.png "$APP/Cont
 /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $BUNDLE_ID" "$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleName $DISPLAY_NAME" "$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName $DISPLAY_NAME" "$APP/Contents/Info.plist"
+# Identity into the bundle: Sparkle feed/key + the repo slug shown in the About
+# link (read at runtime via RLRepoSlug; empty slug hides the link). With no feed
+# the Sparkle keys are removed and automatic checks disabled, so a keyless local
+# WITH_SPARKLE build can't phone nowhere or crash the updater.
+/usr/libexec/PlistBuddy -c "Set :RLRepoSlug $RELAYOUT_REPO_SLUG" "$APP/Contents/Info.plist"
+if [ -n "$RELAYOUT_FEED_URL" ]; then
+    /usr/libexec/PlistBuddy -c "Set :SUFeedURL $RELAYOUT_FEED_URL" "$APP/Contents/Info.plist"
+    /usr/libexec/PlistBuddy -c "Set :SUPublicEDKey $RELAYOUT_SU_PUBLIC_KEY" "$APP/Contents/Info.plist"
+else
+    /usr/libexec/PlistBuddy -c "Delete :SUFeedURL" "$APP/Contents/Info.plist" 2>/dev/null || true
+    /usr/libexec/PlistBuddy -c "Delete :SUPublicEDKey" "$APP/Contents/Info.plist" 2>/dev/null || true
+    /usr/libexec/PlistBuddy -c "Set :SUEnableAutomaticChecks false" "$APP/Contents/Info.plist"
+    [ "${WITH_SPARKLE:-0}" = "1" ] && echo "WARNING: WITH_SPARKLE=1 but RELAYOUT_FEED_URL is unset — updater disabled"
+fi
 echo "version: $VERSION (short $SHORT, build $BUILD) — $DISPLAY_NAME [$BUNDLE_ID]"
 
 SWIFT_FLAGS=(-O -parse-as-library)

@@ -85,7 +85,7 @@ private func buildControls(_ hwnd: HWND?) {
     _ = makeControl("STATIC", "reLayout  ·  version \(appVersion)", 0, 20, 172, 342, 20, hwnd, 0)
     _ = makeControl("STATIC", "Retype selection in the correct keyboard layout", 0, 20, 192, 342, 20, hwnd, 0)
     _ = makeControl("STATIC", "© 2026 Volodymyr Forfutdinov", 0, 20, 212, 342, 20, hwnd, 0)
-    _ = makeControl("SysLink", "<a>github.com/vladforfutdinov/reLayout</a>",
+    _ = makeControl("SysLink", "<a>github.com/\(repoSlug)</a>",
                     Int32(WS_TABSTOP), 20, 234, 342, 22, hwnd, idLnkAbout)
 
     _ = makeControl("BUTTON", "Close",

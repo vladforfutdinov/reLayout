@@ -51,6 +51,10 @@ open ./dist/ReLayout.app
 
 Signed/notarized release builds are produced by CI on a `vX.Y.Z` tag — see
 [RELEASING.md](docs/RELEASING.md) for the signing setup and required secrets.
+Forks can release under their own identity (bundle id, repo, Sparkle feed,
+Homebrew tap) via repository variables — see "Forking" in
+[RELEASING.md](docs/RELEASING.md); the install links above are the upstream
+project's values.
 
 ## Use
 

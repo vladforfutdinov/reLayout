@@ -52,7 +52,7 @@ To rotate: regenerate the key, replace the deploy key on the tap, update the sec
 ### Sparkle auto-update (EdDSA + appcast)
 
 Release builds embed [Sparkle](https://sparkle-project.org) and check
-`SUFeedURL` (`https://relayout.forfutdinov.com/appcast.xml`).
+`SUFeedURL` (injected at build time from the `RELAYOUT_FEED_URL` variable).
 
 1. Build once with Sparkle to fetch the tools, then generate the EdDSA keypair:
    ```sh
@@ -60,8 +60,9 @@ Release builds embed [Sparkle](https://sparkle-project.org) and check
    .sparkle/*/bin/generate_keys            # stores the private key in your keychain
    .sparkle/*/bin/generate_keys -p         # prints the PUBLIC key
    ```
-   - Put the **public** key in `macos/Info.plist` → `SUPublicEDKey` (replace
-     `REPLACE_WITH_SPARKLE_PUBLIC_ED_KEY`).
+   - Put the **public** key in the `RELAYOUT_SU_PUBLIC_KEY` repository variable
+     (and `scripts/identity.env` for local Sparkle builds) — `build.sh` injects
+     it into `Info.plist` → `SUPublicEDKey` at build time.
    - Export the **private** key and add it as the secret **`SPARKLE_ED_PRIVATE_KEY`**:
      ```sh
      .sparkle/*/bin/generate_keys -x sparkle_private.key   # the file's contents = the secret
@@ -77,6 +78,47 @@ On release, CI signs the embedded `Sparkle.framework` with your Developer ID
 (same Team ID as the app, so Hardened Runtime's library validation passes),
 notarizes, generates the signed appcast from `reLayout.zip`, and publishes it to
 `gh-pages`. If `SPARKLE_ED_PRIVATE_KEY` is unset the appcast step is skipped.
+
+## Forking: release under your own identity
+
+**No owner identity is hardcoded in the repo** — it comes entirely from
+configuration. Set these as **repository variables** (Settings → Secrets and
+variables → Actions → **Variables** — they are public values, NOT secrets):
+
+| Variable | Meaning |
+|---|---|
+| `RELAYOUT_BUNDLE_ID` | base bundle id (dev builds append `.dev`) |
+| `RELAYOUT_DISPLAY_NAME` | app display name |
+| `RELAYOUT_REPO_SLUG` | `owner/repo` for the About link + cask URLs (CI falls back to the building repo) |
+| `RELAYOUT_FEED_URL` | Sparkle `SUFeedURL` (your appcast location) |
+| `RELAYOUT_SU_PUBLIC_KEY` | Sparkle `SUPublicEDKey` |
+| `RELAYOUT_TAP_REPO` | Homebrew tap `owner/name` |
+
+Without them, **release builds fail on purpose** (`build.sh` rejects the neutral
+placeholder id; `update-cask.sh` demands its variables once `TAP_DEPLOY_KEY` is
+set). Dev builds don't need any of this: they fall back to a neutral identity —
+bundle id `com.example.relayout.dev`, repo slug from the git origin remote,
+Sparkle disabled.
+
+For local development with a real identity, copy
+`scripts/identity.env.example` → `scripts/identity.env` (gitignored) and fill
+in your values; `build.sh` sources it, env vars still win.
+
+Notes for a fork:
+
+- **`RELAYOUT_SU_PUBLIC_KEY` and the `SPARKLE_ED_PRIVATE_KEY` secret are a
+  keypair — always replace BOTH** (generate with `generate_keys`, see the
+  Sparkle section above). Shipping upstream's public key with your private key
+  (or vice versa) breaks update verification.
+- `RELAYOUT_FEED_URL` should point where *your* CI publishes `appcast.xml`
+  (the gh-pages step publishes to your fork's gh-pages automatically — e.g.
+  `https://<owner>.github.io/<repo>/appcast.xml`).
+- For the Homebrew tap, create your own `homebrew-<name>` repo, add a write
+  deploy key as the `TAP_DEPLOY_KEY` secret, and set `RELAYOUT_TAP_REPO`.
+- The Windows port's About link (`windows/Identity.swift`) is stamped by CI
+  from `RELAYOUT_REPO_SLUG` / `github.repository` — nothing to edit.
+- The remaining signing/notarization secrets (top of this file) are yours to
+  create — they were never shared with the upstream repo.
 
 ## Cutting a release
 

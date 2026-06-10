@@ -7,7 +7,7 @@
     <key>CFBundleDisplayName</key>
     <string>reLayout</string>
     <key>CFBundleIdentifier</key>
-    <string>com.vladforfutdinov.relayout</string>
+    <string>com.example.relayout</string>
     <key>CFBundleExecutable</key>
     <string>ReLayout</string>
     <key>CFBundleVersion</key>
@@ -20,6 +20,8 @@
     <string>AppIcon</string>
     <key>RLVersionFull</key>
     <string>0.0.0-dev</string>
+    <key>RLRepoSlug</key>
+    <string></string>
     <key>NSHumanReadableCopyright</key>
     <string>© 2026 Volodymyr Forfutdinov</string>
     <key>CFBundleDevelopmentRegion</key>
@@ -45,10 +47,12 @@
     <string>13.0</string>
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
+    <!-- SUFeedURL / SUPublicEDKey are injected by build.sh from RELAYOUT_FEED_URL /
+         RELAYOUT_SU_PUBLIC_KEY (removed entirely when no feed is configured). -->
     <key>SUFeedURL</key>
-    <string>https://relayout.forfutdinov.com/appcast.xml</string>
+    <string></string>
     <key>SUPublicEDKey</key>
-    <string>5nsZXP2I7Da5DGBzVPpGrqAkYSXxFZcHMllmtiO7ymY=</string>
+    <string></string>
     <key>SUEnableAutomaticChecks</key>
     <true/>
 </dict>

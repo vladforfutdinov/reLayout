@@ -2,11 +2,11 @@ cask "relayout" do
   version "__VERSION__"
   sha256 "__SHA256__"
 
-  url "https://github.com/vladforfutdinov/reLayout/releases/download/v#{version}/reLayout.dmg",
-      verified: "github.com/vladforfutdinov/reLayout/"
+  url "https://github.com/__REPO_SLUG__/releases/download/v#{version}/reLayout.dmg",
+      verified: "github.com/__REPO_SLUG__/"
   name "reLayout"
   desc "Retype wrong-layout text into the correct keyboard layout"
-  homepage "https://github.com/vladforfutdinov/reLayout"
+  homepage "https://github.com/__REPO_SLUG__"
 
   # Notarized, so no `quarantine` workaround is needed — the cask installs clean.
   depends_on macos: ">= :ventura"
@@ -14,6 +14,6 @@ cask "relayout" do
   app "ReLayout.app"
 
   zap trash: [
-    "~/Library/Preferences/com.vladforfutdinov.relayout.plist",
+    "~/Library/Preferences/__BUNDLE_ID__.plist",
   ]
 end

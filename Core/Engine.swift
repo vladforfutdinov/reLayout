@@ -117,6 +117,62 @@ public func textHasScript(_ text: String, cyrillic: Bool) -> Bool {
     return false
 }
 
+// MARK: - Implicit-selection window (caret-line grab)
+//
+// When the hotkey is pressed with nothing selected, the platform layer grabs the
+// whole line from the caret back to its start. Unlike an explicit selection, that
+// line routinely mixes correct text with the one wrong-layout tail the user just
+// typed — so only the tail may be converted. Narrowing rules:
+//
+//   - The wrong script is anchored on the line's LAST letter (the user is thinking
+//     about what they just typed); Cyrillic or Latin only. A line ending in neither
+//     (CJK, digits, empty) gives nothing to anchor on.
+//   - Walk backward over wrong-script letters and neutral chars (digits,
+//     punctuation, whitespace); stop at the first letter of any other script.
+//     No stop found -> the whole line is the window.
+//   - The window starts right after the stop letter. If it then begins mid-word
+//     (first char is a letter — the stop letter's word continues into the window,
+//     e.g. a mixed token like "мирqwerty"), drop that word's remainder up to the
+//     first non-letter.
+//
+// Returns the window start (window = text[start...]) plus the wrong script, or nil
+// when there is no anchor or nothing convertible survives the trim.
+public func lastWrongWindow(_ text: String) -> (start: String.Index, wrongIsCyrillic: Bool)? {
+    func cyr(_ ch: Character) -> Bool { ch.unicodeScalars.contains(where: isCyrLetter) }
+    func lat(_ ch: Character) -> Bool { ch.unicodeScalars.contains(where: isLatinLetter) }
+
+    // Anchor: the last letter decides the wrong script — or disqualifies (CJK).
+    var wrongCyr: Bool?
+    var i = text.endIndex
+    while i > text.startIndex {
+        let ch = text[text.index(before: i)]
+        if ch.isLetter {
+            if cyr(ch) { wrongCyr = true } else if lat(ch) { wrongCyr = false }
+            break
+        }
+        i = text.index(before: i)
+    }
+    guard let wrongCyr else { return nil }
+
+    // Walk back to the first letter of another script.
+    var stop: String.Index?
+    i = text.endIndex
+    while i > text.startIndex {
+        let j = text.index(before: i)
+        let ch = text[j]
+        if ch.isLetter, wrongCyr ? !cyr(ch) : !lat(ch) { stop = j; break }
+        i = j
+    }
+    guard let stop else { return (text.startIndex, wrongCyr) }
+
+    // Mid-word landing: trim the stop word's remainder.
+    var start = text.index(after: stop)
+    while start < text.endIndex, text[start].isLetter { start = text.index(after: start) }
+
+    guard text[start...].contains(where: { wrongCyr ? cyr($0) : lat($0) }) else { return nil }
+    return (start, wrongCyr)
+}
+
 // Per-word conversion. The "wrong" words are those typed in `src` (the active/wrong
 // layout) — identified by script — and only those are converted to `dst`.
 //   src Cyrillic -> convert words containing Cyrillic

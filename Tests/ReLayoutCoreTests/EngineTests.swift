@@ -109,4 +109,71 @@ final class EngineTests: XCTestCase {
         XCTAssertFalse(textHasScript("привет", cyrillic: false))     // no Latin
         XCTAssertFalse(textHasScript("123", cyrillic: true))
     }
+
+    // MARK: - lastWrongWindow (implicit caret-line grab)
+
+    // Window as (tail text, wrong script) for assertion brevity.
+    private func window(_ s: String) -> (tail: String, cyr: Bool)? {
+        guard let (start, wrongCyr) = lastWrongWindow(s) else { return nil }
+        return (String(s[start...]), wrongCyr)
+    }
+
+    func testLineWindowMixedLine() {
+        // The bug case: correct cyr word + wrong-layout tail; only the tail windows.
+        let w = window("привет ghbdtn")
+        XCTAssertEqual(w?.tail, " ghbdtn")
+        XCTAssertEqual(w?.cyr, false)
+        // Mirrored scripts.
+        let v = window("hello ghbdtn привет")
+        XCTAssertEqual(v?.tail, " привет")
+        XCTAssertEqual(v?.cyr, true)
+    }
+
+    func testLineWindowWholeLineOneScript() {
+        // No other-script letter -> whole line, and no mid-word trim of the head.
+        XCTAssertEqual(window("ghbdtn rfr")?.tail, "ghbdtn rfr")
+        let w = window("привет мир")
+        XCTAssertEqual(w?.tail, "привет мир")
+        XCTAssertEqual(w?.cyr, true)
+    }
+
+    func testLineWindowMixedTokenTrimmedAway() {
+        // Stop letter mid-token: the remainder is the stop word's tail -> nothing left.
+        XCTAssertNil(window("приветghbdtn"))
+    }
+
+    func testLineWindowNeutralsSkipped() {
+        // Digits/punctuation are neutral: walked over, kept in the window.
+        XCTAssertEqual(window("привет 123 ghbdtn")?.tail, " 123 ghbdtn")
+        XCTAssertEqual(window("привет ghbdtn!!")?.tail, " ghbdtn!!")
+    }
+
+    func testLineWindowMultipleWrongWords() {
+        XCTAssertEqual(window("привет rfr ltkf")?.tail, " rfr ltkf")
+    }
+
+    func testLineWindowCJK() {
+        // A CJK letter is "another script": stops the walk…
+        XCTAssertEqual(window("今日は ghbdtn")?.tail, " ghbdtn")
+        // …but can't anchor the wrong script when it ends the line.
+        XCTAssertNil(window("ghbdtn 今日は"))
+    }
+
+    func testLineWindowNothingToAnchor() {
+        XCTAssertNil(window(""))
+        XCTAssertNil(window("   "))
+        XCTAssertNil(window("123 !!"))
+    }
+
+    func testLineWindowConvertsOnlyTail() {
+        // End-to-end over the fixtures: prefix verbatim + converted window.
+        let (latin, cyr) = makeLayouts()
+        let text = "привет ghbdtn"
+        guard let (start, wrongCyr) = lastWrongWindow(text) else {
+            return XCTFail("expected a window")
+        }
+        XCTAssertFalse(wrongCyr)
+        let out = convertWrong(String(text[start...]), src: latin, dst: cyr)
+        XCTAssertEqual(String(text[..<start]) + (out ?? ""), "привет привет")
+    }
 }

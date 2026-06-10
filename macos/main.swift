@@ -630,7 +630,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
 
     // settings
     private var settingsWindow: NSWindow?
-    private var settingsIsKey = false   // hotkey + auto-correct are paused while Settings is focused
+    private var recordingHotkey = false   // hotkey + auto-correct are paused only while the recorder field is capturing
     private var excWindow: NSWindow?    // auto-correct exceptions editor
     private weak var excTable: NSTableView?
     private var lastActiveBundleID: String?   // last non-self frontmost app ("exclude current")
@@ -794,11 +794,13 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     // Tear down whatever is active, then install the current mode.
     private func applyHotkey() {
         suspendHotkey()
-        // The hotkey is disabled while the Settings window is focused: the user is
-        // configuring/recording there, so taps must not trigger a retype (which could
-        // also leak our synthetic Cmd+X into the field/doc). setSettingsKey re-applies
-        // once Settings loses focus or closes.
-        guard !settingsIsKey else { return }
+        // Disabled only while the shortcut recorder is actively capturing: taps there
+        // must not fire a retype (which could leak our synthetic Cmd+X into the field).
+        // finalizeSequence() commits a tap-sequence and calls applyHotkey() while the
+        // field is still focused — this guard keeps the hotkey suspended until the
+        // recorder stops (onRecordingChanged(false) clears the flag, then re-applies).
+        // Having Settings merely open no longer disables the hotkey.
+        guard !recordingHotkey else { return }
 
         switch hotKeyMode {
         case .carbon:
@@ -1009,6 +1011,9 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         field.onRecordingChanged = { [weak self] active in
             // Suspend BOTH the live hotkey and the auto-correct monitor while
             // recording, so nothing fires (or auto-edits) on the keys being captured.
+            // This focus-scoped flag is the sole gate — applyHotkey/applyAutoMode read
+            // it, and finalizeSequence's mid-recording re-apply is held off until stop.
+            self?.recordingHotkey = active
             if active {
                 self?.suspendHotkey(); self?.stopAutoMonitor()
             } else {
@@ -1160,34 +1165,10 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         w.center()
 
         settingsWindow = w
-        gateOnWindow(w)
         w.initialFirstResponder = nil
         activateApp()
         w.makeKeyAndOrderFront(nil)
         w.makeFirstResponder(nil)   // don't leave the first checkbox focused on open
-    }
-
-    // Pause the live hotkey + auto-correct whenever a config window (Settings or the
-    // Exceptions editor) is key, resume when focus leaves both. Recomputed from the
-    // actual key window (async, so the state is settled when switching between them).
-    private func gateOnWindow(_ w: NSWindow) {
-        let nc = NotificationCenter.default
-        for name in [NSWindow.didBecomeKeyNotification, NSWindow.didResignKeyNotification,
-                     NSWindow.willCloseNotification] {
-            nc.addObserver(forName: name, object: w, queue: .main) { [weak self] _ in self?.refreshConfigGate() }
-        }
-    }
-    private func refreshConfigGate() {
-        DispatchQueue.main.async {
-            let key = NSApp.keyWindow
-            self.setConfigKey(key === self.settingsWindow || key === self.excWindow)
-        }
-    }
-    private func setConfigKey(_ key: Bool) {
-        guard settingsIsKey != key else { return }
-        settingsIsKey = key
-        if key { suspendHotkey(); stopAutoMonitor() }
-        else { applyHotkey(); applyAutoMode() }
     }
 
     @objc private func openProjectURL() {
@@ -1394,12 +1375,37 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     //   - >2, cur != #0   -> #0 (first)
     //   - >2, cur == #0   -> layout of the OTHER-script words if uniquely determinable,
     //                        else #1 (second)
-    private func convert(_ text: String) -> (out: String, dst: Layout, src: Layout)? {
+    private func convert(_ text: String, lineGrab: Bool = false) -> (out: String, dst: Layout, src: Layout)? {
         let enabled = Layout.enabledList()
         guard enabled.count >= 2 else { return nil }
         let curID = currentSourceID()
         guard let curIdx = enabled.firstIndex(where: { $0.id == curID }) else { return nil }
         let cur = enabled[curIdx]
+
+        // Implicit line grab: `text` is the whole line back to the caret's line
+        // start, not a deliberate selection — only the wrong-layout tail may be
+        // converted (anchored on the line's last letter; see lastWrongWindow).
+        // The untouched prefix is typed back verbatim. Fixes the
+        // switched-after-mistyping case: `привет ghbdtn` with ru active converts
+        // ghbdtn -> привет instead of mangling привет.
+        if lineGrab {
+            guard let (start, wrongCyr) = lastWrongWindow(text) else {
+                dbg("line-grab: no convertible tail")
+                return nil
+            }
+            let win = String(text[start...])
+            let src = cur.isCyrillic == wrongCyr
+                ? cur : enabled.first(where: { $0.isCyrillic == wrongCyr })
+            guard let src else { return nil }
+            // src == cur: the usual "hotkey right after mistyping" — pick a target.
+            // src != cur: the user already switched to the intended layout — it IS
+            // the target.
+            let dst = src.id == cur.id
+                ? pickTarget(win, cur: cur, curIdx: curIdx, enabled: enabled) : cur
+            dbg("convert[line] src=\(src.id) -> dst=\(dst.id) window=\(win.debugDescription)")
+            guard let out = convertWrong(win, src: src, dst: dst) else { return nil }
+            return (String(text[..<start]) + out, dst, src)
+        }
 
         // Hybrid source detection: normally the wrong layout is the active one (you
         // pressed the hotkey right after mistyping). But if the text contains NONE
@@ -1414,20 +1420,19 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             return (out, cur, src)
         }
 
-        let target: Layout
-        if enabled.count == 2 {
-            target = enabled[curIdx == 0 ? 1 : 0]
-        } else if curIdx != 0 {
-            target = enabled[0]
-        } else if let rest = restTextLayout(text, cur: cur, enabled: enabled) {
-            target = rest
-        } else {
-            target = enabled[1]
-        }
+        let target = pickTarget(text, cur: cur, curIdx: curIdx, enabled: enabled)
 
         dbg("convert cur=\(cur.id) -> target=\(target.id)")
         guard let out = convertWrong(text, src: cur, dst: target) else { return nil }
         return (out, target, cur)
+    }
+
+    // Target choice (see convert() doc comment): 2 enabled -> the other; >2 ->
+    // first unless current is first, then by the rest of the text or second.
+    private func pickTarget(_ text: String, cur: Layout, curIdx: Int, enabled: [Layout]) -> Layout {
+        if enabled.count == 2 { return enabled[curIdx == 0 ? 1 : 0] }
+        if curIdx != 0 { return enabled[0] }
+        return restTextLayout(text, cur: cur, enabled: enabled) ?? enabled[1]
     }
 
     // MARK: - auto-mode (trigram detection)
@@ -1494,7 +1499,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         set { UserDefaults.standard.set(newValue, forKey: "autoExcludedApps") }
     }
 
-    func applyAutoMode() { (autoMode && !settingsIsKey) ? startAutoMonitor() : stopAutoMonitor() }
+    func applyAutoMode() { (autoMode && !recordingHotkey) ? startAutoMonitor() : stopAutoMonitor() }
 
     private func startAutoMonitor() {
         guard autoTap == nil else { return }
@@ -1675,6 +1680,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         var clipboardTouched = false
 
         var sel: String?
+        var lineGrabbed = false        // sel is the whole caret line, not a user selection
         var removedSelection = false   // Cmd+X cut the text -> restore it if convert fails
         let ax = axSelectedText()
         if let ax {
@@ -1687,7 +1693,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
                 postKey(CGKeyCode(kVK_LeftArrow), [.maskShift, .maskCommand])
                 usleep(120_000)
                 let s = axSelectedText()
-                if let s, !s.isEmpty { dbg("read via AX: \(s.debugDescription)"); sel = s }
+                if let s, !s.isEmpty { dbg("read via AX: \(s.debugDescription)"); sel = s; lineGrabbed = true }
             }
         } else {
             // AX unavailable -> clipboard fallback via Cmd+X (cut). Cut reads AND
@@ -1701,6 +1707,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
                 postKey(CGKeyCode(kVK_LeftArrow), [.maskShift, .maskCommand])
                 usleep(120_000)
                 sel = cutSelection(pb)
+                lineGrabbed = (sel != nil)
             }
             removedSelection = (sel != nil)
         }
@@ -1708,7 +1715,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         // convert() touches TIS APIs, which must run on the main thread (macOS 26
         // asserts otherwise). Hop to main for it.
         guard let text = sel, !text.isEmpty,
-              let r = DispatchQueue.main.sync(execute: { self.convert(text) }) else {
+              let r = DispatchQueue.main.sync(execute: { self.convert(text, lineGrab: lineGrabbed) }) else {
             dbg("nothing to convert")
             if removedSelection, let cut = sel { typeUnicode(cut) }   // put back what we cut
             if clipboardTouched { restoreClipboard(clipboardSaved) }

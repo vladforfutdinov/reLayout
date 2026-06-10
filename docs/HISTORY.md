@@ -6,6 +6,42 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
+## v1.2.16 — no-selection line-grab + recorder-scoped hotkey gate
+
+- **Implicit line-grab narrowing.** Pressing the hotkey with nothing selected grabs the
+  caret line, which mixes already-correct text with the wrong-layout tail. New
+  `lastWrongWindow(_:)` (`Core/Engine.swift`) anchors the wrong script on the line's last
+  letter, walks back over same-script + neutral chars, stops at the first letter of another
+  script, and trims a mid-word remainder. `convert(_:lineGrab:)` converts only that window
+  and types the correct prefix back verbatim — fixing `привіт ghbdsn` (active uk) from
+  mangling into `ghbdsn ghbdsn` to `привіт привіт`. Target selection factored into
+  `pickTarget()`. Pure string function → hermetic tests, shared with the Windows port
+  (`a405580`).
+- **Hotkey focus-gate rescoped to the recorder field.** The hotkey was muted whenever the
+  Settings (or Exceptions) window was key, so merely opening Settings disabled it. Replaced
+  the window-level gate (`settingsIsKey`/`gateOnWindow`/`refreshConfigGate`/`setConfigKey`)
+  with a flag tied to the shortcut recorder's capture state (`recordingHotkey`, set by
+  `ShortcutField.onRecordingChanged`). `finalizeSequence` re-applies the hotkey mid-recording
+  while the field is still focused, so the gate holds that re-apply off until the recorder
+  stops. The hotkey is now live everywhere except while it's actually being recorded
+  (`a405580`).
+- **Engine tests switched to Ukrainian fixtures.** `EngineTests.swift` + `macos/tests.swift`:
+  fixture key S maps to `і` (so `ghbdsn` ⇄ `привіт`), sample words Ukrainianized, the Option
+  layer maps `ß/æ → є/ї` (the real `ß/æ ↔ ы/э` overlap stays documented in the README). Added
+  9 `lastWrongWindow` cases. Gate green: 17 SwiftPM + 33 macOS (`3dfcfbf`).
+- **README Privacy & Security + Credits.** Spelled out the data-handling guarantees behind the
+  Accessibility grant (no network except the Sparkle update check, nothing written to disk in
+  release, no telemetry, clipboard untouched, password fields skipped) and attributed the
+  Hermit Dave *FrequencyWords* corpus (MIT) the trigram models derive from (`57d8597`, `ec74cdb`).
+- **`/release` slash command + docs-sync discipline.** Added `.claude/commands/release.md` to
+  run the release flow (preflight → doc-sync → hand-written notes → tag/push → apply notes while
+  preserving the auto `Full Changelog` link → CI report), codifying that every tag ships written
+  notes and current docs (`974ecbf`). Synced `ARCHITECTURE.md` + `README.md` to the line-grab and
+  focus-gate changes (`6ad284d`).
+- Released **v1.2.16** (notarized, Sparkle, Homebrew) with hand-written release notes. The
+  companion dou.ua article (separate `articles` repo) was updated in step: Ukrainian-first
+  calibration chart/table, corrected focus-gate passage, new line-grab paragraph.
+
 ## Website + identity rename (post-v1.2.13)
 
 - Added a presentation landing page on the `gh-pages` branch (`index.html` + `logo.png`,

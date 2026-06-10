@@ -194,6 +194,17 @@ appcast, checked in the background). Or trigger it from the menu-bar
 
 Toggle *Open at login* in Settings, or System Settings → General → Login Items → `ReLayout.app`.
 
+## Credits
+
+The auto-correct trigram models in `Resources/trigram/` are built offline from
+[FrequencyWords](https://github.com/hermitdave/FrequencyWords) by Hermit Dave (MIT-licensed
+frequency lists derived from the OpenSubtitles corpus). reLayout ships only the derived
+char-trigram statistics, not the word lists themselves.
+
+> MIT License — Copyright (c) 2016 Hermit Dave
+
+App updates use [Sparkle](https://sparkle-project.org).
+
 ## License
 
 [MIT](LICENSE) © 2026 Volodymyr Forfutdinov.

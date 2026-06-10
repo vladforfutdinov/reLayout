@@ -58,8 +58,9 @@ project's values.
 
 ## Use
 
-1. Select the mistyped text — or, with nothing selected, the text from the caret back to
-   the start of the line is used.
+1. Select the mistyped text — or, with nothing selected, the line from the caret back to
+   its start is grabbed and narrowed to just the wrong-layout tail you typed last (the
+   already-correct text ahead of it is left untouched).
 2. Press the hotkey (default: **tap left Option**).
 3. **Undo** — press the hotkey again within ~1.5 s to reverse the conversion (restores the
    original text and the previous input source). Like RuSwitcher's double-Alt.

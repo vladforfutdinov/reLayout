@@ -20,6 +20,8 @@
     <string>AppIcon</string>
     <key>RLVersionFull</key>
     <string>0.0.0-dev</string>
+    <key>RLRepoSlug</key>
+    <string>vladforfutdinov/reLayout</string>
     <key>NSHumanReadableCopyright</key>
     <string>© 2026 Volodymyr Forfutdinov</string>
     <key>CFBundleDevelopmentRegion</key>

@@ -78,6 +78,41 @@ On release, CI signs the embedded `Sparkle.framework` with your Developer ID
 notarizes, generates the signed appcast from `reLayout.zip`, and publishes it to
 `gh-pages`. If `SPARKLE_ED_PRIVATE_KEY` is unset the appcast step is skipped.
 
+## Forking: release under your own identity
+
+All owner-specific values are parameterized with upstream defaults — a fork
+builds and releases without editing sources. Set these as **repository
+variables** (Settings → Secrets and variables → Actions → **Variables** — they
+are public values, NOT secrets):
+
+| Variable | Meaning | Upstream default |
+|---|---|---|
+| `RELAYOUT_BUNDLE_ID` | base bundle id (dev builds append `.dev`) | `com.vladforfutdinov.relayout` |
+| `RELAYOUT_DISPLAY_NAME` | app display name | `reLayout` |
+| `RELAYOUT_REPO_SLUG` | `owner/repo` for the About link + cask URLs | `vladforfutdinov/reLayout` |
+| `RELAYOUT_FEED_URL` | Sparkle `SUFeedURL` (your appcast location) | `https://relayout.forfutdinov.com/appcast.xml` |
+| `RELAYOUT_SU_PUBLIC_KEY` | Sparkle `SUPublicEDKey` | upstream public key |
+| `RELAYOUT_TAP_REPO` | Homebrew tap `owner/name` | `vladforfutdinov/homebrew-relayout` |
+
+Unset variables fall back to the upstream defaults, so upstream releases are
+unaffected. Locally the same names work as plain env vars for `scripts/build.sh`.
+
+Notes for a fork:
+
+- **`RELAYOUT_SU_PUBLIC_KEY` and the `SPARKLE_ED_PRIVATE_KEY` secret are a
+  keypair — always replace BOTH** (generate with `generate_keys`, see the
+  Sparkle section above). Shipping upstream's public key with your private key
+  (or vice versa) breaks update verification.
+- `RELAYOUT_FEED_URL` should point where *your* CI publishes `appcast.xml`
+  (the gh-pages step publishes to your fork's gh-pages automatically — e.g.
+  `https://<owner>.github.io/<repo>/appcast.xml`).
+- For the Homebrew tap, create your own `homebrew-<name>` repo, add a write
+  deploy key as the `TAP_DEPLOY_KEY` secret, and set `RELAYOUT_TAP_REPO`.
+- The Windows port's About link is a plain constant (`repoSlug` in
+  `windows/WinTray.swift`) — change it there if you ship Windows builds.
+- The remaining signing/notarization secrets (top of this file) are yours to
+  create — they were never shared with the upstream repo.
+
 ## Cutting a release
 
 ```sh

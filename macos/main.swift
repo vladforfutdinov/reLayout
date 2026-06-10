@@ -8,6 +8,10 @@ import Sparkle   // only linked in release builds (build.sh WITH_SPARKLE=1)
 
 // MARK: - Helpers
 
+// GitHub owner/repo this build points at (About link). Injected into the bundle
+// by build.sh from RELAYOUT_REPO_SLUG so forks rebrand without editing sources.
+let repoSlug = (Bundle.main.infoDictionary?["RLRepoSlug"] as? String) ?? "vladforfutdinov/reLayout"
+
 // Localized UI string. Keys live in <lang>.lproj/Localizable.strings (copied
 // into the app bundle by build.sh). Missing key -> the key itself is returned.
 //
@@ -1095,7 +1099,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         let info = Bundle.main.infoDictionary
         let verStr = (info?["RLVersionFull"] as? String) ?? (info?["CFBundleShortVersionString"] as? String) ?? ""
         let version = makeSecondaryLabel(verStr.isEmpty ? "" : "Version \(verStr)")
-        let url = "github.com/vladforfutdinov/reLayout"
+        let url = "github.com/\(repoSlug)"
         let link = NSButton(title: url, target: self, action: #selector(openProjectURL))
         link.isBordered = false; link.bezelStyle = .inline; link.alignment = .center
         link.attributedTitle = NSAttributedString(string: url, attributes: [
@@ -1185,7 +1189,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     }
 
     @objc private func openProjectURL() {
-        if let u = URL(string: "https://github.com/vladforfutdinov/reLayout") { NSWorkspace.shared.open(u) }
+        if let u = URL(string: "https://github.com/\(repoSlug)") { NSWorkspace.shared.open(u) }
     }
 
     // MARK: - Auto-correct exceptions (per-app deny-list editor)

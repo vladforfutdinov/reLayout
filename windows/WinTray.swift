@@ -11,7 +11,10 @@ private let menuSettings: UINT = 1
 private let menuStartup:  UINT = 2
 private let menuQuit:     UINT = 3
 
-let aboutURL = "https://github.com/vladforfutdinov/reLayout"
+// GitHub owner/repo for the About links (tray + Settings SysLink). Forks change
+// this one constant — keep aligned with RELAYOUT_REPO_SLUG used by the macOS build.
+let repoSlug = "vladforfutdinov/reLayout"
+let aboutURL = "https://github.com/\(repoSlug)"
 
 private var trayHwnd: HWND?
 private var nid = NOTIFYICONDATAW()

@@ -6,14 +6,19 @@
 #   ./packaging/homebrew/update-cask.sh <version> <dmg-path>
 #
 # Env:
-#   TAP_DEPLOY_KEY  private SSH deploy key (write) for the tap repo (skips if empty)
-#   TAP_REPO        owner/name of the tap (default: vladforfutdinov/homebrew-relayout)
+#   TAP_DEPLOY_KEY       private SSH deploy key (write) for the tap repo (skips if empty)
+#   RELAYOUT_TAP_REPO    owner/name of the tap (default: vladforfutdinov/homebrew-relayout;
+#                        legacy TAP_REPO still honored)
+#   RELAYOUT_REPO_SLUG   owner/repo the cask's url/homepage point at
+#   RELAYOUT_BUNDLE_ID   bundle id for the zap-trash preferences path
 set -euo pipefail
 cd "$(dirname "$0")/../.."   # repo root
 
 VERSION="${1:?usage: update-cask.sh <version> <dmg-path>}"
 DMG="${2:?usage: update-cask.sh <version> <dmg-path>}"
-TAP_REPO="${TAP_REPO:-vladforfutdinov/homebrew-relayout}"
+TAP_REPO="${RELAYOUT_TAP_REPO:-${TAP_REPO:-vladforfutdinov/homebrew-relayout}}"
+REPO_SLUG="${RELAYOUT_REPO_SLUG:-vladforfutdinov/reLayout}"
+BUNDLE_ID="${RELAYOUT_BUNDLE_ID:-com.vladforfutdinov.relayout}"
 
 if [ -z "${TAP_DEPLOY_KEY:-}" ]; then
     echo "update-cask: TAP_DEPLOY_KEY unset — skipping tap bump"
@@ -32,7 +37,8 @@ trap 'rm -rf "$WORK" "$KEYFILE"' EXIT
 
 git clone "git@github.com:${TAP_REPO}.git" "$WORK"
 mkdir -p "$WORK/Casks"
-sed -e "s/__VERSION__/${VERSION}/g" -e "s/__SHA256__/${SHA}/g" \
+sed -e "s|__VERSION__|${VERSION}|g" -e "s|__SHA256__|${SHA}|g" \
+    -e "s|__REPO_SLUG__|${REPO_SLUG}|g" -e "s|__BUNDLE_ID__|${BUNDLE_ID}|g" \
     packaging/homebrew/relayout.rb.tmpl > "$WORK/Casks/relayout.rb"
 
 cd "$WORK"

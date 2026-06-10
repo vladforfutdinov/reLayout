@@ -10,6 +10,16 @@ the detail it links to.
 - `WITH_SPARKLE=1` — fetch & embed Sparkle 2.6.4 framework, compile with `-D SPARKLE`. CI uses this for releases.
 - `SIGN_IDENTITY` — Developer ID Application identity. Triggers Hardened Runtime + secure timestamp (notarization-ready). Without it, uses `ReLayout Self Signed` if present, else ad-hoc.
 
+Fork identity (defaults = upstream; set as CI repository *variables* or local env —
+they are public values, not secrets; see [`RELEASING.md`](RELEASING.md) → "Forking"):
+
+- `RELAYOUT_BUNDLE_ID` — base bundle id (dev builds append `.dev`). Default `com.vladforfutdinov.relayout`.
+- `RELAYOUT_DISPLAY_NAME` — app display name (dev appends ` (dev)`). Default `reLayout`.
+- `RELAYOUT_REPO_SLUG` — GitHub `owner/repo` for the About link (injected into the bundle as `RLRepoSlug`) and the Homebrew cask. Default `vladforfutdinov/reLayout`.
+- `RELAYOUT_FEED_URL` — Sparkle `SUFeedURL`. Default `https://relayout.forfutdinov.com/appcast.xml`.
+- `RELAYOUT_SU_PUBLIC_KEY` — Sparkle `SUPublicEDKey`; **pairs with the `SPARKLE_ED_PRIVATE_KEY` secret** — replace both together.
+- `RELAYOUT_TAP_REPO` — Homebrew tap `owner/name` (read by `packaging/homebrew/update-cask.sh`, not build.sh). Default `vladforfutdinov/homebrew-relayout`.
+
 ## Release flow
 
 Tag `vX.Y.Z` → `.github/workflows/build.yml` signs (Developer ID), notarizes

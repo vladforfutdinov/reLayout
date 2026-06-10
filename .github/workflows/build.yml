@@ -16,6 +16,16 @@ permissions:
 #   AC_API_ISSUER_ID              App Store Connect issuer ID (UUID)
 #   AC_API_KEY_P8_BASE64          base64 of the App Store Connect .p8 key
 # main/PR builds skip signing+notarization (ad-hoc) so they need no secrets.
+#
+# Fork identity (optional repository VARIABLES, not secrets — these are public):
+#   RELAYOUT_BUNDLE_ID      base bundle id            (default com.vladforfutdinov.relayout)
+#   RELAYOUT_DISPLAY_NAME   app display name          (default reLayout)
+#   RELAYOUT_REPO_SLUG      owner/repo for About/cask (default vladforfutdinov/reLayout)
+#   RELAYOUT_FEED_URL       Sparkle SUFeedURL         (default https://relayout.forfutdinov.com/appcast.xml)
+#   RELAYOUT_SU_PUBLIC_KEY  Sparkle SUPublicEDKey — pairs with SPARKLE_ED_PRIVATE_KEY
+#   RELAYOUT_TAP_REPO       Homebrew tap owner/name   (default vladforfutdinov/homebrew-relayout)
+# Unset vars pass through empty; scripts fall back to the upstream defaults.
+# See docs/RELEASING.md → "Forking" for setup.
 
 jobs:
   build:
@@ -57,6 +67,12 @@ jobs:
           RELAYOUT_RELEASE: '1'
           # embed Sparkle only for tag releases; dispatch builds stay framework-free
           WITH_SPARKLE: ${{ startsWith(github.ref, 'refs/tags/v') && '1' || '0' }}
+          # fork identity (repo variables; empty -> build.sh upstream defaults)
+          RELAYOUT_BUNDLE_ID: ${{ vars.RELAYOUT_BUNDLE_ID }}
+          RELAYOUT_DISPLAY_NAME: ${{ vars.RELAYOUT_DISPLAY_NAME }}
+          RELAYOUT_REPO_SLUG: ${{ vars.RELAYOUT_REPO_SLUG }}
+          RELAYOUT_FEED_URL: ${{ vars.RELAYOUT_FEED_URL }}
+          RELAYOUT_SU_PUBLIC_KEY: ${{ vars.RELAYOUT_SU_PUBLIC_KEY }}
         run: ./scripts/build.sh            # signs with $SIGN_IDENTITY if set, else ad-hoc
 
       - name: Test
@@ -142,15 +158,19 @@ jobs:
           cp "$SRC/appcast.xml" "$OUT/appcast.xml"
           ( cd "$OUT"
             git add appcast.xml
-            git -c user.name='Volodymyr Forfutdinov' \
-                -c user.email='2155546+vladforfutdinov@users.noreply.github.com' \
+            git -c user.name='github-actions[bot]' \
+                -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
               commit -m "appcast ${GITHUB_REF_NAME}" || { echo "no change"; exit 0; }
             git push origin gh-pages )
 
       - name: Update Homebrew tap (release only)
         if: startsWith(github.ref, 'refs/tags/v')
         env:
-          TAP_DEPLOY_KEY: ${{ secrets.TAP_DEPLOY_KEY }}   # SSH deploy key (write) on homebrew-relayout
+          TAP_DEPLOY_KEY: ${{ secrets.TAP_DEPLOY_KEY }}   # SSH deploy key (write) on the tap repo
+          # fork identity (repo variables; empty -> update-cask.sh upstream defaults)
+          RELAYOUT_TAP_REPO: ${{ vars.RELAYOUT_TAP_REPO }}
+          RELAYOUT_REPO_SLUG: ${{ vars.RELAYOUT_REPO_SLUG }}
+          RELAYOUT_BUNDLE_ID: ${{ vars.RELAYOUT_BUNDLE_ID }}
         run: ./packaging/homebrew/update-cask.sh "${GITHUB_REF_NAME#v}" dist/reLayout.dmg
 
   # Windows distributables for x64 and arm64. Each arch builds natively on its

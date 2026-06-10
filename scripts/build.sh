@@ -24,13 +24,23 @@ BUILD="$(git rev-list --count HEAD 2>/dev/null || echo 0)"
 if git describe --tags --exact-match >/dev/null 2>&1; then IS_RELEASE=1; else IS_RELEASE=0; fi
 [ "${RELAYOUT_RELEASE:-}" = "1" ] && IS_RELEASE=1
 [ "${RELAYOUT_DEV:-}" = "1" ] && IS_RELEASE=0
+# Fork identity — overridable so a fork can build/release under its own
+# bundle id, name, repo, Sparkle feed and key without touching sources.
+# Defaults = upstream values. SUPublicEDKey pairs with the SPARKLE_ED_PRIVATE_KEY
+# secret: a fork must replace BOTH (see docs/RELEASING.md).
+RELAYOUT_BUNDLE_ID="${RELAYOUT_BUNDLE_ID:-com.vladforfutdinov.relayout}"
+RELAYOUT_DISPLAY_NAME="${RELAYOUT_DISPLAY_NAME:-reLayout}"
+RELAYOUT_REPO_SLUG="${RELAYOUT_REPO_SLUG:-vladforfutdinov/reLayout}"
+RELAYOUT_FEED_URL="${RELAYOUT_FEED_URL:-https://relayout.forfutdinov.com/appcast.xml}"
+RELAYOUT_SU_PUBLIC_KEY="${RELAYOUT_SU_PUBLIC_KEY:-5nsZXP2I7Da5DGBzVPpGrqAkYSXxFZcHMllmtiO7ymY=}"
+
 # Build artifacts (.app/.dmg/.zip) live under dist/ — kept out of the repo root
 # and gitignored. Distinct from SwiftPM's .build/.
 OUT="dist"
 if [ "$IS_RELEASE" = "1" ]; then
-    APP="$OUT/ReLayout.app";        BUNDLE_ID="com.vladforfutdinov.relayout";     DISPLAY_NAME="reLayout"
+    APP="$OUT/ReLayout.app";        BUNDLE_ID="$RELAYOUT_BUNDLE_ID";     DISPLAY_NAME="$RELAYOUT_DISPLAY_NAME"
 else
-    APP="$OUT/ReLayout (dev).app";  BUNDLE_ID="com.vladforfutdinov.relayout.dev"; DISPLAY_NAME="reLayout (dev)"
+    APP="$OUT/ReLayout (dev).app";  BUNDLE_ID="$RELAYOUT_BUNDLE_ID.dev"; DISPLAY_NAME="$RELAYOUT_DISPLAY_NAME (dev)"
 fi
 
 mkdir -p "$OUT"
@@ -96,6 +106,11 @@ cp Resources/for-dark-text-1024.png Resources/for-light-text-1024.png "$APP/Cont
 /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $BUNDLE_ID" "$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleName $DISPLAY_NAME" "$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName $DISPLAY_NAME" "$APP/Contents/Info.plist"
+# Fork identity into the bundle: Sparkle feed/key + the repo slug shown in the
+# About link (read at runtime via RLRepoSlug).
+/usr/libexec/PlistBuddy -c "Set :SUFeedURL $RELAYOUT_FEED_URL" "$APP/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :SUPublicEDKey $RELAYOUT_SU_PUBLIC_KEY" "$APP/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :RLRepoSlug $RELAYOUT_REPO_SLUG" "$APP/Contents/Info.plist"
 echo "version: $VERSION (short $SHORT, build $BUILD) — $DISPLAY_NAME [$BUNDLE_ID]"
 
 SWIFT_FLAGS=(-O -parse-as-library)

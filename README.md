@@ -134,6 +134,30 @@ captured, and modifier-only taps aren't checked.
 
 Because there's no synthetic copy, clipboard watchers like DeepL's `Ctrl+C+C` don't fire.
 
+## Privacy & security
+
+Reading selected text and sending keystrokes needs Accessibility — the same permission a
+text expander or a clipboard manager asks for. Here's exactly what the app does and doesn't do
+with it; all of this is verifiable in the source (it's MIT, ~3000 lines):
+
+- **Your text never leaves the machine.** There is no analytics, no telemetry, no crash
+  reporting, no account, no "phone home." The only network connection the app makes is the
+  [Sparkle](https://sparkle-project.org) update check, which fetches a signed appcast and
+  nothing else — turn it off with *Settings → Automatically check for updates*.
+- **Your text is never written to disk.** Selected text is converted in memory and typed
+  back; nothing is persisted. (A debug trace that includes selected text exists only under a
+  `-DDEBUG` build and is compiled out of every release — see `dbg()` in `macos/main.swift`.)
+- **Accessibility is used only to read the current selection and inject the corrected
+  keystrokes** — the same read/write described above. The clipboard is left untouched on the
+  AX path, and the ⌘C fallback only reads, never writes.
+- **Password fields are skipped.** Secure text fields block synthetic keystrokes, and
+  auto-correct never runs in them.
+- **What's persisted** is only your settings (hotkey, language, auto-correct on/off, the
+  per-app exception list) in `UserDefaults` — no text content.
+
+The Accessibility grant gives any app broad input access; the point of open-sourcing this one
+is that you don't have to take the above on faith.
+
 ## The menu-bar badge
 
 Mirrors the current input source as a fixed-size template badge (e.g. a filled `A` for ABC,

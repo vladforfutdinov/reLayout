@@ -129,11 +129,14 @@ captured, and modifier-only taps aren't checked.
 
 - **Read** — Accessibility (`kAXSelectedText`), no copy event, no clipboard. Only when AX is
   unavailable for the focused element does it fall back to ⌘C (and only trusts it if the
-  pasteboard actually changed).
+  pasteboard actually changed); with nothing selected it grabs the caret line via ⇧⌘← + ⌘X.
+  Copy (not cut) on a real selection, so apps with smart cut-and-paste can't eat the
+  adjacent space.
 - **Write** — synthesized Unicode keystrokes (`CGEvent` + `keyboardSetUnicodeString`) that
   replace the active selection, like Caramba. No paste, clipboard untouched.
 
-Because there's no synthetic copy, clipboard watchers like DeepL's `Ctrl+C+C` don't fire.
+The AX path posts no clipboard events at all, and the fallback posts at most one ⌘C per
+retype — so clipboard watchers like DeepL's `Ctrl+C+C` don't fire.
 
 ## Privacy & security
 

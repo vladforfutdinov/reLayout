@@ -3,12 +3,12 @@
     <channel>
         <title>ReLayout</title>
         <item>
-            <title>1.2.16</title>
-            <pubDate>Wed, 10 Jun 2026 18:04:19 +0000</pubDate>
-            <sparkle:version>170</sparkle:version>
-            <sparkle:shortVersionString>1.2.16</sparkle:shortVersionString>
+            <title>1.2.17</title>
+            <pubDate>Fri, 12 Jun 2026 14:03:24 +0000</pubDate>
+            <sparkle:version>177</sparkle:version>
+            <sparkle:shortVersionString>1.2.17</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
-            <enclosure url="https://github.com/vladforfutdinov/reLayout/releases/download/v1.2.16/reLayout.zip" length="1701402" type="application/octet-stream" sparkle:edSignature="33PH6zMo8iWxveOl6K0hgjIQI3D0XodctpI17kUizdRq4a873w6BOQd9DcGNkbMcE2nFskxpWx1YBuwIkFDlBQ=="/>
+            <enclosure url="https://github.com/vladforfutdinov/reLayout/releases/download/v1.2.17/reLayout.zip" length="1701558" type="application/octet-stream" sparkle:edSignature="/pfZYoyJWG0zle8lVC3R4w8nnpluqD+miK3SMh9o28GYYlj0ebowKheBioUiyJsboK+2ReZuHM5p6/zl5+HyCA=="/>
         </item>
     </channel>
 </rss>

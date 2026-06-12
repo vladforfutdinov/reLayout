@@ -272,7 +272,7 @@
 
       <div class="demo reveal" aria-hidden="true">
         <div class="head">
-          <div class="layoutsw"><span class="pill" id="pSrc">EN</span><i class="ph ph-arrow-right" style="font-size:13px;color:var(--faint)"></i><span class="pill on" id="pDst">RU</span></div>
+          <div class="layoutsw"><span class="pill" id="pSrc">EN</span><i class="ph ph-arrow-right" style="font-size:13px;color:var(--faint)"></i><span class="pill on" id="pDst">UK</span></div>
         </div>
         <div class="stage">
           <div class="line"><span class="pre" id="dPre"></span><span class="dword" id="dWord"></span><span class="caret blink" id="dCaret">▍</span></div>
@@ -354,7 +354,7 @@
       <div class="row reveal"><i class="ph ph-cursor-text"></i><div><b>Nothing selected?</b><p>It grabs from the caret back to the start of the line, then converts.</p></div></div>
       <div class="row reveal"><i class="ph ph-magnifying-glass"></i><div><b>Switched layout after mistyping?</b><p>It reads the wrong layout from the text itself, not just the active one.</p></div></div>
       <div class="row reveal"><i class="ph ph-brackets-curly"></i><div><b>Option-layer characters?</b><p>Even ß and æ map to ы and э. It works on key position, not a letter table.</p></div></div>
-      <div class="row reveal"><i class="ph ph-globe-hemisphere-east"></i><div><b>Any script you use?</b><p>Russian, Ukrainian, anything installed. Convert between whichever two are active.</p></div></div>
+      <div class="row reveal"><i class="ph ph-globe-hemisphere-east"></i><div><b>Any script you use?</b><p>Ukrainian, English, anything installed. Convert between whichever two are active.</p></div></div>
       <div class="row reveal"><i class="ph ph-lock-key"></i><div><b>In a password field?</b><p>Secure text fields are always left alone, hotkey and auto-correct both.</p></div></div>
       <div class="row reveal"><i class="ph ph-terminal-window"></i><div><b>In a terminal or IDE?</b><p>Excluded by default for auto-correct, and the list is yours to edit.</p></div></div>
       <div class="row reveal"><i class="ph ph-arrow-counter-clockwise"></i><div><b>Changed your mind?</b><p>Press the hotkey again within ~1.5s to put the original text back.</p></div></div>
@@ -491,8 +491,8 @@
         pre=document.getElementById('dPre'), word=document.getElementById('dWord'), caret=document.getElementById('dCaret');
     var R=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     var SC=[
-      {pre:'я сказал ', from:'ghbdtn', to:'привет', src:'EN', dst:'RU'},
-      {pre:'I said ',   from:'руддщ',  to:'hello',  src:'RU', dst:'EN'},
+      {pre:'я сказав ', from:'ghbdsn', to:'привіт', src:'EN', dst:'UK'},
+      {pre:'I said ',   from:'руддщ',  to:'hello',  src:'UK', dst:'EN'},
       {pre:'',          from:'lzre.',  to:'дякую',  src:'EN', dst:'UK'}
     ];
     var timers=[];

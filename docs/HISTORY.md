@@ -6,6 +6,26 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
+## v1.2.17 — copy (not cut) explicit selections: smart cut ate a space
+
+- **Leading-space swallow fixed.** User report: in some apps, converting a selected
+  word glued it to the previous one (`просто ckjdj` → select `ckjdj` → `простослово`).
+  Only the clipboard-fallback path could do this: it read the selection via `Cmd+X`,
+  and smart cut-and-paste (Word's default, `smartInsertDelete` text views) deletes an
+  adjacent space together with a cut word — outside the selection, so the app eats it
+  invisibly and the retyped conversion lands flush. The AX path was immune (type-over
+  replaces exactly the selection), hence "sometimes". Fix: an explicit selection is
+  now read via `Cmd+C` — copy keeps the selection and typing replaces exactly it, so
+  smart cut never fires; `Cmd+X` stays only for the no-selection line-grab, whose
+  selection starts at the line start (nothing before it to eat). The sequence is
+  C-then-X at most — still no `Cmd+C+C` pair for DeepL's watcher, preserving the
+  reason `60042a8` chose cut. Synced `ARCHITECTURE.md` + `README.md` in the same
+  commit (`d7779a3`); the dou-ua article's fallback paragraph rewritten in the
+  `articles` repo (`5c69f72`).
+- Tagged **v1.2.17** with hand-written release notes + auto Full Changelog; tag
+  `build` and `core` CI both green. Manual smoke in a smart-cut app (Word) still
+  pending — the keystroke plumbing has no unit coverage.
+
 ## v1.2.16 — no-selection line-grab + recorder-scoped hotkey gate
 
 - **Implicit line-grab narrowing.** Pressing the hotkey with nothing selected grabs the

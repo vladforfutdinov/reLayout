@@ -6,7 +6,7 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
-## Auto-correct: layout-mapped punctuation joins the word
+## v1.2.18 — auto-correct: layout-mapped punctuation joins the word
 
 - **`",ßkj" → ",ыло"` fixed** (user report). Auto-mode's key monitor treated every
   non-letter as a word-boundary reset, but on ЙЦУКЕН `,`=б `'`=э `;`=ж `[`=х —
@@ -25,6 +25,10 @@ work (not per commit). Operational "where are we right now" lives in
   relative margin like `e.g` → `уюп` scored ≤ −3.8). Letters-only words run the
   exact pre-change pipeline. Engine tests + macos tests + `ARCHITECTURE.md`
   updated (`db176d2`).
+- Tagged **v1.2.18** via `/release` (ff-merge of `claude/autoreplace-bkj-ylo-ced3e8`
+  into main at `b6696bf`): hand-written notes + auto Full Changelog; tag `build`
+  and `core` CI green, dmg+zip published, Sparkle appcast deployed. Live-plumbing
+  smoke (type `,skj ` with auto-correct on) still manual-only.
 
 ## v1.2.17 — copy (not cut) explicit selections: smart cut ate a space
 

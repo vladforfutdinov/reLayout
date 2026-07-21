@@ -6,6 +6,26 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
+## Auto-correct: layout-mapped punctuation joins the word
+
+- **`",ßkj" → ",ыло"` fixed** (user report). Auto-mode's key monitor treated every
+  non-letter as a word-boundary reset, but on ЙЦУКЕН `,`=б `'`=э `;`=ж `[`=х —
+  so "было" typed on US arrived as `,skj`, only `skj` was evaluated, and the fix
+  left the comma behind. The same half-mangle hit every б/э/ж/х-initial word
+  ("это", "жизнь", "хорошо"). Now `autoFeed` buffers a punctuation char when an
+  enabled Cyrillic layout reads its key as a letter (decided by the live maps, no
+  char table), and a new engine-level `autoWordCore` vets the shape before
+  conversion. Guards, all placed on measured model scores (not vibes): trailing
+  mapped chars never convert (`pyf.` is both "знаю" and "зна." — the trigram
+  score gaps overlap in both directions on common words, so the ambiguous case
+  keeps the old no-fire behavior); ≥2 real letters (per-language floor deltas
+  otherwise fire on `"..."` → `"ююю"`); plausible-core suppression (`'hello`
+  keeps its quote); and an absolute converted-side gate `autoPunctPlausible -3.0`
+  for punctuation-bearing words (real fixes score ≥ −2.6, junk that beat the
+  relative margin like `e.g` → `уюп` scored ≤ −3.8). Letters-only words run the
+  exact pre-change pipeline. Engine tests + macos tests + `ARCHITECTURE.md`
+  updated (`db176d2`).
+
 ## v1.2.17 — copy (not cut) explicit selections: smart cut ate a space
 
 - **Leading-space swallow fixed.** User report: in some apps, converting a selected

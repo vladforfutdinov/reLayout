@@ -41,6 +41,7 @@ func makeLayouts() -> (latin: FakeLayout, cyr: FakeLayout) {
         (18, 0, "o", "щ"), (19, 0, "q", "й"), (20, 0, "s", "і"), (21, 0, "k", "л"),
         (22, 0, "a", "ф"), (23, 0, "i", "ш"),
         (100, 1, "ß", "є"), (101, 1, "æ", "ї"),
+        (43, 0, ",", "б"), (47, 0, ".", "ю"),
     ]
     var lC2S = [String: KeyStroke](), lS2C = [KeyStroke: String]()
     var cC2S = [String: KeyStroke](), cS2C = [KeyStroke: String]()
@@ -93,6 +94,29 @@ func testConvertWrongWhitespace() {
        "whitespace runs preserved")
     eq(convertWrong("  ghbdsn  ", src: latin, dst: cyr), "  привіт  ",
        "leading/trailing spaces preserved")
+}
+
+func testConvertWrongPunctuationAsLetters() {
+    let (latin, cyr) = makeLayouts()
+    // ',' is б on the Cyrillic side: a leading comma converts with the word.
+    eq(convertWrong(",tkb", src: latin, dst: cyr), "бели", "leading ',' converts as б")
+    // The reported shape: leading mapped punctuation + an Option-layer letter.
+    eq(convertWrong(",ßkb", src: latin, dst: cyr), "бєли", "',ßkb' converts whole, incl. б")
+}
+
+func testAutoWordCore() {
+    let (latin, cyr) = makeLayouts()
+    eq(autoWordCore(",ghb", src: latin, dst: cyr), "ghb", "leading mapped punct strips into core")
+    eq(autoWordCore(",ßhb", src: latin, dst: cyr), "ßhb", "option-layer letter counts as letter")
+    eq(autoWordCore("g,hb", src: latin, dst: cyr), "g,hb", "interior mapped punct stays in core")
+    eq(autoWordCore("ghb", src: latin, dst: cyr), "ghb", "letters-only word passes whole")
+    check(autoWordCore("ghb,", src: latin, dst: cyr) == nil, "trailing mapped char is ambiguous -> nil")
+    check(autoWordCore("gh.", src: latin, dst: cyr) == nil, "trailing '.' -> nil")
+    check(autoWordCore(",.g", src: latin, dst: cyr) == nil, "fewer than two letters -> nil")
+    check(autoWordCore(",,,", src: latin, dst: cyr) == nil, "no letters -> nil")
+    check(autoWordCore("g!b", src: latin, dst: cyr) == nil, "unmapped char -> nil")
+    check(autoWordCore("g1b", src: latin, dst: cyr) == nil, "digit -> nil")
+    check(autoWordCore(",пр", src: cyr, dst: latin) == nil, "cyr source: punct never maps to cyr")
 }
 
 func testFourCharCode() {
@@ -151,6 +175,8 @@ struct ReLayoutTests {
         testConvertWrongLatinSource()
         testConvertWrongCyrillicSource()
         testConvertWrongWhitespace()
+        testConvertWrongPunctuationAsLetters()
+        testAutoWordCore()
         testFourCharCode()
         testKeyName()
         testComboDisplay()

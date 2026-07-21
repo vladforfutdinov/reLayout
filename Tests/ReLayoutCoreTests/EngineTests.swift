@@ -11,9 +11,11 @@ final class EngineTests: XCTestCase {
         var isCyrillic: Bool
     }
 
-    // Latin and Ukrainian-Cyrillic layouts sharing the same physical keys; last two
+    // Latin and Ukrainian-Cyrillic layouts sharing the same physical keys; the ß/æ
     // rows live on an Option/AltGr layer (mods != 0) to exercise the modifier path
-    // (an Option-layer char mapping to a Cyrillic letter, like the real ß/æ overlap).
+    // (an Option-layer char mapping to a Cyrillic letter, like the real ß/æ overlap),
+    // and the ','/'.' rows exercise punctuation that is a letter on the Cyrillic side
+    // (б/ю on ЙЦУКЕН).
     func makeLayouts() -> (latin: FakeLayout, cyr: FakeLayout) {
         let rows: [(UInt16, UInt32, String, String)] = [
             (10, 0, "g", "п"), (11, 0, "h", "р"), (12, 0, "b", "и"), (13, 0, "d", "в"),
@@ -21,6 +23,7 @@ final class EngineTests: XCTestCase {
             (18, 0, "o", "щ"), (19, 0, "q", "й"), (20, 0, "s", "і"), (21, 0, "k", "л"),
             (22, 0, "a", "ф"), (23, 0, "i", "ш"),
             (100, 1, "ß", "є"), (101, 1, "æ", "ї"),
+            (43, 0, ",", "б"), (47, 0, ".", "ю"),
         ]
         var lC2S = [String: KeyStroke](), lS2C = [KeyStroke: String]()
         var cC2S = [String: KeyStroke](), cS2C = [KeyStroke: String]()
@@ -54,6 +57,36 @@ final class EngineTests: XCTestCase {
         XCTAssertEqual(convertWrong("руддщ", src: cyr, dst: latin), "hello")
         XCTAssertEqual(convertWrong("I said привіт", src: cyr, dst: latin), "I said ghbdsn")
         XCTAssertNil(convertWrong("hello world", src: cyr, dst: latin))
+    }
+
+    func testConvertWrongPunctuationAsLetters() {
+        let (latin, cyr) = makeLayouts()
+        // ',' is б on the Cyrillic side: a leading comma converts with the word.
+        XCTAssertEqual(convertWrong(",tkb", src: latin, dst: cyr), "бели")
+        // The reported shape: leading mapped punctuation + an Option-layer letter.
+        XCTAssertEqual(convertWrong(",ßkb", src: latin, dst: cyr), "бєли")
+    }
+
+    func testAutoWordCore() {
+        let (latin, cyr) = makeLayouts()
+        // Leading mapped punctuation strips into the core; the word itself qualifies.
+        XCTAssertEqual(autoWordCore(",ghb", src: latin, dst: cyr), "ghb")
+        XCTAssertEqual(autoWordCore(",ßhb", src: latin, dst: cyr), "ßhb")
+        // Interior mapped punctuation stays in the core.
+        XCTAssertEqual(autoWordCore("g,hb", src: latin, dst: cyr), "g,hb")
+        // Letters-only word passes through whole.
+        XCTAssertEqual(autoWordCore("ghb", src: latin, dst: cyr), "ghb")
+        // Trailing mapped char is ambiguous (real punctuation vs б/ю) -> nil.
+        XCTAssertNil(autoWordCore("ghb,", src: latin, dst: cyr))
+        XCTAssertNil(autoWordCore("gh.", src: latin, dst: cyr))
+        // Fewer than two letters -> nil (floor-difference false fires).
+        XCTAssertNil(autoWordCore(",.g", src: latin, dst: cyr))
+        XCTAssertNil(autoWordCore(",,,", src: latin, dst: cyr))
+        // A char that neither is a letter nor maps to a Cyrillic letter -> nil.
+        XCTAssertNil(autoWordCore("g!b", src: latin, dst: cyr))
+        XCTAssertNil(autoWordCore("g1b", src: latin, dst: cyr))
+        // Cyrillic source: punctuation maps to Latin, never to Cyrillic -> nil.
+        XCTAssertNil(autoWordCore(",пр", src: cyr, dst: latin))
     }
 
     func testWhitespacePreserved() {

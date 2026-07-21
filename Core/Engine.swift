@@ -173,6 +173,39 @@ public func lastWrongWindow(_ text: String) -> (start: String.Index, wrongIsCyri
     return (start, wrongCyr)
 }
 
+// MARK: - Auto-mode word shape
+//
+// A Cyrillic word typed on a Latin layout may embed punctuation that IS a letter
+// on the intended layout (',' is б, ''' is э, ';' is ж, '[' is х on ЙЦУКЕН) —
+// "было" arrives as ",skj". Auto-mode must treat such chars as word material, but
+// every keyboard also types them as real punctuation, so the shape is vetted here:
+//
+//   - every char must be a letter or map to a Cyrillic letter in `dst`;
+//   - at least two real letters — per-language trigram floors differ, so a
+//     floor-dominated string ("z...", "...") beats the score margin on the floor
+//     difference alone and would retype "..." as "ююю";
+//   - the last char must be a letter. A trailing mapped char is genuinely
+//     ambiguous ("pyf." is both "знаю" and "зна."; "ghbdtn," is both "приветб"
+//     and "привет,") and the trigram models cannot separate the two readings —
+//     measured on common words the score gap between the readings overlaps in
+//     both directions. Leading/interior mapped chars carry no such ambiguity
+//     (no Latin word starts ",…"), so only those convert.
+//
+// Returns the word's core — the word minus its leading mapped-punctuation run —
+// for the caller's plausibility check ("'hello" must not fire: the core "hello"
+// is a real word and the quote was a quote). nil when the shape disqualifies.
+public func autoWordCore(_ w: String, src: LayoutMaps, dst: LayoutMaps) -> Substring? {
+    var letters = 0
+    for ch in w {
+        if ch.isLetter { letters += 1 }
+        else if !mapsToCyr(String(ch)[...], src: src, dst: dst) { return nil }
+    }
+    guard letters >= 2, w.last?.isLetter == true else { return nil }
+    var core = Substring(w)
+    while core.first?.isLetter == false { core = core.dropFirst() }
+    return core
+}
+
 // Per-word conversion. The "wrong" words are those typed in `src` (the active/wrong
 // layout) — identified by script — and only those are converted to `dst`.
 //   src Cyrillic -> convert words containing Cyrillic

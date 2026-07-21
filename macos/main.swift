@@ -1440,6 +1440,11 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     // Calibrated for ~99% precision on cross-script pairs (see scripts/trigram).
     private let autoGarbage: Float = -2.5   // word looks like junk in its own language
     private let autoMargin:  Float = 0.5    // converted form must beat it by this much
+    // Words carrying mapped punctuation (',' is б …) get a stricter, absolute gate:
+    // their typed-side score is floor-dominated, so the relative margin alone lets
+    // junk conversions through ("e.g" -> "уюп"). Real converted words score >= -2.6
+    // on the shipped models; the fired junk scored <= -3.8.
+    private let autoPunctPlausible: Float = -3.0
 
     private var trigramCache: [String: TrigramModel?] = [:]
     private func trigram(_ lang: String) -> TrigramModel? {
@@ -1456,7 +1461,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     // Auto fires ONLY between layouts of different scripts (Cyrillic<->Latin), where
     // detection is reliable; same-script pairs always return nil.
     func autoDecide(_ w: String, cur: Layout, enabled: [Layout]) -> (target: Layout, out: String)? {
-        guard w.count >= 3, w.unicodeScalars.allSatisfy({ $0.properties.isAlphabetic }) else { return nil }
+        guard w.count >= 3 else { return nil }
         guard let curLang = cur.languageCode, let curModel = trigram(curLang) else { return nil }
         let targets = enabled.filter { $0.isCyrillic != cur.isCyrillic }   // cross-script only
         guard !targets.isEmpty else { return nil }
@@ -1464,11 +1469,18 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         let sTyped = curModel.score(w)
         guard sTyped < autoGarbage else { return nil }   // already plausible -> leave it
 
+        let pure = w.allSatisfy(\.isLetter)
         var best: (Layout, String, Float)?
         for t in targets {
-            guard let out = convertWrong(w, src: cur, dst: t), out != w,
+            // Shape + core gates (see autoWordCore): mapped punctuation may be a
+            // Cyrillic letter (",skj" is "было"), but not when the word minus its
+            // leading punctuation is already plausible ("'hello" keeps its quote).
+            guard let core = autoWordCore(w, src: cur, dst: t),
+                  core.count == w.count || curModel.score(String(core)) < autoGarbage,
+                  let out = convertWrong(w, src: cur, dst: t), out != w,
                   let tLang = t.languageCode, let tModel = trigram(tLang) else { continue }
             let sAlt = tModel.score(out)
+            guard pure || sAlt > autoPunctPlausible else { continue }
             guard sAlt - sTyped > autoMargin else { continue }
             if best == nil || sAlt > best!.2 { best = (t, out, sAlt) }
         }
@@ -1539,12 +1551,23 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         lastConversion = nil
         if s == " " || s == "\r" || s == "\n" || s == "\t" {
             autoEvaluate(boundary: s); autoBuffer = ""
-        } else if s.count == 1, let c = s.first, c.isLetter {
+        } else if s.count == 1, let c = s.first, c.isLetter || feedsAsCyr(s) {
             autoBuffer.append(c)
             if autoBuffer.count > 64 { autoBuffer.removeFirst(autoBuffer.count - 64) }
         } else {
-            autoBuffer = ""   // punctuation / navigation / delete -> end the run
+            autoBuffer = ""   // other punctuation / navigation / delete -> end the run
         }
+    }
+
+    // ',' ''' ';' '[' … are б э ж х on ЙЦУКЕН: while a Latin layout is active with a
+    // Cyrillic layout enabled, such a char is word material ("было" arrives as
+    // ",skj"), not a word boundary. Decided by the live layout maps, not a char
+    // table, so any layout pair works. autoDecide re-vets the full word's shape.
+    private func feedsAsCyr(_ s: String) -> Bool {
+        let enabled = Layout.enabledList()
+        guard let cur = enabled.first(where: { $0.id == currentSourceID() }),
+              !cur.isCyrillic else { return false }
+        return enabled.contains { $0.isCyrillic && mapsToCyr(s[...], src: cur, dst: $0) }
     }
 
     private func autoEvaluate(boundary: String) {

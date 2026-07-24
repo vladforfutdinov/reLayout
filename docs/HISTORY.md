@@ -6,6 +6,32 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
+## v1.2.19 — auto-correct: short prepositions via adjacency
+
+- **`"d ljhjut" → "d дороге"` fixed** (user report: "пропускает первый символ
+  слова… как правило, предлоги"). Nothing was truncated — `дороге` was complete;
+  the preposition `d`→в was simply left in the wrong layout. Three gates blocked
+  1-2 char words: `autoDecide` and `autoEvaluate` both required `count >= 3`, and
+  engine `autoWordCore` separately requires `letters >= 2`. So every short
+  preposition (в к с у на по за из от до …) never converted.
+- **Fix — adjacency, not a blanket gate drop.** Measured trigram scores first
+  (throwaway harness loading `Resources/trigram/{en,ru}.txt`): every wrong-layout
+  preposition clears the garbage/margin gates by ~2.7+ (model pads `^^w$`, so
+  short words score), while real English function words (`in on to is of`) score
+  too high to fire — but a few short junk tokens (`vs`→мы) would false-fire if the
+  gate simply dropped. So: `autoDecide` loses its `>= 3` guard and bypasses
+  `autoWordCore` for pure-letter words (no punctuation ambiguity there); precision
+  for short words moves to a new adjacency rule in `autoEvaluate`. A short
+  candidate never fires alone — it's remembered (`autoPrev` run-state) and only
+  converted when it borders a real same-script conversion. A following long word
+  **swallows** a pending preposition into one delete/retype edit (folded into the
+  undo record via `autoCorrect`'s new `swallow:` arg); a lone short junk token
+  with no anchor is left untouched. One-neighbour lookback (a stacked pair fixes
+  only the last preposition) — noted in-code with the widen-to-a-list path.
+- Engine untouched (`Core/` unchanged); all logic in `macos/main.swift`. Tests
+  46/46 + engine 19/19 green. Commits `43e4b53` (fix), `13a8c60` (ARCHITECTURE
+  note). Shipped as tag `v1.2.19`.
+
 ## v1.2.18 — auto-correct: layout-mapped punctuation joins the word
 
 - **`",ßkj" → ",ыло"` fixed** (user report). Auto-mode's key monitor treated every

@@ -1460,8 +1460,12 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     // layout, and to which cross-script target. Returns (target, converted) or nil.
     // Auto fires ONLY between layouts of different scripts (Cyrillic<->Latin), where
     // detection is reliable; same-script pairs always return nil.
+    //
+    // Length is NOT gated here — the trigram model pads `^^w$`, so 1-2 char words
+    // (prepositions: d->в, yf->на) still score. autoEvaluate applies the extra
+    // adjacency requirement that keeps short-word precision high; a bare candidate
+    // from here only means "looks like a wrong-layout word of some length".
     func autoDecide(_ w: String, cur: Layout, enabled: [Layout]) -> (target: Layout, out: String)? {
-        guard w.count >= 3 else { return nil }
         guard let curLang = cur.languageCode, let curModel = trigram(curLang) else { return nil }
         let targets = enabled.filter { $0.isCyrillic != cur.isCyrillic }   // cross-script only
         guard !targets.isEmpty else { return nil }
@@ -1475,9 +1479,15 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             // Shape + core gates (see autoWordCore): mapped punctuation may be a
             // Cyrillic letter (",skj" is "было"), but not when the word minus its
             // leading punctuation is already plausible ("'hello" keeps its quote).
-            guard let core = autoWordCore(w, src: cur, dst: t),
-                  core.count == w.count || curModel.score(String(core)) < autoGarbage,
-                  let out = convertWrong(w, src: cur, dst: t), out != w,
+            // Pure-letter words have no such ambiguity (core == word), and a lone
+            // letter — a preposition — trips autoWordCore's letters>=2 guard, so
+            // skip it for them.
+            if !pure {
+                guard let core = autoWordCore(w, src: cur, dst: t),
+                      core.count == w.count || curModel.score(String(core)) < autoGarbage
+                else { continue }
+            }
+            guard let out = convertWrong(w, src: cur, dst: t), out != w,
                   let tLang = t.languageCode, let tModel = trigram(tLang) else { continue }
             let sAlt = tModel.score(out)
             guard pure || sAlt > autoPunctPlausible else { continue }
@@ -1497,6 +1507,19 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     fileprivate var autoTap: CFMachPort?
     private var autoTapSource: CFRunLoopSource?
     fileprivate var autoBuffer = ""
+
+    // The previous word of the current typing run (words separated by single
+    // spaces), remembered for short-word (preposition) adjacency. A 1-2 char word
+    // is too short to auto-fix on its own confidence, so it fires only when it
+    // borders a real conversion: a following long word swallows a `pending` short
+    // candidate ("d ljhjut" -> "в дороге"). Reset when the run breaks.
+    private struct AutoPrev {
+        let raw: String       // as-typed text still on screen
+        let out: String       // its cross-script conversion
+        let target: Layout
+        let committed: Bool   // true: already retyped; false: pending short candidate
+    }
+    private var autoPrev: AutoPrev?
 
     // Apps where auto-correct stays off — a user-editable deny-list (Settings >
     // Auto-correct > Exceptions…). Seeded once with common terminals/IDEs.
@@ -1539,7 +1562,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
 
     private func stopAutoMonitor() {
         removeEventTap(&autoTap, &autoTapSource)
-        autoBuffer = ""
+        autoBuffer = ""; autoPrev = nil
     }
 
     // Feed a produced character into the word buffer; evaluate on a word boundary.
@@ -1555,7 +1578,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             autoBuffer.append(c)
             if autoBuffer.count > 64 { autoBuffer.removeFirst(autoBuffer.count - 64) }
         } else {
-            autoBuffer = ""   // other punctuation / navigation / delete -> end the run
+            autoBuffer = ""; autoPrev = nil   // punctuation / navigation / delete -> end the run
         }
     }
 
@@ -1572,28 +1595,58 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
 
     private func autoEvaluate(boundary: String) {
         let word = autoBuffer
-        guard word.count >= 3, !isAutoExcluded() else { return }
+        // Any non-word event (empty word from a double space, excluded app) breaks
+        // the run so a stale short candidate can't attach across the gap.
+        guard !word.isEmpty, !isAutoExcluded() else { autoPrev = nil; return }
         let enabled = Layout.enabledList()
         guard let cur = enabled.first(where: { $0.id == currentSourceID() }),
-              let d = autoDecide(word, cur: cur, enabled: enabled) else { return }
+              let d = autoDecide(word, cur: cur, enabled: enabled) else { autoPrev = nil; return }
         let srcSource = cur.source
-        worker.async {
-            self.autoCorrect(word: word, boundary: boundary,
-                             target: d.target, srcSource: srcSource, out: d.out)
+
+        if word.count >= 3 {
+            // A word long enough to trust on its own. If the immediately-preceding
+            // word was a pending short candidate of the same script, fold it into
+            // this one correction (forward adjacency) — the "d ljhjut" case.
+            let swallow = autoPrev.flatMap {
+                (!$0.committed && $0.target.isCyrillic == d.target.isCyrillic) ? $0 : nil
+            }
+            autoPrev = AutoPrev(raw: word, out: d.out, target: d.target, committed: true)
+            worker.async {
+                self.autoCorrect(word: word, boundary: boundary, target: d.target,
+                                 srcSource: srcSource, out: d.out, swallow: swallow)
+            }
+        } else if let p = autoPrev, p.committed, p.target.isCyrillic == d.target.isCyrillic {
+            // Short word right after a committed conversion of the same script.
+            autoPrev = AutoPrev(raw: word, out: d.out, target: d.target, committed: true)
+            worker.async {
+                self.autoCorrect(word: word, boundary: boundary, target: d.target,
+                                 srcSource: srcSource, out: d.out, swallow: nil)
+            }
+        } else {
+            // Short candidate with no anchor yet: leave it on screen, remember it so
+            // a following long conversion may swallow it.
+            // ponytail: one-neighbour lookback — a stack ("bp pf ghbdtn") fixes only
+            // the last preposition; widen to a pending list if that ever matters.
+            autoPrev = AutoPrev(raw: word, out: d.out, target: d.target, committed: false)
         }
     }
 
     // Delete the wrong word (+ the boundary just typed), retype the converted text
     // and boundary, switch the system layout. Records it so the hotkey undo reverts.
+    // `swallow` (forward adjacency) additionally rewrites the preceding short word,
+    // still on screen as `swallow.raw` one space before `word`.
     private func autoCorrect(word: String, boundary: String, target: Layout,
-                             srcSource: TISInputSource, out: String) {
+                             srcSource: TISInputSource, out: String, swallow: AutoPrev?) {
         waitModifiersReleased()
-        for _ in 0..<(word.count + boundary.count) { postKey(CGKeyCode(kVK_Delete), []) }
+        let extra = swallow.map { $0.raw.count + 1 } ?? 0   // "<raw> " before the word
+        for _ in 0..<(word.count + boundary.count + extra) { postKey(CGKeyCode(kVK_Delete), []) }
         usleep(10_000)
-        typeUnicode(out + boundary)
+        let prefix = swallow.map { $0.out + " " } ?? ""
+        let rawPrefix = swallow.map { $0.raw + " " } ?? ""
+        typeUnicode(prefix + out + boundary)
         usleep(10_000)
         DispatchQueue.main.sync { _ = TISSelectInputSource(target.source) }
-        lastConversion = Conversion(original: word + boundary, typed: out + boundary,
+        lastConversion = Conversion(original: rawPrefix + word + boundary, typed: prefix + out + boundary,
                                     srcSource: srcSource, time: ProcessInfo.processInfo.systemUptime)
     }
 

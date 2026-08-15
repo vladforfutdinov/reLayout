@@ -6,7 +6,7 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
-## auto-correct: mid-word layout switch
+## v1.2.20 — mid-word layout switch (auto-correct + hotkey)
 
 - **`"ghj" + [layout switch] + "сто"` stayed `"ghjсто"`** (user report). Switching
   the layout in the middle of a word leaves ONE word carrying both scripts, and
@@ -44,6 +44,11 @@ work (not per commit). Operational "where are we right now" lives in
   −10.6). No confidence gates there — unlike auto-mode the hotkey is an explicit
   user request. Windows keeps the `convertWrong` half of the fix; it has no trigram
   path of its own.
+- Landed as `3534db4` (engine + macOS + tests), docs `c599b9d` / `31e38e9`.
+  Released **v1.2.20**: ff-merge to `main`, tag pushed, hand-written notes +
+  auto Full Changelog applied; tag `build` and `core` CI green, dmg/zip
+  published, appcast + cask bumped. Confirmed live by the user on the dev build
+  ("просто").
 
 ---
 

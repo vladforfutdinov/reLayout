@@ -35,6 +35,9 @@ First launch asks for **Accessibility** (to read the selection / send keystrokes
 Conversion is **per word**: only words typed in the layout active when you press the hotkey are
 converted; the rest is left alone. `я сказал ghbdtn` (US active) → `я сказал привет`.
 
+Switching the layout in the middle of a word is handled too: `ghj` + Globe + `сто` → `просто`
+— only the half typed on the wrong layout is rewritten.
+
 Set your own hotkey (a combo, a modifier tap, or a tap sequence) and toggle auto-correct in
 **rL → Settings…**.
 
@@ -49,7 +52,8 @@ keycodes as `ß æ …` (Option on US), and convert with no hand-coded tables. D
 
 A live mode that fixes a wrong-layout word **as you type**, no hotkey: on each word boundary a
 per-language character-trigram model scores the word and silently corrects it when its converted
-form is the plausible one. **Cross-script only** (ru/uk ↔ en), tuned for ≥99% precision, with a
+form is the plausible one, including a word split by a mid-word layout switch. **Cross-script
+only** (ru/uk ↔ en), tuned for ≥99% precision, with a
 per-app deny-list (*Settings → Auto-correct → Exceptions…*). Secure fields are always skipped.
 
 ## Privacy

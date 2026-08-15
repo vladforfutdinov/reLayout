@@ -6,6 +6,47 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
+## auto-correct: mid-word layout switch
+
+- **`"ghj" + [layout switch] + "сто"` stayed `"ghjсто"`** (user report). Switching
+  the layout in the middle of a word leaves ONE word carrying both scripts, and
+  every auto-correct path assumed a single-script word: `convertWrong` (called from
+  `autoDecide`) converts whole tokens through the active layout, so the Latin run
+  `ghj` — typed on a layout that is no longer current — passed through unmapped,
+  the score stayed junk, and nothing fired.
+- **The Globe key itself broke the run.** Before any of the scoring mattered:
+  `autoFeed` treated a keystroke that produces no character as "punctuation /
+  navigation" and cleared the word buffer, and the Globe/fn layout switch is
+  exactly such a key. So "ghj" was dropped at the switch and only "сто" — a plain
+  Russian word — reached `autoEvaluate`. Empty input now returns without touching
+  the run (⌘Space switching was already safe: Cmd-flagged events never reach the
+  feed).
+- **Fix — sub-word conversion.** New engine `convertScriptRuns(_:src:dst:)`
+  converts every maximal run of `src`-script letters and leaves the rest verbatim.
+  `autoDecide` gets a mixed-word branch that tries both readings of such a word:
+  fix the pre-switch run into the current script (`"ghjсто"` → `"просто"`, target
+  stays the current layout — no input-source switch) or fix the current-layout run
+  into the cross-script candidate; each is scored under the model of the script it
+  ends up in and must clear the usual margin. Mixed words carrying punctuation are
+  left alone — the existing shape gates (`autoWordCore`) reason about a
+  single-script word.
+- **Hotkey path too.** `lastWrongWindow` anchors on the line's last letter and
+  trims a mid-word remainder, so a mixed token windowed to nothing — the hotkey did
+  nothing at all on "ghjсто". Two changes: engine `convertWrong` now routes a
+  mixed-script token through `convertScriptRuns` (converting it whole dragged the
+  already-correct half through an unrelated layout), and `convert()` intercepts the
+  caret word (line grab) or a single-word selection with `mixedWordFix`. Which half
+  is wrong is *not* decidable from the layouts: "ghjсто" wants its head fixed
+  ("просто"), "мирqwerty" its tail ("мирйцукен"), and the two are structurally
+  identical — head in the non-current script, tail in the current one. So both
+  readings are scored with the trigram models and the better one wins (measured on
+  the shipped models: просто −1.3 vs ghjcto −9.5; мирйцукен −5.8 vs vbhqwerty
+  −10.6). No confidence gates there — unlike auto-mode the hotkey is an explicit
+  user request. Windows keeps the `convertWrong` half of the fix; it has no trigram
+  path of its own.
+
+---
+
 ## v1.2.19 — auto-correct: short prepositions via adjacency
 
 - **`"d ljhjut" → "d дороге"` fixed** (user report: "пропускает первый символ

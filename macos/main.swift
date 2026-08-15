@@ -1382,6 +1382,19 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         guard let curIdx = enabled.firstIndex(where: { $0.id == curID }) else { return nil }
         let cur = enabled[curIdx]
 
+        // Mid-word layout switch ("ghjсто"): the word carries both scripts, so
+        // neither anchor rule fits — the wrong half may be the head (switched after
+        // mistyping) or the tail (forgot to switch). Decided by trigram score, see
+        // mixedWordFix. Applies to the caret word of a line grab and to a
+        // single-word selection; a multi-word selection converts as a whole.
+        let toks = tokenize(text)
+        if let last = toks.last, !(last.first?.isWhitespace ?? true),
+           lineGrab || toks.count == 1,
+           let fix = mixedWordFix(String(last), cur: cur, enabled: enabled) {
+            dbg("convert[mixed] src=\(fix.src.id) -> dst=\(fix.dst.id)")
+            return (String(text[..<last.startIndex]) + fix.out, fix.dst, fix.src)
+        }
+
         // Implicit line grab: `text` is the whole line back to the caret's line
         // start, not a deliberate selection — only the wrong-layout tail may be
         // converted (anchored on the line's last letter; see lastWrongWindow).
@@ -1474,8 +1487,30 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         guard sTyped < autoGarbage else { return nil }   // already plausible -> leave it
 
         let pure = w.allSatisfy(\.isLetter)
+        // Mid-word layout switch leaves ONE word carrying both scripts ("ghjсто").
+        // Punctuation-bearing mixed words are left alone — the shape gates below
+        // reason about a single-script word.
+        let mixed = pure && hasCyr(w[...]) && hasLatin(w[...])
         var best: (Layout, String, Float)?
         for t in targets {
+            if mixed {
+                // Two readings: convert the pre-switch run into the current script
+                // ("ghjсто" -> "просто", target stays `cur` — no layout switch), or
+                // convert the current-layout run into `t`. Each is scored under the
+                // model of the script it ends up in.
+                var readings: [(target: Layout, model: TrigramModel, src: Layout, dst: Layout)] =
+                    [(cur, curModel, t, cur)]
+                if let tLang = t.languageCode, let tModel = trigram(tLang) {
+                    readings.append((t, tModel, cur, t))
+                }
+                for r in readings {
+                    guard let out = convertScriptRuns(w, src: r.src, dst: r.dst), out != w else { continue }
+                    let sAlt = r.model.score(out)
+                    guard sAlt - sTyped > autoMargin else { continue }
+                    if best == nil || sAlt > best!.2 { best = (r.target, out, sAlt) }
+                }
+                continue
+            }
             // Shape + core gates (see autoWordCore): mapped punctuation may be a
             // Cyrillic letter (",skj" is "было"), but not when the word minus its
             // leading punctuation is already plausible ("'hello" keeps its quote).
@@ -1496,6 +1531,33 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         }
         guard let b = best else { return nil }
         return (b.0, b.1)
+    }
+
+    // A word that mixes scripts came from a mid-word layout switch: one half was
+    // typed before the switch, the other after. Which half is wrong is not decidable
+    // from the layouts alone — "ghjсто" wants its head fixed ("просто"), "мирqwerty"
+    // its tail ("мирйцукен") — the two are structurally identical, so both readings
+    // are scored with the trigram models and the better one wins. Unlike auto-mode
+    // there are no confidence gates: the hotkey is an explicit user request.
+    // Returns nil when `w` is not a pure-letter mixed-script word.
+    private func mixedWordFix(_ w: String, cur: Layout,
+                              enabled: [Layout]) -> (out: String, dst: Layout, src: Layout)? {
+        guard w.allSatisfy(\.isLetter), hasCyr(w[...]), hasLatin(w[...]) else { return nil }
+        var best: (out: String, dst: Layout, src: Layout, score: Float)?
+        func offer(_ out: String?, dst: Layout, src: Layout) {
+            guard let out, out != w,
+                  let lang = dst.languageCode, let model = trigram(lang) else { return }
+            let s = model.score(out)
+            if best == nil || s > best!.score { best = (out, dst, src, s) }
+        }
+        for t in enabled where t.isCyrillic != cur.isCyrillic {
+            // Head reading: the other-script run predates the switch -> current layout.
+            offer(convertScriptRuns(w, src: t, dst: cur), dst: cur, src: t)
+            // Tail reading: what was typed on the current layout is the wrong half.
+            offer(convertScriptRuns(w, src: cur, dst: t), dst: t, src: cur)
+        }
+        guard let b = best else { return nil }
+        return (b.out, b.dst, b.src)
     }
 
     // MARK: - auto-mode live monitor
@@ -1572,6 +1634,11 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         // the new word, not revert the old fix. The undo hotkey itself is a
         // modifier/Cmd-combo (filtered above), so it never reaches here.
         lastConversion = nil
+        // A key that produces no character (Globe/fn — the layout switch itself,
+        // dead keys, F-keys) is not word material and must NOT break the run:
+        // switching layout mid-word is exactly the case that has to keep "ghj"
+        // buffered so "ghjсто" evaluates as one word.
+        if s.isEmpty { return }
         if s == " " || s == "\r" || s == "\n" || s == "\t" {
             autoEvaluate(boundary: s); autoBuffer = ""
         } else if s.count == 1, let c = s.first, c.isLetter || feedsAsCyr(s) {

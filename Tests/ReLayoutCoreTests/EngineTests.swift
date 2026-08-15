@@ -67,6 +67,25 @@ final class EngineTests: XCTestCase {
         XCTAssertEqual(convertWrong(",ßkb", src: latin, dst: cyr), "бєли")
     }
 
+    func testConvertScriptRuns() {
+        let (latin, cyr) = makeLayouts()
+        // Mid-word layout switch: "при" typed on Latin, then the layout switched.
+        XCTAssertEqual(convertScriptRuns("ghbвіт", src: latin, dst: cyr), "привіт")
+        // The other reading of the same word: fix the post-switch run instead.
+        XCTAssertEqual(convertScriptRuns("ghbвіт", src: cyr, dst: latin), "ghbdsn")
+        // Non-src-script chars (incl. punctuation and digits) stay verbatim.
+        XCTAssertEqual(convertScriptRuns("gh-b1", src: latin, dst: cyr), "пр-и1")
+        XCTAssertNil(convertScriptRuns("привіт", src: latin, dst: cyr))
+    }
+
+    func testConvertWrongMixedToken() {
+        let (latin, cyr) = makeLayouts()
+        // Mid-word switch: only the src-script run converts, the other half stays.
+        XCTAssertEqual(convertWrong("ghbвіт", src: latin, dst: cyr), "привіт")
+        XCTAssertEqual(convertWrong("ghbвіт", src: cyr, dst: latin), "ghbdsn")
+        XCTAssertEqual(convertWrong("я сказав ghbвіт", src: latin, dst: cyr), "я сказав привіт")
+    }
+
     func testAutoWordCore() {
         let (latin, cyr) = makeLayouts()
         // Leading mapped punctuation strips into the core; the word itself qualifies.

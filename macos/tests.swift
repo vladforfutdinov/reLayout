@@ -104,6 +104,24 @@ func testConvertWrongPunctuationAsLetters() {
     eq(convertWrong(",ßkb", src: latin, dst: cyr), "бєли", "',ßkb' converts whole, incl. б")
 }
 
+func testConvertWrongMixedToken() {
+    let (latin, cyr) = makeLayouts()
+    eq(convertWrong("ghbвіт", src: latin, dst: cyr), "привіт", "mixed token: latin run converts")
+    eq(convertWrong("ghbвіт", src: cyr, dst: latin), "ghbdsn", "mixed token: cyr run converts")
+    eq(convertWrong("я сказав ghbвіт", src: latin, dst: cyr), "я сказав привіт",
+       "mixed token inside a line")
+}
+
+func testConvertScriptRuns() {
+    let (latin, cyr) = makeLayouts()
+    eq(convertScriptRuns("ghbвіт", src: latin, dst: cyr), "привіт",
+       "mid-word switch: latin prefix converts")
+    eq(convertScriptRuns("ghbвіт", src: cyr, dst: latin), "ghbdsn",
+       "mid-word switch: cyrillic tail converts")
+    eq(convertScriptRuns("gh-b1", src: latin, dst: cyr), "пр-и1", "non-letters stay verbatim")
+    check(convertScriptRuns("привіт", src: latin, dst: cyr) == nil, "no latin run -> nil")
+}
+
 func testAutoWordCore() {
     let (latin, cyr) = makeLayouts()
     eq(autoWordCore(",ghb", src: latin, dst: cyr), "ghb", "leading mapped punct strips into core")
@@ -176,6 +194,8 @@ struct ReLayoutTests {
         testConvertWrongCyrillicSource()
         testConvertWrongWhitespace()
         testConvertWrongPunctuationAsLetters()
+        testConvertWrongMixedToken()
+        testConvertScriptRuns()
         testAutoWordCore()
         testFourCharCode()
         testKeyName()

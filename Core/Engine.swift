@@ -215,6 +215,13 @@ public func convertWrong(_ text: String, src: LayoutMaps, dst: LayoutMaps) -> St
     var acc = ""
     for t in tokenize(text) {
         if t.first?.isWhitespace ?? false { acc += t; continue }
+        // Mid-word layout switch: a token carrying both scripts has only its
+        // src-script runs converted — transliterating it whole would drag the
+        // already-correct half through an unrelated layout.
+        if hasCyr(t), hasLatin(t) {
+            acc += convertScriptRuns(String(t), src: src, dst: dst) ?? String(t)
+            continue
+        }
         let wrong: Bool
         if src.isCyrillic {
             wrong = hasCyr(t)
@@ -223,5 +230,24 @@ public func convertWrong(_ text: String, src: LayoutMaps, dst: LayoutMaps) -> St
         }
         acc += wrong ? transliterate(String(t), from: src, to: dst) : String(t)
     }
+    return acc == text ? nil : acc
+}
+
+// Sub-word conversion for a mid-word layout switch: a single word may mix scripts
+// ("ghjсто" — "про" typed on Latin, then the layout switched and "сто" followed).
+// Converts every maximal run of `src`-script letters through `src` -> `dst` and
+// leaves the rest verbatim, so both readings of a mixed word are expressible:
+// src = the pre-switch layout fixes the prefix ("ghjсто" -> "просто"), src = the
+// current layout fixes the tail. Returns nil if nothing changed.
+public func convertScriptRuns(_ text: String, src: LayoutMaps, dst: LayoutMaps) -> String? {
+    var acc = "", run = ""
+    func flush() {
+        if !run.isEmpty { acc += transliterate(run, from: src, to: dst); run = "" }
+    }
+    for ch in text {
+        let inSrc = ch.unicodeScalars.contains(where: src.isCyrillic ? isCyrLetter : isLatinLetter)
+        if inSrc { run.append(ch) } else { flush(); acc.append(ch) }
+    }
+    flush()
     return acc == text ? nil : acc
 }

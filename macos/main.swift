@@ -815,9 +815,10 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     }
 
     // Create a listen-only session event tap, add it to the main run loop, enable it.
-    private func installEventTap(_ mask: CGEventMask, _ callback: CGEventTapCallBack) -> (CFMachPort, CFRunLoopSource?)? {
+    private func installEventTap(_ mask: CGEventMask, _ callback: CGEventTapCallBack,
+                                 options: CGEventTapOptions = .listenOnly) -> (CFMachPort, CFRunLoopSource?)? {
         guard let tap = CGEvent.tapCreate(tap: .cgSessionEventTap, place: .headInsertEventTap,
-                                          options: .listenOnly, eventsOfInterest: mask, callback: callback,
+                                          options: options, eventsOfInterest: mask, callback: callback,
                                           userInfo: Unmanaged.passUnretained(self).toOpaque()) else { return nil }
         let src = CFMachPortCreateRunLoopSource(nil, tap, 0)
         CFRunLoopAddSource(CFRunLoopGetMain(), src, .commonModes)
@@ -1570,6 +1571,16 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     private var autoTapSource: CFRunLoopSource?
     fileprivate var autoBuffer = ""
 
+    // Fast typing races the retype: the deletes + retype of a finished word land
+    // in the middle of the characters typed since, producing mixed text and bogus
+    // conversions. While a correction is in flight the tap (a .defaultTap for auto
+    // mode) SWALLOWS the character keys and the worker replays them afterwards, in
+    // order — so the retype always sees exactly the text it measured.
+    // Main-thread-only state: the tap callback runs on the main run loop and the
+    // worker hands completion back with DispatchQueue.main.async.
+    fileprivate var autoPending = 0     // corrections in flight
+    fileprivate var autoHeld = ""       // characters swallowed while correcting
+
     // The previous word of the current typing run (words separated by single
     // spaces), remembered for short-word (preposition) adjacency. A 1-2 char word
     // is too short to auto-fix on its own confidence, so it fires only when it
@@ -1612,19 +1623,29 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
                 var len = 0
                 var buf = [UniChar](repeating: 0, count: 4)
                 event.keyboardGetUnicodeString(maxStringLength: 4, actualStringLength: &len, unicodeString: &buf)
-                me.autoFeed(String(utf16CodeUnits: buf, count: len))
+                let s = String(utf16CodeUnits: buf, count: len)
+                // Only text-producing keys are held back; modifiers, Globe, arrows
+                // and delete keep flowing so nothing the user does can be stalled
+                // by a correction that hangs.
+                if me.autoPending > 0, !s.isEmpty {
+                    me.autoHeld += s
+                    return nil
+                }
+                me.autoFeed(s)
             } else if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
                 if let t = me.autoTap { CGEvent.tapEnable(tap: t, enable: true) }
             }
             return Unmanaged.passUnretained(event)
         }
-        guard let (tap, src) = installEventTap(mask, cb) else { return }
+        // .defaultTap (not .listenOnly): the callback must be able to drop the
+        // user's keystrokes while a correction is being typed back.
+        guard let (tap, src) = installEventTap(mask, cb, options: .defaultTap) else { return }
         autoTap = tap; autoTapSource = src
     }
 
     private func stopAutoMonitor() {
         removeEventTap(&autoTap, &autoTapSource)
-        autoBuffer = ""; autoPrev = nil
+        autoBuffer = ""; autoPrev = nil; autoPending = 0; autoHeld = ""
     }
 
     // Feed a produced character into the word buffer; evaluate on a word boundary.
@@ -1678,14 +1699,14 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
                 (!$0.committed && $0.target.isCyrillic == d.target.isCyrillic) ? $0 : nil
             }
             autoPrev = AutoPrev(raw: word, out: d.out, target: d.target, committed: true)
-            worker.async {
+            beginCorrection {
                 self.autoCorrect(word: word, boundary: boundary, target: d.target,
                                  srcSource: srcSource, out: d.out, swallow: swallow)
             }
         } else if let p = autoPrev, p.committed, p.target.isCyrillic == d.target.isCyrillic {
             // Short word right after a committed conversion of the same script.
             autoPrev = AutoPrev(raw: word, out: d.out, target: d.target, committed: true)
-            worker.async {
+            beginCorrection {
                 self.autoCorrect(word: word, boundary: boundary, target: d.target,
                                  srcSource: srcSource, out: d.out, swallow: nil)
             }
@@ -1695,6 +1716,36 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             // ponytail: one-neighbour lookback — a stack ("bp pf ghbdtn") fixes only
             // the last preposition; widen to a pending list if that ever matters.
             autoPrev = AutoPrev(raw: word, out: d.out, target: d.target, committed: false)
+        }
+    }
+
+    // Run one retype on `worker` with the keystroke gate held: everything the user
+    // types meanwhile is swallowed by the tap and replayed here afterwards. Called
+    // on the main thread (from the tap callback).
+    private func beginCorrection(_ body: @escaping () -> Void) {
+        autoPending += 1
+        worker.async {
+            body()
+            DispatchQueue.main.async { self.finishCorrection() }
+        }
+    }
+
+    // Nothing left in flight -> type the swallowed characters back and feed them
+    // through the word buffer, so the run continues as if they had never been
+    // held. A replay may itself hit a word boundary and start another correction;
+    // the gate stays closed until that one finishes too.
+    private func finishCorrection() {
+        autoPending -= 1
+        guard autoPending == 0, !autoHeld.isEmpty else { return }
+        let text = autoHeld
+        autoHeld = ""
+        autoPending += 1
+        worker.async {
+            self.typeUnicode(text)
+            DispatchQueue.main.async {
+                for ch in text { self.autoFeed(String(ch)) }
+                self.finishCorrection()
+            }
         }
     }
 

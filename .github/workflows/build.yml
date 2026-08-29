@@ -132,8 +132,12 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # hand-written notes (same file the Sparkle appcast embeds) are prepended
+          # to the auto-generated body, which keeps the Full Changelog link
+          NOTES="docs/release-notes/${GITHUB_REF_NAME}.md"
+          [ -f "$NOTES" ] && NOTES_ARG=(--notes-file "$NOTES") || NOTES_ARG=()
           gh release create "${GITHUB_REF_NAME}" dist/reLayout.dmg dist/reLayout.zip \
-            --title "${GITHUB_REF_NAME}" --generate-notes
+            --title "${GITHUB_REF_NAME}" --generate-notes "${NOTES_ARG[@]}"
 
       - name: Publish Sparkle appcast to GitHub Pages (release only)
         if: startsWith(github.ref, 'refs/tags/v')
@@ -148,6 +152,16 @@ jobs:
           GEN="$(ls .sparkle/*/bin/generate_appcast | head -1)"
           printf '%s' "$SPARKLE_ED_PRIVATE_KEY" > "$RUNNER_TEMP/ed_priv"
           SRC="$RUNNER_TEMP/appcast-src"; mkdir -p "$SRC"; cp dist/reLayout.zip "$SRC/"
+          # release notes for the Sparkle update window: generate_appcast embeds a
+          # DOCTYPE/body-less .html sibling of the archive as the item <description>.
+          # GitHub's /markdown endpoint renders the committed notes, so no converter.
+          NOTES="docs/release-notes/${GITHUB_REF_NAME}.md"
+          if [ -f "$NOTES" ]; then
+            gh api --method POST /markdown -f mode=gfm \
+              -f "text=$(cat "$NOTES")" > "$SRC/reLayout.html"
+          else
+            echo "no $NOTES — appcast item will have no release notes"
+          fi
           "$GEN" --ed-key-file "$RUNNER_TEMP/ed_priv" \
             --download-url-prefix "https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/" \
             "$SRC"

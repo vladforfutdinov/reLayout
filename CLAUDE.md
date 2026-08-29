@@ -26,7 +26,7 @@ Resources/   macOS bundle resources — <lang>.lproj + icon PNGs + trigram/<lang
 Tests/       SwiftPM engine tests
 scripts/     build.sh, run-tests.sh, make-cert.sh, make-dmg.sh, notarize.sh, trigram/
 packaging/   Homebrew cask template + tap-push script
-docs/        ARCHITECTURE.md, RELEASING.md, HISTORY.md, SNAPSHOT.md, BACKLOG.md
+docs/        ARCHITECTURE.md, RELEASING.md, HISTORY.md, SNAPSHOT.md, BACKLOG.md, release-notes/
 assets/      source art (rL-logo.svg) — not bundled
 dist/        build output (.app/.dmg/.zip) — gitignored
 ```

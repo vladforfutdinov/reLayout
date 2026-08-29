@@ -79,6 +79,21 @@ On release, CI signs the embedded `Sparkle.framework` with your Developer ID
 notarizes, generates the signed appcast from `reLayout.zip`, and publishes it to
 `gh-pages`. If `SPARKLE_ED_PRIVATE_KEY` is unset the appcast step is skipped.
 
+### Release notes in the update window
+
+`docs/release-notes/vX.Y.Z.md` (committed **before** the tag) is the single source
+of the user-facing notes. On a tag, CI:
+
+- prepends it to the GitHub release body (`gh release create --notes-file` +
+  `--generate-notes`, so the Full Changelog link survives);
+- renders it through the GitHub `/markdown` API into `reLayout.html` next to
+  `reLayout.zip`. `generate_appcast` embeds a `DOCTYPE`/`body`-less HTML sibling of
+  the archive as the item's `<description>` — that is what Sparkle shows in the
+  "new version available" window.
+
+No file for the tag → the release gets only auto-generated notes and the appcast
+item no description. Writing it is part of `/release`.
+
 ## Forking: release under your own identity
 
 **No owner identity is hardcoded in the repo** — it comes entirely from

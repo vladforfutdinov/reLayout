@@ -37,29 +37,21 @@ Steps:
    Skip pure internal/refactor/test/doc commits. **Show the draft and get the
    user's OK before tagging** — wording is the point of this command.
 
-5. **Tag and push.** Annotated tag (`git tag -a vX.Y.Z -m "<one-line summary>"`),
+5. **Commit the notes as `docs/release-notes/vX.Y.Z.md`.** This file is the single
+   source: CI prepends it to the GitHub release body (keeping the auto-generated
+   Full Changelog link) and renders it via the GitHub `/markdown` API into the
+   Sparkle appcast item's `<description>`, which is what users read in the "new
+   version available" window. It must be committed **before** the tag — CI reads it
+   from the tagged commit. Keep it self-contained markdown (headers, bullets,
+   inline code); no relative links, since it is rendered outside the repo.
+
+6. **Tag and push.** Annotated tag (`git tag -a vX.Y.Z -m "<one-line summary>"`),
    then `git push origin main` and `git push origin vX.Y.Z`. This starts CI.
 
-6. **Apply the notes — keep the auto Full Changelog.** The release is created
-   mid-CI by `gh release create … --generate-notes`, so it does not exist at push
-   time. `gh release edit --notes-file` *replaces* the body, which would drop the
-   auto-generated `**Full Changelog**: …/compare/<prev>...<tag>` link. So combine:
-   put the hand-written notes on top, append the auto body (regenerated via the
-   API so the compare link survives). Poll until the release appears, then:
-   ```sh
-   for i in $(seq 1 60); do
-     gh release view vX.Y.Z >/dev/null 2>&1 && break || sleep 15
-   done
-   AUTO=$(gh api repos/<owner>/<repo>/releases/generate-notes \
-     -f tag_name=vX.Y.Z -f previous_tag_name=<prevtag> --jq '.body')
-   { cat <draft.md>; printf '\n\n%s\n' "$AUTO"; } > <combined.md>
-   gh release edit vX.Y.Z --notes-file <combined.md>
-   ```
-   Verify with `gh release view vX.Y.Z --json body`.
-
 7. **Report CI.** `gh run list --limit 3` — confirm the `build` (tag) and `core`
-   runs, surface any failure. Note that the Sparkle appcast carries no
-   `<description>`; the GitHub release body is where the notes live.
+   runs, surface any failure. Then verify the notes landed in both places:
+   `gh release view vX.Y.Z --json body` and the `<description>` of the newest item
+   in `appcast.xml` on `gh-pages`.
 
 Don't bump version files (the version comes from the git tag). Don't touch the
 Windows job (frozen; tag releases are macOS-only). Two standing rules apply: notes

@@ -3,19 +3,16 @@
     <channel>
         <title>ReLayout</title>
         <item>
-            <title>1.2.21</title>
-            <pubDate>Sat, 29 Aug 2026 19:34:17 +0000</pubDate>
-            <sparkle:version>191</sparkle:version>
-            <sparkle:shortVersionString>1.2.21</sparkle:shortVersionString>
+            <title>1.2.22</title>
+            <pubDate>Sat, 29 Aug 2026 19:38:54 +0000</pubDate>
+            <sparkle:version>192</sparkle:version>
+            <sparkle:shortVersionString>1.2.22</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
-            <description><![CDATA[<h2>What's new in v1.2.21</h2>
+            <description><![CDATA[<h2>What's new in v1.2.22</h2>
 <ul>
-<li><strong>The update window now tells you what changed.</strong> "A new version is available"<br>
-used to be a blank panel — it now carries the release notes for the version<br>
-it is offering, the same ones published on the GitHub release page.</li>
-</ul>
-<p>Nothing else changed in the app itself.</p>]]></description>
-            <enclosure url="https://github.com/vladforfutdinov/reLayout/releases/download/v1.2.21/reLayout.zip" length="1699275" type="application/octet-stream" sparkle:edSignature="GhMyUI9d5+4MgMUuQPFASmmFkRMjjPfMfreZRZJdIEgNanTCQhXEpZpMQCg3LBUJ8JZm+dGnIw9oJzmptf0jCQ=="/>
+<li><strong>Auto-correct no longer garbles text when you type fast.</strong> If you kept typing while a finished word was being corrected, your new characters landed in the middle of the fix — mixed-up text and conversions of the wrong letters. The keys you press during a correction are now held for those few milliseconds and typed back right after it, so the text ends up exactly as you typed it.</li>
+</ul>]]></description>
+            <enclosure url="https://github.com/vladforfutdinov/reLayout/releases/download/v1.2.22/reLayout.zip" length="1700887" type="application/octet-stream" sparkle:edSignature="ha+Ye7LXhRrg2igrhcY9sFdvzIhmD039z91nzkucxwwxsKYzuUw+Lc1RdM0GV4EWSI2GCB84BDEi5i4bkUPGBw=="/>
         </item>
     </channel>
 </rss>

@@ -3,12 +3,19 @@
     <channel>
         <title>ReLayout</title>
         <item>
-            <title>1.2.20</title>
-            <pubDate>Sat, 15 Aug 2026 09:55:54 +0000</pubDate>
-            <sparkle:version>188</sparkle:version>
-            <sparkle:shortVersionString>1.2.20</sparkle:shortVersionString>
+            <title>1.2.21</title>
+            <pubDate>Sat, 29 Aug 2026 19:34:17 +0000</pubDate>
+            <sparkle:version>191</sparkle:version>
+            <sparkle:shortVersionString>1.2.21</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
-            <enclosure url="https://github.com/vladforfutdinov/reLayout/releases/download/v1.2.20/reLayout.zip" length="1699239" type="application/octet-stream" sparkle:edSignature="cPiZO9D7Y1oy3hWKPMFym/ODYGvgi0TG3W7DR0HC+P3NRuK7J6R+601Dh0BSIpM3nUL+Vmr2B/mqDU3yy1EEDg=="/>
+            <description><![CDATA[<h2>What's new in v1.2.21</h2>
+<ul>
+<li><strong>The update window now tells you what changed.</strong> "A new version is available"<br>
+used to be a blank panel — it now carries the release notes for the version<br>
+it is offering, the same ones published on the GitHub release page.</li>
+</ul>
+<p>Nothing else changed in the app itself.</p>]]></description>
+            <enclosure url="https://github.com/vladforfutdinov/reLayout/releases/download/v1.2.21/reLayout.zip" length="1699275" type="application/octet-stream" sparkle:edSignature="GhMyUI9d5+4MgMUuQPFASmmFkRMjjPfMfreZRZJdIEgNanTCQhXEpZpMQCg3LBUJ8JZm+dGnIw9oJzmptf0jCQ=="/>
         </item>
     </channel>
 </rss>

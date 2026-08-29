@@ -6,6 +6,44 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
+## v1.2.21 / v1.2.22 — release notes in the update window, typing race in auto-correct
+
+- **The Sparkle "a new version is available" panel was blank.** `generate_appcast`
+  was run on the archive alone, so the appcast item carried no `<description>` and
+  the hand-written notes lived only on the GitHub release page, which the updater
+  never shows. Fixed in `3e35f74`: `docs/release-notes/vX.Y.Z.md`, committed before
+  the tag, is now the single source. The tag build prepends it to the release body
+  (`gh release create --notes-file` alongside `--generate-notes`, so the auto
+  `Full Changelog` link survives) and renders it through the GitHub `/markdown` API
+  into `reLayout.html` next to `reLayout.zip` — `generate_appcast` embeds a
+  `DOCTYPE`/`body`-less HTML sibling of the archive as the item description, so no
+  markdown converter and no hosting for the notes are needed. Sparkle 2.6.4's
+  `generate_appcast` reads only `.html`/`.txt` siblings (`.md` support is later
+  than the pinned version), hence the render step. `/release` grew a step for the
+  file; `RELEASING.md` documents the flow.
+- **Fast typing raced the retype** (user report): keys pressed while a finished
+  word was being corrected landed between the synthetic deletes and the retype, so
+  the fix was spliced into the new text and the wrong characters got converted. The
+  auto-mode tap was `.listenOnly` and `autoCorrect` runs async on `worker`, so
+  nothing held the keystrokes back. Fixed in `a457c84`: the auto tap is now a
+  `.defaultTap`; while a correction is in flight (`autoPending`, bumped in
+  `beginCorrection` on the tap's thread before the dispatch) the callback swallows
+  text-producing keys into `autoHeld` and returns nil, and `finishCorrection` types
+  them back and re-feeds them through the word buffer once the queue drains. A
+  replay that itself hits a word boundary just starts another gated correction.
+  Only character keys are held — modifiers, Globe, arrows and delete always pass
+  through, so a stuck correction can never freeze the keyboard.
+- **Shipped as two tags on purpose** (to verify the appcast change against a real
+  updater before the behavior change rode along): `v1.2.21` from branch
+  `release/v1.2.21` (`5e9cb43`, notes machinery only, no engine/app change) and
+  `v1.2.22` from `main` (`86171be`). Both CI `build` runs green; the notes were
+  confirmed in the release body, in `appcast.xml` on `gh-pages` (`f3691e9`), and in
+  the live Sparkle panel updating 1.2.20 → 1.2.21.
+- **Note for future notes:** GitHub renders in GFM mode, so hard line breaks inside
+  a bullet become `<br>` in the update window. Write each bullet as one long line.
+
+---
+
 ## v1.2.20 — mid-word layout switch (auto-correct + hotkey)
 
 - **`"ghj" + [layout switch] + "сто"` stayed `"ghjсто"`** (user report). Switching

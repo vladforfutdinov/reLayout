@@ -55,6 +55,8 @@ per-language character-trigram model scores the word and silently corrects it wh
 form is the plausible one, including a word split by a mid-word layout switch. **Cross-script
 only** (ru/uk ↔ en), tuned for ≥99% precision, with a
 per-app deny-list (*Settings → Auto-correct → Exceptions…*). Secure fields are always skipped.
+Typing straight through a correction is safe: the keys you press while a word is being retyped are
+held for those few milliseconds and typed back right after, so nothing lands in the middle of the fix.
 
 ## Privacy
 

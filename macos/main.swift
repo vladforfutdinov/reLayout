@@ -755,13 +755,13 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     // Single entry point for both hotkey modes. Fires once the hotkey has been
     // activated hotKeyTaps times within doubleTapWindow (1 = fire immediately).
     func triggerHotkey() {
-        if hotKeyTaps <= 1 { worker.async { self.performRetype() }; return }
+        if hotKeyTaps <= 1 { beginCorrection { self.performRetype() }; return }
         let now = ProcessInfo.processInfo.systemUptime
         tapSeqCount = (now - tapSeqTime <= doubleTapWindow) ? tapSeqCount + 1 : 1
         tapSeqTime = now
         if tapSeqCount >= hotKeyTaps {
             tapSeqCount = 0
-            worker.async { self.performRetype() }
+            beginCorrection { self.performRetype() }
         }
     }
 
@@ -1367,8 +1367,11 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         down?.flags = flags
         up?.flags = flags
         markSynth(down); markSynth(up)
-        down?.post(tap: .cghidEventTap)
-        up?.post(tap: .cghidEventTap)
+        // Same injection point as typeUnicode: events posted at .cghidEventTap
+        // enter the chain upstream of the session tap, so a delete posted before a
+        // character could still be delivered after it. One queue = FIFO.
+        down?.post(tap: .cgSessionEventTap)
+        up?.post(tap: .cgSessionEventTap)
     }
 
     // Source = current (wrong) layout. Target chosen by:
@@ -1376,7 +1379,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     //   - >2, cur != #0   -> #0 (first)
     //   - >2, cur == #0   -> layout of the OTHER-script words if uniquely determinable,
     //                        else #1 (second)
-    private func convert(_ text: String, lineGrab: Bool = false) -> (out: String, dst: Layout, src: Layout)? {
+    private func convert(_ text: String,
+                         lineGrab: Bool = false) -> (out: String, dst: Layout, src: Layout, replaced: String)? {
         let enabled = Layout.enabledList()
         guard enabled.count >= 2 else { return nil }
         let curID = currentSourceID()
@@ -1393,21 +1397,24 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
            lineGrab || toks.count == 1,
            let fix = mixedWordFix(String(last), cur: cur, enabled: enabled) {
             dbg("convert[mixed] src=\(fix.src.id) -> dst=\(fix.dst.id)")
-            return (String(text[..<last.startIndex]) + fix.out, fix.dst, fix.src)
+            return (fix.out, fix.dst, fix.src, String(last))
         }
 
         // Implicit line grab: `text` is the whole line back to the caret's line
-        // start, not a deliberate selection — only the wrong-layout tail may be
-        // converted (anchored on the line's last letter; see lastWrongWindow).
-        // The untouched prefix is typed back verbatim. Fixes the
-        // switched-after-mistyping case: `привет ghbdtn` with ru active converts
-        // ghbdtn -> привет instead of mangling привет.
+        // start, not a deliberate selection — only the word AT THE CARET is
+        // converted (see caretWord). The rest of the line is left alone, caller
+        // narrows the selection to `replaced`. Fixes the switched-after-mistyping
+        // case: `привет ghbdtn` with ru active converts ghbdtn, not привет.
         if lineGrab {
-            guard let (start, wrongCyr) = lastWrongWindow(text) else {
-                dbg("line-grab: no convertible tail")
+            guard let start = caretWord(text) else {
+                dbg("line-grab: no word at the caret")
                 return nil
             }
             let win = String(text[start...])
+            guard let wrongCyr = dominantScript(win) else {
+                dbg("line-grab: caret word has no letters")
+                return nil
+            }
             let src = cur.isCyrillic == wrongCyr
                 ? cur : enabled.first(where: { $0.isCyrillic == wrongCyr })
             guard let src else { return nil }
@@ -1418,7 +1425,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
                 ? pickTarget(win, cur: cur, curIdx: curIdx, enabled: enabled) : cur
             dbg("convert[line] src=\(src.id) -> dst=\(dst.id) window=\(win.debugDescription)")
             guard let out = convertWrong(win, src: src, dst: dst) else { return nil }
-            return (String(text[..<start]) + out, dst, src)
+            return (out, dst, src, win)
         }
 
         // Hybrid source detection: normally the wrong layout is the active one (you
@@ -1431,14 +1438,14 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
            let src = enabled.first(where: { $0.isCyrillic == wrongCyr }),
            let out = convertWrong(text, src: src, dst: cur) {
             dbg("convert[detected] src=\(src.id) -> dst=\(cur.id)")
-            return (out, cur, src)
+            return (out, cur, src, text)
         }
 
         let target = pickTarget(text, cur: cur, curIdx: curIdx, enabled: enabled)
 
         dbg("convert cur=\(cur.id) -> target=\(target.id)")
         guard let out = convertWrong(text, src: cur, dst: target) else { return nil }
-        return (out, target, cur)
+        return (out, target, cur, text)
     }
 
     // Target choice (see convert() doc comment): 2 enabled -> the other; >2 ->
@@ -1485,9 +1492,15 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         guard !targets.isEmpty else { return nil }
 
         let sTyped = curModel.score(w)
-        guard sTyped < autoGarbage else { return nil }   // already plausible -> leave it
+        guard sTyped < autoGarbage else {
+            dbg("autoDecide \(w.debugDescription): plausible in \(curLang) (\(sTyped))")
+            return nil   // already plausible -> leave it
+        }
 
-        let pure = w.allSatisfy(\.isLetter)
+        // A hyphen is not punctuation here — it is part of the word ("rfrjuj-nj" is
+        // "какого-то"), and carries no layout ambiguity, so such a word is gated
+        // like a pure-letter one.
+        let pure = w.allSatisfy { $0.isLetter || isWordConnector($0) }
         // Mid-word layout switch leaves ONE word carrying both scripts ("ghjсто").
         // Punctuation-bearing mixed words are left alone — the shape gates below
         // reason about a single-script word.
@@ -1518,7 +1531,13 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             // Pure-letter words have no such ambiguity (core == word), and a lone
             // letter — a preposition — trips autoWordCore's letters>=2 guard, so
             // skip it for them.
-            if !pure {
+            // A char that BECOMES a connector is word material too, and carries no
+            // ambiguity either: on a Latin layout the Ukrainian apostrophe is "\\"
+            // ("v\\zrj" is "мʼяко"), so that word is gated like a pure-letter one.
+            let pureFor = pure || w.allSatisfy {
+                $0.isLetter || isWordConnector($0) || mapsToConnector($0, src: cur, dst: t)
+            }
+            if !pureFor {
                 guard let core = autoWordCore(w, src: cur, dst: t),
                       core.count == w.count || curModel.score(String(core)) < autoGarbage
                 else { continue }
@@ -1526,11 +1545,14 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             guard let out = convertWrong(w, src: cur, dst: t), out != w,
                   let tLang = t.languageCode, let tModel = trigram(tLang) else { continue }
             let sAlt = tModel.score(out)
-            guard pure || sAlt > autoPunctPlausible else { continue }
+            guard pureFor || sAlt > autoPunctPlausible else { continue }
             guard sAlt - sTyped > autoMargin else { continue }
             if best == nil || sAlt > best!.2 { best = (t, out, sAlt) }
         }
-        guard let b = best else { return nil }
+        guard let b = best else {
+            dbg("autoDecide \(w.debugDescription): no target beat the gates (sTyped=\(sTyped))")
+            return nil
+        }
         return (b.0, b.1)
     }
 
@@ -1578,8 +1600,12 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     // order — so the retype always sees exactly the text it measured.
     // Main-thread-only state: the tap callback runs on the main run loop and the
     // worker hands completion back with DispatchQueue.main.async.
-    fileprivate var autoPending = 0     // corrections in flight
-    fileprivate var autoHeld = ""       // characters swallowed while correcting
+    fileprivate var autoPending = 0     // retypes in flight (auto-correct or hotkey)
+    fileprivate var autoHeld = ""       // characters swallowed while retyping
+    // A retype that hangs (unresponsive app, AX call stuck) must never freeze the
+    // keyboard: past this the gate passes keys through even while in flight.
+    fileprivate var gateSince = 0.0
+    fileprivate let gateMaxHold = 3.0
 
     // The previous word of the current typing run (words separated by single
     // spaces), remembered for short-word (preposition) adjacency. A 1-2 char word
@@ -1607,7 +1633,11 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         set { UserDefaults.standard.set(newValue, forKey: "autoExcludedApps") }
     }
 
-    func applyAutoMode() { (autoMode && !recordingHotkey) ? startAutoMonitor() : stopAutoMonitor() }
+    // The keystroke gate (autoPending/autoHeld) lives in this tap, and the hotkey
+    // retype needs it as much as auto-correct does — so the tap is installed
+    // whenever the app is live, and `autoMode` only decides whether keys are also
+    // fed to the word buffer.
+    func applyAutoMode() { recordingHotkey ? stopAutoMonitor() : startAutoMonitor() }
 
     private func startAutoMonitor() {
         guard autoTap == nil else { return }
@@ -1615,8 +1645,16 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         let cb: CGEventTapCallBack = { _, type, event, refcon in
             guard let refcon else { return Unmanaged.passUnretained(event) }
             let me = Unmanaged<AppController>.fromOpaque(refcon).takeUnretainedValue()
-            if type == .keyDown,
-               event.getIntegerValueField(.eventSourceUserData) != AppController.synthMarker,
+            let synth = event.getIntegerValueField(.eventSourceUserData) == AppController.synthMarker
+            if type == .keyDown, !synth,
+               event.getIntegerValueField(.keyboardEventKeycode) == Int64(kVK_Delete) {
+                // Backspace (bare, or Option/Cmd-wide) edits the word being typed —
+                // handled before the Cmd/Ctrl filter below, which would otherwise let
+                // Cmd+Delete leave a buffer that no longer matches the screen.
+                let wide = event.flags.contains(.maskAlternate) || event.flags.contains(.maskCommand)
+                return me.autoBackspace(wide: wide) ? nil : Unmanaged.passUnretained(event)
+            }
+            if type == .keyDown, !synth,
                !event.flags.contains(.maskCommand), !event.flags.contains(.maskControl) {
                 // Skip shortcuts/combo-hotkeys (Cmd/Ctrl held): not text, and the
                 // combo-hotkey's own key must not clear a pending auto-fix undo.
@@ -1627,11 +1665,15 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
                 // Only text-producing keys are held back; modifiers, Globe, arrows
                 // and delete keep flowing so nothing the user does can be stalled
                 // by a correction that hangs.
-                if me.autoPending > 0, !s.isEmpty {
+                if me.autoPending > 0, !s.isEmpty,
+                   ProcessInfo.processInfo.systemUptime - me.gateSince < me.gateMaxHold {
                     me.autoHeld += s
                     return nil
                 }
-                me.autoFeed(s)
+                // The boundary key that starts a correction is swallowed too: it
+                // would otherwise travel to the app in parallel with the deletes we
+                // are already posting, and land inside them.
+                if me.autoMode, me.autoFeed(s) { return nil }
             } else if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
                 if let t = me.autoTap { CGEvent.tapEnable(tap: t, enable: true) }
             }
@@ -1648,8 +1690,31 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         autoBuffer = ""; autoPrev = nil; autoPending = 0; autoHeld = ""
     }
 
+    // Backspace edits the word being typed, so the buffer has to follow it: drop
+    // the last character instead of ending the run. Losing the buffer here made a
+    // typo-fix mid-word convert only the part typed after it ("g\\" + fix + "æcf"
+    // corrected "æcf" alone), and keeping the deleted character would have made the
+    // retype delete one character too many. Option/Cmd+Delete removes a word or the
+    // whole line — nothing left to track, so the run ends.
+    // Never held by the gate: while keystrokes are held, backspace un-types the
+    // last held one instead of reaching the app out of order.
+    // Returns true when the keystroke was consumed (it un-typed a held character
+    // instead of reaching the app).
+    fileprivate func autoBackspace(wide: Bool) -> Bool {
+        if !autoHeld.isEmpty, !wide { autoHeld.removeLast(); return true }
+        if wide { autoHeld = ""; autoBuffer = ""; autoPrev = nil; return false }
+        autoBuffer = String(autoBuffer.dropLast())
+        if autoBuffer.isEmpty { autoPrev = nil }
+        return false
+    }
+
     // Feed a produced character into the word buffer; evaluate on a word boundary.
-    fileprivate func autoFeed(_ s: String) {
+    // Returns true when the keystroke started a correction and must NOT be
+    // delivered to the app — `autoCorrect` retypes it after the fix.
+    // `boundaryTyped: true` (replay path) means the character is already on screen,
+    // so the correction has to delete it.
+    @discardableResult
+    fileprivate func autoFeed(_ s: String, boundaryTyped: Bool = false) -> Bool {
         // Any real keystroke after an (auto or hotkey) conversion ends its undo
         // window — the caret has moved on, so a later hotkey press should CONVERT
         // the new word, not revert the old fix. The undo hotkey itself is a
@@ -1659,15 +1724,20 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         // dead keys, F-keys) is not word material and must NOT break the run:
         // switching layout mid-word is exactly the case that has to keep "ghj"
         // buffered so "ghjсто" evaluates as one word.
-        if s.isEmpty { return }
+        dbg("feed \(s.debugDescription) buf=\(autoBuffer.debugDescription)")
+        if s.isEmpty { return false }
         if s == " " || s == "\r" || s == "\n" || s == "\t" {
-            autoEvaluate(boundary: s); autoBuffer = ""
-        } else if s.count == 1, let c = s.first, c.isLetter || feedsAsCyr(s) {
+            let fired = autoEvaluate(boundary: s, boundaryTyped: boundaryTyped)
+            autoBuffer = ""
+            return fired && !boundaryTyped
+        } else if s.count == 1, let c = s.first,
+                  c.isLetter || feedsAsCyr(s) || (isWordConnector(c) && !autoBuffer.isEmpty) {
             autoBuffer.append(c)
             if autoBuffer.count > 64 { autoBuffer.removeFirst(autoBuffer.count - 64) }
         } else {
             autoBuffer = ""; autoPrev = nil   // punctuation / navigation / delete -> end the run
         }
+        return false
     }
 
     // ',' ''' ';' '[' … are б э ж х on ЙЦУКЕН: while a Latin layout is active with a
@@ -1678,17 +1748,25 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         let enabled = Layout.enabledList()
         guard let cur = enabled.first(where: { $0.id == currentSourceID() }),
               !cur.isCyrillic else { return false }
-        return enabled.contains { $0.isCyrillic && mapsToCyr(s[...], src: cur, dst: $0) }
+        return enabled.contains { $0.isCyrillic && mapsToWordChar(s[...], src: cur, dst: $0, connectors: true) }
     }
 
-    private func autoEvaluate(boundary: String) {
+    @discardableResult
+    private func autoEvaluate(boundary: String, boundaryTyped: Bool) -> Bool {
         let word = autoBuffer
         // Any non-word event (empty word from a double space, excluded app) breaks
         // the run so a stale short candidate can't attach across the gap.
-        guard !word.isEmpty, !isAutoExcluded() else { autoPrev = nil; return }
+        guard !word.isEmpty, !isAutoExcluded() else {
+            dbg("auto: skipped (word=\(word.debugDescription) excluded=\(isAutoExcluded()))")
+            autoPrev = nil; return false
+        }
         let enabled = Layout.enabledList()
         guard let cur = enabled.first(where: { $0.id == currentSourceID() }),
-              let d = autoDecide(word, cur: cur, enabled: enabled) else { autoPrev = nil; return }
+              let d = autoDecide(word, cur: cur, enabled: enabled) else {
+            dbg("auto: no candidate for \(word.debugDescription)")
+            autoPrev = nil; return false
+        }
+        dbg("auto: \(word.debugDescription) -> \(d.out.debugDescription) [\(d.target.id)]")
         let srcSource = cur.source
 
         if word.count >= 3 {
@@ -1700,16 +1778,18 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             }
             autoPrev = AutoPrev(raw: word, out: d.out, target: d.target, committed: true)
             beginCorrection {
-                self.autoCorrect(word: word, boundary: boundary, target: d.target,
-                                 srcSource: srcSource, out: d.out, swallow: swallow)
+                self.autoCorrect(word: word, boundary: boundary, boundaryTyped: boundaryTyped,
+                                 target: d.target, srcSource: srcSource, out: d.out, swallow: swallow)
             }
+            return true
         } else if let p = autoPrev, p.committed, p.target.isCyrillic == d.target.isCyrillic {
             // Short word right after a committed conversion of the same script.
             autoPrev = AutoPrev(raw: word, out: d.out, target: d.target, committed: true)
             beginCorrection {
-                self.autoCorrect(word: word, boundary: boundary, target: d.target,
-                                 srcSource: srcSource, out: d.out, swallow: nil)
+                self.autoCorrect(word: word, boundary: boundary, boundaryTyped: boundaryTyped,
+                                 target: d.target, srcSource: srcSource, out: d.out, swallow: nil)
             }
+            return true
         } else {
             // Short candidate with no anchor yet: leave it on screen, remember it so
             // a following long conversion may swallow it.
@@ -1717,12 +1797,14 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             // the last preposition; widen to a pending list if that ever matters.
             autoPrev = AutoPrev(raw: word, out: d.out, target: d.target, committed: false)
         }
+        return false
     }
 
     // Run one retype on `worker` with the keystroke gate held: everything the user
     // types meanwhile is swallowed by the tap and replayed here afterwards. Called
     // on the main thread (from the tap callback).
-    private func beginCorrection(_ body: @escaping () -> Void) {
+    func beginCorrection(_ body: @escaping () -> Void) {
+        if autoPending == 0 { gateSince = ProcessInfo.processInfo.systemUptime }
         autoPending += 1
         worker.async {
             body()
@@ -1743,7 +1825,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         worker.async {
             self.typeUnicode(text)
             DispatchQueue.main.async {
-                for ch in text { self.autoFeed(String(ch)) }
+                if self.autoMode { for ch in text { self.autoFeed(String(ch), boundaryTyped: true) } }
                 self.finishCorrection()
             }
         }
@@ -1753,11 +1835,14 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     // and boundary, switch the system layout. Records it so the hotkey undo reverts.
     // `swallow` (forward adjacency) additionally rewrites the preceding short word,
     // still on screen as `swallow.raw` one space before `word`.
-    private func autoCorrect(word: String, boundary: String, target: Layout,
+    private func autoCorrect(word: String, boundary: String, boundaryTyped: Bool, target: Layout,
                              srcSource: TISInputSource, out: String, swallow: AutoPrev?) {
         waitModifiersReleased()
         let extra = swallow.map { $0.raw.count + 1 } ?? 0   // "<raw> " before the word
-        for _ in 0..<(word.count + boundary.count + extra) { postKey(CGKeyCode(kVK_Delete), []) }
+        // The boundary is on screen only on the replay path; when it was swallowed
+        // by the tap there is nothing to delete for it.
+        let tail = boundaryTyped ? boundary.count : 0
+        for _ in 0..<(word.count + tail + extra) { postKey(CGKeyCode(kVK_Delete), []) }
         usleep(10_000)
         let prefix = swallow.map { $0.out + " " } ?? ""
         let rawPrefix = swallow.map { $0.raw + " " } ?? ""
@@ -1926,14 +2011,31 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         // WRITE via synthesized Unicode keystrokes (no clipboard, no paste) — the
         // active selection is replaced by the typed input, like Caramba. No copy/paste
         // events, so DeepL stays quiet. Clipboard is never used for writing.
-        dbg("type: \(r.out.debugDescription)")
-        typeUnicode(r.out)
+        // The grab may have selected more than what converts (line grab -> one
+        // word). The head is untouched text: collapse the selection to its right
+        // edge and re-select just the converted run, so nothing else is retyped.
+        // Not possible on the Cmd+X path — that text is already gone, so the head
+        // is typed back with it.
+        let head = String(text.dropLast(r.replaced.count))
+        var typed = r.out
+        if !head.isEmpty {
+            if removedSelection {
+                typed = head + r.out
+            } else {
+                postKey(CGKeyCode(kVK_RightArrow), [])
+                usleep(20_000)
+                for _ in 0..<r.replaced.count { postKey(CGKeyCode(kVK_LeftArrow), .maskShift) }
+                usleep(20_000)
+            }
+        }
+        dbg("type: \(typed.debugDescription) replacing \(r.replaced.debugDescription)")
+        typeUnicode(typed)
         usleep(20_000)
         DispatchQueue.main.sync { _ = TISSelectInputSource(r.dst.source) }
         // restore clipboard only if the Cmd+C read fallback dirtied it
         if clipboardTouched { restoreClipboard(clipboardSaved) }
         // remember it so a quick second hotkey can undo
-        lastConversion = Conversion(original: text, typed: r.out,
+        lastConversion = Conversion(original: typed == r.out ? r.replaced : text, typed: typed,
                                     srcSource: r.src.source,
                                     time: ProcessInfo.processInfo.systemUptime)
     }
@@ -2025,7 +2127,8 @@ enum ReLayoutApp {
         for (lbl, src, dst) in pairs {
             print("\n-- convertWrong \(lbl) (src=\(short(src)) dst=\(short(dst))) --")
             let samples = lbl.hasPrefix("ABC")
-                ? ["ghbdtn", "я сказал ghbdtn", "я написал ßæ", "привет мир"]
+                ? ["ghbdtn", "я сказал ghbdtn", "я написал ßæ", "привет мир",
+                   "rjt-xnj", "v\\zrj", "g\\æcf", "hjrjdbq gj-heccrb"]
                 : ["руддщ", "привет мир", "I said привет"]
             for s in samples {
                 print("  \(s.debugDescription) -> \(convertWrong(s, src: src, dst: dst)?.debugDescription ?? "nil")")

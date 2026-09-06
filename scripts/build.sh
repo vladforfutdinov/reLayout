@@ -134,6 +134,8 @@ fi
 echo "version: $VERSION (short $SHORT, build $BUILD) — $DISPLAY_NAME [$BUNDLE_ID]"
 
 SWIFT_FLAGS=(-O -parse-as-library)
+# RELAYOUT_DEBUG=1 -> dbg() writes a trace to /tmp/relayout.log (see dbg in main.swift)
+[ "${RELAYOUT_DEBUG:-0}" = "1" ] && SWIFT_FLAGS+=(-D DEBUG)
 LINK_FLAGS=(-framework Cocoa -framework Carbon)
 
 # Sparkle auto-update is opt-in (WITH_SPARKLE=1, set by release CI) so local/test

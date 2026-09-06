@@ -64,12 +64,40 @@ func isLatinLetter(_ u: Unicode.Scalar) -> Bool {
 
 public func hasLatin(_ w: Substring) -> Bool { w.unicodeScalars.contains(where: isLatinLetter) }
 
+// Characters that live INSIDE a word but are not letters: the hyphen ("кое-что")
+// and the Ukrainian apostrophe ("мʼяко", typed as "v\\zrj" — "\\" is ʼ on the
+// Ukrainian layout). The models are built from a plain word list and carry none of
+// them, so scoring splits on them.
+// The ASCII "'" is deliberately NOT one: it is э on ЙЦУКЕН, real word material
+// ("'nj" is "это").
+public func isWordConnector(_ ch: Character) -> Bool {
+    ch == "-" || ch == "–" || ch == "—" || ch == "\u{02BC}" || ch == "\u{2019}"
+}
+
 // A word is wrong-but-Cyrillic-target if any of its chars (which src can type) maps
 // to a Cyrillic letter in dst. Catches the Option layer (ß/æ -> ы/э), neither a-z nor Cyrillic.
 func mapsToCyr(_ w: Substring, src: LayoutMaps, dst: LayoutMaps) -> Bool {
+    mapsToWordChar(w, src: src, dst: dst, connectors: false)
+}
+
+// True if any char of `w` becomes word material when retyped src -> dst: a
+// Cyrillic letter, or — with `connectors` — an intra-word connector. The
+// Ukrainian apostrophe has no key of its own on a Latin layout, so "мʼяко" is
+// typed "v\\zrj" and the "\\" must not read as punctuation.
+// True if `ch`, retyped src -> dst, becomes an intra-word connector.
+public func mapsToConnector(_ ch: Character, src: LayoutMaps, dst: LayoutMaps) -> Bool {
+    guard let st = src.charToStroke[String(ch)], let m = dst.strokeToChar[st],
+          m.count == 1 else { return false }
+    return isWordConnector(Character(m))
+}
+
+public func mapsToWordChar(_ w: Substring, src: LayoutMaps, dst: LayoutMaps,
+                           connectors: Bool) -> Bool {
     for ch in w {
-        if let st = src.charToStroke[String(ch)], let m = dst.strokeToChar[st],
-           let f = m.unicodeScalars.first, isCyrLetter(f) { return true }
+        guard let st = src.charToStroke[String(ch)], let m = dst.strokeToChar[st],
+              let f = m.unicodeScalars.first else { continue }
+        if isCyrLetter(f) { return true }
+        if connectors, m.count == 1, isWordConnector(Character(m)) { return true }
     }
     return false
 }
@@ -119,58 +147,25 @@ public func textHasScript(_ text: String, cyrillic: Bool) -> Bool {
 
 // MARK: - Implicit-selection window (caret-line grab)
 //
-// When the hotkey is pressed with nothing selected, the platform layer grabs the
-// whole line from the caret back to its start. Unlike an explicit selection, that
-// line routinely mixes correct text with the one wrong-layout tail the user just
-// typed — so only the tail may be converted. Narrowing rules:
+// With nothing selected the platform layer grabs the whole line back to the line
+// start, but only the word at the caret is ever converted: the rest of the line is
+// text the user is not thinking about, and any "which part is wrong" heuristic
+// guesses wrong on some lines. A word is a run of non-whitespace, so mid-word
+// punctuation ("кое-что", "e-mail") stays inside it.
 //
-//   - The wrong script is anchored on the line's LAST letter (the user is thinking
-//     about what they just typed); Cyrillic or Latin only. A line ending in neither
-//     (CJK, digits, empty) gives nothing to anchor on.
-//   - Walk backward over wrong-script letters and neutral chars (digits,
-//     punctuation, whitespace); stop at the first letter of any other script.
-//     No stop found -> the whole line is the window.
-//   - The window starts right after the stop letter. If it then begins mid-word
-//     (first char is a letter — the stop letter's word continues into the window,
-//     e.g. a mixed token like "мирqwerty"), drop that word's remainder up to the
-//     first non-letter.
-//
-// Returns the window start (window = text[start...]) plus the wrong script, or nil
-// when there is no anchor or nothing convertible survives the trim.
-public func lastWrongWindow(_ text: String) -> (start: String.Index, wrongIsCyrillic: Bool)? {
-    func cyr(_ ch: Character) -> Bool { ch.unicodeScalars.contains(where: isCyrLetter) }
-    func lat(_ ch: Character) -> Bool { ch.unicodeScalars.contains(where: isLatinLetter) }
-
-    // Anchor: the last letter decides the wrong script — or disqualifies (CJK).
-    var wrongCyr: Bool?
-    var i = text.endIndex
-    while i > text.startIndex {
-        let ch = text[text.index(before: i)]
-        if ch.isLetter {
-            if cyr(ch) { wrongCyr = true } else if lat(ch) { wrongCyr = false }
-            break
-        }
-        i = text.index(before: i)
+// Returns the start of that word (window = text[start...], trailing whitespace
+// included so it is retyped verbatim), or nil when the line has no word.
+public func caretWord(_ text: String) -> String.Index? {
+    var end = text.endIndex
+    while end > text.startIndex, text[text.index(before: end)].isWhitespace {
+        end = text.index(before: end)
     }
-    guard let wrongCyr else { return nil }
-
-    // Walk back to the first letter of another script.
-    var stop: String.Index?
-    i = text.endIndex
-    while i > text.startIndex {
-        let j = text.index(before: i)
-        let ch = text[j]
-        if ch.isLetter, wrongCyr ? !cyr(ch) : !lat(ch) { stop = j; break }
-        i = j
+    guard end > text.startIndex else { return nil }
+    var start = end
+    while start > text.startIndex, !text[text.index(before: start)].isWhitespace {
+        start = text.index(before: start)
     }
-    guard let stop else { return (text.startIndex, wrongCyr) }
-
-    // Mid-word landing: trim the stop word's remainder.
-    var start = text.index(after: stop)
-    while start < text.endIndex, text[start].isLetter { start = text.index(after: start) }
-
-    guard text[start...].contains(where: { wrongCyr ? cyr($0) : lat($0) }) else { return nil }
-    return (start, wrongCyr)
+    return start
 }
 
 // MARK: - Auto-mode word shape
@@ -198,7 +193,8 @@ public func autoWordCore(_ w: String, src: LayoutMaps, dst: LayoutMaps) -> Subst
     var letters = 0
     for ch in w {
         if ch.isLetter { letters += 1 }
-        else if !mapsToCyr(String(ch)[...], src: src, dst: dst) { return nil }
+        else if isWordConnector(ch) { continue }
+        else if !mapsToWordChar(String(ch)[...], src: src, dst: dst, connectors: true) { return nil }
     }
     guard letters >= 2, w.last?.isLetter == true else { return nil }
     var core = Substring(w)

@@ -46,7 +46,20 @@ public struct TrigramModel {
 
     // Length-normalized mean trigram log-prob. Higher = more plausible in this
     // language. Returns `floor` for words too short to form a trigram.
+    //
+    // Hyphenated words are scored part by part (length-weighted): the models are
+    // built from a plain word list, so every trigram spanning a hyphen is unseen
+    // and three floor hits would sink "какого-то" below any gate.
     public func score(_ word: String) -> Float {
+        guard word.contains(where: isWordConnector) else { return scoreRun(word) }
+        let parts = word.split(whereSeparator: isWordConnector)
+        guard !parts.isEmpty else { return floor }
+        var sum: Float = 0, n = 0
+        for p in parts { sum += scoreRun(String(p)) * Float(p.count); n += p.count }
+        return sum / Float(n)
+    }
+
+    private func scoreRun(_ word: String) -> Float {
         let chars = Array("^^" + word.lowercased() + "$")
         guard chars.count >= 3 else { return floor }
         var sum: Float = 0

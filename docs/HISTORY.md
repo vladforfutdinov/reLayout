@@ -6,6 +6,85 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
+## unreleased — line grab converts one word; three keystroke/ordering races
+
+- **Hyphenated words never fired in auto-correct** (user report: `rfrjuj-nj`
+  stayed as typed). Three separate gates rejected them: `autoFeed` treated `-` as
+  punctuation and cleared the word buffer mid-word, `autoWordCore` demanded every
+  non-letter map to a Cyrillic letter (`-` maps to `-`), and the trigram score was
+  floor-dominated — the models come from a plain word list, so all three trigrams
+  spanning a hyphen are unseen (floor -16.4 each). Now: `isWordConnector` (`-`,
+  `–`, `—`, and NOT the apostrophe — that is э on ЙЦУКЕН) keeps the run alive when
+  the buffer is non-empty, `autoWordCore` skips connectors, `autoDecide` treats
+  such a word as pure-letter, and `TrigramModel.score` scores hyphen parts
+  separately, length-weighted. Measured on the shipped models: `rfrjuj-nj` ->
+  `какого-то` margin 8.3, `rjt-xnj` -> `кое-что` 10.5, while `e-mail` stays at
+  0.32 (below the 0.5 gate) and is left alone.
+- **Same for the Ukrainian apostrophe** (`v\zrj` -> `мʼяко`), with one twist: it has
+  no key of its own on a Latin layout, so the typed character is `\` and only the
+  layout maps it to `ʼ` (U+02BC) — verified against the live Ukrainian-PC layout
+  via `--selftest`. `mapsToConnector` reads that mapping, so `\` counts as word
+  material in `feedsAsCyr`/`autoWordCore`, and `autoDecide` gates such a word as
+  pure-letter (`pureFor`) instead of applying the mapped-punctuation floor — with
+  the parts-scoring, `мʼяко` lands at -2.80 and would have failed the -3.0 gate.
+  U+02BC/U+2019 are connectors; the ASCII `'` is not (it is э on ЙЦУКЕН).
+- **Backspace desynced the word buffer from the screen** — the pattern the user
+  isolated: type `g\'`, delete the `'`, type `æcf`, and only `æcf` converted. A
+  keystroke that produces no letter ended the run (`autoBuffer = ""`), so a typo
+  fixed mid-word split it in two; and had the buffer been kept instead, the retype
+  would have deleted one character too many, splicing the fix into the text. Both
+  failure modes are the same missing edit: `autoBackspace` now drops the last
+  buffered character, and Option/Cmd+Delete (a word / the whole line) ends the run.
+  Handled before the Cmd/Ctrl filter — Cmd+Delete used to slip past it untracked —
+  and while the gate holds keystrokes, backspace un-types the last held character
+  instead of reaching the app out of order.
+
+- **The line-grab heuristic is gone** (user request). With nothing selected the
+  hotkey grabbed the whole caret line and `lastWrongWindow` guessed which tail was
+  "wrong" — anchor on the last letter, walk back over neutrals, stop at another
+  script, trim a mid-word remainder. It guessed wrong on some lines and retyped
+  text the user was not thinking about. Replaced by `caretWord(_:)`: the trailing
+  run of non-whitespace, so mid-word punctuation (`кое-что`, `e-mail`, `d'jhl`)
+  stays in the word. `convert` now also returns `replaced` (the run it actually
+  converted) and `performRetype` narrows the grabbed selection to it — Right to
+  collapse, then Shift+Left per character — so the head of the line is never
+  retyped at all. Exception: the Cmd+X fallback has already cut the line, so there
+  the head is typed back together with the conversion. Undo records whichever run
+  was written.
+
+---
+
+## unreleased — three remaining keystroke/ordering races in the retype
+
+- **User report:** half a word converted and half not, a space replaced by the
+  last typed character, characters landing between the ones being typed back. The
+  `a457c84` gate closed only one of four holes.
+- **Mixed injection points.** `postKey` posted at `.cghidEventTap` while
+  `typeUnicode` posts at `.cgSessionEventTap` — two entry points into the same
+  chain, the HID one upstream of the session one, so a delete posted first could be
+  delivered after a character posted later. `autoCorrect` (deletes, then text) and
+  `performUndo` (Shift+Left, then text) both depend on that order, with only a
+  10–20 ms sleep between them. `postKey` now posts at `.cgSessionEventTap`: one
+  queue, FIFO. This is the likeliest cause of the half-converted words.
+- **The boundary keystroke raced its own correction.** The space that triggers
+  `autoEvaluate` was returned from the tap unmodified and travelled to the app
+  while `beginCorrection` was already posting deletes for it. The tap now swallows
+  a boundary key that starts a correction (`autoFeed` returns "consumed"), and
+  `autoCorrect` deletes the boundary only on the replay path, where it really is on
+  screen (`boundaryTyped`). Explains the "space became the last typed character".
+- **The hotkey retype had no gate at all.** `autoPending`/`autoHeld` existed only
+  in the auto-correct tap, and that tap was installed only in auto mode, so
+  `performRetype` — a much longer sequence (AX read, Cmd+C/Cmd+X with 120 ms
+  sleeps, per-character typing) — ran with the user's keystrokes flowing straight
+  into the field being rewritten. The keyDown tap is now installed whenever the app
+  is live (auto mode only decides whether keys also feed the word buffer), and
+  `triggerHotkey` dispatches `performRetype` through `beginCorrection`.
+- **Gate timeout.** With the hotkey path behind the gate, a retype that hangs on an
+  unresponsive app would swallow keys indefinitely; the gate now passes keys
+  through after `gateMaxHold` (3 s).
+
+---
+
 ## v1.2.21 / v1.2.22 — release notes in the update window, typing race in auto-correct
 
 - **The Sparkle "a new version is available" panel was blank.** `generate_appcast`

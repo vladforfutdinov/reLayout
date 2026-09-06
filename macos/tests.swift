@@ -135,6 +135,7 @@ func testAutoWordCore() {
     check(autoWordCore("g!b", src: latin, dst: cyr) == nil, "unmapped char -> nil")
     check(autoWordCore("g1b", src: latin, dst: cyr) == nil, "digit -> nil")
     check(autoWordCore(",пр", src: cyr, dst: latin) == nil, "cyr source: punct never maps to cyr")
+    eq(autoWordCore("rjt-xnj", src: latin, dst: cyr), "rjt-xnj", "hyphen is a word connector, not punct")
 }
 
 func testFourCharCode() {

@@ -24,6 +24,7 @@ final class EngineTests: XCTestCase {
             (22, 0, "a", "ф"), (23, 0, "i", "ш"),
             (100, 1, "ß", "є"), (101, 1, "æ", "ї"),
             (43, 0, ",", "б"), (47, 0, ".", "ю"),
+            (42, 0, "\\", "\u{02BC}"),   // Ukrainian apostrophe: no key of its own on Latin
         ]
         var lC2S = [String: KeyStroke](), lS2C = [KeyStroke: String]()
         var cC2S = [String: KeyStroke](), cS2C = [KeyStroke: String]()
@@ -163,70 +164,71 @@ final class EngineTests: XCTestCase {
         XCTAssertFalse(textHasScript("123", cyrillic: true))
     }
 
-    // MARK: - lastWrongWindow (implicit caret-line grab)
+    // MARK: - caretWord (implicit caret-line grab)
 
-    // Window as (tail text, wrong script) for assertion brevity.
-    private func window(_ s: String) -> (tail: String, cyr: Bool)? {
-        guard let (start, wrongCyr) = lastWrongWindow(s) else { return nil }
-        return (String(s[start...]), wrongCyr)
+    private func word(_ s: String) -> String? {
+        caretWord(s).map { String(s[$0...]) }
     }
 
-    func testLineWindowMixedLine() {
-        // The bug case: correct cyr word + wrong-layout tail; only the tail windows.
-        let w = window("привіт ghbdsn")
-        XCTAssertEqual(w?.tail, " ghbdsn")
-        XCTAssertEqual(w?.cyr, false)
-        // Mirrored scripts.
-        let v = window("hello ghbdsn привіт")
-        XCTAssertEqual(v?.tail, " привіт")
-        XCTAssertEqual(v?.cyr, true)
+    func testCaretWordLastWordOnly() {
+        XCTAssertEqual(word("привіт ghbdsn"), "ghbdsn")
+        XCTAssertEqual(word("hello ghbdsn привіт"), "привіт")
+        XCTAssertEqual(word("ghbdsn"), "ghbdsn")
     }
 
-    func testLineWindowWholeLineOneScript() {
-        // No other-script letter -> whole line, and no mid-word trim of the head.
-        XCTAssertEqual(window("ghbdsn rfr")?.tail, "ghbdsn rfr")
-        let w = window("привіт світ")
-        XCTAssertEqual(w?.tail, "привіт світ")
-        XCTAssertEqual(w?.cyr, true)
+    func testCaretWordKeepsMidWordPunctuation() {
+        // Hyphens, dots, apostrophes are word material — a word is a run of
+        // non-whitespace.
+        XCTAssertEqual(word("щось rjt-xnj"), "rjt-xnj")
+        XCTAssertEqual(word("пиши e-mail"), "e-mail")
+        XCTAssertEqual(word("це d'jhl"), "d'jhl")
+        XCTAssertEqual(word("тест ghbdsn!!"), "ghbdsn!!")
     }
 
-    func testLineWindowMixedTokenTrimmedAway() {
-        // Stop letter mid-token: the remainder is the stop word's tail -> nothing left.
-        XCTAssertNil(window("привітghbdsn"))
+    func testCaretWordTrailingWhitespaceKept() {
+        // Trailing whitespace belongs to the window (retyped verbatim).
+        XCTAssertEqual(word("привіт ghbdsn "), "ghbdsn ")
+        XCTAssertEqual(word("привіт ghbdsn\t"), "ghbdsn\t")
     }
 
-    func testLineWindowNeutralsSkipped() {
-        // Digits/punctuation are neutral: walked over, kept in the window.
-        XCTAssertEqual(window("привіт 123 ghbdsn")?.tail, " 123 ghbdsn")
-        XCTAssertEqual(window("привіт ghbdsn!!")?.tail, " ghbdsn!!")
+    func testCaretWordNothingToGrab() {
+        XCTAssertNil(word(""))
+        XCTAssertNil(word("   "))
     }
 
-    func testLineWindowMultipleWrongWords() {
-        XCTAssertEqual(window("привіт rfr ltkf")?.tail, " rfr ltkf")
+    func testHyphenScoredPerPart() {
+        // Every trigram spanning a hyphen is unseen, so a whole-word score is
+        // floor-dominated; parts are scored separately and length-weighted.
+        let m = TrigramModel(floor: -16, table: ["^^a": -1, "^ab": -1, "abc": -1, "bc$": -1,
+                                                 "^^d": -1, "^de": -1, "de$": -1])
+        XCTAssertEqual(m.score("abc"), -1, accuracy: 0.001)
+        XCTAssertEqual(m.score("abc-de"), -1, accuracy: 0.001)   // not dragged to the floor
+        XCTAssertEqual(m.score("-"), -16, accuracy: 0.001)       // nothing but a connector
     }
 
-    func testLineWindowCJK() {
-        // A CJK letter is "another script": stops the walk…
-        XCTAssertEqual(window("今日は ghbdsn")?.tail, " ghbdsn")
-        // …but can't anchor the wrong script when it ends the line.
-        XCTAssertNil(window("ghbdsn 今日は"))
+    func testWordConnector() {
+        XCTAssertTrue(isWordConnector("-"))
+        XCTAssertTrue(isWordConnector("\u{02BC}"))
+        XCTAssertFalse(isWordConnector("'"))   // э on ЙЦУКЕН — real word material
+        XCTAssertFalse(isWordConnector("a"))
     }
 
-    func testLineWindowNothingToAnchor() {
-        XCTAssertNil(window(""))
-        XCTAssertNil(window("   "))
-        XCTAssertNil(window("123 !!"))
+    func testMapsToConnector() {
+        let (latin, cyr) = makeLayouts()
+        // "мʼяко" is typed "v\\zrj": the backslash is the apostrophe key, word
+        // material — not punctuation that ends the word.
+        XCTAssertTrue(mapsToConnector("\\", src: latin, dst: cyr))
+        XCTAssertFalse(mapsToConnector(",", src: latin, dst: cyr))   // maps to б, a letter
+        XCTAssertFalse(mapsToConnector("g", src: latin, dst: cyr))
+        XCTAssertTrue(mapsToWordChar("d\\", src: latin, dst: cyr, connectors: true))
+        XCTAssertTrue(autoWordCore("gh\\bd", src: latin, dst: cyr) == "gh\\bd")
     }
 
-    func testLineWindowConvertsOnlyTail() {
-        // End-to-end over the fixtures: prefix verbatim + converted window.
+    func testCaretWordConvertsOnlyThatWord() {
         let (latin, cyr) = makeLayouts()
         let text = "привіт ghbdsn"
-        guard let (start, wrongCyr) = lastWrongWindow(text) else {
-            return XCTFail("expected a window")
-        }
-        XCTAssertFalse(wrongCyr)
-        let out = convertWrong(String(text[start...]), src: latin, dst: cyr)
-        XCTAssertEqual(String(text[..<start]) + (out ?? ""), "привіт привіт")
+        guard let start = caretWord(text) else { return XCTFail("expected a word") }
+        XCTAssertEqual(convertWrong(String(text[start...]), src: latin, dst: cyr), "привіт")
+        XCTAssertEqual(String(text[..<start]), "привіт ")   // head untouched
     }
 }

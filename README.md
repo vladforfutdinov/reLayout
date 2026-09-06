@@ -27,8 +27,8 @@ First launch asks for **Accessibility** (to read the selection / send keystrokes
 
 ## Use
 
-1. Select the mistyped text — or, with nothing selected, the caret line is grabbed and
-   narrowed to just the wrong-layout tail you typed last.
+1. Select the mistyped text — or press the hotkey with nothing selected and just the word at
+   the caret is converted (mid-word signs stay in the word: `rjt-xnj` → `кое-что`).
 2. Press the hotkey (default: **tap left Option**).
 3. Press it again within ~1.5 s to **undo** (restores the text and the previous input source).
 
@@ -55,8 +55,9 @@ per-language character-trigram model scores the word and silently corrects it wh
 form is the plausible one, including a word split by a mid-word layout switch. **Cross-script
 only** (ru/uk ↔ en), tuned for ≥99% precision, with a
 per-app deny-list (*Settings → Auto-correct → Exceptions…*). Secure fields are always skipped.
-Typing straight through a correction is safe: the keys you press while a word is being retyped are
-held for those few milliseconds and typed back right after, so nothing lands in the middle of the fix.
+Typing straight through a fix is safe — in auto-correct and on the hotkey alike: the keys you press
+while text is being retyped are held for those few milliseconds and typed back right after, so
+nothing lands in the middle of the fix. Fixing a typo with Backspace mid-word is safe too.
 
 ## Privacy
 

@@ -28,7 +28,10 @@ v1.2.x; released via Homebrew cask and signed/notarized GitHub releases
    file keeps the event-tap/hotkey/menu/settings surface in one place to grep.
    *Consequence:* no per-feature file boundaries — the `main` package (123 nodes) is
    one flat namespace; symbol tools (`get_function_source`), not "open the file",
-   are how it's navigated.
+   are how it's navigated. The single-file shape is kept as is: no split is
+   planned or tracked (no TODO/issue references one); revisit trigger — a second
+   contributor needing to work disjoint regions concurrently, or symbol-tool
+   navigation ceasing to scale with file size.
 
 3. **CGEventTap + synthetic `CGEvent` posting**, not the Accessibility text-replace
    API. `postKey` (main.swift:1363) builds keyDown/keyUp events tagged via
@@ -65,7 +68,11 @@ v1.2.x; released via Homebrew cask and signed/notarized GitHub releases
    *Rationale:* the two OSes' input/tray APIs share nothing — a forced abstraction
    over CGEventTap and the Win32 message loop would be the wrong DRY.
    *Consequence:* platform bugs (e.g. #5's race) must be ported to `windows/` by
-   hand; nothing enforces it.
+   hand; nothing enforces it. Parity is purely best-effort: `core.yml` runs
+   `swift test` on both macOS and Windows, but only for `ReLayoutCore` — the
+   platform-shell layer has no cross-platform check at all, and coverage is
+   asymmetric even in isolation (`macos/tests.swift` exercises the macOS shell;
+   `windows/` has no test file or harness of its own).
 
 7. **Release notes and signing live in versioned files, not the release UI.**
    `docs/release-notes/vX.Y.Z.md` is the single source for both the GitHub release
@@ -75,6 +82,12 @@ v1.2.x; released via Homebrew cask and signed/notarized GitHub releases
    *Rationale:* Sparkle 2.6.4's `generate_appcast` only reads `.html`/`.txt`
    siblings — hand-written GitHub notes alone are invisible to the in-app updater.
    *Consequence:* skipping the notes file ships a blank "update available" panel.
+   `scripts/identity.env` (gitignored, copied from `identity.env.example`) holds
+   only non-secret owner identity (bundle id, display name, repo slug, feed URL,
+   Sparkle public key, tap repo) for local builds; actual signing/notarization
+   secrets (Developer ID `.p12`, App Store Connect API key, Sparkle private key)
+   live solely as GitHub repository secrets consumed by `build.yml`, documented
+   for forks under `RELEASING.md` → "Forking".
 
 ## Module map
 
@@ -102,7 +115,9 @@ v1.2.x; released via Homebrew cask and signed/notarized GitHub releases
 - `main → Engine` and `tests → Engine` dominate cross-package calls, confirming the
   engine as the real shared core (per-platform clusters cohere at 0.87–0.98).
 - No enforced parity check (#6): a macOS-only fix (v1.2.22 race) can leave
-  `windows/` with the same latent bug.
+  `windows/` with the same latent bug. CI (`core.yml`) only proves engine
+  parity via `swift test`; nothing checks the platform-shell layer, and
+  `windows/` carries no test harness at all (unlike `macos/tests.swift`).
 
 ## Conventions
 
@@ -115,9 +130,5 @@ v1.2.x; released via Homebrew cask and signed/notarized GitHub releases
 
 ## Open questions
 
-- Is there any check (manual or CI) catching a macOS-only fix needing a Windows
-  port, or is parity purely best-effort (#6)?
-- Does `scripts/identity.env` vs `identity.env.example` imply signing secrets
-  expected locally/in CI, documented for a new release contributor?
-- `macos/main.swift` (~98K) is the largest maintenance surface — is a split ever
-  planned, or is the single-file shape (#2) considered permanent?
+None. Closed items live as accepted-state clauses in Decisions and Hotspots;
+history is in git log.

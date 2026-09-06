@@ -6,7 +6,12 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
-## unreleased — line grab converts one word; three keystroke/ordering races
+## v1.2.23 — retype races closed, line grab converts one word, hyphen/apostrophe words
+
+Shipped as `v1.2.23` from `main` (`6b2db27`): the fix is `9c9e92d`, README sync
+`46ce4d0`, notes `docs/release-notes/v1.2.23.md`. Reported by the user as "half a
+word converts, a space becomes the last character typed"; four independent causes,
+each reproduced or measured before the fix.
 
 - **Hyphenated words never fired in auto-correct** (user report: `rfrjuj-nj`
   stayed as typed). Three separate gates rejected them: `autoFeed` treated `-` as
@@ -51,14 +56,7 @@ work (not per commit). Operational "where are we right now" lives in
   retyped at all. Exception: the Cmd+X fallback has already cut the line, so there
   the head is typed back together with the conversion. Undo records whichever run
   was written.
-
----
-
-## unreleased — three remaining keystroke/ordering races in the retype
-
-- **User report:** half a word converted and half not, a space replaced by the
-  last typed character, characters landing between the ones being typed back. The
-  `a457c84` gate closed only one of four holes.
+- **The `a457c84` keystroke gate closed only one of four holes.**
 - **Mixed injection points.** `postKey` posted at `.cghidEventTap` while
   `typeUnicode` posts at `.cgSessionEventTap` — two entry points into the same
   chain, the HID one upstream of the session one, so a delete posted first could be

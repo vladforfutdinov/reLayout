@@ -6,6 +6,37 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
+## Auto-correct: punctuation trail, Return submits, stale run on click/shortcut
+
+Unreleased, `8a6e25d` on `claude/ltkfq-conversion-issue-008baf`. Started from the
+user report "`ltkfq?` does not become `делай,`"; the follow-ups were diagnosed with
+a `RELAYOUT_DEBUG` trace before any fix.
+
+- **Trailing punctuation.** `?` is not word material on ЙЦУКЕН (it maps to `,`),
+  so `autoFeed` cleared the buffer and the word was never judged. A first fix used
+  a hard-coded `?!,.;:)` set and fired on the punctuation key; rejected by the user
+  as a character table that breaks the layout-driven design. Now any
+  punctuation/symbol after a word collects in `autoTrail`, the word is judged only
+  at whitespace, and the trail is transliterated with it. `@`/`/` inside an
+  address or path are never followed by whitespace, so they break nothing.
+- **Return in Raycast** (trace: `sym` + Enter -> `інь`, wrong app launched). Two
+  causes: the swallowed Return was retyped as a Unicode `"\r"` on key 0, which apps
+  ignore, and the correction ran before the submit. Returning the real key alone
+  still launched a search on the converted text. By the user's choice Return never
+  corrects now; it only ends the run. Tab and replayed Return go out as real keys
+  with Shift/Option (`typeKey`).
+- **Held-key replay** typed all held text before feeding it, so a boundary inside
+  the replay made the correction delete from the end of the screen, past its word.
+  Each key is now fed before it is typed; keys after a firing boundary go back on
+  hold. `boundaryTyped` removed.
+- **"An earlier word appears at the start"**: the tap saw only keyDown, so the
+  buffer and a pending preposition survived clicks, Cmd/Ctrl shortcuts and a chat
+  Enter, and the next correction deleted text before the moved caret. Mouse-downs
+  and Cmd/Ctrl combos now end the run.
+- Open: `gateSince` is not refreshed across a chain of corrections (after 3 s the
+  gate passes keys through); a click during a correction still replays held keys at
+  the new caret; launchers still convert on space (no default exclusion).
+
 ## v1.2.23 — retype races closed, line grab converts one word, hyphen/apostrophe words
 
 Shipped as `v1.2.23` from `main` (`6b2db27`): the fix is `9c9e92d`, README sync

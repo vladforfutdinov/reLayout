@@ -3,19 +3,21 @@
     <channel>
         <title>ReLayout</title>
         <item>
-            <title>1.2.23</title>
-            <pubDate>Sun, 06 Sep 2026 15:29:03 +0000</pubDate>
-            <sparkle:version>198</sparkle:version>
-            <sparkle:shortVersionString>1.2.23</sparkle:shortVersionString>
+            <title>1.2.24</title>
+            <pubDate>Tue, 15 Sep 2026 08:14:40 +0000</pubDate>
+            <sparkle:version>202</sparkle:version>
+            <sparkle:shortVersionString>1.2.24</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
-            <description><![CDATA[<h2>What's new in v1.2.23</h2>
+            <description><![CDATA[<h2>What's new in v1.2.24</h2>
+<p>Auto-correct fixes:</p>
 <ul>
-<li><strong>Words with a hyphen or an apostrophe now convert.</strong> <code class="notranslate">rjt-xnj</code> → <code class="notranslate">кое-что</code>, <code class="notranslate">gj-heccrb</code> → <code class="notranslate">по-русски</code>, <code class="notranslate">v\zrj</code> → <code class="notranslate">мʼяко</code>. Before, a hyphen or the Ukrainian apostrophe ended the word early, so auto-correct never fired on such words at all.</li>
-<li><strong>Fixing a typo with Backspace no longer splits the word.</strong> Typing <code class="notranslate">g\</code>, deleting a character, then finishing the word used to convert only the part typed after the deletion.</li>
-<li><strong>Nothing lands in the middle of a fix any more.</strong> Keys pressed while text is being retyped are held and typed back right after — now on the hotkey path too, not only in auto-correct. This is what caused half-converted words and a space turning into the last character typed.</li>
-<li><strong>With nothing selected, the hotkey converts the word at the caret.</strong> It no longer grabs the whole line and guesses which part was typed in the wrong layout, and it no longer retypes the rest of the line.</li>
+<li><strong>Punctuation right after a word no longer blocks the fix.</strong> A word typed in the wrong layout with a <code class="notranslate">?</code>, <code class="notranslate">!</code> or similar right after it is now corrected together with the punctuation when you press space: <code class="notranslate">ltkfq? </code> becomes <code class="notranslate">делай, </code>. Before, the word was left as typed.</li>
+<li><strong>Enter no longer auto-corrects.</strong> Enter submits things (a Raycast search, a chat message), and correcting first made Raycast search for the converted text and launch the wrong app. Now Enter sends exactly what you typed. To fix a word before sending, press the hotkey or type a space first.</li>
+<li><strong>Tab stays a real Tab after a correction.</strong> After a fix it used to arrive as a text character, so forms did not move to the next field.</li>
+<li><strong>No more stray or doubled words after clicking or shortcuts.</strong> After a click, Cmd+V, Cmd+Z, Cmd+Tab and similar, auto-correct forgets the unfinished word. Before, the next fix could delete text at the new cursor position and paste an earlier word there.</li>
+<li><strong>Fast typing through a fix no longer scrambles text</strong> when the keys you pressed during the fix held more than one word.</li>
 </ul>]]></description>
-            <enclosure url="https://github.com/vladforfutdinov/reLayout/releases/download/v1.2.23/reLayout.zip" length="1703531" type="application/octet-stream" sparkle:edSignature="c1AQSqT6EWjwqDopva7LHyII2kiYT9ru00ruNwT9ANHUT/X0vlxl9KSg4FhcXAxPSaQgK3jjsmKRNOHKsqauDg=="/>
+            <enclosure url="https://github.com/vladforfutdinov/reLayout/releases/download/v1.2.24/reLayout.zip" length="1708158" type="application/octet-stream" sparkle:edSignature="LqEeb6cYd6N/Dv1zWkokJ/LFIWm54zH5uU/5ieFVB2yVSoRwDKStQ8ZpYWqDQFuDI8G2KQ4KEqO6944vXDypBg=="/>
         </item>
     </channel>
 </rss>

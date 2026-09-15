@@ -52,7 +52,10 @@ keycodes as `ß æ …` (Option on US), and convert with no hand-coded tables. D
 
 A live mode that fixes a wrong-layout word **as you type**, no hotkey: on each word boundary a
 per-language character-trigram model scores the word and silently corrects it when its converted
-form is the plausible one, including a word split by a mid-word layout switch. **Cross-script
+form is the plausible one, including a word split by a mid-word layout switch. A word boundary is
+a space or Tab, with any punctuation just before it converted along ("ltkfq? " → "делай, ");
+Enter never corrects — it submits (a launcher query, a chat message) — and a click or a Cmd/Ctrl
+shortcut drops the unfinished word. **Cross-script
 only** (ru/uk ↔ en), tuned for ≥99% precision, with a
 per-app deny-list (*Settings → Auto-correct → Exceptions…*). Secure fields are always skipped.
 Typing straight through a fix is safe — in auto-correct and on the hotkey alike: the keys you press

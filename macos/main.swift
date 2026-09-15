@@ -1592,6 +1592,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     fileprivate var autoTap: CFMachPort?
     private var autoTapSource: CFRunLoopSource?
     fileprivate var autoBuffer = ""
+    fileprivate var autoTrail = ""      // punctuation typed right after the buffered word
 
     // Fast typing races the retype: the deletes + retype of a finished word land
     // in the middle of the characters typed since, producing mixed text and bogus
@@ -1601,7 +1602,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     // Main-thread-only state: the tap callback runs on the main run loop and the
     // worker hands completion back with DispatchQueue.main.async.
     fileprivate var autoPending = 0     // retypes in flight (auto-correct or hotkey)
-    fileprivate var autoHeld = ""       // characters swallowed while retyping
+    fileprivate var autoHeld: [(s: String, flags: CGEventFlags)] = []   // keys swallowed while retyping
     // A retype that hangs (unresponsive app, AX call stuck) must never freeze the
     // keyboard: past this the gate passes keys through even while in flight.
     fileprivate var gateSince = 0.0
@@ -1641,11 +1642,19 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
 
     private func startAutoMonitor() {
         guard autoTap == nil else { return }
-        let mask = CGEventMask(1) << CGEventType.keyDown.rawValue
+        let mask = [CGEventType.keyDown, .leftMouseDown, .rightMouseDown, .otherMouseDown]
+            .reduce(CGEventMask(0)) { $0 | CGEventMask(1) << $1.rawValue }
         let cb: CGEventTapCallBack = { _, type, event, refcon in
             guard let refcon else { return Unmanaged.passUnretained(event) }
             let me = Unmanaged<AppController>.fromOpaque(refcon).takeUnretainedValue()
             let synth = event.getIntegerValueField(.eventSourceUserData) == AppController.synthMarker
+            // A click may move the caret or focus, and a Cmd/Ctrl shortcut may too
+            // (paste, undo, Cmd+arrows, send, app switch): the buffered word and a
+            // pending preposition no longer sit right before the caret, and a later
+            // correction would delete someone else's text.
+            if type != .keyDown || (!synth && (event.flags.contains(.maskCommand) || event.flags.contains(.maskControl))) {
+                me.autoBuffer = ""; me.autoTrail = ""; me.autoPrev = nil
+            }
             if type == .keyDown, !synth,
                event.getIntegerValueField(.keyboardEventKeycode) == Int64(kVK_Delete) {
                 // Backspace (bare, or Option/Cmd-wide) edits the word being typed —
@@ -1667,13 +1676,13 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
                 // by a correction that hangs.
                 if me.autoPending > 0, !s.isEmpty,
                    ProcessInfo.processInfo.systemUptime - me.gateSince < me.gateMaxHold {
-                    me.autoHeld += s
+                    me.autoHeld.append((s, event.flags.intersection([.maskShift, .maskAlternate])))
                     return nil
                 }
                 // The boundary key that starts a correction is swallowed too: it
                 // would otherwise travel to the app in parallel with the deletes we
                 // are already posting, and land inside them.
-                if me.autoMode, me.autoFeed(s) { return nil }
+                if me.autoMode, me.autoFeed(s, flags: event.flags.intersection([.maskShift, .maskAlternate])) { return nil }
             } else if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
                 if let t = me.autoTap { CGEvent.tapEnable(tap: t, enable: true) }
             }
@@ -1687,7 +1696,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
 
     private func stopAutoMonitor() {
         removeEventTap(&autoTap, &autoTapSource)
-        autoBuffer = ""; autoPrev = nil; autoPending = 0; autoHeld = ""
+        autoBuffer = ""; autoTrail = ""; autoPrev = nil; autoPending = 0; autoHeld = []
     }
 
     // Backspace edits the word being typed, so the buffer has to follow it: drop
@@ -1702,7 +1711,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     // instead of reaching the app).
     fileprivate func autoBackspace(wide: Bool) -> Bool {
         if !autoHeld.isEmpty, !wide { autoHeld.removeLast(); return true }
-        if wide { autoHeld = ""; autoBuffer = ""; autoPrev = nil; return false }
+        if wide { autoHeld = []; autoBuffer = ""; autoTrail = ""; autoPrev = nil; return false }
+        if !autoTrail.isEmpty { autoTrail.removeLast(); return false }
         autoBuffer = String(autoBuffer.dropLast())
         if autoBuffer.isEmpty { autoPrev = nil }
         return false
@@ -1711,10 +1721,10 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     // Feed a produced character into the word buffer; evaluate on a word boundary.
     // Returns true when the keystroke started a correction and must NOT be
     // delivered to the app — `autoCorrect` retypes it after the fix.
-    // `boundaryTyped: true` (replay path) means the character is already on screen,
-    // so the correction has to delete it.
+    // `flags` (Shift/Option) travel with a swallowed boundary so it is re-posted as
+    // the same key: Shift+Return stays a newline instead of becoming "send".
     @discardableResult
-    fileprivate func autoFeed(_ s: String, boundaryTyped: Bool = false) -> Bool {
+    fileprivate func autoFeed(_ s: String, flags: CGEventFlags = []) -> Bool {
         // Any real keystroke after an (auto or hotkey) conversion ends its undo
         // window — the caret has moved on, so a later hotkey press should CONVERT
         // the new word, not revert the old fix. The undo hotkey itself is a
@@ -1726,16 +1736,29 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         // buffered so "ghjсто" evaluates as one word.
         dbg("feed \(s.debugDescription) buf=\(autoBuffer.debugDescription)")
         if s.isEmpty { return false }
-        if s == " " || s == "\r" || s == "\n" || s == "\t" {
-            let fired = autoEvaluate(boundary: s, boundaryTyped: boundaryTyped)
-            autoBuffer = ""
-            return fired && !boundaryTyped
+        if s == "\r" || s == "\n" {
+            // Return submits (launcher query, chat send) — converting first would act
+            // on text the user never typed, so it only ends the run.
+            autoBuffer = ""; autoTrail = ""; autoPrev = nil
+            return false
+        }
+        if s == " " || s == "\t" {
+            let fired = autoEvaluate(boundary: s, flags: flags)
+            autoBuffer = ""; autoTrail = ""
+            return fired
         } else if s.count == 1, let c = s.first,
-                  c.isLetter || feedsAsCyr(s) || (isWordConnector(c) && !autoBuffer.isEmpty) {
+                  c.isLetter || (autoTrail.isEmpty && (feedsAsCyr(s) || (isWordConnector(c) && !autoBuffer.isEmpty))) {
+            if !autoTrail.isEmpty { autoBuffer = ""; autoTrail = ""; autoPrev = nil }   // "a?b": a new run
             autoBuffer.append(c)
             if autoBuffer.count > 64 { autoBuffer.removeFirst(autoBuffer.count - 64) }
+        } else if !autoBuffer.isEmpty, s.count == 1, let c = s.first, c.isPunctuation || c.isSymbol {
+            // Punctuation that is not word material on any enabled layout trails the
+            // word ("ltkfq?"). The word is judged only when whitespace follows, so
+            // the trail converts with it ("делай,") while "@"/"/" inside an address
+            // or path — never followed by whitespace — break nothing.
+            autoTrail.append(c)
         } else {
-            autoBuffer = ""; autoPrev = nil   // punctuation / navigation / delete -> end the run
+            autoBuffer = ""; autoTrail = ""; autoPrev = nil   // navigation / interior punctuation -> end the run
         }
         return false
     }
@@ -1752,7 +1775,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     }
 
     @discardableResult
-    private func autoEvaluate(boundary: String, boundaryTyped: Bool) -> Bool {
+    private func autoEvaluate(boundary: String, flags: CGEventFlags) -> Bool {
         let word = autoBuffer
         // Any non-word event (empty word from a double space, excluded app) breaks
         // the run so a stale short candidate can't attach across the gap.
@@ -1768,6 +1791,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         }
         dbg("auto: \(word.debugDescription) -> \(d.out.debugDescription) [\(d.target.id)]")
         let srcSource = cur.source
+        let trail = autoTrail
+        let outTrail = transliterate(trail, from: cur, to: d.target)
 
         if word.count >= 3 {
             // A word long enough to trust on its own. If the immediately-preceding
@@ -1776,17 +1801,17 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             let swallow = autoPrev.flatMap {
                 (!$0.committed && $0.target.isCyrillic == d.target.isCyrillic) ? $0 : nil
             }
-            autoPrev = AutoPrev(raw: word, out: d.out, target: d.target, committed: true)
+            autoPrev = AutoPrev(raw: word + trail, out: d.out + outTrail, target: d.target, committed: true)
             beginCorrection {
-                self.autoCorrect(word: word, boundary: boundary, boundaryTyped: boundaryTyped,
+                self.autoCorrect(word: word, trail: trail, outTrail: outTrail, boundary: boundary, boundaryFlags: flags,
                                  target: d.target, srcSource: srcSource, out: d.out, swallow: swallow)
             }
             return true
         } else if let p = autoPrev, p.committed, p.target.isCyrillic == d.target.isCyrillic {
             // Short word right after a committed conversion of the same script.
-            autoPrev = AutoPrev(raw: word, out: d.out, target: d.target, committed: true)
+            autoPrev = AutoPrev(raw: word + trail, out: d.out + outTrail, target: d.target, committed: true)
             beginCorrection {
-                self.autoCorrect(word: word, boundary: boundary, boundaryTyped: boundaryTyped,
+                self.autoCorrect(word: word, trail: trail, outTrail: outTrail, boundary: boundary, boundaryFlags: flags,
                                  target: d.target, srcSource: srcSource, out: d.out, swallow: nil)
             }
             return true
@@ -1795,7 +1820,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             // a following long conversion may swallow it.
             // ponytail: one-neighbour lookback — a stack ("bp pf ghbdtn") fixes only
             // the last preposition; widen to a pending list if that ever matters.
-            autoPrev = AutoPrev(raw: word, out: d.out, target: d.target, committed: false)
+            autoPrev = AutoPrev(raw: word + trail, out: d.out + outTrail, target: d.target, committed: false)
         }
         return false
     }
@@ -1812,44 +1837,51 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         }
     }
 
-    // Nothing left in flight -> type the swallowed characters back and feed them
-    // through the word buffer, so the run continues as if they had never been
-    // held. A replay may itself hit a word boundary and start another correction;
-    // the gate stays closed until that one finishes too.
+    // Nothing left in flight -> replay the swallowed keys in order, each fed through
+    // the word buffer BEFORE it is typed, exactly like live typing. A replayed
+    // boundary that starts a correction is typed by that correction, and the keys
+    // after it go back on hold until it lands — typing them first would put them
+    // on screen past the word the correction deletes from the end.
     private func finishCorrection() {
         autoPending -= 1
         guard autoPending == 0, !autoHeld.isEmpty else { return }
-        let text = autoHeld
-        autoHeld = ""
+        var rest = autoHeld[...]
+        autoHeld = []
         autoPending += 1
-        worker.async {
-            self.typeUnicode(text)
-            DispatchQueue.main.async {
-                if self.autoMode { for ch in text { self.autoFeed(String(ch), boundaryTyped: true) } }
-                self.finishCorrection()
-            }
+        while let k = rest.popFirst() {
+            if autoMode, autoFeed(k.s, flags: k.flags) { autoHeld = Array(rest); break }
+            worker.async { self.typeKey(k.s, flags: k.flags) }
+        }
+        worker.async { DispatchQueue.main.async { self.finishCorrection() } }
+    }
+
+    // Return/Tab go out as real keys: apps act on the key code (Raycast launches,
+    // chats send, forms advance), while a Unicode "\r" on key 0 is only text.
+    private func typeKey(_ s: String, flags: CGEventFlags) {
+        switch s {
+        case "\r", "\n": postKey(CGKeyCode(kVK_Return), flags)
+        case "\t": postKey(CGKeyCode(kVK_Tab), flags)
+        default: typeUnicode(s)
         }
     }
 
-    // Delete the wrong word (+ the boundary just typed), retype the converted text
+    // Delete the wrong word, retype the converted text
     // and boundary, switch the system layout. Records it so the hotkey undo reverts.
     // `swallow` (forward adjacency) additionally rewrites the preceding short word,
     // still on screen as `swallow.raw` one space before `word`.
-    private func autoCorrect(word: String, boundary: String, boundaryTyped: Bool, target: Layout,
+    private func autoCorrect(word: String, trail: String, outTrail: String, boundary: String, boundaryFlags: CGEventFlags, target: Layout,
                              srcSource: TISInputSource, out: String, swallow: AutoPrev?) {
         waitModifiersReleased()
         let extra = swallow.map { $0.raw.count + 1 } ?? 0   // "<raw> " before the word
-        // The boundary is on screen only on the replay path; when it was swallowed
-        // by the tap there is nothing to delete for it.
-        let tail = boundaryTyped ? boundary.count : 0
-        for _ in 0..<(word.count + tail + extra) { postKey(CGKeyCode(kVK_Delete), []) }
+        for _ in 0..<(word.count + trail.count + extra) { postKey(CGKeyCode(kVK_Delete), []) }
         usleep(10_000)
         let prefix = swallow.map { $0.out + " " } ?? ""
         let rawPrefix = swallow.map { $0.raw + " " } ?? ""
-        typeUnicode(prefix + out + boundary)
+        typeUnicode(prefix + out + outTrail)
+        typeKey(boundary, flags: boundaryFlags)
         usleep(10_000)
         DispatchQueue.main.sync { _ = TISSelectInputSource(target.source) }
-        lastConversion = Conversion(original: rawPrefix + word + boundary, typed: prefix + out + boundary,
+        lastConversion = Conversion(original: rawPrefix + word + trail + boundary, typed: prefix + out + outTrail + boundary,
                                     srcSource: srcSource, time: ProcessInfo.processInfo.systemUptime)
     }
 

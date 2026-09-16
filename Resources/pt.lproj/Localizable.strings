@@ -20,6 +20,7 @@
 "menu.checkUpdates" = "Procurar atualizações…";
 "settings.autoUpdate" = "Procurar atualizações automaticamente";
 "settings.autoCorrect" = "Corrigir layout automaticamente";
+"settings.autoCorrectUnavailable" = "A correção automática precisa de layouts de alfabetos diferentes, por ex. inglês e qualquer cirílico. Layouts do mesmo alfabeto (%@) não se distinguem com fiabilidade — use o atalho.";
 
 // auto-correct exceptions
 "settings.exceptions" = "Exceções…";

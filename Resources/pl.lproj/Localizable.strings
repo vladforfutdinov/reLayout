@@ -20,6 +20,7 @@
 "menu.checkUpdates" = "Sprawdź aktualizacje…";
 "settings.autoUpdate" = "Automatycznie sprawdzaj aktualizacje";
 "settings.autoCorrect" = "Autokorekta układu";
+"settings.autoCorrectUnavailable" = "Autokorekta wymaga układów o różnych alfabetach, np. angielskiego i dowolnego cyrylickiego. Układów jednego alfabetu (%@) nie da się wiarygodnie rozróżnić – użyj skrótu klawiszowego.";
 
 // auto-correct exceptions
 "settings.exceptions" = "Wyjątki…";

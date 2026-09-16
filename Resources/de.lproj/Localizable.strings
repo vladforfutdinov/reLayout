@@ -20,6 +20,7 @@
 "menu.checkUpdates" = "Nach Updates suchen…";
 "settings.autoUpdate" = "Automatisch nach Updates suchen";
 "settings.autoCorrect" = "Layout automatisch korrigieren";
+"settings.autoCorrectUnavailable" = "Die automatische Korrektur braucht Tastaturlayouts verschiedener Schriften, z. B. Englisch und ein beliebiges kyrillisches. Layouts derselben Schrift (%@) lassen sich nicht zuverlässig unterscheiden – nutzen Sie das Tastenkürzel.";
 
 // auto-correct exceptions
 "settings.exceptions" = "Ausnahmen…";

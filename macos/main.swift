@@ -112,6 +112,11 @@ final class Layout: LayoutMaps {
     private(set) var strokeToChar: [KeyStroke: String] = [:]
     private(set) var isCyrillic = false
 
+    var name: String {
+        TISGetInputSourceProperty(source, kTISPropertyLocalizedName)
+            .map { Unmanaged<CFString>.fromOpaque($0).takeUnretainedValue() as String } ?? id
+    }
+
     // BCP-47 language of this layout (e.g. "ru", "uk", "en"), for the auto-mode
     // trigram model lookup. nil if the source reports no language.
     var languageCode: String? {
@@ -632,6 +637,9 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     private var settingsWindow: NSWindow?
     private var recordingHotkey = false   // hotkey + auto-correct are paused only while the recorder field is capturing
     private var excWindow: NSWindow?    // auto-correct exceptions editor
+    private weak var autoCb: NSButton?
+    private weak var autoExcBtn: NSButton?
+    private weak var autoInfo: NSImageView?
     private weak var excTable: NSTableView?
     private var lastActiveBundleID: String?   // last non-self frontmost app ("exclude current")
     private weak var shortcutField: ShortcutField?
@@ -643,6 +651,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     }
 
     func applicationDidFinishLaunching(_ note: Notification) {
+        UserDefaults.standard.set(0, forKey: "NSInitialToolTipDelay")   // app-wide: tooltips show at once
         Loc.load()   // apply saved language override before any UI is built
 #if SPARKLE
         updater = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
@@ -687,6 +696,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             Layout.invalidateCache()
             self.setupMenu()        // refresh the layout list shown in the menu
             self.updateStatusIcon()
+            self.updateAutoAvailability()
         }
     }
 
@@ -725,6 +735,20 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     }
 
     @objc private func quit() { NSApp.terminate(nil) }
+
+    // Auto-correct only tells scripts apart (Cyrillic vs Latin); with every enabled
+    // layout in one script it never fires, so the checkbox is shown off and disabled.
+    // The stored preference is kept for when a layout of the other script returns.
+    private func updateAutoAvailability() {
+        let enabled = Layout.enabledList()
+        let ok = enabled.contains { $0.isCyrillic } && enabled.contains { !$0.isCyrillic }
+        autoCb?.isEnabled = ok
+        autoCb?.state = ok && autoMode ? .on : .off
+        autoExcBtn?.isEnabled = ok
+        autoInfo?.isHidden = ok
+        autoInfo?.toolTip = String(format: L("settings.autoCorrectUnavailable"),
+                                   enabled.map(\.name).joined(separator: ", "))
+    }
 
     @objc private func toggleAutoCorrect(_ sender: NSButton) {
         autoMode = (sender.state == .on)   // setter starts/stops the monitor
@@ -1073,8 +1097,14 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         let autoCb = makeCheckbox(L("settings.autoCorrect"), #selector(toggleAutoCorrect(_:)), on: autoMode)
         let excBtn = NSButton(title: L("settings.exceptions"), target: self, action: #selector(openExceptions))
         excBtn.bezelStyle = .rounded; excBtn.controlSize = .small
-        let autoRow = NSStackView(views: [autoCb, excBtn])
+        let autoInfoIcon = NSImageView(image: NSImage(systemSymbolName: "info.circle", accessibilityDescription: nil) ?? NSImage())
+        autoInfoIcon.contentTintColor = .secondaryLabelColor
+        let label = NSStackView(views: [autoCb, autoInfoIcon])
+        label.orientation = .horizontal; label.spacing = 4; label.alignment = .centerY
+        let autoRow = NSStackView(views: [label, excBtn])
         autoRow.orientation = .horizontal; autoRow.spacing = 12; autoRow.alignment = .centerY
+        self.autoCb = autoCb; autoExcBtn = excBtn; autoInfo = autoInfoIcon
+        updateAutoAvailability()
 
         // ── header: logo + name ──
         let logo = NSImageView()

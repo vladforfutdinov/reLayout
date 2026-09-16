@@ -20,6 +20,7 @@
 "menu.checkUpdates" = "检查更新…";
 "settings.autoUpdate" = "自动检查更新";
 "settings.autoCorrect" = "自动纠正键盘布局";
+"settings.autoCorrectUnavailable" = "自动纠正需要不同文字的键盘布局，例如英语和任意西里尔文布局。同一文字的布局（%@）无法可靠区分，请使用快捷键。";
 
 // auto-correct exceptions
 "settings.exceptions" = "例外…";

@@ -56,7 +56,8 @@ form is the plausible one, including a word split by a mid-word layout switch. A
 a space or Tab, with any punctuation just before it converted along ("ltkfq? " → "делай, ");
 Enter never corrects — it submits (a launcher query, a chat message) — and a click or a Cmd/Ctrl
 shortcut drops the unfinished word. **Cross-script
-only** (ru/uk ↔ en), tuned for ≥99% precision, with a
+only** (ru/uk ↔ en), tuned for ≥99% precision — with only same-script layouts enabled
+(e.g. ABC + German) the checkbox is disabled, with the reason behind its ⓘ hint — with a
 per-app deny-list (*Settings → Auto-correct → Exceptions…*). Secure fields are always skipped.
 Typing straight through a fix is safe — in auto-correct and on the hotkey alike: the keys you press
 while text is being retyped are held for those few milliseconds and typed back right after, so

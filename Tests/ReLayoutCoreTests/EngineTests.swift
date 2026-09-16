@@ -23,7 +23,7 @@ final class EngineTests: XCTestCase {
             (18, 0, "o", "щ"), (19, 0, "q", "й"), (20, 0, "s", "і"), (21, 0, "k", "л"),
             (22, 0, "a", "ф"), (23, 0, "i", "ш"),
             (100, 1, "ß", "є"), (101, 1, "æ", "ї"),
-            (43, 0, ",", "б"), (47, 0, ".", "ю"),
+            (43, 0, ",", "б"), (47, 0, ".", "ю"), (33, 0, "[", "х"),
             (42, 0, "\\", "\u{02BC}"),   // Ukrainian apostrophe: no key of its own on Latin
         ]
         var lC2S = [String: KeyStroke](), lS2C = [KeyStroke: String]()
@@ -96,9 +96,9 @@ final class EngineTests: XCTestCase {
         XCTAssertEqual(autoWordCore("g,hb", src: latin, dst: cyr), "g,hb")
         // Letters-only word passes through whole.
         XCTAssertEqual(autoWordCore("ghb", src: latin, dst: cyr), "ghb")
-        // Trailing mapped char is ambiguous (real punctuation vs б/ю) -> nil.
-        XCTAssertNil(autoWordCore("ghb,", src: latin, dst: cyr))
-        XCTAssertNil(autoWordCore("gh.", src: latin, dst: cyr))
+        // Trailing mapped chars are word material too; the core drops them.
+        XCTAssertEqual(autoWordCore("ghb,", src: latin, dst: cyr), "ghb")
+        XCTAssertEqual(autoWordCore("g,h[", src: latin, dst: cyr), "g,h")
         // Fewer than two letters -> nil (floor-difference false fires).
         XCTAssertNil(autoWordCore(",.g", src: latin, dst: cyr))
         XCTAssertNil(autoWordCore(",,,", src: latin, dst: cyr))

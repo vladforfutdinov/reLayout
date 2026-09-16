@@ -1527,7 +1527,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             }
             // Shape + core gates (see autoWordCore): mapped punctuation may be a
             // Cyrillic letter (",skj" is "было"), but not when the word minus its
-            // leading punctuation is already plausible ("'hello" keeps its quote).
+            // edge punctuation is already plausible ("'hello", "hello," stay).
             // Pure-letter words have no such ambiguity (core == word), and a lone
             // letter — a preposition — trips autoWordCore's letters>=2 guard, so
             // skip it for them.
@@ -1794,7 +1794,10 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         let trail = autoTrail
         let outTrail = transliterate(trail, from: cur, to: d.target)
 
-        if word.count >= 3 {
+        // A trailing mapped char is the weakest evidence ("vs." reads as "мію"), so
+        // length is judged without it: "vj]" waits for a neighbour like a preposition.
+        let body = word.reversed().drop(while: { !$0.isLetter }).count
+        if body >= 3 {
             // A word long enough to trust on its own. If the immediately-preceding
             // word was a pending short candidate of the same script, fold it into
             // this one correction (forward adjacency) — the "d ljhjut" case.
@@ -2160,7 +2163,7 @@ enum ReLayoutApp {
             print("\n-- convertWrong \(lbl) (src=\(short(src)) dst=\(short(dst))) --")
             let samples = lbl.hasPrefix("ABC")
                 ? ["ghbdtn", "я сказал ghbdtn", "я написал ßæ", "привет мир",
-                   "rjt-xnj", "v\\zrj", "g\\æcf", "hjrjdbq gj-heccrb"]
+                   "rjt-xnj", "v\\zrj", "g\\æcf", "hjrjdbq gj-heccrb", "rfhf,f[", "vj«", "vj]", "vj'", "gj[j;"]
                 : ["руддщ", "привет мир", "I said привет"]
             for s in samples {
                 print("  \(s.debugDescription) -> \(convertWrong(s, src: src, dst: dst)?.debugDescription ?? "nil")")

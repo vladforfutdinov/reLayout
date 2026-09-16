@@ -179,16 +179,13 @@ public func caretWord(_ text: String) -> String.Index? {
 //   - at least two real letters — per-language trigram floors differ, so a
 //     floor-dominated string ("z...", "...") beats the score margin on the floor
 //     difference alone and would retype "..." as "ююю";
-//   - the last char must be a letter. A trailing mapped char is genuinely
-//     ambiguous ("pyf." is both "знаю" and "зна."; "ghbdtn," is both "приветб"
-//     and "привет,") and the trigram models cannot separate the two readings —
-//     measured on common words the score gap between the readings overlaps in
-//     both directions. Leading/interior mapped chars carry no such ambiguity
-//     (no Latin word starts ",…"), so only those convert.
+//   - a trailing mapped char converts too — it is the key the user pressed
+//     ("vj]" is "мої"); a real trailing ","/"." comes from English text, which
+//     the caller's core check rejects.
 //
-// Returns the word's core — the word minus its leading mapped-punctuation run —
-// for the caller's plausibility check ("'hello" must not fire: the core "hello"
-// is a real word and the quote was a quote). nil when the shape disqualifies.
+// Returns the word's core — the word minus its leading and trailing mapped-
+// punctuation runs — for the caller's plausibility check ("'hello" and "hello,"
+// must not fire: the core is a real word). nil when the shape disqualifies.
 public func autoWordCore(_ w: String, src: LayoutMaps, dst: LayoutMaps) -> Substring? {
     var letters = 0
     for ch in w {
@@ -196,9 +193,10 @@ public func autoWordCore(_ w: String, src: LayoutMaps, dst: LayoutMaps) -> Subst
         else if isWordConnector(ch) { continue }
         else if !mapsToWordChar(String(ch)[...], src: src, dst: dst, connectors: true) { return nil }
     }
-    guard letters >= 2, w.last?.isLetter == true else { return nil }
+    guard letters >= 2 else { return nil }
     var core = Substring(w)
     while core.first?.isLetter == false { core = core.dropFirst() }
+    while core.last?.isLetter == false { core = core.dropLast() }
     return core
 }
 

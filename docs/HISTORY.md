@@ -6,9 +6,34 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
-## Auto-correct: punctuation trail, Return submits, stale run on click/shortcut
+## Auto-correct: trailing layout-mapped char converts
 
-Unreleased, `8a6e25d` on `claude/ltkfq-conversion-issue-008baf`. Started from the
+Unreleased, `39c23f0` on `claude/ltkfq-conversion-issue-008baf`. User reports:
+`rfhf,f[` (карабах), `vj]` (мої), `vj'` (моє), `vj«` (моё), `gj[j;` (похож) never
+converted.
+
+- Cause: `autoWordCore` refused any word whose last char is not a letter — the
+  "`pyf.` is `знаю` or `зна.`" ambiguity rule. Scores were never the blocker
+  (`карабах` -2.64 ru against the -3.0 punct gate). Comparing the two readings
+  does not work either: `зна` outscores `знаю`, `мо` outscores `мої`.
+- The user's argument settled it: a wrong-layout typist errs on punctuation too
+  ("привет," arrives as `ghbdtn?`), so a trailing mapped char is the key pressed.
+  A first attempt allowing only Unicode Ps/Pi (`[`, `«`) was dropped for that
+  reason.
+- English guard: the core check strips trailing punctuation too. Probed via a
+  temporary `--selftest` block on the live ABC + Ukrainian-PC pair: 80 English
+  negatives ending in mapped punctuation, 5 false fires, all a 2-letter core plus
+  `.` (`vs.` -> `мію`, `cf.`, `Ph.`, `Vs.`, `Lt.`). `autoEvaluate` now judges length
+  without the trailing mapped run, so those (and `vj]`) take the short-word path:
+  converted only with a neighbouring correction. The user accepted that standalone
+  `vj] ` stays as typed.
+- Known: `yj;` (нож) scores -3.5 and stays below the -3.0 punct gate.
+
+## v1.2.24 — auto-correct: punctuation trail, Return submits, stale run on click/shortcut
+
+Shipped as `v1.2.24` from `main` (`54cd393`): the fix is `8a6e25d` (README and
+ARCHITECTURE synced in it), notes `docs/release-notes/v1.2.24.md`; CI `build` and
+`core` green, notes verified in the release body and the appcast. Started from the
 user report "`ltkfq?` does not become `делай,`"; the follow-ups were diagnosed with
 a `RELAYOUT_DEBUG` trace before any fix.
 

@@ -6,9 +6,9 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
-## Auto-correct: trailing layout-mapped char converts
+## v1.2.25 — trailing layout-mapped char converts; auto-correct off for one-script layouts
 
-Unreleased, `39c23f0` on `claude/ltkfq-conversion-issue-008baf`. User reports:
+Fix `39c23f0`, settings `41b5fd1`, tests `1d43a8d`. User reports:
 `rfhf,f[` (карабах), `vj]` (мої), `vj'` (моє), `vj«` (моё), `gj[j;` (похож) never
 converted.
 
@@ -28,6 +28,18 @@ converted.
   converted only with a neighbouring correction. The user accepted that standalone
   `vj] ` stays as typed.
 - Known: `yj;` (нож) scores -3.5 and stays below the -3.0 punct gate.
+- **Settings:** with every enabled layout in one script (ABC + German) auto-correct
+  can never fire — the v1.2.11 calibration found Latin↔Latin not viable, so
+  `autoDecide` only takes other-script targets. The checkbox is now shown off and
+  disabled (stored preference kept) with an ⓘ tooltip naming the enabled layouts.
+  Iterated with the user: a click popover and a hover popover were tried and
+  dropped for the system tooltip with `NSInitialToolTipDelay` = 0 (app-wide).
+- **`LayoutPairTests`**: engine over real `UCKeyTranslate` dumps (QWERTZ, AZERTY,
+  Dvorak, Czech/Kazakh digit-row letters, Polish, Turkish ı, Mac vs PC Russian
+  comma, Russian→Ukrainian, Belarusian ў, Serbian, Latin→Georgian/Greek/Hebrew/
+  Arabic). Probed but not fixed: Georgian/Greek/Hebrew/Arabic → Latin returns nil
+  (`convertWrong` knows only Cyrillic vs not), `dominantScript` is nil for Greek
+  text, Belarusian `'` is not auto-mode word material, Greek tonos is a dead key.
 
 ## v1.2.24 — auto-correct: punctuation trail, Return submits, stale run on click/shortcut
 

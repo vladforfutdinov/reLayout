@@ -122,3 +122,20 @@ int32_t relayout_uia_snapshot(uint16_t *tail, int32_t cap,
     text->Release();
     return result;
 }
+
+int32_t relayout_uia_is_password(void) {
+    IUIAutomation *uia = automation();
+    if (!uia) return -1;
+    IUIAutomationElement *element = nullptr;
+    if (FAILED(uia->GetFocusedElement(&element)) || !element) return -1;
+    VARIANT value;
+    VariantInit(&value);
+    int32_t result = -1;
+    if (SUCCEEDED(element->GetCurrentPropertyValue(UIA_IsPasswordPropertyId, &value)) &&
+        value.vt == VT_BOOL) {
+        result = value.boolVal == VARIANT_TRUE ? 1 : 0;
+    }
+    VariantClear(&value);
+    element->Release();
+    return result;
+}

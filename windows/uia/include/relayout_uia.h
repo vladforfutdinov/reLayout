@@ -22,6 +22,10 @@ int32_t relayout_uia_read_selection(uint16_t *buf, int32_t cap);
 int32_t relayout_uia_snapshot(uint16_t *tail, int32_t cap,
                               int32_t *count, int32_t *caret, int32_t *selected);
 
+/// 1 when the focused control is a password field, 0 when it is not, negative when
+/// UI Automation cannot say.
+int32_t relayout_uia_is_password(void);
+
 #ifdef __cplusplus
 }
 #endif

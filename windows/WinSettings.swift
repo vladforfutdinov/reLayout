@@ -15,6 +15,7 @@ private let idBtnReset:    Int = 107
 private let idChkDouble:   Int = 108
 private let idChkAuto:     Int = 109
 private let idChkAutoEnter: Int = 110
+private let idBtnExceptions: Int = 111
 
 private var settingsHwnd: HWND?
 private var settingsClassW = Array("ReLayoutSettingsWnd".utf16) + [0]
@@ -28,6 +29,9 @@ private let nmClick  = UINT(bitPattern: -2)
 private let nmReturn = UINT(bitPattern: -4)
 
 private func sc(_ v: Int32) -> Int32 { v * uiDpi / 96 }   // scale a 96-dpi coord
+
+/// The Settings font, shared with the Exceptions window (opened from here).
+func settingsFont() -> HFONT? { uiFont }
 
 private func applyFont(_ h: HWND?) {
     SendMessageW(h, UINT(WM_SETFONT), unsafeBitCast(uiFont, to: WPARAM.self), LPARAM(1))
@@ -87,24 +91,27 @@ private func buildControls(_ hwnd: HWND?) {
     SendMessageW(onEnter, UINT(BM_SETCHECK), WPARAM(loadAutoEnter() ? 1 : 0), 0)
     EnableWindow(onEnter, WinLayout.crossScriptAvailable() && loadAutoMode())
 
+    let exceptions = makeControl("BUTTON", "Exceptions…", Int32(WS_TABSTOP), 40, 132, 140, 28, hwnd, idBtnExceptions)
+    EnableWindow(exceptions, loadAutoMode())
+
     let chk = makeControl("BUTTON", "Launch at login",
-                          Int32(BS_AUTOCHECKBOX) | Int32(WS_TABSTOP), 20, 136, 220, 22, hwnd, idChkStartup)
+                          Int32(BS_AUTOCHECKBOX) | Int32(WS_TABSTOP), 20, 172, 220, 22, hwnd, idChkStartup)
     SendMessageW(chk, UINT(BM_SETCHECK), WPARAM(startupEnabled() ? 1 : 0), 0)
     if !startupAvailable() { EnableWindow(chk, false) }
 
     _ = makeControl("BUTTON", "Keyboard settings…",
-                    Int32(WS_TABSTOP), 20, 180, 170, 30, hwnd, idBtnKeyboard)
+                    Int32(WS_TABSTOP), 20, 208, 170, 30, hwnd, idBtnKeyboard)
 
     // ── About section ──
-    _ = makeControl("STATIC", "", 0x0010 /* SS_ETCHEDHORZ */, 20, 224, 342, 1, hwnd, 0)
-    _ = makeControl("STATIC", "reLayout  ·  version \(appVersion)", 0, 20, 236, 342, 20, hwnd, 0)
-    _ = makeControl("STATIC", "Retype selection in the correct keyboard layout", 0, 20, 256, 342, 20, hwnd, 0)
-    _ = makeControl("STATIC", "© 2026 Volodymyr Forfutdinov", 0, 20, 276, 342, 20, hwnd, 0)
+    _ = makeControl("STATIC", "", 0x0010 /* SS_ETCHEDHORZ */, 20, 252, 342, 1, hwnd, 0)
+    _ = makeControl("STATIC", "reLayout  ·  version \(appVersion)", 0, 20, 264, 342, 20, hwnd, 0)
+    _ = makeControl("STATIC", "Retype selection in the correct keyboard layout", 0, 20, 284, 342, 20, hwnd, 0)
+    _ = makeControl("STATIC", "© 2026 Volodymyr Forfutdinov", 0, 20, 304, 342, 20, hwnd, 0)
     _ = makeControl("SysLink", "<a>github.com/\(repoSlug)</a>",
-                    Int32(WS_TABSTOP), 20, 298, 342, 22, hwnd, idLnkAbout)
+                    Int32(WS_TABSTOP), 20, 326, 342, 22, hwnd, idLnkAbout)
 
     _ = makeControl("BUTTON", "Close",
-                    Int32(WS_TABSTOP), 262, 330, 100, 30, hwnd, idBtnClose)
+                    Int32(WS_TABSTOP), 262, 358, 100, 30, hwnd, idBtnClose)
 }
 
 private func sizeAndCenter(_ hwnd: HWND?) {
@@ -115,7 +122,7 @@ private func sizeAndCenter(_ hwnd: HWND?) {
     let ncw = (wr.right - wr.left) - (cr.right - cr.left)
     let nch = (wr.bottom - wr.top) - (cr.bottom - cr.top)
     let w = sc(380) + ncw
-    let h = sc(374) + nch
+    let h = sc(402) + nch
     var mi = MONITORINFO(); mi.cbSize = DWORD(MemoryLayout<MONITORINFO>.size)
     GetMonitorInfoW(MonitorFromWindow(hwnd, DWORD(MONITOR_DEFAULTTONEAREST)), &mi)
     let x = mi.rcWork.left + ((mi.rcWork.right - mi.rcWork.left) - w) / 2
@@ -149,6 +156,7 @@ private func settingsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lPa
             saveAutoMode(checked == LRESULT(BST_CHECKED))
             reloadAutoMode()
             EnableWindow(GetDlgItem(hwnd, Int32(idChkAutoEnter)), checked == LRESULT(BST_CHECKED))
+            EnableWindow(GetDlgItem(hwnd, Int32(idBtnExceptions)), checked == LRESULT(BST_CHECKED))
         case idChkAutoEnter:
             let checked = SendMessageW(GetDlgItem(hwnd, Int32(idChkAutoEnter)), UINT(BM_GETCHECK), 0, 0)
             saveAutoEnter(checked == LRESULT(BST_CHECKED))
@@ -156,6 +164,7 @@ private func settingsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lPa
         case idChkDouble:
             let checked = SendMessageW(GetDlgItem(hwnd, Int32(idChkDouble)), UINT(BM_GETCHECK), 0, 0)
             saveDoubleTap(checked == LRESULT(BST_CHECKED))
+        case idBtnExceptions: openExceptions(owner: hwnd)
         case idBtnKeyboard: openExternally("ms-settings:keyboard")
         case idBtnSet:
             setFieldText(hwnd, idHotkeyField, "Press a key or tap a modifier…")

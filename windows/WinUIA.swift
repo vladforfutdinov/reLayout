@@ -30,3 +30,10 @@ func readFieldSnapshot() -> FieldSnapshot? {
     return FieldSnapshot(count: Int(count), caret: Int(caret), selected: Int(selected),
                          tail: String(decoding: buf.prefix(while: { $0 != 0 }), as: UTF16.self))
 }
+
+/// True only when UI Automation says the focused control is a password field.
+/// A control it cannot describe counts as "not a password": auto mode has its own
+/// app deny-list, and refusing to type anywhere unknown would disable the feature.
+func focusIsPasswordField() -> Bool {
+    relayout_uia_is_password() == 1
+}

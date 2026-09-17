@@ -16,6 +16,8 @@ let WM_AUTOENTER = UINT(WM_APP) + 12
 
 private var autoEnabled = false  // mirrors the preference; the hook reads it per key
 private var autoEnterEnabled = true
+private var excludedApps: [String] = []
+private var passwordField = false
 private var buffer = ""          // the word as typed
 private var trail = ""           // punctuation typed right after it
 private var lastFocus: HWND?
@@ -51,6 +53,29 @@ private let navigationVKs: Set<UINT> = Set([0x1B, 0x2D, 0x2E] + (0x21...0x28).ma
 
 private let vkBack = UINT(0x08), vkTab = UINT(0x09), vkReturn = UINT(0x0D), vkSpace = UINT(0x20)
 
+/// Auto mode stays off in terminals and in the user's deny-list: what is typed
+/// there is commands and code, not prose.
+private func autoExcluded() -> Bool {
+    if foregroundIsConsole() || passwordField { return true }
+    guard !excludedApps.isEmpty else { return false }
+    return excludedApps.contains(foregroundProcessName())
+}
+
+/// Executable name of the foreground window's process, lowercased ("code.exe").
+private func foregroundProcessName() -> String {
+    var pid: DWORD = 0
+    GetWindowThreadProcessId(GetForegroundWindow(), &pid)
+    guard pid != 0,
+          let handle = OpenProcess(DWORD(0x1000 /* PROCESS_QUERY_LIMITED_INFORMATION */), false, pid)
+    else { return "" }
+    defer { CloseHandle(handle) }
+    var buf = [WCHAR](repeating: 0, count: 1024)
+    var size = DWORD(buf.count)
+    guard QueryFullProcessImageNameW(handle, 0, &buf, &size) else { return "" }
+    let path = String(decoding: buf.prefix(Int(size)), as: UTF16.self)
+    return (path.split(separator: "\\").last.map(String.init) ?? path).lowercased()
+}
+
 // MARK: - trigram models (shipped next to the exe as trigram/<lang>.txt)
 
 private var models: [String: TrigramModel?] = [:]
@@ -76,6 +101,7 @@ func resetAutoBuffer() {
 func reloadAutoMode() {
     autoEnabled = loadAutoMode()
     autoEnterEnabled = loadAutoEnter()
+    excludedApps = loadExcludedApps()
     resetAutoBuffer()
 }
 
@@ -118,10 +144,16 @@ func autoFeed(vk: UINT, scan: WORD, modifiers: Bool) -> Bool {
         }
     }
 
-    // A click, a different window or any Ctrl/Alt/Win shortcut may have moved the
-    // caret: what we remember is no longer what is on screen.
-    let focus = GetForegroundWindow()
-    if focus != lastFocus { lastFocus = focus; resetAutoBuffer() }
+    // A click, a different field or any Ctrl/Alt/Win shortcut may have moved the
+    // caret: what we remember is no longer what is on screen. The password check
+    // rides along, so it costs one UI Automation call per field, not per key.
+    let focus = focusWindow()
+    if focus != lastFocus {
+        lastFocus = focus
+        resetAutoBuffer()
+        passwordField = focusIsPasswordField()
+    }
+    if passwordField { return false }   // never buffer a password
     if modifiers { resetAutoBuffer(); return false }
 
     switch vk {
@@ -170,7 +202,7 @@ func autoFeed(vk: UINT, scan: WORD, modifiers: Bool) -> Bool {
 private func evaluate(boundary: Int32) -> Bool {
     let word = buffer, punct = trail
     buffer = ""; trail = ""
-    guard !word.isEmpty, !foregroundIsConsole(), let cur = WinLayout.current() else { prev = nil; return false }
+    guard !word.isEmpty, !autoExcluded(), let cur = WinLayout.current() else { prev = nil; return false }
     let enabled = WinLayout.installedList()
     guard let decided = decideAutoTarget(word, cur: cur, enabled: enabled, model: trigram) else { prev = nil; return false }
 
@@ -231,7 +263,7 @@ private func enterFollowUp() {
     let word = buffer, punct = trail
     guard autoEnterEnabled, !correcting,
           word.reversed().drop(while: { !$0.isLetter }).count >= 3,
-          !foregroundIsConsole(), let cur = WinLayout.current(),
+          !autoExcluded(), let cur = WinLayout.current(),
           let decided = decideAutoTarget(word, cur: cur, enabled: WinLayout.installedList(), model: trigram),
           let before = readFieldSnapshot(), before.tail.hasSuffix(word + punct)
     else { return }

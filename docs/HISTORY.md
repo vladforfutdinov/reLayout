@@ -65,8 +65,12 @@ An audit of the frozen Windows port (written by an older model) found 15 bugs an
   next to the exe as `trigram/<lang>.txt`. Short words follow the macOS rule: a
   1-2 letter word is only fixed next to a real conversion of the same script,
   either folded into the following long word's correction or right after a
-  committed one. Not ported: the Enter follow-up, app exclusions, password-field
-  detection.
+  committed one. The Enter follow-up is ported too (sub-option "Also fix on Enter",
+  on by default): Return is never swallowed; the field is snapshotted through a new
+  UIA call (length, caret, selection, 64 units before the caret), the UI thread
+  polls until three reads agree, and only the engine's `.newline` outcome deletes
+  the break and the word and retypes the fix with a real Return. Not ported: app
+  exclusions, password-field detection.
 - The decision itself moved into the engine as `decideAutoTarget` (`Core/Auto.swift`,
   `57e57d4`) with five tests — macOS behavior unchanged, Windows reuses it.
 - Batch 6 — the hotkey acts only on what the user pointed at. Selection is read

@@ -5,10 +5,11 @@ import XCTest
 // system keyboard. Runs on macOS and Windows CI.
 final class EngineTests: XCTestCase {
 
-    struct FakeLayout: LayoutMaps {
+    struct FakeLayout: AutoLayout {
         var charToStroke: [String: KeyStroke]
         var strokeToChar: [KeyStroke: String]
         var isCyrillic: Bool
+        var languageCode: String?
     }
 
     // Latin and Ukrainian-Cyrillic layouts sharing the same physical keys; the ß/æ
@@ -33,8 +34,8 @@ final class EngineTests: XCTestCase {
             lC2S[lat] = st; lS2C[st] = lat
             cC2S[cyr] = st; cS2C[st] = cyr
         }
-        return (FakeLayout(charToStroke: lC2S, strokeToChar: lS2C, isCyrillic: false),
-                FakeLayout(charToStroke: cC2S, strokeToChar: cS2C, isCyrillic: true))
+        return (FakeLayout(charToStroke: lC2S, strokeToChar: lS2C, isCyrillic: false, languageCode: "en"),
+                FakeLayout(charToStroke: cC2S, strokeToChar: cS2C, isCyrillic: true, languageCode: "uk"))
     }
 
     func testTransliterate() {
@@ -230,5 +231,51 @@ final class EngineTests: XCTestCase {
         guard let start = caretWord(text) else { return XCTFail("expected a word") }
         XCTAssertEqual(convertWrong(String(text[start...]), src: latin, dst: cyr), "привіт")
         XCTAssertEqual(String(text[..<start]), "привіт ")   // head untouched
+    }
+
+    // MARK: - decideAutoTarget (auto-mode decision)
+
+    // A model that knows exactly the given words: their trigrams score -1, anything
+    // else falls to the floor. Enough to exercise the gates, which compare scores.
+    private func model(knowing words: [String]) -> TrigramModel {
+        var lines = ["floor -5.0"]
+        for w in words {
+            let chars = Array("^^" + w.lowercased() + "$")
+            for i in 2..<chars.count { lines.append("\(String(chars[(i - 2)...i])) -1.0") }
+        }
+        return TrigramModel(text: lines.joined(separator: "\n"))!
+    }
+
+    private func decide(_ w: String, cyrKnows: [String], latinKnows: [String]) -> (target: String, out: String)? {
+        let (latin, cyr) = makeLayouts()
+        let models = ["en": model(knowing: latinKnows), "uk": model(knowing: cyrKnows)]
+        return decideAutoTarget(w, cur: latin, enabled: [latin, cyr], model: { models[$0] })
+            .map { (target: $0.target.isCyrillic ? "uk" : "en", out: $0.out) }
+    }
+
+    func testAutoDecideFiresOnWrongLayoutWord() {
+        let r = decide("ghbdtn", cyrKnows: ["привет"], latinKnows: ["hello"])
+        XCTAssertEqual(r?.out, "привет")
+        XCTAssertEqual(r?.target, "uk")
+    }
+
+    func testAutoDecideLeavesPlausibleWord() {
+        XCTAssertNil(decide("hello", cyrKnows: ["привет"], latinKnows: ["hello"]))
+    }
+
+    func testAutoDecideNeedsTheTargetToBeBetter() {
+        // Junk both ways: neither side knows the word, so no target clears the margin.
+        XCTAssertNil(decide("ghbdtn", cyrKnows: [], latinKnows: []))
+    }
+
+    func testAutoDecideNeedsALayoutOfTheOtherScript() {
+        let (latin, _) = makeLayouts()
+        let models = ["en": model(knowing: ["hello"])]
+        XCTAssertNil(decideAutoTarget("ghbdtn", cur: latin, enabled: [latin], model: { models[$0] }))
+    }
+
+    func testAutoDecideWithoutAModelDoesNothing() {
+        let (latin, cyr) = makeLayouts()
+        XCTAssertNil(decideAutoTarget("ghbdtn", cur: latin, enabled: [latin, cyr], model: { _ in nil }))
     }
 }

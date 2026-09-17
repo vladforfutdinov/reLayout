@@ -105,7 +105,7 @@ func fourCharCode(_ s: String) -> FourCharCode {
 // This is layout-driven, so the Option layer (ß/æ/… <-> ы/э/ъ/ё) resolves
 // automatically — no hand-coded character tables.
 
-final class Layout: LayoutMaps {
+final class Layout: AutoLayout {
     let id: String
     let source: TISInputSource
     private(set) var charToStroke: [String: KeyStroke] = [:]
@@ -1471,15 +1471,6 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
 
     // MARK: - auto-mode (trigram detection)
 
-    // Calibrated for ~99% precision on cross-script pairs (see scripts/trigram).
-    private let autoGarbage: Float = -2.5   // word looks like junk in its own language
-    private let autoMargin:  Float = 0.5    // converted form must beat it by this much
-    // Words carrying mapped punctuation (',' is б …) get a stricter, absolute gate:
-    // their typed-side score is floor-dominated, so the relative margin alone lets
-    // junk conversions through ("e.g" -> "уюп"). Real converted words score >= -2.6
-    // on the shipped models; the fired junk scored <= -3.8.
-    private let autoPunctPlausible: Float = -3.0
-
     private var trigramCache: [String: TrigramModel?] = [:]
     private func trigram(_ lang: String) -> TrigramModel? {
         if let c = trigramCache[lang] { return c }
@@ -1490,83 +1481,10 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         return m
     }
 
-    // Decide whether a just-typed word `w` (in layout `cur`) was typed in the wrong
-    // layout, and to which cross-script target. Returns (target, converted) or nil.
-    // Auto fires ONLY between layouts of different scripts (Cyrillic<->Latin), where
-    // detection is reliable; same-script pairs always return nil.
-    //
-    // Length is NOT gated here — the trigram model pads `^^w$`, so 1-2 char words
-    // (prepositions: d->в, yf->на) still score. autoEvaluate applies the extra
-    // adjacency requirement that keeps short-word precision high; a bare candidate
-    // from here only means "looks like a wrong-layout word of some length".
+    // Cross-script trigram decision lives in the engine (Core/Auto.swift); this
+    // only feeds it the cached models.
     func autoDecide(_ w: String, cur: Layout, enabled: [Layout]) -> (target: Layout, out: String)? {
-        guard let curLang = cur.languageCode, let curModel = trigram(curLang) else { return nil }
-        let targets = enabled.filter { $0.isCyrillic != cur.isCyrillic }   // cross-script only
-        guard !targets.isEmpty else { return nil }
-
-        let sTyped = curModel.score(w)
-        guard sTyped < autoGarbage else {
-            dbg("autoDecide \(w.debugDescription): plausible in \(curLang) (\(sTyped))")
-            return nil   // already plausible -> leave it
-        }
-
-        // A hyphen is not punctuation here — it is part of the word ("rfrjuj-nj" is
-        // "какого-то"), and carries no layout ambiguity, so such a word is gated
-        // like a pure-letter one.
-        let pure = w.allSatisfy { $0.isLetter || isWordConnector($0) }
-        // Mid-word layout switch leaves ONE word carrying both scripts ("ghjсто").
-        // Punctuation-bearing mixed words are left alone — the shape gates below
-        // reason about a single-script word.
-        let mixed = pure && hasCyr(w[...]) && hasLatin(w[...])
-        var best: (Layout, String, Float)?
-        for t in targets {
-            if mixed {
-                // Two readings: convert the pre-switch run into the current script
-                // ("ghjсто" -> "просто", target stays `cur` — no layout switch), or
-                // convert the current-layout run into `t`. Each is scored under the
-                // model of the script it ends up in.
-                var readings: [(target: Layout, model: TrigramModel, src: Layout, dst: Layout)] =
-                    [(cur, curModel, t, cur)]
-                if let tLang = t.languageCode, let tModel = trigram(tLang) {
-                    readings.append((t, tModel, cur, t))
-                }
-                for r in readings {
-                    guard let out = convertScriptRuns(w, src: r.src, dst: r.dst), out != w else { continue }
-                    let sAlt = r.model.score(out)
-                    guard sAlt - sTyped > autoMargin else { continue }
-                    if best == nil || sAlt > best!.2 { best = (r.target, out, sAlt) }
-                }
-                continue
-            }
-            // Shape + core gates (see autoWordCore): mapped punctuation may be a
-            // Cyrillic letter (",skj" is "было"), but not when the word minus its
-            // edge punctuation is already plausible ("'hello", "hello," stay).
-            // Pure-letter words have no such ambiguity (core == word), and a lone
-            // letter — a preposition — trips autoWordCore's letters>=2 guard, so
-            // skip it for them.
-            // A char that BECOMES a connector is word material too, and carries no
-            // ambiguity either: on a Latin layout the Ukrainian apostrophe is "\\"
-            // ("v\\zrj" is "мʼяко"), so that word is gated like a pure-letter one.
-            let pureFor = pure || w.allSatisfy {
-                $0.isLetter || isWordConnector($0) || mapsToConnector($0, src: cur, dst: t)
-            }
-            if !pureFor {
-                guard let core = autoWordCore(w, src: cur, dst: t),
-                      core.count == w.count || curModel.score(String(core)) < autoGarbage
-                else { continue }
-            }
-            guard let out = convertWrong(w, src: cur, dst: t), out != w,
-                  let tLang = t.languageCode, let tModel = trigram(tLang) else { continue }
-            let sAlt = tModel.score(out)
-            guard pureFor || sAlt > autoPunctPlausible else { continue }
-            guard sAlt - sTyped > autoMargin else { continue }
-            if best == nil || sAlt > best!.2 { best = (t, out, sAlt) }
-        }
-        guard let b = best else {
-            dbg("autoDecide \(w.debugDescription): no target beat the gates (sTyped=\(sTyped))")
-            return nil
-        }
-        return (b.0, b.1)
+        decideAutoTarget(w, cur: cur, enabled: enabled, model: trigram)
     }
 
     // A word that mixes scripts came from a mid-word layout switch: one half was

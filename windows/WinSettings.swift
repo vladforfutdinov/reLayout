@@ -14,6 +14,7 @@ private let idBtnSet:      Int = 106
 private let idBtnReset:    Int = 107
 private let idChkDouble:   Int = 108
 private let idChkAuto:     Int = 109
+private let idChkAutoEnter: Int = 110
 
 private var settingsHwnd: HWND?
 private var settingsClassW = Array("ReLayoutSettingsWnd".utf16) + [0]
@@ -80,24 +81,30 @@ private func buildControls(_ hwnd: HWND?) {
     // Needs a Cyrillic and a Latin layout: the decision is cross-script only.
     if !WinLayout.crossScriptAvailable() { EnableWindow(auto, false) }
 
+    // Sub-option of auto-correct: indented, and dead while auto-correct is off.
+    let onEnter = makeControl("BUTTON", "Also fix on Enter",
+                              Int32(BS_AUTOCHECKBOX) | Int32(WS_TABSTOP), 40, 104, 260, 22, hwnd, idChkAutoEnter)
+    SendMessageW(onEnter, UINT(BM_SETCHECK), WPARAM(loadAutoEnter() ? 1 : 0), 0)
+    EnableWindow(onEnter, WinLayout.crossScriptAvailable() && loadAutoMode())
+
     let chk = makeControl("BUTTON", "Launch at login",
-                          Int32(BS_AUTOCHECKBOX) | Int32(WS_TABSTOP), 20, 112, 220, 22, hwnd, idChkStartup)
+                          Int32(BS_AUTOCHECKBOX) | Int32(WS_TABSTOP), 20, 136, 220, 22, hwnd, idChkStartup)
     SendMessageW(chk, UINT(BM_SETCHECK), WPARAM(startupEnabled() ? 1 : 0), 0)
     if !startupAvailable() { EnableWindow(chk, false) }
 
     _ = makeControl("BUTTON", "Keyboard settings…",
-                    Int32(WS_TABSTOP), 20, 148, 170, 30, hwnd, idBtnKeyboard)
+                    Int32(WS_TABSTOP), 20, 180, 170, 30, hwnd, idBtnKeyboard)
 
     // ── About section ──
-    _ = makeControl("STATIC", "", 0x0010 /* SS_ETCHEDHORZ */, 20, 192, 342, 1, hwnd, 0)
-    _ = makeControl("STATIC", "reLayout  ·  version \(appVersion)", 0, 20, 204, 342, 20, hwnd, 0)
-    _ = makeControl("STATIC", "Retype selection in the correct keyboard layout", 0, 20, 224, 342, 20, hwnd, 0)
-    _ = makeControl("STATIC", "© 2026 Volodymyr Forfutdinov", 0, 20, 244, 342, 20, hwnd, 0)
+    _ = makeControl("STATIC", "", 0x0010 /* SS_ETCHEDHORZ */, 20, 224, 342, 1, hwnd, 0)
+    _ = makeControl("STATIC", "reLayout  ·  version \(appVersion)", 0, 20, 236, 342, 20, hwnd, 0)
+    _ = makeControl("STATIC", "Retype selection in the correct keyboard layout", 0, 20, 256, 342, 20, hwnd, 0)
+    _ = makeControl("STATIC", "© 2026 Volodymyr Forfutdinov", 0, 20, 276, 342, 20, hwnd, 0)
     _ = makeControl("SysLink", "<a>github.com/\(repoSlug)</a>",
-                    Int32(WS_TABSTOP), 20, 266, 342, 22, hwnd, idLnkAbout)
+                    Int32(WS_TABSTOP), 20, 298, 342, 22, hwnd, idLnkAbout)
 
     _ = makeControl("BUTTON", "Close",
-                    Int32(WS_TABSTOP), 262, 298, 100, 30, hwnd, idBtnClose)
+                    Int32(WS_TABSTOP), 262, 330, 100, 30, hwnd, idBtnClose)
 }
 
 private func sizeAndCenter(_ hwnd: HWND?) {
@@ -108,7 +115,7 @@ private func sizeAndCenter(_ hwnd: HWND?) {
     let ncw = (wr.right - wr.left) - (cr.right - cr.left)
     let nch = (wr.bottom - wr.top) - (cr.bottom - cr.top)
     let w = sc(380) + ncw
-    let h = sc(342) + nch
+    let h = sc(374) + nch
     var mi = MONITORINFO(); mi.cbSize = DWORD(MemoryLayout<MONITORINFO>.size)
     GetMonitorInfoW(MonitorFromWindow(hwnd, DWORD(MONITOR_DEFAULTTONEAREST)), &mi)
     let x = mi.rcWork.left + ((mi.rcWork.right - mi.rcWork.left) - w) / 2
@@ -140,6 +147,11 @@ private func settingsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lPa
         case idChkAuto:
             let checked = SendMessageW(GetDlgItem(hwnd, Int32(idChkAuto)), UINT(BM_GETCHECK), 0, 0)
             saveAutoMode(checked == LRESULT(BST_CHECKED))
+            reloadAutoMode()
+            EnableWindow(GetDlgItem(hwnd, Int32(idChkAutoEnter)), checked == LRESULT(BST_CHECKED))
+        case idChkAutoEnter:
+            let checked = SendMessageW(GetDlgItem(hwnd, Int32(idChkAutoEnter)), UINT(BM_GETCHECK), 0, 0)
+            saveAutoEnter(checked == LRESULT(BST_CHECKED))
             reloadAutoMode()
         case idChkDouble:
             let checked = SendMessageW(GetDlgItem(hwnd, Int32(idChkDouble)), UINT(BM_GETCHECK), 0, 0)

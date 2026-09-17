@@ -71,3 +71,54 @@ int32_t relayout_uia_read_selection(uint16_t *buf, int32_t cap) {
     text->Release();
     return result;
 }
+
+int32_t relayout_uia_snapshot(uint16_t *tail, int32_t cap,
+                              int32_t *count, int32_t *caret, int32_t *selected) {
+    if (!tail || cap < 2) return -1;
+    *count = 0; *caret = 0; *selected = 0;
+    IUIAutomation *uia = automation();
+    if (!uia) return -1;
+    IUIAutomationTextPattern *text = focusedText(uia);
+    if (!text) return -1;
+
+    int32_t result = -1;
+    IUIAutomationTextRange *document = nullptr;
+    IUIAutomationTextRangeArray *ranges = nullptr;
+    IUIAutomationTextRange *selection = nullptr;
+    int length = 0;
+    if (SUCCEEDED(text->get_DocumentRange(&document)) && document &&
+        SUCCEEDED(text->GetSelection(&ranges)) && ranges &&
+        SUCCEEDED(ranges->get_Length(&length)) && length > 0 &&
+        SUCCEEDED(ranges->GetElement(0, &selection)) && selection) {
+        BSTR whole = nullptr;
+        if (SUCCEEDED(document->GetText(-1, &whole))) {
+            *count = (int32_t)SysStringLen(whole);
+            SysFreeString(whole);
+            BSTR picked = nullptr;
+            if (SUCCEEDED(selection->GetText(-1, &picked))) {
+                *selected = (int32_t)SysStringLen(picked);
+                SysFreeString(picked);
+                // Everything before the caret: the document range with its end
+                // pulled back to where the selection starts.
+                IUIAutomationTextRange *head = nullptr;
+                if (SUCCEEDED(document->Clone(&head)) && head) {
+                    if (SUCCEEDED(head->MoveEndpointByRange(TextPatternRangeEndpoint_End, selection,
+                                                            TextPatternRangeEndpoint_Start))) {
+                        BSTR before = nullptr;
+                        if (SUCCEEDED(head->GetText(-1, &before))) {
+                            *caret = (int32_t)SysStringLen(before);
+                            copyTail(before, tail, cap);
+                            result = 0;
+                        }
+                    }
+                    head->Release();
+                }
+            }
+        }
+    }
+    if (selection) selection->Release();
+    if (ranges) ranges->Release();
+    if (document) document->Release();
+    text->Release();
+    return result;
+}

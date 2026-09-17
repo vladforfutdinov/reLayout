@@ -9,6 +9,7 @@ private let keyHotkeyMods = "HotkeyMods"
 private let keyHotkeyVK   = "HotkeyVK"
 private let keyDoubleTap  = "DoubleTap"
 private let keyAutoMode   = "AutoCorrect"
+private let keyAutoEnter  = "AutoCorrectOnEnter"
 
 private let kKeyQuery: REGSAM = 0x0001   // KEY_QUERY_VALUE
 private let kKeySet:   REGSAM = 0x0002   // KEY_SET_VALUE
@@ -76,6 +77,17 @@ func loadDoubleTap() -> Bool {
 
 func loadAutoMode() -> Bool {
     (withPrefsKey(write: false) { readDword($0, keyAutoMode) } ?? 0) != 0
+}
+
+/// Defaults to on, like macOS — it only acts while auto-correct itself is on.
+func loadAutoEnter() -> Bool {
+    (withPrefsKey(write: false) { readDword($0, keyAutoEnter) } ?? 1) != 0
+}
+
+func saveAutoEnter(_ on: Bool) {
+    _ = withPrefsKey(write: true) { key -> Bool in
+        writeDword(key, keyAutoEnter, on ? 1 : 0); return true
+    }
 }
 
 func saveAutoMode(_ on: Bool) {

@@ -159,6 +159,8 @@ private func trayWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lParam:
         if ev == UINT(WM_RBUTTONUP) || ev == UINT(WM_LBUTTONUP) { showTrayMenu(hwnd) }
     case WM_AUTOFIX:
         runAutoFix()
+    case WM_AUTOENTER:
+        runAutoEnter()
     case UINT(WM_COMMAND):
         handleCommand(UINT(truncatingIfNeeded: wParam) & 0xFFFF)
     case UINT(WM_DESTROY):

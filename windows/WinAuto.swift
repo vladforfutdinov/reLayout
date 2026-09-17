@@ -12,8 +12,10 @@ import ReLayoutCore
 // The buffer lives in memory only and is never written to disk.
 
 let WM_AUTOFIX = UINT(WM_APP) + 11
+let WM_AUTOENTER = UINT(WM_APP) + 12
 
 private var autoEnabled = false  // mirrors the preference; the hook reads it per key
+private var autoEnterEnabled = true
 private var buffer = ""          // the word as typed
 private var trail = ""           // punctuation typed right after it
 private var lastFocus: HWND?
@@ -73,6 +75,7 @@ func resetAutoBuffer() {
 /// Re-reads the preference (at startup and whenever Settings changes it).
 func reloadAutoMode() {
     autoEnabled = loadAutoMode()
+    autoEnterEnabled = loadAutoEnter()
     resetAutoBuffer()
 }
 
@@ -128,7 +131,9 @@ func autoFeed(vk: UINT, scan: WORD, modifiers: Bool) -> Bool {
         else { prev = nil }
         return false
     case vkReturn:
-        // Return submits: never correct before it lands (a launcher query, a message).
+        // Return submits: never correct before it lands (a launcher query, a
+        // message). Only once the field shows a new line is the word fixed above it.
+        enterFollowUp()
         resetAutoBuffer()
         return false
     case vkSpace, vkTab:
@@ -207,6 +212,61 @@ private func queue(word: String, punct: String, out: String,
     correcting = true
     gateSince = GetTickCount()
     PostMessageW(trayWindow(), WM_AUTOFIX, 0, 0)
+}
+
+// MARK: - Enter follow-up
+
+private struct EnterJob {
+    let before: FieldSnapshot
+    let word: String        // word + trail, as typed
+    let text: String        // its conversion
+    let target: WinLayout
+}
+private var enterJob: EnterJob?
+
+/// Return is never swallowed. If the word looks wrong, snapshot the field now and
+/// let the UI thread see where Return took it: a new line means the word is still
+/// there to fix, a submitted field means it is gone.
+private func enterFollowUp() {
+    let word = buffer, punct = trail
+    guard autoEnterEnabled, !correcting,
+          word.reversed().drop(while: { !$0.isLetter }).count >= 3,
+          !foregroundIsConsole(), let cur = WinLayout.current(),
+          let decided = decideAutoTarget(word, cur: cur, enabled: WinLayout.installedList(), model: trigram),
+          let before = readFieldSnapshot(), before.tail.hasSuffix(word + punct)
+    else { return }
+
+    let outTrail = punct.isEmpty ? "" : transliterate(punct, from: cur, to: decided.target)
+    enterJob = EnterJob(before: before, word: word + punct,
+                        text: decided.out + outTrail, target: decided.target)
+    correcting = true
+    gateSince = GetTickCount()
+    PostMessageW(trayWindow(), WM_AUTOENTER, 0, 0)
+}
+
+/// Waits for the field to settle — the system may capitalize the word ~50 ms after
+/// the line break appears, so one changed read is not enough — then fixes the word
+/// above the new line.
+func runAutoEnter() {
+    defer { finishFix() }
+    guard let job = enterJob else { return }
+    enterJob = nil
+
+    var last: FieldSnapshot?, stable = 0, settled: FieldSnapshot?
+    for _ in 0..<20 {
+        pumpWait(25)
+        let snap = readFieldSnapshot()
+        stable = (snap != nil && snap == last) ? stable + 1 : 0
+        last = snap
+        if stable >= 3, let snap, snap != job.before { settled = snap; break }
+    }
+    guard let after = settled,
+          enterOutcome(before: job.before, after: after, word: job.word) == .newline else { return }
+
+    sendBackspaces(job.word.utf16.count + 1)   // the word and the line break
+    guard sendUnicode(job.text) else { return }
+    sendKeyTap(Int32(vkReturn))
+    switchLayout(to: job.target)
 }
 
 // MARK: - the fix (runs on the UI thread, off the hook)

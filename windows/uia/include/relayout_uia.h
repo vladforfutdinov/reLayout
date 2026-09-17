@@ -16,6 +16,12 @@ extern "C" {
 /// back to the clipboard.
 int32_t relayout_uia_read_selection(uint16_t *buf, int32_t cap);
 
+/// Reads the focused field for the Enter follow-up: total length, caret offset,
+/// selection length, and up to `cap - 1` UTF-16 units right before the caret.
+/// Returns 0 on success, a negative value when the control has no UIA text.
+int32_t relayout_uia_snapshot(uint16_t *tail, int32_t cap,
+                              int32_t *count, int32_t *caret, int32_t *selected);
+
 #ifdef __cplusplus
 }
 #endif

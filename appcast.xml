@@ -3,18 +3,18 @@
     <channel>
         <title>ReLayout</title>
         <item>
-            <title>1.2.25</title>
-            <pubDate>Wed, 16 Sep 2026 22:58:16 +0000</pubDate>
-            <sparkle:version>207</sparkle:version>
-            <sparkle:shortVersionString>1.2.25</sparkle:shortVersionString>
+            <title>1.2.26</title>
+            <pubDate>Thu, 17 Sep 2026 14:02:52 +0000</pubDate>
+            <sparkle:version>210</sparkle:version>
+            <sparkle:shortVersionString>1.2.26</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
-            <description><![CDATA[<h2>What's new in v1.2.25</h2>
+            <description><![CDATA[<h2>What's new in v1.2.26</h2>
 <ul>
-<li><strong>Auto-correct fixes more words that end in a letter key.</strong> A word whose last key is a letter only on the other layout is now corrected too: <code class="notranslate">rfhf,f[ </code> becomes <code class="notranslate">карабах </code>, <code class="notranslate">gj[j; </code> becomes <code class="notranslate">похож </code>. Before, such words were left as typed. Two-letter words like <code class="notranslate">vj]</code> (<code class="notranslate">мої</code>) are still fixed only together with the next wrong-layout word (<code class="notranslate">vj] lheu </code> → <code class="notranslate">мої друг </code>), so English abbreviations like <code class="notranslate">vs.</code> are left alone.</li>
-<li><strong>Auto-correct is greyed out when it can't work.</strong> If all your enabled keyboard layouts use the same alphabet (for example ABC and German), the checkbox in Settings is now disabled, and the ⓘ next to it explains why and lists your layouts. Your setting comes back as soon as you enable a layout with a different alphabet. The hotkey works as before.</li>
-<li>Tooltips in Settings now appear immediately.</li>
+<li><strong>Enter fixes a wrong-layout word again, when it starts a new line.</strong> Type <code class="notranslate">ghbdtn</code> and press Enter in TextEdit, Notes or another text editor: the line becomes <code class="notranslate">привет</code>, and the cursor is on the new line. Sending a message or a search still uses exactly what you typed: in Telegram <code class="notranslate">ghbdtn</code> + Enter sends <code class="notranslate">ghbdtn</code>, while Shift+Enter (a new line) fixes it. Enter itself is never delayed. You can turn this off in Settings → <em>Also fix on Enter</em>.</li>
+<li>This works in apps that let reLayout read the text field (most native Mac apps and Telegram). In browsers and apps like VS Code or Slack, Enter behaves as before and does not fix the word.</li>
+<li>Undoing a fix with the hotkey right after Enter or Tab now puts back a real Enter or Tab instead of an invisible character.</li>
 </ul>]]></description>
-            <enclosure url="https://github.com/vladforfutdinov/reLayout/releases/download/v1.2.25/reLayout.zip" length="1711239" type="application/octet-stream" sparkle:edSignature="ys5SsMI5geGtQoCAnZrfXSnMEZfqbQtEE3OaGW5SNHgbtA2kZ6+Z0SZK/zm15VNky0v6/kvU5lOujwFyvYw5CA=="/>
+            <enclosure url="https://github.com/vladforfutdinov/reLayout/releases/download/v1.2.26/reLayout.zip" length="1718532" type="application/octet-stream" sparkle:edSignature="UX5nLX1YP/1V3RzpMkgnfaC1f+cvgFeXR8pLs5SlZ37O5WxApD8daIfYa4oCGyEvGqhQ2W4yQQ5P3zR3rwa3Bg=="/>
         </item>
     </channel>
 </rss>

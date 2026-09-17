@@ -69,8 +69,10 @@ An audit of the frozen Windows port (written by an older model) found 15 bugs an
   on by default): Return is never swallowed; the field is snapshotted through a new
   UIA call (length, caret, selection, 64 units before the caret), the UI thread
   polls until three reads agree, and only the engine's `.newline` outcome deletes
-  the break and the word and retypes the fix with a real Return. Not ported: app
-  exclusions, password-field detection.
+  the break and the word and retypes the fix with a real Return. Auto mode also
+  honours a deny-list of executables (defaults: terminals and editors; edited in a
+  new Exceptions window, `windows/WinExceptions.swift`) and stays out of password
+  fields, which UIA reports once per focused control, not per keystroke.
 - The decision itself moved into the engine as `decideAutoTarget` (`Core/Auto.swift`,
   `57e57d4`) with five tests — macOS behavior unchanged, Windows reuses it.
 - Batch 6 — the hotkey acts only on what the user pointed at. Selection is read

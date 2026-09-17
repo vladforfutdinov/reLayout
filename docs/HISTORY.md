@@ -27,9 +27,18 @@ An audit of the frozen Windows port (written by an older model) found 15 bugs an
   `SetWindowsHookExW` shows an error and exits instead of running without a
   hotkey. The hook stays on the main thread: with `pumpWait` and the cache there
   is no long stall left, and a hook thread would share hotkey state across threads.
-- Batch 1 built green on x64 and arm64 (run 35251878493); not tested by hand yet.
-- Open: tray re-add on
-  `TaskbarCreated`, portable SFX stub, CRT bundling, CI pinning, clipboard restore.
+- Batch 3: tray icon re-added on `TaskbarCreated` (Explorer restart, early
+  autostart); `WM_NULL` after the tray menu; launch-at-login counts only when the
+  Run value points at this exe, and is disabled in the portable build (CI puts a
+  `portable` marker in the SFX). Settings frees its `HFONT` on `WM_NCDESTROY` and
+  re-reads the checkbox after each toggle. CI: SFX stub from hash-pinned 7-Zip
+  Extra 26.03 (plain `7z.sfx` ignores `RunProgram`), app-local MSVC CRT,
+  `gha-setup-swift` pinned to a SHA, `ref_name` passed via env, `core.yml`
+  gets `workflow_dispatch`.
+- Batches 1–2 built green on x64 and arm64 (runs 35251878493, 35253746849); not
+  tested by hand yet.
+- Open: clipboard restore, console Ctrl+C, bare Alt/Win tap hotkeys, CRLF typing,
+  `WM_DPICHANGED`, keyboard navigation in Settings, Authenticode signing.
 
 ## v1.2.27 — Settings row order
 

@@ -7,6 +7,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 jobs:
   test-macos:
@@ -21,10 +22,10 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Install Swift toolchain
-        uses: compnerd/gha-setup-swift@main
+        uses: compnerd/gha-setup-swift@397094e75494a93fa8d81db0268dbc8f5d6cf7c6 # main
         with:
-          branch: swift-6.1-release
-          tag: 6.1-RELEASE
+          swift-version: swift-6.1-release
+          swift-build: 6.1-RELEASE
       - name: swift build (engine + Windows target)
         run: swift build
       - name: swift test (engine)

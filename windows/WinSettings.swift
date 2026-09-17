@@ -76,6 +76,7 @@ private func buildControls(_ hwnd: HWND?) {
     let chk = makeControl("BUTTON", "Launch at login",
                           Int32(BS_AUTOCHECKBOX) | Int32(WS_TABSTOP), 20, 80, 220, 22, hwnd, idChkStartup)
     SendMessageW(chk, UINT(BM_SETCHECK), WPARAM(startupEnabled() ? 1 : 0), 0)
+    if !startupAvailable() { EnableWindow(chk, false) }
 
     _ = makeControl("BUTTON", "Keyboard settings…",
                     Int32(WS_TABSTOP), 20, 116, 170, 30, hwnd, idBtnKeyboard)
@@ -128,6 +129,7 @@ private func settingsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lPa
         case idChkStartup:
             let checked = SendMessageW(GetDlgItem(hwnd, Int32(idChkStartup)), UINT(BM_GETCHECK), 0, 0)
             setStartup(checked == LRESULT(BST_CHECKED))
+            refreshSettingsStartup()   // shows a failed registry write as unchecked
         case idChkDouble:
             let checked = SendMessageW(GetDlgItem(hwnd, Int32(idChkDouble)), UINT(BM_GETCHECK), 0, 0)
             saveDoubleTap(checked == LRESULT(BST_CHECKED))
@@ -150,10 +152,18 @@ private func settingsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lPa
     case UINT(WM_DESTROY):
         cancelHotkeyCapture()       // don't leave a capture targeting a dead window
         settingsHwnd = nil          // NB: do NOT PostQuitMessage — only this window closes
+    case UINT(WM_NCDESTROY):        // children are gone, the font is free
+        if let f = uiFont { DeleteObject(unsafeBitCast(f, to: HGDIOBJ.self)); uiFont = nil }
     default:
         break
     }
     return DefWindowProcW(hwnd, msg, wParam, lParam)
+}
+
+/// Syncs the open Settings window's launch-at-login checkbox with the registry.
+func refreshSettingsStartup() {
+    guard let hwnd = settingsHwnd else { return }
+    SendMessageW(GetDlgItem(hwnd, Int32(idChkStartup)), UINT(BM_SETCHECK), WPARAM(startupEnabled() ? 1 : 0), 0)
 }
 
 func openSettings() {

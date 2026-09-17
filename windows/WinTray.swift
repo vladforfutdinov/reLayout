@@ -27,10 +27,26 @@ private let runValueKey = "reLayout"
 
 private func exePath() -> String {
     var buf = [WCHAR](repeating: 0, count: 1024)
-    _ = GetModuleFileNameW(nil, &buf, DWORD(buf.count))
-    return String(decoding: buf.prefix(while: { $0 != 0 }), as: UTF16.self)
+    while true {   // a full buffer means the path was cut
+        let n = Int(GetModuleFileNameW(nil, &buf, DWORD(buf.count)))
+        if n < buf.count { return String(decoding: buf.prefix(n), as: UTF16.self) }
+        buf = [WCHAR](repeating: 0, count: buf.count * 2)
+    }
 }
 
+private var runValue: String { "\"\(exePath())\"" }
+
+/// False for the portable build: it runs from a temp folder that is deleted on
+/// exit, so a Run entry would point at nothing. CI puts a `portable` marker
+/// file next to the exe inside the self-extracting archive.
+func startupAvailable() -> Bool {
+    var dir = exePath()
+    if let i = dir.lastIndex(of: "\\") { dir = String(dir[..<i]) }
+    let attrs = "\(dir)\\portable".withCString(encodedAs: UTF16.self) { GetFileAttributesW($0) }
+    return attrs == DWORD.max   // INVALID_FILE_ATTRIBUTES
+}
+
+/// True only if the Run value points at this exe (a moved app leaves a stale one).
 func startupEnabled() -> Bool {
     var key: HKEY?
     let opened = runSubKey.withCString(encodedAs: UTF16.self) {
@@ -38,12 +54,19 @@ func startupEnabled() -> Bool {
     }
     guard opened == 0, let key else { return false }
     defer { RegCloseKey(key) }
-    let found = runValueKey.withCString(encodedAs: UTF16.self) {
-        RegQueryValueExW(key, $0, nil, nil, nil, nil)
+    var buf = [WCHAR](repeating: 0, count: 2048)
+    var size = DWORD(buf.count * MemoryLayout<WCHAR>.size)
+    let found = runValueKey.withCString(encodedAs: UTF16.self) { name in
+        buf.withUnsafeMutableBytes {
+            RegQueryValueExW(key, name, nil, nil, $0.bindMemory(to: BYTE.self).baseAddress, &size)
+        }
     }
-    return found == 0
+    guard found == 0 else { return false }
+    let value = String(decoding: buf.prefix(while: { $0 != 0 }), as: UTF16.self)
+    return value.lowercased() == runValue.lowercased()
 }
 
+/// Writes or deletes the Run value. Callers re-read `startupEnabled()` for the result.
 func setStartup(_ on: Bool) {
     var key: HKEY?
     let opened = runSubKey.withCString(encodedAs: UTF16.self) {
@@ -54,7 +77,7 @@ func setStartup(_ on: Bool) {
     runValueKey.withCString(encodedAs: UTF16.self) { namePtr in
         if on {
             // Quote the path so a Program Files path with spaces survives.
-            let value = Array("\"\(exePath())\"".utf16) + [0]
+            let value = Array(runValue.utf16) + [0]
             value.withUnsafeBytes { raw in
                 _ = RegSetValueExW(key, namePtr, 0, DWORD(1 /* REG_SZ */),
                                    raw.bindMemory(to: BYTE.self).baseAddress,
@@ -94,7 +117,8 @@ private func showTrayMenu(_ hwnd: HWND?) {
     guard let menu = CreatePopupMenu() else { return }
     appendItem(menu, menuSettings, "Settings…")
     let startupFlags = UINT(MF_STRING) | (startupEnabled() ? UINT(MF_CHECKED) : UINT(MF_UNCHECKED))
-    appendItem(menu, menuStartup, "Launch at login", flags: startupFlags)
+    appendItem(menu, menuStartup, "Launch at login",
+               flags: startupFlags | (startupAvailable() ? 0 : UINT(MF_GRAYED)))
     _ = AppendMenuW(menu, UINT(MF_SEPARATOR), 0, nil)
     appendItem(menu, menuQuit, "Quit reLayout")
 
@@ -102,13 +126,14 @@ private func showTrayMenu(_ hwnd: HWND?) {
     GetCursorPos(&pt)
     SetForegroundWindow(hwnd)   // so the menu dismisses on outside click
     _ = TrackPopupMenu(menu, UINT(TPM_RIGHTBUTTON), pt.x, pt.y, 0, hwnd, nil)
+    PostMessageW(hwnd, UINT(WM_NULL), 0, 0)   // else the menu may need a second click to close
     DestroyMenu(menu)
 }
 
 private func handleCommand(_ id: UINT) {
     switch id {
     case menuSettings: openSettings()
-    case menuStartup:  setStartup(!startupEnabled())
+    case menuStartup:  setStartup(!startupEnabled()); refreshSettingsStartup()
     case menuQuit:     PostQuitMessage(0)
     default:           break
     }
@@ -117,6 +142,8 @@ private func handleCommand(_ id: UINT) {
 // Top-level (capture-free) so it can be used as a C WNDPROC function pointer.
 private func trayWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lParam: LPARAM) -> LRESULT {
     switch msg {
+    case taskbarCreated where taskbarCreated != 0:
+        addTrayIcon()
     case trayCallback:
         let ev = UINT(truncatingIfNeeded: lParam) & 0xFFFF
         if ev == UINT(WM_RBUTTONUP) || ev == UINT(WM_LBUTTONUP) { showTrayMenu(hwnd) }
@@ -152,7 +179,16 @@ func setupTray() -> Bool {
     nid.hIcon = LoadIconW(GetModuleHandleW(nil), UnsafePointer<WCHAR>(bitPattern: 1))
              ?? LoadIconW(nil, UnsafePointer<WCHAR>(bitPattern: 32512))
     writeTooltip()                              // hover tooltip = "reLayout — <hotkey>"
-    return Shell_NotifyIconW(DWORD(NIM_ADD), &nid)
+    addTrayIcon()
+    return true
+}
+
+/// Explorer broadcasts this after it (re)starts: the icon is gone and must be re-added.
+/// At autostart the first NIM_ADD may fail for the same reason.
+private let taskbarCreated = "TaskbarCreated".withCString(encodedAs: UTF16.self) { RegisterWindowMessageW($0) }
+
+private func addTrayIcon() {
+    _ = Shell_NotifyIconW(DWORD(NIM_ADD), &nid)
 }
 
 // Fill nid.szTip from the current hotkey (does not push to the shell on its own).

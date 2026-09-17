@@ -93,6 +93,5 @@ while GetMessageW(&msg, nil, 0, 0) {
 }
 
 removeTray()
-unreloadAutoMode()
-installAutoMouseHook()
+uninstallAutoMouseHook()
 uninstallHotkeyHook()

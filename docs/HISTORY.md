@@ -62,8 +62,11 @@ An audit of the frozen Windows port (written by an older model) found 15 bugs an
   and the layout switched. The buffer resets on Return, a click (a second
   WH_MOUSE_LL hook), a foreground change, any Ctrl/Alt/Win shortcut and after each
   fix; keys typed during a fix are swallowed and replayed. Trigram models ship
-  next to the exe as `trigram/<lang>.txt`. Not ported: short-word adjacency, the
-  Enter follow-up, app exclusions, password-field detection.
+  next to the exe as `trigram/<lang>.txt`. Short words follow the macOS rule: a
+  1-2 letter word is only fixed next to a real conversion of the same script,
+  either folded into the following long word's correction or right after a
+  committed one. Not ported: the Enter follow-up, app exclusions, password-field
+  detection.
 - The decision itself moved into the engine as `decideAutoTarget` (`Core/Auto.swift`,
   `57e57d4`) with five tests — macOS behavior unchanged, Windows reuses it.
 - Batch 6 — the hotkey acts only on what the user pointed at. Selection is read

@@ -33,6 +33,20 @@ private struct Fix {
 }
 private var queued: Fix?
 
+/// The word before this one, for the short-word rule: a 1-2 char word (a
+/// preposition: "d" -> в) scores fine but is not trusted alone, so it is only
+/// fixed next to a real conversion of the same script.
+private struct Prev {
+    let raw: String        // as typed, still on screen
+    let out: String        // its conversion
+    let cyrillic: Bool     // script of the target
+    let committed: Bool    // true: already retyped; false: pending candidate
+}
+private var prev: Prev?
+
+// Esc, PgUp/PgDn, End/Home, arrows, Insert, Delete.
+private let navigationVKs: Set<UINT> = Set([0x1B, 0x2D, 0x2E] + (0x21...0x28).map { UINT($0) })
+
 private let vkBack = UINT(0x08), vkTab = UINT(0x09), vkReturn = UINT(0x0D), vkSpace = UINT(0x20)
 
 // MARK: - trigram models (shipped next to the exe as trigram/<lang>.txt)
@@ -49,9 +63,11 @@ private func trigram(_ lang: String) -> TrigramModel? {
 
 // MARK: - buffer
 
+/// Ends the run: the previous word can no longer be folded into a correction.
 func resetAutoBuffer() {
     buffer = ""
     trail = ""
+    prev = nil
 }
 
 /// Re-reads the preference (at startup and whenever Settings changes it).
@@ -107,7 +123,9 @@ func autoFeed(vk: UINT, scan: WORD, modifiers: Bool) -> Bool {
 
     switch vk {
     case vkBack:
-        if !trail.isEmpty { trail.removeLast() } else if !buffer.isEmpty { buffer.removeLast() }
+        if !trail.isEmpty { trail.removeLast() }
+        else if !buffer.isEmpty { buffer.removeLast() }
+        else { prev = nil }
         return false
     case vkReturn:
         // Return submits: never correct before it lands (a launcher query, a message).
@@ -118,6 +136,11 @@ func autoFeed(vk: UINT, scan: WORD, modifiers: Bool) -> Bool {
     default:
         break
     }
+
+    // Navigation and editing keys move the caret, so the buffer stops describing
+    // what is on screen. (Dead keys and Globe/fn produce no character either, but
+    // they type — they must not end the run, so only these are listed.)
+    if navigationVKs.contains(vk) { resetAutoBuffer(); return false }
 
     guard let cur = WinLayout.current() else { resetAutoBuffer(); return false }
     let text = character(vk, scan, cur)
@@ -141,22 +164,49 @@ func autoFeed(vk: UINT, scan: WORD, modifiers: Bool) -> Bool {
 ///   fix retypes it after the correction.
 private func evaluate(boundary: Int32) -> Bool {
     let word = buffer, punct = trail
-    resetAutoBuffer()
-    // Short words need the neighbour rule the macOS app applies (a preposition is
-    // only fixed next to a real conversion); until that is ported, leave them.
-    guard word.count >= 3, !foregroundIsConsole(), let cur = WinLayout.current() else { return false }
+    buffer = ""; trail = ""
+    guard !word.isEmpty, !foregroundIsConsole(), let cur = WinLayout.current() else { prev = nil; return false }
     let enabled = WinLayout.installedList()
-    guard let decided = decideAutoTarget(word, cur: cur, enabled: enabled, model: trigram) else { return false }
+    guard let decided = decideAutoTarget(word, cur: cur, enabled: enabled, model: trigram) else { prev = nil; return false }
 
     let outTrail = punct.isEmpty ? "" : transliterate(punct, from: cur, to: decided.target)
-    queued = Fix(erase: word.utf16.count + punct.utf16.count,
-                 text: decided.out + outTrail,
+    let cyrillic = decided.target.isCyrillic
+    // A trailing mapped char is the weakest evidence ("vs." reads as "мію"), so the
+    // length that decides trust is measured without it.
+    let body = word.reversed().drop(while: { !$0.isLetter }).count
+
+    if body >= 3 {
+        // Long enough to trust alone. A pending short word right before it (the
+        // "d ljhjut" case) is folded into the same correction.
+        let swallow = prev.flatMap { !$0.committed && $0.cyrillic == cyrillic ? $0 : nil }
+        prev = Prev(raw: word + punct, out: decided.out + outTrail, cyrillic: cyrillic, committed: true)
+        queue(word: word, punct: punct, out: decided.out + outTrail,
+              swallow: swallow, boundary: boundary, target: decided.target)
+        return true
+    }
+    if let p = prev, p.committed, p.cyrillic == cyrillic {
+        // Short word right after a committed conversion of the same script.
+        prev = Prev(raw: word + punct, out: decided.out + outTrail, cyrillic: cyrillic, committed: true)
+        queue(word: word, punct: punct, out: decided.out + outTrail,
+              swallow: nil, boundary: boundary, target: decided.target)
+        return true
+    }
+    // ponytail: one-neighbour lookback, like macOS — a stack ("bp pf ghbdtn") fixes
+    // only the last preposition. Widen to a pending list if that ever matters.
+    prev = Prev(raw: word + punct, out: decided.out + outTrail, cyrillic: cyrillic, committed: false)
+    return false
+}
+
+private func queue(word: String, punct: String, out: String,
+                   swallow: Prev?, boundary: Int32, target: WinLayout) {
+    let extra = swallow.map { $0.raw.utf16.count + 1 } ?? 0   // "<raw> " before the word
+    queued = Fix(erase: word.utf16.count + punct.utf16.count + extra,
+                 text: (swallow.map { $0.out + " " } ?? "") + out,
                  boundary: boundary,
-                 target: decided.target)
+                 target: target)
     correcting = true
     gateSince = GetTickCount()
     PostMessageW(trayWindow(), WM_AUTOFIX, 0, 0)
-    return true
 }
 
 // MARK: - the fix (runs on the UI thread, off the hook)

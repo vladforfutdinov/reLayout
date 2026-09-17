@@ -24,7 +24,7 @@ func triggerHotkey() {
 // Source = current (foreground) layout. Target = the other-script enabled layout,
 // else simply the other one. Each press converts fresh — no undo on Windows.
 func performRetype() {
-    guard let cur = WinLayout.current() else { return }
+    guard !foregroundIsConsole(), let cur = WinLayout.current() else { return }
     guard waitModifiersReleased() else { return }
 
     // Nothing selected: grab the line up to the caret (Shift+Home) so the hotkey

@@ -16,7 +16,9 @@ private func keyEvent(vk: WORD, scan: WORD, flags: DWORD) -> INPUT {
 private func vkEvent(_ vk: Int32, up: Bool = false) -> INPUT {
     let scan = WORD(truncatingIfNeeded: MapVirtualKeyW(UINT(vk), 0 /* MAPVK_VK_TO_VSC */))
     var flags: DWORD = up ? DWORD(KEYEVENTF_KEYUP) : 0
-    if [VK_HOME, VK_END, VK_LEFT, VK_RIGHT].contains(vk) { flags |= DWORD(KEYEVENTF_EXTENDEDKEY) }
+    if [VK_HOME, VK_END, VK_LEFT, VK_RIGHT, VK_LWIN, VK_RWIN, VK_RMENU, VK_RCONTROL].contains(vk) {
+        flags |= DWORD(KEYEVENTF_EXTENDEDKEY)
+    }
     return keyEvent(vk: WORD(vk), scan: scan, flags: flags)
 }
 
@@ -45,13 +47,21 @@ func pumpWait(_ ms: DWORD) {
     }
 }
 
-/// Types `s` as Unicode key events, replacing the active selection.
+/// Types `s` as Unicode key events, replacing the active selection. Line breaks
+/// (`\r\n`, `\n`, `\r`) go out as a real Enter: apps act on the key, not on a
+/// VK_PACKET carrying U+000D.
 /// - Returns: false if the input was blocked.
 func sendUnicode(_ s: String) -> Bool {
     var inputs: [INPUT] = []
-    for u in s.utf16 {
-        inputs.append(keyEvent(vk: 0, scan: u, flags: DWORD(KEYEVENTF_UNICODE)))
-        inputs.append(keyEvent(vk: 0, scan: u, flags: DWORD(KEYEVENTF_UNICODE) | DWORD(KEYEVENTF_KEYUP)))
+    for ch in s {
+        if ch == "\r\n" || ch == "\n" || ch == "\r" {
+            inputs += [vkEvent(VK_RETURN), vkEvent(VK_RETURN, up: true)]
+            continue
+        }
+        for u in String(ch).utf16 {
+            inputs.append(keyEvent(vk: 0, scan: u, flags: DWORD(KEYEVENTF_UNICODE)))
+            inputs.append(keyEvent(vk: 0, scan: u, flags: DWORD(KEYEVENTF_UNICODE) | DWORD(KEYEVENTF_KEYUP)))
+        }
     }
     return inputs.isEmpty || send(inputs)
 }
@@ -67,10 +77,36 @@ func collapseSelection() {
     send([vkEvent(VK_RIGHT), vkEvent(VK_RIGHT, up: true)])
 }
 
+private let maskKey = [keyEvent(vk: 0xE8, scan: 0, flags: 0), keyEvent(vk: 0xE8, scan: 0, flags: DWORD(KEYEVENTF_KEYUP))]
+
 /// Unassigned VK tapped while Alt/Win is held, so their release neither opens the
 /// menu bar nor Start after the hotkey key itself was swallowed.
 func sendMaskKey() {
-    send([keyEvent(vk: 0xE8, scan: 0, flags: 0), keyEvent(vk: 0xE8, scan: 0, flags: DWORD(KEYEVENTF_KEYUP))])
+    send(maskKey)
+}
+
+/// Replays a swallowed Alt/Win release behind the mask key: a bare tap of either
+/// would otherwise open the menu bar or Start and take our Ctrl+C.
+func sendMaskedRelease(_ vk: UINT) {
+    send(maskKey + [vkEvent(Int32(vk), up: true)])
+}
+
+/// Window with keyboard focus in the foreground input thread (a UWP app's
+/// CoreWindow, not its ApplicationFrameHost frame), else the foreground window.
+func focusWindow() -> HWND? {
+    var info = GUITHREADINFO()
+    info.cbSize = DWORD(MemoryLayout<GUITHREADINFO>.size)
+    if GetGUIThreadInfo(0, &info), let focus = info.hwndFocus { return focus }
+    return GetForegroundWindow()
+}
+
+/// True for terminal windows: Ctrl+C there interrupts the running program.
+func foregroundIsConsole() -> Bool {
+    guard let fg = GetForegroundWindow() else { return false }
+    var buf = [WCHAR](repeating: 0, count: 64)
+    let n = Int(GetClassNameW(fg, &buf, Int32(buf.count)))
+    let cls = String(decoding: buf.prefix(n), as: UTF16.self)
+    return ["ConsoleWindowClass", "CASCADIA_HOSTING_WINDOW_CLASS", "VirtualConsoleClass", "mintty"].contains(cls)
 }
 
 private func clipboardText() -> String {
@@ -102,10 +138,9 @@ func readSelection() -> String? {
     return text.last?.isNewline == true ? nil : text
 }
 
-// Ask the foreground window to switch to the given layout.
+/// Asks the focused window to switch to the given layout.
 func switchLayout(to dst: WinLayout) {
-    let lp = unsafeBitCast(dst.hkl, to: LPARAM.self)
-    _ = PostMessageW(GetForegroundWindow(), UINT(WM_INPUTLANGCHANGEREQUEST), 0, lp)
+    _ = PostMessageW(focusWindow(), UINT(WM_INPUTLANGCHANGEREQUEST), 0, LPARAM(Int(bitPattern: dst.hkl)))
 }
 
 /// Waits for all modifiers (Win included) to be released before synthesizing input.

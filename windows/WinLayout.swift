@@ -17,14 +17,14 @@ final class WinLayout: LayoutMaps {
     private init(_ hkl: HKL) {
         self.hkl = hkl
         // Full HKL, not just its LANGID: two layouts of one language must differ.
-        self.id = String(unsafeBitCast(hkl, to: UInt.self), radix: 16)
+        self.id = String(UInt(bitPattern: hkl), radix: 16)
         build()
     }
 
     /// Human-readable language name for this layout (e.g. "Ukrainian", "English"),
     /// derived from the LANGID. Falls back to the hex id if lookup fails.
     var displayName: String {
-        let lcid = DWORD(unsafeBitCast(hkl, to: UInt.self) & 0xFFFF)
+        let lcid = DWORD(UInt(bitPattern: hkl) & 0xFFFF)
         var loc = [WCHAR](repeating: 0, count: 85)   // LOCALE_NAME_MAX_LENGTH
         guard LCIDToLocaleName(lcid, &loc, Int32(loc.count), 0) > 0 else { return id }
         var disp = [WCHAR](repeating: 0, count: 128)
@@ -36,7 +36,7 @@ final class WinLayout: LayoutMaps {
     private static var cache: [UInt: WinLayout] = [:]
 
     private static func of(_ hkl: HKL) -> WinLayout {
-        let key = unsafeBitCast(hkl, to: UInt.self)
+        let key = UInt(bitPattern: hkl)
         if let l = cache[key] { return l }
         let l = WinLayout(hkl)
         cache[key] = l
@@ -54,10 +54,10 @@ final class WinLayout: LayoutMaps {
         return out
     }
 
-    /// Layout of the foreground window's input thread.
+    /// Layout of the focused window's input thread.
     static func current() -> WinLayout? {
-        guard let fg = GetForegroundWindow() else { return nil }
-        let tid = GetWindowThreadProcessId(fg, nil)
+        guard let focus = focusWindow() else { return nil }
+        let tid = GetWindowThreadProcessId(focus, nil)
         guard let h = GetKeyboardLayout(tid) else { return nil }
         return of(h)
     }

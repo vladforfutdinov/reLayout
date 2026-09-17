@@ -35,10 +35,16 @@ An audit of the frozen Windows port (written by an older model) found 15 bugs an
   26.03 (plain `7z.sfx` ignores `RunProgram`; 7-Zip Extra has no SFX stubs), app-local MSVC CRT,
   `gha-setup-swift` pinned to a SHA, `ref_name` passed via env, `core.yml`
   gets `workflow_dispatch`.
-- Batches 1–2 built green on x64 and arm64 (runs 35251878493, 35253746849); not
-  tested by hand yet.
-- Open: clipboard restore, console Ctrl+C, bare Alt/Win tap hotkeys, CRLF typing,
-  `WM_DPICHANGED`, keyboard navigation in Settings, Authenticode signing.
+- Batch 4: no conversion in terminal windows (Ctrl+C would interrupt the program).
+  Line breaks type as a real Enter, not a VK_PACKET U+000D — so a break inside a
+  one-line field submits it. A bare Alt/Win tap hotkey replays its swallowed
+  release behind mask key 0xE8. Layout read and switch go through the focused
+  window (`GetGUIThreadInfo`, for UWP). `keyName` sets the extended bit right.
+- Batches 1–3 built green on x64 and arm64 (runs 35251878493, 35253746849,
+  35254652193); not tested by hand yet.
+- Open: clipboard restore, `WM_DPICHANGED`, keyboard navigation in Settings,
+  tray icon DPI, Authenticode signing; UI Automation read, caret-word narrowing,
+  auto-correct, localization.
 
 ## v1.2.27 — Settings row order
 

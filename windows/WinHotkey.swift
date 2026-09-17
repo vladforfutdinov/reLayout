@@ -35,6 +35,7 @@ private let modifierVKs: Set<UINT> = [0x10, 0xA0, 0xA1,   // Shift, LShift, RShi
                                       0x12, 0xA4, 0xA5,   // Alt,   LAlt,   RAlt
                                       0x5B, 0x5C]         // LWin,  RWin
 func isModifierVK(_ vk: UINT) -> Bool { modifierVKs.contains(vk) }
+private let altOrWinVKs: Set<UINT> = [0x12, 0xA4, 0xA5, 0x5B, 0x5C]
 
 private func keyDown(_ vk: Int32) -> Bool { (Int(GetAsyncKeyState(vk)) & 0x8000) != 0 }
 
@@ -76,8 +77,13 @@ private func handleDetect(_ vk: UINT, down: Bool, up: Bool) -> Bool {
                 tapInterrupted = true        // another key during the hold -> not a tap
             }
         } else if up, vk == hkVK {
-            if tapArmed, !tapInterrupted, GetTickCount() &- tapArmTick < 400 { postTrigger() }
-            tapArmed = false
+            defer { tapArmed = false }
+            guard tapArmed, !tapInterrupted, GetTickCount() &- tapArmTick < 400 else { return false }
+            postTrigger()
+            if altOrWinVKs.contains(vk) {
+                sendMaskedRelease(vk)
+                return true
+            }
         }
         return false
     } else {
@@ -187,8 +193,10 @@ func hotkeyLabel(_ mods: UINT, _ vk: UINT) -> String {
 // Localized key name for a virtual-key (e.g. "R", "F2", "Left Shift").
 func keyName(_ vk: UINT) -> String {
     let scan = MapVirtualKeyW(vk, 0 /* MAPVK_VK_TO_VSC */)
-    // L/R modifiers and a few keys need the extended bit for a correct name.
-    let extended: Set<UINT> = [0xA1, 0xA3, 0xA5, 0x5B, 0x5C]   // RShift, RCtrl, RAlt, LWin, RWin
+    // Extended keys: RCtrl, RAlt, Win, Apps, navigation block, numpad Divide, NumLock.
+    // RShift is not extended; without the bit, arrows read as numpad keys.
+    let extended: Set<UINT> = [0xA3, 0xA5, 0x5B, 0x5C, 0x5D, 0x21, 0x22, 0x23, 0x24,
+                               0x25, 0x26, 0x27, 0x28, 0x2D, 0x2E, 0x6F, 0x90]
     var lparam = LONG(scan << 16)
     if extended.contains(vk) { lparam |= LONG(1 << 24) }
     var buf = [WCHAR](repeating: 0, count: 64)

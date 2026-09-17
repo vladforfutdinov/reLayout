@@ -57,7 +57,16 @@ if alreadyRunning { ExitProcess(0) }
 // Global hotkey via a low-level keyboard hook (see WinHotkey.swift) so a bare
 // modifier (e.g. Left Shift) can be a hotkey, which RegisterHotKey can't do.
 // The hook posts WM_RETYPE to this thread; we run the conversion here.
-installHotkeyHook()
+if !installHotkeyHook() {
+    let err = GetLastError()
+    let text = "reLayout could not install its keyboard hook (error \(err))."
+    text.withCString(encodedAs: UTF16.self) { t in
+        "reLayout".withCString(encodedAs: UTF16.self) { c in
+            _ = MessageBoxW(nil, t, c, UINT(MB_ICONERROR))
+        }
+    }
+    ExitProcess(1)
+}
 _ = setupTray()
 
 var msg = MSG()

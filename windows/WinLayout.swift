@@ -14,7 +14,7 @@ final class WinLayout: LayoutMaps {
     private(set) var strokeToChar: [KeyStroke: String] = [:]
     private(set) var isCyrillic = false
 
-    init(_ hkl: HKL) {
+    private init(_ hkl: HKL) {
         self.hkl = hkl
         // Full HKL, not just its LANGID: two layouts of one language must differ.
         self.id = String(unsafeBitCast(hkl, to: UInt.self), radix: 16)
@@ -32,6 +32,17 @@ final class WinLayout: LayoutMaps {
         return m > 1 ? String(decoding: disp.prefix(Int(m - 1)), as: UTF16.self) : id
     }
 
+    // Maps are built once per HKL: ~900 ToUnicodeEx calls each, on the hook's thread.
+    private static var cache: [UInt: WinLayout] = [:]
+
+    private static func of(_ hkl: HKL) -> WinLayout {
+        let key = unsafeBitCast(hkl, to: UInt.self)
+        if let l = cache[key] { return l }
+        let l = WinLayout(hkl)
+        cache[key] = l
+        return l
+    }
+
     /// All installed keyboard layouts, in system order.
     static func installedList() -> [WinLayout] {
         let n = GetKeyboardLayoutList(0, nil)
@@ -39,7 +50,7 @@ final class WinLayout: LayoutMaps {
         var handles = [HKL?](repeating: nil, count: Int(n))
         let got = GetKeyboardLayoutList(n, &handles)
         var out: [WinLayout] = []
-        for i in 0..<Int(got) where handles[i] != nil { out.append(WinLayout(handles[i]!)) }
+        for i in 0..<Int(got) where handles[i] != nil { out.append(of(handles[i]!)) }
         return out
     }
 
@@ -48,7 +59,7 @@ final class WinLayout: LayoutMaps {
         guard let fg = GetForegroundWindow() else { return nil }
         let tid = GetWindowThreadProcessId(fg, nil)
         guard let h = GetKeyboardLayout(tid) else { return nil }
-        return WinLayout(h)
+        return of(h)
     }
 
     private func build() {

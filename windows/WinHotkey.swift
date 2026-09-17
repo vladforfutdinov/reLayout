@@ -141,11 +141,14 @@ private let llProc: HOOKPROC = { nCode, wParam, lParam in
 
 // MARK: - public API
 
-func installHotkeyHook() {
+/// Installs the low-level keyboard hook on the calling thread.
+/// - Returns: false if Windows refused the hook.
+func installHotkeyHook() -> Bool {
     mainThreadId = GetCurrentThreadId()
     let hk = loadHotkey()
     hkMods = hk.mods; hkVK = hk.vk
     llHook = SetWindowsHookExW(13 /* WH_KEYBOARD_LL */, llProc, GetModuleHandleW(nil), 0)
+    return llHook != nil
 }
 
 func uninstallHotkeyHook() {

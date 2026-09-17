@@ -23,7 +23,12 @@ An audit of the frozen Windows port (written by an older model) found 15 bugs an
 - The combo key is swallowed; Alt/Win combos inject mask key 0xE8.
 - Modifier wait covers Win and aborts on timeout. A blocked `SendInput` skips the
   layout switch. A named mutex keeps one instance.
-- Open: hook on its own thread (if `pumpWait` is not enough), tray re-add on
+- Batch 2: layout maps cached per HKL (built once, not on every press). A failed
+  `SetWindowsHookExW` shows an error and exits instead of running without a
+  hotkey. The hook stays on the main thread: with `pumpWait` and the cache there
+  is no long stall left, and a hook thread would share hotkey state across threads.
+- Batch 1 built green on x64 and arm64 (run 35251878493); not tested by hand yet.
+- Open: tray re-add on
   `TaskbarCreated`, portable SFX stub, CRT bundling, CI pinning, clipboard restore.
 
 ## v1.2.27 — Settings row order

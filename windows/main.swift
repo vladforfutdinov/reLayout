@@ -27,23 +27,15 @@ func performRetype() {
     guard !foregroundIsConsole(), let cur = WinLayout.current() else { return }
     guard waitModifiersReleased() else { return }
 
-    // The read below goes through the clipboard; put the user's copy back after.
-    let saved = saveClipboard()
-    let seq = GetClipboardSequenceNumber()
-    defer {
-        if let saved, GetClipboardSequenceNumber() != seq { restoreClipboard(saved, owner: trayWindow()) }
-    }
+    // Selection only: the hotkey converts what the user pointed at, never a
+    // guess at the word before the caret. Unselected text is the auto mode's job.
+    guard let selected = readSelectedText() else { return retypeViaClipboard(cur) }
+    retype(selected, cur: cur)
+}
 
-    // Nothing selected: grab the line up to the caret (Shift+Home) so the hotkey
-    // still converts what was just typed.
-    var sel = readSelection()
-    if sel == nil {
-        selectToLineStart()
-        sel = readSelection()
-        if sel == "" { collapseSelection() }   // copied but unreadable: don't leave the line selected
-    }
-    guard let text = sel, !text.isEmpty else { return }
-
+/// Converts the selected `text` and types the result over it.
+private func retype(_ text: String, cur: WinLayout) {
+    guard !text.isEmpty else { return }
     let all = WinLayout.installedList()
     guard all.count >= 2 else { return }
     let dst = all.first(where: { $0.isCyrillic != cur.isCyrillic && $0.id != cur.id })
@@ -52,6 +44,19 @@ func performRetype() {
     guard sendUnicode(out) else { return }
     pumpWait(20)
     switchLayout(to: dst)
+}
+
+/// Fallback for controls without UI Automation text (Electron, old apps): read the
+/// selection with Ctrl+C and put the user's clipboard back afterwards. Nothing is
+/// selected -> nothing to convert.
+private func retypeViaClipboard(_ cur: WinLayout) {
+    let saved = saveClipboard()
+    let seq = GetClipboardSequenceNumber()
+    defer {
+        if let saved, GetClipboardSequenceNumber() != seq { restoreClipboard(saved, owner: trayWindow()) }
+    }
+    guard let text = readSelection() else { return }
+    retype(text, cur: cur)
 }
 
 // One instance only: a second one (autostart + manual launch) would add a second

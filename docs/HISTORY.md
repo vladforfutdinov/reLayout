@@ -44,6 +44,11 @@ An audit of the frozen Windows port (written by an older model) found 15 bugs an
   after it (memory-backed formats only, up to 64 MB; the tray window owns the
   restore; tagged `ExcludeClipboardContentFromMonitorProcessing` to stay out of
   Win+V history).
+- Batch 6 — the hotkey acts only on what the user pointed at. Selection is read
+  through UI Automation (`windows/uia/relayout_uia.cpp`, one C++ target because
+  Swift has no COM), the clipboard only when a control exposes no UIA text. The
+  Shift+Home line grab and every guess at the word before the caret are gone:
+  unselected text belongs to the (opt-in) auto mode and its typed-word buffer.
 - Batches 1–3 built green on x64 and arm64 (runs 35251878493, 35253746849,
   35254652193); not tested by hand yet.
 - Open: `WM_DPICHANGED`, keyboard navigation in Settings,

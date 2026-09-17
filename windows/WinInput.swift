@@ -66,17 +66,6 @@ func sendUnicode(_ s: String) -> Bool {
     return inputs.isEmpty || send(inputs)
 }
 
-/// Selects from the caret to line start (Shift+Home): the no-selection fallback.
-func selectToLineStart() {
-    send(tap(VK_HOME, with: VK_SHIFT))
-    pumpWait(20)
-}
-
-/// Collapses a selection to its right end, where the caret was before Shift+Home.
-func collapseSelection() {
-    send([vkEvent(VK_RIGHT), vkEvent(VK_RIGHT, up: true)])
-}
-
 private let maskKey = [keyEvent(vk: 0xE8, scan: 0, flags: 0), keyEvent(vk: 0xE8, scan: 0, flags: DWORD(KEYEVENTF_KEYUP))]
 
 /// Unassigned VK tapped while Alt/Win is held, so their release neither opens the

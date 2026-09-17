@@ -1421,8 +1421,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     //   - >2, cur != #0   -> #0 (first)
     //   - >2, cur == #0   -> layout of the OTHER-script words if uniquely determinable,
     //                        else #1 (second)
-    private func convert(_ text: String,
-                         lineGrab: Bool = false) -> (out: String, dst: Layout, src: Layout, replaced: String)? {
+    private func convert(_ text: String) -> (out: String, dst: Layout, src: Layout, replaced: String)? {
         let enabled = Layout.enabledList()
         guard enabled.count >= 2 else { return nil }
         let curID = currentSourceID()
@@ -1432,42 +1431,14 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         // Mid-word layout switch ("ghjсто"): the word carries both scripts, so
         // neither anchor rule fits — the wrong half may be the head (switched after
         // mistyping) or the tail (forgot to switch). Decided by trigram score, see
-        // mixedWordFix. Applies to the caret word of a line grab and to a
-        // single-word selection; a multi-word selection converts as a whole.
+        // mixedWordFix. Applies to a single-word selection; a multi-word selection
+        // converts as a whole.
         let toks = tokenize(text)
         if let last = toks.last, !(last.first?.isWhitespace ?? true),
-           lineGrab || toks.count == 1,
+           toks.count == 1,
            let fix = mixedWordFix(String(last), cur: cur, enabled: enabled) {
             dbg("convert[mixed] src=\(fix.src.id) -> dst=\(fix.dst.id)")
             return (fix.out, fix.dst, fix.src, String(last))
-        }
-
-        // Implicit line grab: `text` is the whole line back to the caret's line
-        // start, not a deliberate selection — only the word AT THE CARET is
-        // converted (see caretWord). The rest of the line is left alone, caller
-        // narrows the selection to `replaced`. Fixes the switched-after-mistyping
-        // case: `привет ghbdtn` with ru active converts ghbdtn, not привет.
-        if lineGrab {
-            guard let start = caretWord(text) else {
-                dbg("line-grab: no word at the caret")
-                return nil
-            }
-            let win = String(text[start...])
-            guard let wrongCyr = dominantScript(win) else {
-                dbg("line-grab: caret word has no letters")
-                return nil
-            }
-            let src = cur.isCyrillic == wrongCyr
-                ? cur : enabled.first(where: { $0.isCyrillic == wrongCyr })
-            guard let src else { return nil }
-            // src == cur: the usual "hotkey right after mistyping" — pick a target.
-            // src != cur: the user already switched to the intended layout — it IS
-            // the target.
-            let dst = src.id == cur.id
-                ? pickTarget(win, cur: cur, curIdx: curIdx, enabled: enabled) : cur
-            dbg("convert[line] src=\(src.id) -> dst=\(dst.id) window=\(win.debugDescription)")
-            guard let out = convertWrong(win, src: src, dst: dst) else { return nil }
-            return (out, dst, src, win)
         }
 
         // Hybrid source detection: normally the wrong layout is the active one (you
@@ -2083,21 +2054,6 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         return c
     }
 
-    // Cmd+X (cut): reads AND removes the selection in one step. Used only for the
-    // line-grab fallback (after a failed Cmd+C — C-then-X, no Cmd+C-Cmd+C pair for
-    // DeepL). NOT used on an explicit selection: smart cut-and-paste (Word,
-    // smartInsertDelete text views) deletes an adjacent space along with a cut
-    // word, so typing the conversion back glues it to the previous word. The
-    // line-grab selection starts at the line start — nothing before it to eat.
-    private func cutSelection(_ pb: NSPasteboard) -> String? {
-        let before = pb.changeCount
-        postKey(CGKeyCode(kVK_ANSI_X), .maskCommand)
-        usleep(120_000)
-        guard pb.changeCount != before, let c = pb.string(forType: .string), !c.isEmpty else { return nil }
-        dbg("read via Cmd+X: \(c.debugDescription)")
-        return c
-    }
-
     func performRetype() {
         guard AXIsProcessTrusted() else {
             DispatchQueue.main.async { self.promptAccessibilityIfNeeded() }
@@ -2125,47 +2081,24 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         var clipboardTouched = false
 
         var sel: String?
-        var lineGrabbed = false        // sel is the whole caret line, not a user selection
-        var removedSelection = false   // Cmd+X cut the text -> restore it if convert fails
-        let ax = axSelectedText()
-        if let ax {
+        if let ax = axSelectedText() {
             // AX path — never touches the clipboard (DeepL stays quiet)
-            if !ax.isEmpty {
-                dbg("read via AX: \(ax.debugDescription)")
-                sel = ax
-            } else {
-                dbg("AX empty -> Shift+Cmd+Left")
-                postKey(CGKeyCode(kVK_LeftArrow), [.maskShift, .maskCommand])
-                usleep(120_000)
-                let s = axSelectedText()
-                if let s, !s.isEmpty { dbg("read via AX: \(s.debugDescription)"); sel = s; lineGrabbed = true }
-            }
+            if !ax.isEmpty { dbg("read via AX: \(ax.debugDescription)"); sel = ax }
         } else {
-            // AX unavailable -> clipboard fallback. An explicit selection is read
-            // with Cmd+C (copy keeps the selection; typing replaces exactly it, so
-            // smart cut-and-paste can't swallow an adjacent space — see
-            // cutSelection). No selection -> line-grab via Shift+Cmd+Left + Cmd+X.
-            // Either way a single Cmd+C at most — no Cmd+C-Cmd+C pair for DeepL.
-            // Save the prior clipboard to restore it.
+            // AX unavailable -> read the selection with Cmd+C (copy keeps the
+            // selection; typing replaces exactly it, so smart cut-and-paste in
+            // Word-like apps can't swallow an adjacent space). Save the prior
+            // clipboard to restore it.
             clipboardSaved = pb.string(forType: .string)
             clipboardTouched = true
             sel = copySelection(pb)
-            if sel == nil {
-                dbg("no selection -> Shift+Cmd+Left")
-                postKey(CGKeyCode(kVK_LeftArrow), [.maskShift, .maskCommand])
-                usleep(120_000)
-                sel = cutSelection(pb)
-                lineGrabbed = (sel != nil)
-                removedSelection = (sel != nil)
-            }
         }
 
         // convert() touches TIS APIs, which must run on the main thread (macOS 26
         // asserts otherwise). Hop to main for it.
         guard let text = sel, !text.isEmpty,
-              let r = DispatchQueue.main.sync(execute: { self.convert(text, lineGrab: lineGrabbed) }) else {
+              let r = DispatchQueue.main.sync(execute: { self.convert(text) }) else {
             dbg("nothing to convert")
-            if removedSelection, let cut = sel { typeUnicode(cut) }   // put back what we cut
             if clipboardTouched { restoreClipboard(clipboardSaved) }
             return
         }
@@ -2173,22 +2106,16 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         // WRITE via synthesized Unicode keystrokes (no clipboard, no paste) — the
         // active selection is replaced by the typed input, like Caramba. No copy/paste
         // events, so DeepL stays quiet. Clipboard is never used for writing.
-        // The grab may have selected more than what converts (line grab -> one
-        // word). The head is untouched text: collapse the selection to its right
+        // The selection may hold more than what converts (mixed-word fix -> one
+        // token). The head is untouched text: collapse the selection to its right
         // edge and re-select just the converted run, so nothing else is retyped.
-        // Not possible on the Cmd+X path — that text is already gone, so the head
-        // is typed back with it.
         let head = String(text.dropLast(r.replaced.count))
-        var typed = r.out
+        let typed = r.out
         if !head.isEmpty {
-            if removedSelection {
-                typed = head + r.out
-            } else {
-                postKey(CGKeyCode(kVK_RightArrow), [])
-                usleep(20_000)
-                for _ in 0..<r.replaced.count { postKey(CGKeyCode(kVK_LeftArrow), .maskShift) }
-                usleep(20_000)
-            }
+            postKey(CGKeyCode(kVK_RightArrow), [])
+            usleep(20_000)
+            for _ in 0..<r.replaced.count { postKey(CGKeyCode(kVK_LeftArrow), .maskShift) }
+            usleep(20_000)
         }
         dbg("type: \(typed.debugDescription) replacing \(r.replaced.debugDescription)")
         typeUnicode(typed)

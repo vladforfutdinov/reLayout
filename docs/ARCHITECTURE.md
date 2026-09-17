@@ -81,9 +81,11 @@ Holds everything outside the engine:
 
 ## Windows port (`windows/`, MVP)
 
-- `windows/main.swift` — registers `Ctrl+Alt+R` hotkey, message loop, drives the retype.
+- `windows/main.swift` — single-instance mutex, message loop, drives the retype.
+- `WinHotkey.swift` — low-level keyboard hook: combos and bare-modifier taps, hotkey capture for Settings.
 - `WinLayout.swift` — builds `LayoutMaps` via `ToUnicodeEx`, lists/switches HKLs.
 - `WinInput.swift` — clipboard read (Ctrl+C fallback), `SendInput` Unicode write.
-- `WinTray.swift` — system tray with right-click Quit.
+- `WinTray.swift` — system tray menu, launch-at-login (HKCU Run).
+- `WinSettings.swift` / `WinPrefs.swift` — Settings window, preferences in the registry.
 
-Only built when host OS is Windows (`#if os(Windows)` gate in `Package.swift`); macOS `swift test` ignores the executable target. No GUI/settings yet; selection read is Ctrl+C only (UI Automation is TODO).
+Only built when host OS is Windows (`#if os(Windows)` gate in `Package.swift`); macOS `swift test` ignores the executable target. Selection read is Ctrl+C only (UI Automation is TODO). The hook runs on the main thread, so every wait in the retype path uses `pumpWait` (pumps messages), never `Sleep`. Frozen: `build-windows` runs only on manual dispatch.

@@ -16,9 +16,8 @@ final class WinLayout: LayoutMaps {
 
     init(_ hkl: HKL) {
         self.hkl = hkl
-        // Low word of the HKL is the LANGID; use it as a stable id.
-        let bits = unsafeBitCast(hkl, to: UInt.self)
-        self.id = String(bits & 0xFFFF, radix: 16)
+        // Full HKL, not just its LANGID: two layouts of one language must differ.
+        self.id = String(unsafeBitCast(hkl, to: UInt.self), radix: 16)
         build()
     }
 
@@ -46,7 +45,8 @@ final class WinLayout: LayoutMaps {
 
     /// Layout of the foreground window's input thread.
     static func current() -> WinLayout? {
-        let tid = GetWindowThreadProcessId(GetForegroundWindow(), nil)
+        guard let fg = GetForegroundWindow() else { return nil }
+        let tid = GetWindowThreadProcessId(fg, nil)
         guard let h = GetKeyboardLayout(tid) else { return nil }
         return WinLayout(h)
     }
@@ -60,20 +60,24 @@ final class WinLayout: LayoutMaps {
         // keyboard state — avoids the classic dead-key state corruption.
         let noChange: UINT = 0x4
 
-        for vkInt in 0x20...0xFF {
-            let vk = UINT(vkInt)
-            let scan = MapVirtualKeyExW(vk, 0 /* MAPVK_VK_TO_VSC */, hkl)
-            if scan == 0 { continue }
-            for c in combos {
-                var state = [BYTE](repeating: 0, count: 256)
-                if c.shift { state[Int(VK_SHIFT)] = 0x80 }
-                if c.altgr { state[Int(VK_CONTROL)] = 0x80; state[Int(VK_MENU)] = 0x80 }
+        // Numpad VKs (0x60-0x6F) are skipped: they precede the OEM keys and would
+        // claim `.`/`,`/`/` with their own, layout-independent meaning.
+        let keys: [(vk: UINT, scan: UINT)] = (0x20...0xFF).compactMap { (v: Int) -> (vk: UINT, scan: UINT)? in
+            guard !(0x60...0x6F).contains(v) else { return nil }
+            let scan = MapVirtualKeyExW(UINT(v), 0 /* MAPVK_VK_TO_VSC */, hkl)
+            return scan == 0 ? nil : (vk: UINT(v), scan: scan)
+        }
+        for c in combos {
+            var state = [BYTE](repeating: 0, count: 256)
+            if c.shift { state[Int(VK_SHIFT)] = 0x80 }
+            if c.altgr { state[Int(VK_CONTROL)] = 0x80; state[Int(VK_MENU)] = 0x80 }
+            for k in keys {
                 var buf = [WCHAR](repeating: 0, count: 8)
-                let r = ToUnicodeEx(vk, scan, state, &buf, 8, noChange, hkl)
+                let r = ToUnicodeEx(k.vk, k.scan, state, &buf, 8, noChange, hkl)
                 guard r > 0 else { continue }   // 0 = none, <0 = dead key: skip
                 let s = String(decoding: buf.prefix(Int(r)), as: UTF16.self)
                 guard let f = s.unicodeScalars.first, f.value >= 0x20 else { continue }
-                let stroke = KeyStroke(keyCode: UInt16(vk), mods: c.idx)
+                let stroke = KeyStroke(keyCode: UInt16(k.vk), mods: c.idx)
                 if strokeToChar[stroke] == nil { strokeToChar[stroke] = s }
                 if charToStroke[s] == nil { charToStroke[s] = stroke }
             }

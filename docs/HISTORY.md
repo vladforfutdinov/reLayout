@@ -6,6 +6,26 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
+## Windows port — audit fixes, batch 1 (not built yet)
+
+An audit of the frozen Windows port (written by an older model) found 15 bugs and
+31 risks. The first batch fixes input and layout handling:
+
+- Layout maps skip numpad VKs and probe modifiers before keys, so `.`/`,`/`/`
+  convert and plain strokes win. Layouts compare by the full HKL, not the LANGID.
+- Waits pump messages (`pumpWait`) instead of `Sleep`: the low-level hook runs on
+  the same thread, and Windows drops a hook that keeps timing out.
+- Ctrl+C read polls the clipboard sequence up to 500 ms and retries
+  `OpenClipboard`. A copy ending in a line break counts as "no selection"
+  (VS Code/JetBrains copy the whole line). Non-text copies no longer fall back to
+  Shift+Home over the user's selection.
+- Home/Right go out with scan codes and the extended bit (NumLock broke Shift+Home).
+- The combo key is swallowed; Alt/Win combos inject mask key 0xE8.
+- Modifier wait covers Win and aborts on timeout. A blocked `SendInput` skips the
+  layout switch. A named mutex keeps one instance.
+- Open: hook on its own thread (if `pumpWait` is not enough), tray re-add on
+  `TaskbarCreated`, portable SFX stub, CRT bundling, CI pinning, clipboard restore.
+
 ## v1.2.27 — Settings row order
 
 Settings now read language → hotkey → auto-correct + "Also fix on Enter", as the

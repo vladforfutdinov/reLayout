@@ -25,14 +25,15 @@ func triggerHotkey() {
 // else simply the other one. Each press converts fresh — no undo on Windows.
 func performRetype() {
     guard let cur = WinLayout.current() else { return }
-    waitModifiersReleased()
+    guard waitModifiersReleased() else { return }
 
-    // Read the selection; if nothing is selected, grab the current line up to the
-    // caret (Shift+Home) so the hotkey still converts what was just typed.
+    // Nothing selected: grab the line up to the caret (Shift+Home) so the hotkey
+    // still converts what was just typed.
     var sel = readSelection()
-    if sel == nil || sel!.isEmpty {
+    if sel == nil {
         selectToLineStart()
         sel = readSelection()
+        if sel == "" { collapseSelection() }   // copied but unreadable: don't leave the line selected
     }
     guard let text = sel, !text.isEmpty else { return }
 
@@ -41,10 +42,17 @@ func performRetype() {
     let dst = all.first(where: { $0.isCyrillic != cur.isCyrillic && $0.id != cur.id })
         ?? all.first(where: { $0.id != cur.id })
     guard let dst, let out = convertWrong(text, src: cur, dst: dst) else { return }
-    sendUnicode(out)
-    Sleep(20)
+    guard sendUnicode(out) else { return }
+    pumpWait(20)
     switchLayout(to: dst)
 }
+
+// One instance only: a second one (autostart + manual launch) would add a second
+// hook and convert twice. The handle lives as long as the process.
+let alreadyRunning = "Local\\reLayout".withCString(encodedAs: UTF16.self) { name -> Bool in
+    CreateMutexW(nil, false, name) == nil || GetLastError() == DWORD(ERROR_ALREADY_EXISTS)
+}
+if alreadyRunning { ExitProcess(0) }
 
 // Global hotkey via a low-level keyboard hook (see WinHotkey.swift) so a bare
 // modifier (e.g. Left Shift) can be a hotkey, which RegisterHotKey can't do.

@@ -63,8 +63,9 @@ private func postTrigger() {
     _ = PostThreadMessageW(mainThreadId, WM_RETYPE, 0, 0)
 }
 
-private func handleDetect(_ vk: UINT, down: Bool, up: Bool) {
-    guard hkVK != 0 else { return }
+/// - Returns: true if the key belongs to a matched combo and must not reach the app.
+private func handleDetect(_ vk: UINT, down: Bool, up: Bool) -> Bool {
+    guard hkVK != 0 else { return false }
 
     if isModifierVK(hkVK) && hkMods == 0 {
         // modifier-tap mode
@@ -78,13 +79,21 @@ private func handleDetect(_ vk: UINT, down: Bool, up: Bool) {
             if tapArmed, !tapInterrupted, GetTickCount() &- tapArmTick < 400 { postTrigger() }
             tapArmed = false
         }
+        return false
     } else {
         // combo mode (one fire per press; cleared on release)
         if down, vk == hkVK, modsHeldExact(hkMods) {
-            if !comboFired { comboFired = true; postTrigger() }
+            if !comboFired {
+                comboFired = true
+                if hkMods & (1 /*MOD_ALT*/ | 8 /*MOD_WIN*/) != 0 { sendMaskKey() }
+                postTrigger()
+            }
+            return true
         } else if up, vk == hkVK {
-            comboFired = false
+            defer { comboFired = false }
+            return comboFired
         }
+        return false
     }
 }
 
@@ -117,8 +126,14 @@ private let llProc: HOOKPROC = { nCode, wParam, lParam in
             let m  = UINT(wParam)
             let down = (m == UINT(WM_KEYDOWN) || m == UINT(WM_SYSKEYDOWN))
             let up   = (m == UINT(WM_KEYUP)   || m == UINT(WM_SYSKEYUP))
-            if capturing { handleCapture(vk, down: down, up: up) }
-            else         { handleDetect(vk, down: down, up: up) }
+            if capturing {
+                handleCapture(vk, down: down, up: up)
+                // Swallow the recorded key, not modifiers: a blocked key never
+                // reaches GetAsyncKeyState, which currentMods() reads.
+                if !isModifierVK(vk) { return 1 }
+                return CallNextHookEx(nil, nCode, wParam, lParam)
+            }
+            if handleDetect(vk, down: down, up: up) { return 1 }
         }
     }
     return CallNextHookEx(nil, nCode, wParam, lParam)

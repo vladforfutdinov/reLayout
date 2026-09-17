@@ -1767,9 +1767,12 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         dbg("feed \(s.debugDescription) buf=\(autoBuffer.debugDescription)")
         if s.isEmpty { return false }
         if s == "\r" || s == "\n" {
-            // Return submits (launcher query, chat send) — converting first would act
-            // on text the user never typed, so it only ends the run.
+            // Return may submit (launcher query, chat send), so it is never swallowed
+            // and nothing is converted before it. `autoEnterFollowUp` looks at what
+            // the app did and fixes the word only if Return inserted a line break.
+            let word = autoBuffer, trail = autoTrail
             autoBuffer = ""; autoTrail = ""; autoPrev = nil
+            autoEnterFollowUp(word: word, trail: trail, flags: flags)
             return false
         }
         if s == " " || s == "\t" {
@@ -1791,6 +1794,86 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             autoBuffer = ""; autoTrail = ""; autoPrev = nil   // navigation / interior punctuation -> end the run
         }
         return false
+    }
+
+    // Opt-out without a rebuild: defaults write <bundle-id> autoEnterNewline -bool false
+    private var autoEnterNewline: Bool { UserDefaults.standard.object(forKey: "autoEnterNewline") as? Bool ?? true }
+
+    // Main thread, from the tap, before the Return reaches the app. Only a long word
+    // (no preposition adjacency across a line) in a field whose caret and text are
+    // readable is followed up; everything else keeps plain Return behaviour.
+    private func autoEnterFollowUp(word: String, trail: String, flags: CGEventFlags) {
+        guard autoEnterNewline, word.reversed().drop(while: { !$0.isLetter }).count >= 3,
+              !isAutoExcluded() else { return }
+        let enabled = Layout.enabledList()
+        guard let cur = enabled.first(where: { $0.id == currentSourceID() }),
+              let d = autoDecide(word, cur: cur, enabled: enabled),
+              let el = focusedTextElement(), let before = fieldSnapshot(el),
+              before.tail.hasSuffix(word + trail) else { return }
+        let outTrail = transliterate(trail, from: cur, to: d.target)
+        let srcSource = cur.source
+        beginCorrection {
+            self.finishEnter(el: el, before: before, word: word, trail: trail, out: d.out, outTrail: outTrail,
+                             flags: flags, target: d.target, srcSource: srcSource)
+        }
+    }
+
+    // Worker. Waits for the field to settle — the system may capitalize the word
+    // ~50 ms after the line break appears, so a single changed read is not enough —
+    // then retypes the word above the new line only for `.newline`.
+    private func finishEnter(el: AXUIElement, before: FieldSnapshot, word: String, trail: String, out: String,
+                             outTrail: String, flags: CGEventFlags, target: Layout, srcSource: TISInputSource) {
+        var last: FieldSnapshot?, stable = 0, settled: FieldSnapshot?
+        for _ in 0..<20 {
+            usleep(25_000)
+            let snap = fieldSnapshot(el)
+            stable = (snap != nil && snap == last) ? stable + 1 : 0
+            last = snap
+            if stable >= 3, let snap, snap != before { settled = snap; break }
+        }
+        guard let after = settled else { dbg("enter: field did not settle"); return }
+        let outcome = enterOutcome(before: before, after: after, word: word + trail)
+        dbg("enter: \(outcome) before=\(before.tail.debugDescription) after=\(after.tail.debugDescription)")
+        guard outcome == .newline else { return }
+        waitModifiersReleased()
+        for _ in 0..<(word.count + trail.count + 1) { postKey(CGKeyCode(kVK_Delete), []) }
+        usleep(10_000)
+        typeUnicode(out + outTrail)
+        typeKey("\r", flags: flags)
+        usleep(10_000)
+        DispatchQueue.main.sync { _ = TISSelectInputSource(target.source) }
+        lastConversion = Conversion(original: word + trail + "\r", typed: out + outTrail + "\r",
+                                    srcSource: srcSource, time: ProcessInfo.processInfo.systemUptime)
+    }
+
+    private func focusedTextElement() -> AXUIElement? {
+        guard let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier else { return nil }
+        var v: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(AXUIElementCreateApplication(pid), kAXFocusedUIElementAttribute as CFString,
+                                            &v) == .success,
+              let v, CFGetTypeID(v) == AXUIElementGetTypeID() else { return nil }
+        let el = v as! AXUIElement   // type checked above
+        AXUIElementSetMessagingTimeout(el, 0.2)
+        return el
+    }
+
+    // nil when the element does not expose caret, length and ranged text.
+    private func fieldSnapshot(_ el: AXUIElement) -> FieldSnapshot? {
+        var n: CFTypeRef?, r: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(el, kAXNumberOfCharactersAttribute as CFString, &n) == .success,
+              let count = n as? Int,
+              AXUIElementCopyAttributeValue(el, kAXSelectedTextRangeAttribute as CFString, &r) == .success,
+              let r, CFGetTypeID(r) == AXValueGetTypeID() else { return nil }
+        var sel = CFRange()
+        guard AXValueGetValue(r as! AXValue, .cfRange, &sel) else { return nil }   // type checked above
+        let lo = max(0, sel.location - 64)
+        var win = CFRange(location: lo, length: sel.location - lo)
+        var t: CFTypeRef?
+        guard let arg = AXValueCreate(.cfRange, &win),
+              AXUIElementCopyParameterizedAttributeValue(el, kAXStringForRangeParameterizedAttribute as CFString,
+                                                         arg, &t) == .success,
+              let tail = t as? String else { return nil }
+        return FieldSnapshot(count: count, caret: sel.location, selected: sel.length, tail: tail)
     }
 
     // ',' ''' ';' '[' … are б э ж х on ЙЦУКЕН: while a Latin layout is active with a
@@ -1882,7 +1965,10 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         autoHeld = []
         autoPending += 1
         while let k = rest.popFirst() {
-            if autoMode, autoFeed(k.s, flags: k.flags) { autoHeld = Array(rest); break }
+            if k.s == "\r" || k.s == "\n" {
+                // No Return follow-up here: its "before" read would race this very key.
+                autoBuffer = ""; autoTrail = ""; autoPrev = nil
+            } else if autoMode, autoFeed(k.s, flags: k.flags) { autoHeld = Array(rest); break }
             worker.async { self.typeKey(k.s, flags: k.flags) }
         }
         worker.async { DispatchQueue.main.async { self.finishCorrection() } }
@@ -2115,7 +2201,13 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             postKey(CGKeyCode(kVK_LeftArrow), .maskShift)
         }
         usleep(20_000)
-        typeUnicode(last.original)
+        // A Return/Tab boundary goes back as the real key, like it was typed.
+        if let b = last.original.last, "\r\n\t".contains(b) {
+            typeUnicode(String(last.original.dropLast()))
+            typeKey(String(b), flags: [])
+        } else {
+            typeUnicode(last.original)
+        }
         usleep(20_000)
         DispatchQueue.main.sync { _ = TISSelectInputSource(last.srcSource) }
     }

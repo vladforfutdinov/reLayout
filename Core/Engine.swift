@@ -245,3 +245,46 @@ public func convertScriptRuns(_ text: String, src: LayoutMaps, dst: LayoutMaps) 
     flush()
     return acc == text ? nil : acc
 }
+
+// MARK: - What an app did with Return
+
+public enum EnterOutcome: Equatable {
+    case newline, submitted, unknown
+}
+
+/// A text field as read through the platform accessibility API.
+public struct FieldSnapshot: Equatable {
+    /// Total length of the field text, UTF-16 units.
+    public var count: Int
+    /// Caret position (selection start), UTF-16 units.
+    public var caret: Int
+    /// Selection length, UTF-16 units; 0 for a plain caret.
+    public var selected: Int
+    /// Text right before the caret — a window, not the whole field.
+    public var tail: String
+
+    public init(count: Int, caret: Int, selected: Int = 0, tail: String) {
+        self.count = count; self.caret = caret; self.selected = selected; self.tail = tail
+    }
+}
+
+/// Classifies Return from the field read before it and after the field settled.
+/// Anything not matching exactly one reading is `.unknown`, which callers treat as
+/// "leave the text alone".
+/// - Parameters:
+///   - before: the field just before Return; its `tail` must end with `word`.
+///   - after: the field once two consecutive reads agree.
+///   - word: the buffered word plus its punctuation trail, as typed.
+/// - Returns: `.newline` when exactly one line break was inserted right after
+///   `word` (letter case may differ — the system capitalizes on Return);
+///   `.submitted` when the field was emptied.
+public func enterOutcome(before: FieldSnapshot, after: FieldSnapshot, word: String) -> EnterOutcome {
+    let w = word.lowercased()
+    guard !w.isEmpty, before.selected == 0, before.tail.lowercased().hasSuffix(w) else { return .unknown }
+    if before.count > 0, after.count == 0 { return .submitted }
+    guard after.count == before.count + 1, after.caret == before.caret + 1, after.selected == 0,
+          let brk = after.tail.last, brk == "\n" || brk == "\r",
+          after.tail.dropLast().lowercased().hasSuffix(w)
+    else { return .unknown }
+    return .newline
+}

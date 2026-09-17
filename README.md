@@ -54,8 +54,10 @@ A live mode that fixes a wrong-layout word **as you type**, no hotkey: on each w
 per-language character-trigram model scores the word and silently corrects it when its converted
 form is the plausible one, including a word split by a mid-word layout switch. A word boundary is
 a space or Tab, with any punctuation just before it converted along ("ltkfq? " → "делай, ");
-Enter never corrects — it submits (a launcher query, a chat message) — and a click or a Cmd/Ctrl
-shortcut drops the unfinished word. **Cross-script
+Enter is never delayed: the word is fixed afterwards only if Enter made a new line in a field that
+exposes its text to Accessibility (TextEdit, Notes, Telegram's Shift+Enter …) — a submitted
+launcher query or chat message stays as typed, and browsers/Electron apps keep plain Enter. A
+click or a Cmd/Ctrl shortcut drops the unfinished word. **Cross-script
 only** (ru/uk ↔ en), tuned for ≥99% precision — with only same-script layouts enabled
 (e.g. ABC + German) the checkbox is disabled, with the reason behind its ⓘ hint — with a
 per-app deny-list (*Settings → Auto-correct → Exceptions…*). Secure fields are always skipped.

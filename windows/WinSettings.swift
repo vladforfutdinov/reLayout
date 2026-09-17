@@ -13,6 +13,7 @@ private let idHotkeyField: Int = 105
 private let idBtnSet:      Int = 106
 private let idBtnReset:    Int = 107
 private let idChkDouble:   Int = 108
+private let idChkAuto:     Int = 109
 
 private var settingsHwnd: HWND?
 private var settingsClassW = Array("ReLayoutSettingsWnd".utf16) + [0]
@@ -73,24 +74,30 @@ private func buildControls(_ hwnd: HWND?) {
                           Int32(BS_AUTOCHECKBOX) | Int32(WS_TABSTOP), 20, 48, 280, 22, hwnd, idChkDouble)
     SendMessageW(dbl, UINT(BM_SETCHECK), WPARAM(loadDoubleTap() ? 1 : 0), 0)
 
+    let auto = makeControl("BUTTON", "Auto-correct while typing",
+                           Int32(BS_AUTOCHECKBOX) | Int32(WS_TABSTOP), 20, 80, 280, 22, hwnd, idChkAuto)
+    SendMessageW(auto, UINT(BM_SETCHECK), WPARAM(loadAutoMode() ? 1 : 0), 0)
+    // Needs a Cyrillic and a Latin layout: the decision is cross-script only.
+    if !WinLayout.crossScriptAvailable() { EnableWindow(auto, false) }
+
     let chk = makeControl("BUTTON", "Launch at login",
-                          Int32(BS_AUTOCHECKBOX) | Int32(WS_TABSTOP), 20, 80, 220, 22, hwnd, idChkStartup)
+                          Int32(BS_AUTOCHECKBOX) | Int32(WS_TABSTOP), 20, 112, 220, 22, hwnd, idChkStartup)
     SendMessageW(chk, UINT(BM_SETCHECK), WPARAM(startupEnabled() ? 1 : 0), 0)
     if !startupAvailable() { EnableWindow(chk, false) }
 
     _ = makeControl("BUTTON", "Keyboard settings…",
-                    Int32(WS_TABSTOP), 20, 116, 170, 30, hwnd, idBtnKeyboard)
+                    Int32(WS_TABSTOP), 20, 148, 170, 30, hwnd, idBtnKeyboard)
 
     // ── About section ──
-    _ = makeControl("STATIC", "", 0x0010 /* SS_ETCHEDHORZ */, 20, 160, 342, 1, hwnd, 0)
-    _ = makeControl("STATIC", "reLayout  ·  version \(appVersion)", 0, 20, 172, 342, 20, hwnd, 0)
-    _ = makeControl("STATIC", "Retype selection in the correct keyboard layout", 0, 20, 192, 342, 20, hwnd, 0)
-    _ = makeControl("STATIC", "© 2026 Volodymyr Forfutdinov", 0, 20, 212, 342, 20, hwnd, 0)
+    _ = makeControl("STATIC", "", 0x0010 /* SS_ETCHEDHORZ */, 20, 192, 342, 1, hwnd, 0)
+    _ = makeControl("STATIC", "reLayout  ·  version \(appVersion)", 0, 20, 204, 342, 20, hwnd, 0)
+    _ = makeControl("STATIC", "Retype selection in the correct keyboard layout", 0, 20, 224, 342, 20, hwnd, 0)
+    _ = makeControl("STATIC", "© 2026 Volodymyr Forfutdinov", 0, 20, 244, 342, 20, hwnd, 0)
     _ = makeControl("SysLink", "<a>github.com/\(repoSlug)</a>",
-                    Int32(WS_TABSTOP), 20, 234, 342, 22, hwnd, idLnkAbout)
+                    Int32(WS_TABSTOP), 20, 266, 342, 22, hwnd, idLnkAbout)
 
     _ = makeControl("BUTTON", "Close",
-                    Int32(WS_TABSTOP), 262, 266, 100, 30, hwnd, idBtnClose)
+                    Int32(WS_TABSTOP), 262, 298, 100, 30, hwnd, idBtnClose)
 }
 
 private func sizeAndCenter(_ hwnd: HWND?) {
@@ -101,7 +108,7 @@ private func sizeAndCenter(_ hwnd: HWND?) {
     let ncw = (wr.right - wr.left) - (cr.right - cr.left)
     let nch = (wr.bottom - wr.top) - (cr.bottom - cr.top)
     let w = sc(380) + ncw
-    let h = sc(310) + nch
+    let h = sc(342) + nch
     var mi = MONITORINFO(); mi.cbSize = DWORD(MemoryLayout<MONITORINFO>.size)
     GetMonitorInfoW(MonitorFromWindow(hwnd, DWORD(MONITOR_DEFAULTTONEAREST)), &mi)
     let x = mi.rcWork.left + ((mi.rcWork.right - mi.rcWork.left) - w) / 2
@@ -130,6 +137,10 @@ private func settingsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lPa
             let checked = SendMessageW(GetDlgItem(hwnd, Int32(idChkStartup)), UINT(BM_GETCHECK), 0, 0)
             setStartup(checked == LRESULT(BST_CHECKED))
             refreshSettingsStartup()   // shows a failed registry write as unchecked
+        case idChkAuto:
+            let checked = SendMessageW(GetDlgItem(hwnd, Int32(idChkAuto)), UINT(BM_GETCHECK), 0, 0)
+            saveAutoMode(checked == LRESULT(BST_CHECKED))
+            reloadAutoMode()
         case idChkDouble:
             let checked = SendMessageW(GetDlgItem(hwnd, Int32(idChkDouble)), UINT(BM_GETCHECK), 0, 0)
             saveDoubleTap(checked == LRESULT(BST_CHECKED))

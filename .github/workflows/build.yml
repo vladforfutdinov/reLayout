@@ -269,6 +269,11 @@ jobs:
           if (-not $rt) { throw 'swiftCore.dll not found on PATH — cannot bundle runtime' }
           Copy-Item (Join-Path $rt '*.dll') $payload
 
+          # Trigram models for the auto-correct mode, read from trigram/<lang>.txt
+          # next to the exe (the macOS app reads them from its bundle).
+          New-Item -ItemType Directory -Force -Path "$payload/trigram" | Out-Null
+          Copy-Item Resources/trigram/*.txt "$payload/trigram"
+
           # The Swift runtime links the MSVC CRT, which a clean Windows lacks:
           # bundle it app-locally from the VS redist folder for this arch.
           $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"

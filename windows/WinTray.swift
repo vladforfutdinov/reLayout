@@ -39,6 +39,13 @@ private func exePath() -> String {
 
 private var runValue: String { "\"\(exePath())\"" }
 
+/// Folder holding the exe — where the shipped resources (trigram models) live.
+func exeDirectory() -> String {
+    let path = exePath()
+    guard let i = path.lastIndex(of: "\\") else { return "." }
+    return String(path[..<i])
+}
+
 /// False for the portable build: it runs from a temp folder that is deleted on
 /// exit, so a Run entry would point at nothing. CI puts a `portable` marker
 /// file next to the exe inside the self-extracting archive.
@@ -150,6 +157,8 @@ private func trayWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lParam:
     case trayCallback:
         let ev = UINT(truncatingIfNeeded: lParam) & 0xFFFF
         if ev == UINT(WM_RBUTTONUP) || ev == UINT(WM_LBUTTONUP) { showTrayMenu(hwnd) }
+    case WM_AUTOFIX:
+        runAutoFix()
     case UINT(WM_COMMAND):
         handleCommand(UINT(truncatingIfNeeded: wParam) & 0xFFFF)
     case UINT(WM_DESTROY):

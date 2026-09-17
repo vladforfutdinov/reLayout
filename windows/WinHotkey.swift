@@ -140,6 +140,11 @@ private let llProc: HOOKPROC = { nCode, wParam, lParam in
                 return CallNextHookEx(nil, nCode, wParam, lParam)
             }
             if handleDetect(vk, down: down, up: up) { return 1 }
+            // Auto mode watches the same keys: it corrects what it saw typed.
+            if down, autoFeed(vk: vk, scan: WORD(truncatingIfNeeded: info.scanCode),
+                              modifiers: currentMods() & ~4 /* Shift types, it doesn't command */ != 0) {
+                return 1
+            }
         }
     }
     return CallNextHookEx(nil, nCode, wParam, lParam)

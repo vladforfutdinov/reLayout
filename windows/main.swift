@@ -79,6 +79,8 @@ if !installHotkeyHook() {
     }
     ExitProcess(1)
 }
+reloadAutoMode()
+installAutoMouseHook()   // a click moves the caret: the typed-word buffer resets
 _ = setupTray()
 
 var msg = MSG()
@@ -91,4 +93,6 @@ while GetMessageW(&msg, nil, 0, 0) {
 }
 
 removeTray()
+unreloadAutoMode()
+installAutoMouseHook()
 uninstallHotkeyHook()

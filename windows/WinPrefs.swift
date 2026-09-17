@@ -8,6 +8,7 @@ private let prefsSubKey   = "Software\\reLayout"
 private let keyHotkeyMods = "HotkeyMods"
 private let keyHotkeyVK   = "HotkeyVK"
 private let keyDoubleTap  = "DoubleTap"
+private let keyAutoMode   = "AutoCorrect"
 
 private let kKeyQuery: REGSAM = 0x0001   // KEY_QUERY_VALUE
 private let kKeySet:   REGSAM = 0x0002   // KEY_SET_VALUE
@@ -71,6 +72,16 @@ func saveHotkey(mods: UINT, vk: UINT) {
 // "Trigger on double-tap": fire only when the hotkey is pressed twice quickly.
 func loadDoubleTap() -> Bool {
     (withPrefsKey(write: false) { readDword($0, keyDoubleTap) } ?? 0) != 0
+}
+
+func loadAutoMode() -> Bool {
+    (withPrefsKey(write: false) { readDword($0, keyAutoMode) } ?? 0) != 0
+}
+
+func saveAutoMode(_ on: Bool) {
+    _ = withPrefsKey(write: true) { key -> Bool in
+        writeDword(key, keyAutoMode, on ? 1 : 0); return true
+    }
 }
 
 func saveDoubleTap(_ on: Bool) {

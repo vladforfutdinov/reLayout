@@ -7,7 +7,7 @@ import ReLayoutCore
 //
 // mods encoding (must match between any two layouts being converted):
 //   0 = none, 1 = Shift, 2 = AltGr (Ctrl+Alt), 3 = Shift+AltGr
-final class WinLayout: LayoutMaps {
+final class WinLayout: AutoLayout {
     let hkl: HKL
     let id: String
     private(set) var charToStroke: [String: KeyStroke] = [:]
@@ -21,12 +21,21 @@ final class WinLayout: LayoutMaps {
         build()
     }
 
+    /// BCP-47 language of this layout ("ru", "uk", "en"), for the trigram model.
+    var languageCode: String? { localeName().map { String($0.prefix(2)) } }
+
+    private func localeName() -> String? {
+        let lcid = DWORD(UInt(bitPattern: hkl) & 0xFFFF)
+        var loc = [WCHAR](repeating: 0, count: 85)   // LOCALE_NAME_MAX_LENGTH
+        let n = LCIDToLocaleName(lcid, &loc, Int32(loc.count), 0)
+        guard n > 1 else { return nil }
+        return String(decoding: loc.prefix(Int(n - 1)), as: UTF16.self)
+    }
+
     /// Human-readable language name for this layout (e.g. "Ukrainian", "English"),
     /// derived from the LANGID. Falls back to the hex id if lookup fails.
     var displayName: String {
-        let lcid = DWORD(UInt(bitPattern: hkl) & 0xFFFF)
-        var loc = [WCHAR](repeating: 0, count: 85)   // LOCALE_NAME_MAX_LENGTH
-        guard LCIDToLocaleName(lcid, &loc, Int32(loc.count), 0) > 0 else { return id }
+        guard var loc = localeName().map({ Array($0.utf16) + [0] }) else { return id }
         var disp = [WCHAR](repeating: 0, count: 128)
         let m = GetLocaleInfoEx(&loc, DWORD(0x6f /* LOCALE_SLOCALIZEDLANGUAGENAME */), &disp, Int32(disp.count))
         return m > 1 ? String(decoding: disp.prefix(Int(m - 1)), as: UTF16.self) : id
@@ -41,6 +50,12 @@ final class WinLayout: LayoutMaps {
         let l = WinLayout(hkl)
         cache[key] = l
         return l
+    }
+
+    /// True when layouts of both scripts are installed — auto mode needs the pair.
+    static func crossScriptAvailable() -> Bool {
+        let all = installedList()
+        return all.contains { $0.isCyrillic } && all.contains { !$0.isCyrillic }
     }
 
     /// All installed keyboard layouts, in system order.

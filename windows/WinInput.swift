@@ -66,6 +66,19 @@ func sendUnicode(_ s: String) -> Bool {
     return inputs.isEmpty || send(inputs)
 }
 
+/// Presses Backspace `count` times, in one batch.
+func sendBackspaces(_ count: Int) {
+    guard count > 0 else { return }
+    var inputs: [INPUT] = []
+    for _ in 0..<count { inputs += [vkEvent(VK_BACK), vkEvent(VK_BACK, up: true)] }
+    send(inputs)
+}
+
+/// Presses one key, as the app expects it (Space/Tab act on the key, not on text).
+func sendKeyTap(_ vk: Int32) {
+    send([vkEvent(vk), vkEvent(vk, up: true)])
+}
+
 private let maskKey = [keyEvent(vk: 0xE8, scan: 0, flags: 0), keyEvent(vk: 0xE8, scan: 0, flags: DWORD(KEYEVENTF_KEYUP))]
 
 /// Unassigned VK tapped while Alt/Win is held, so their release neither opens the

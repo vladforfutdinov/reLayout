@@ -1162,14 +1162,14 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         }
         let sep1 = sep(), sep2 = sep(), sep3 = sep()
 
-        // Section A: login + auto-update + language. Section B: auto-correct + hotkey.
+        // Section A: login + auto-update + language. Section B: hotkey. Section C: auto-correct.
         var arranged: [NSView] = [logo, name, sep1, cb]
 #if SPARKLE
         let autoUpdateCb = makeCheckbox(L("settings.autoUpdate"), #selector(toggleAutoUpdate(_:)),
                                         on: updater?.updater.automaticallyChecksForUpdates ?? true)
         arranged.append(autoUpdateCb)
 #endif
-        arranged += [langGrid, sep2, autoRow, enterRow, hkGrid, sep3, version, link, copyright]
+        arranged += [langGrid, sep2, hkGrid, sep3, autoRow, enterRow, version, link, copyright]
 
         let stack = NSStackView(views: arranged)
         stack.orientation = .vertical
@@ -1182,6 +1182,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         stack.setCustomSpacing(14, after: sep2)
         stack.setCustomSpacing(14, after: hkGrid)     // before sep3
         stack.setCustomSpacing(14, after: sep3)
+        stack.setCustomSpacing(20, after: enterRow)   // footer
         content.addSubview(stack)
         NSLayoutConstraint.activate([
             // No fixed width: the stack is pinned on both sides, so the content (and

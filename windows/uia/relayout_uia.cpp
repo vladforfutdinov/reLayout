@@ -3,6 +3,8 @@
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <objbase.h>     // defines `interface`, which uiautomation.h uses
+#include <oleauto.h>     // BSTR
 #include <uiautomation.h>
 #include <string.h>
 

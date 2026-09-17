@@ -6,6 +6,11 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
+## v1.2.27 — Settings row order
+
+Settings now read language → hotkey → auto-correct + "Also fix on Enter", as the
+user laid out from a screenshot of v1.2.26 (`ee73f91`).
+
 ## v1.2.26 — Enter fixes the word when it made a new line
 
 Feature `5c411f7`. The user asked whether an app's handling of Enter (line break

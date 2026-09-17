@@ -20,6 +20,7 @@
 "menu.checkUpdates" = "Rechercher les mises à jour…";
 "settings.autoUpdate" = "Rechercher les mises à jour automatiquement";
 "settings.autoCorrect" = "Corriger la disposition automatiquement";
+"settings.autoCorrectEnter" = "Corriger aussi avec Entrée (nouvelle ligne seulement)";
 "settings.autoCorrectUnavailable" = "La correction automatique nécessite des dispositions d’alphabets différents, par ex. anglais et n’importe quelle cyrillique. Celles d’un même alphabet (%@) ne se distinguent pas de façon fiable : utilisez le raccourci.";
 
 // auto-correct exceptions

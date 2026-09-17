@@ -20,6 +20,7 @@
 "menu.checkUpdates" = "Check for Updates…";
 "settings.autoUpdate" = "Automatically check for updates";
 "settings.autoCorrect" = "Auto-correct wrong layout";
+"settings.autoCorrectEnter" = "Also fix on Enter (new line only)";
 "settings.autoCorrectUnavailable" = "Auto-correct needs keyboard layouts of different scripts, e.g. English and any Cyrillic one. Layouts of one script (%@) can't be told apart reliably — use the hotkey.";
 
 // auto-correct exceptions

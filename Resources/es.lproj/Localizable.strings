@@ -20,6 +20,7 @@
 "menu.checkUpdates" = "Buscar actualizaciones…";
 "settings.autoUpdate" = "Buscar actualizaciones automáticamente";
 "settings.autoCorrect" = "Autocorregir distribución";
+"settings.autoCorrectEnter" = "Corregir también con Intro (solo nueva línea)";
 "settings.autoCorrectUnavailable" = "La autocorrección necesita distribuciones de alfabetos distintos, p. ej., inglés y cualquier cirílica. Las de un mismo alfabeto (%@) no se distinguen con fiabilidad: usa el atajo de teclado.";
 
 // auto-correct exceptions

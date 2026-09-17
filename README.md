@@ -56,7 +56,8 @@ form is the plausible one, including a word split by a mid-word layout switch. A
 a space or Tab, with any punctuation just before it converted along ("ltkfq? " → "делай, ");
 Enter is never delayed: the word is fixed afterwards only if Enter made a new line in a field that
 exposes its text to Accessibility (TextEdit, Notes, Telegram's Shift+Enter …) — a submitted
-launcher query or chat message stays as typed, and browsers/Electron apps keep plain Enter. A
+launcher query or chat message stays as typed, and browsers/Electron apps keep plain Enter
+(*Settings → Also fix on Enter*, on by default). A
 click or a Cmd/Ctrl shortcut drops the unfinished word. **Cross-script
 only** (ru/uk ↔ en), tuned for ≥99% precision — with only same-script layouts enabled
 (e.g. ABC + German) the checkbox is disabled, with the reason behind its ⓘ hint — with a

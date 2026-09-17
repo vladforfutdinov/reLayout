@@ -20,6 +20,7 @@
 "menu.checkUpdates" = "アップデートを確認…";
 "settings.autoUpdate" = "自動的にアップデートを確認";
 "settings.autoCorrect" = "レイアウトを自動修正";
+"settings.autoCorrectEnter" = "Enter でも修正（改行のみ）";
 "settings.autoCorrectUnavailable" = "自動修正には異なる文字体系のレイアウト（例：英語と任意のキリル文字）が必要です。同じ文字体系のレイアウト（%@）は確実に区別できないため、ホットキーを使ってください。";
 
 // auto-correct exceptions

@@ -20,6 +20,7 @@
 "menu.checkUpdates" = "업데이트 확인…";
 "settings.autoUpdate" = "자동으로 업데이트 확인";
 "settings.autoCorrect" = "잘못된 레이아웃 자동 교정";
+"settings.autoCorrectEnter" = "Enter에서도 교정 (줄 바꿈만)";
 "settings.autoCorrectUnavailable" = "자동 교정에는 문자 체계가 다른 레이아웃(예: 영어와 아무 키릴 문자)이 필요합니다. 같은 문자 체계의 레이아웃(%@)은 확실히 구분할 수 없으니 단축키를 사용하세요.";
 
 // auto-correct exceptions

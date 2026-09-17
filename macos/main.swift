@@ -639,6 +639,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     private var excWindow: NSWindow?    // auto-correct exceptions editor
     private weak var autoCb: NSButton?
     private weak var autoExcBtn: NSButton?
+    private weak var autoEnterCb: NSButton?
     private weak var autoInfo: NSImageView?
     private weak var excTable: NSTableView?
     private var lastActiveBundleID: String?   // last non-self frontmost app ("exclude current")
@@ -745,6 +746,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         autoCb?.isEnabled = ok
         autoCb?.state = ok && autoMode ? .on : .off
         autoExcBtn?.isEnabled = ok
+        autoEnterCb?.isEnabled = ok && autoMode
+        autoEnterCb?.state = autoEnterNewline ? .on : .off
         autoInfo?.isHidden = ok
         autoInfo?.toolTip = String(format: L("settings.autoCorrectUnavailable"),
                                    enabled.map(\.name).joined(separator: ", "))
@@ -752,6 +755,11 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
 
     @objc private func toggleAutoCorrect(_ sender: NSButton) {
         autoMode = (sender.state == .on)   // setter starts/stops the monitor
+        updateAutoAvailability()
+    }
+
+    @objc private func toggleAutoEnter(_ sender: NSButton) {
+        UserDefaults.standard.set(sender.state == .on, forKey: "autoEnterNewline")
     }
 
 #if SPARKLE
@@ -1103,7 +1111,10 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         label.orientation = .horizontal; label.spacing = 4; label.alignment = .centerY
         let autoRow = NSStackView(views: [label, excBtn])
         autoRow.orientation = .horizontal; autoRow.spacing = 12; autoRow.alignment = .centerY
-        self.autoCb = autoCb; autoExcBtn = excBtn; autoInfo = autoInfoIcon
+        let enterCb = makeCheckbox(L("settings.autoCorrectEnter"), #selector(toggleAutoEnter(_:)), on: autoEnterNewline)
+        let enterRow = NSStackView(views: [enterCb])
+        enterRow.edgeInsets = NSEdgeInsets(top: 0, left: 20, bottom: 0, right: 0)   // sub-option of auto-correct
+        self.autoCb = autoCb; autoExcBtn = excBtn; autoInfo = autoInfoIcon; autoEnterCb = enterCb
         updateAutoAvailability()
 
         // ── header: logo + name ──
@@ -1158,7 +1169,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
                                         on: updater?.updater.automaticallyChecksForUpdates ?? true)
         arranged.append(autoUpdateCb)
 #endif
-        arranged += [langGrid, sep2, autoRow, hkGrid, sep3, version, link, copyright]
+        arranged += [langGrid, sep2, autoRow, enterRow, hkGrid, sep3, version, link, copyright]
 
         let stack = NSStackView(views: arranged)
         stack.orientation = .vertical
@@ -1796,7 +1807,6 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         return false
     }
 
-    // Opt-out without a rebuild: defaults write <bundle-id> autoEnterNewline -bool false
     private var autoEnterNewline: Bool { UserDefaults.standard.object(forKey: "autoEnterNewline") as? Bool ?? true }
 
     // Main thread, from the tap, before the Return reaches the app. Only a long word

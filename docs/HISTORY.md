@@ -6,6 +6,30 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
+## v1.2.26 — Enter fixes the word when it made a new line
+
+Feature `5c411f7`. The user asked whether an app's handling of Enter (line break
+vs submit) can be told apart, after v1.2.24 stopped correcting on Enter.
+
+- Not before the key: `AXTextField` never breaks lines, but chat inputs are
+  `AXTextArea` too. After the key it can: a probe (`axprobe`, scratch) polling the
+  focused element showed, for TextEdit, Notes and Telegram, count +1 / caret +1 /
+  `"\n"` before the caret on a line break and an emptied field on a Telegram send.
+  Vivaldi and VS Code answer `AXFocusedUIElement` with -25212 (Chromium/Electron
+  expose no tree unless `AXManualAccessibility` is set — not done). The system
+  capitalizes the word ~50 ms after the break appears (`test\n` -> `Test\n`), so
+  the read must settle and the word compare is case-insensitive.
+- Probe mishaps, both mine: stdout buffering lost the user's first run;
+  `NSWorkspace.frontmostApplication` does not update without a run loop, which
+  lost the second.
+- Engine `enterOutcome(before:after:word:)` + `FieldSnapshot`, 15 table tests; any
+  mismatch is `.unknown` = leave the text. macOS: `autoEnterFollowUp` reads the
+  field before Return, `finishEnter` polls under the gate (25 ms, 3 equal reads,
+  0.5 s cap), then deletes break + word and retypes fix + real Return. Held
+  Returns are not followed up (their "before" read would race the replayed key).
+  Opt-out `autoEnterNewline`. Verified live by the user: TextEdit, Telegram
+  (Shift+Enter fixed, two sends untouched), a Notes list item, Raycast unchanged.
+
 ## v1.2.25 — trailing layout-mapped char converts; auto-correct off for one-script layouts
 
 Fix `39c23f0`, settings `41b5fd1`, tests `1d43a8d`. User reports:

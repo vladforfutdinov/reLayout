@@ -40,9 +40,13 @@ An audit of the frozen Windows port (written by an older model) found 15 bugs an
   one-line field submits it. A bare Alt/Win tap hotkey replays its swallowed
   release behind mask key 0xE8. Layout read and switch go through the focused
   window (`GetGUIThreadInfo`, for UWP). `keyName` sets the extended bit right.
+- Batch 5: the user's clipboard is saved before the Ctrl+C read and restored
+  after it (memory-backed formats only, up to 64 MB; the tray window owns the
+  restore; tagged `ExcludeClipboardContentFromMonitorProcessing` to stay out of
+  Win+V history).
 - Batches 1–3 built green on x64 and arm64 (runs 35251878493, 35253746849,
   35254652193); not tested by hand yet.
-- Open: clipboard restore, `WM_DPICHANGED`, keyboard navigation in Settings,
+- Open: `WM_DPICHANGED`, keyboard navigation in Settings,
   tray icon DPI, Authenticode signing; UI Automation read, caret-word narrowing,
   auto-correct, localization.
 

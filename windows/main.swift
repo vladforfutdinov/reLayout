@@ -27,6 +27,13 @@ func performRetype() {
     guard !foregroundIsConsole(), let cur = WinLayout.current() else { return }
     guard waitModifiersReleased() else { return }
 
+    // The read below goes through the clipboard; put the user's copy back after.
+    let saved = saveClipboard()
+    let seq = GetClipboardSequenceNumber()
+    defer {
+        if let saved, GetClipboardSequenceNumber() != seq { restoreClipboard(saved, owner: trayWindow()) }
+    }
+
     // Nothing selected: grab the line up to the caret (Shift+Home) so the hotkey
     // still converts what was just typed.
     var sel = readSelection()

@@ -15,6 +15,9 @@ private let menuQuit:     UINT = 3
 let aboutURL = "https://github.com/\(repoSlug)"
 
 private var trayHwnd: HWND?
+
+/// The app's hidden window; owns the clipboard when it is restored.
+func trayWindow() -> HWND? { trayHwnd }
 private var nid = NOTIFYICONDATAW()
 private var classNameW = Array("ReLayoutTrayWnd".utf16) + [0]
 

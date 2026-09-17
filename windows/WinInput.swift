@@ -109,17 +109,80 @@ func foregroundIsConsole() -> Bool {
     return ["ConsoleWindowClass", "CASCADIA_HOSTING_WINDOW_CLASS", "VirtualConsoleClass", "mintty"].contains(cls)
 }
 
-private func clipboardText() -> String {
-    var opened = false
-    for _ in 0..<10 {   // the copying app may still hold the clipboard
-        if OpenClipboard(nil) { opened = true; break }
+private func openClipboardRetrying(owner: HWND? = nil) -> Bool {
+    for _ in 0..<10 {   // another app (the one that just copied) may still hold it
+        if OpenClipboard(owner) { return true }
         pumpWait(20)
     }
-    guard opened else { return "" }
+    return false
+}
+
+private func clipboardText() -> String {
+    guard openClipboardRetrying() else { return "" }
     defer { CloseClipboard() }
     guard let h = GetClipboardData(UINT(CF_UNICODETEXT)), let p = GlobalLock(h) else { return "" }
     defer { GlobalUnlock(h) }
     return String(decodingCString: p.assumingMemoryBound(to: WCHAR.self), as: UTF16.self)
+}
+
+/// The user's clipboard, saved before the Ctrl+C read and put back after it.
+struct ClipboardSnapshot {
+    fileprivate var items: [(format: UINT, data: [UInt8])] = []
+}
+
+// Handles that are not HGLOBAL memory: CF_BITMAP, CF_METAFILEPICT, CF_PALETTE,
+// CF_ENHMETAFILE, owner-display/DSP formats, and the private/GDI-object ranges.
+// CF_DIB stays, and Windows synthesizes CF_BITMAP from it.
+private func isMemoryFormat(_ f: UINT) -> Bool {
+    ![2, 3, 9, 14, 0x80, 0x82, 0x83, 0x8E].contains(f) && !(0x200...0x3FF).contains(f)
+}
+
+private let snapshotLimit = 64 << 20
+
+/// Copies every memory-backed clipboard format.
+/// - Returns: nil if the clipboard can't be opened or holds more than 64 MB;
+///   the caller then leaves the clipboard as the Ctrl+C read left it.
+func saveClipboard() -> ClipboardSnapshot? {
+    guard openClipboardRetrying() else { return nil }
+    defer { CloseClipboard() }
+    var snap = ClipboardSnapshot()
+    var total = 0
+    var fmt = EnumClipboardFormats(0)
+    while fmt != 0 {
+        if isMemoryFormat(fmt), let h = GetClipboardData(fmt) {
+            let size = Int(GlobalSize(h))
+            total += size
+            guard total <= snapshotLimit else { return nil }
+            if size > 0, let p = GlobalLock(h) {
+                snap.items.append((format: fmt, data: Array(UnsafeRawBufferPointer(start: p, count: size))))
+                GlobalUnlock(h)
+            }
+        }
+        fmt = EnumClipboardFormats(fmt)
+    }
+    return snap
+}
+
+// Keeps the restored copy out of Win+V history and cloud clipboard.
+private let excludeFromHistory = "ExcludeClipboardContentFromMonitorProcessing"
+    .withCString(encodedAs: UTF16.self) { RegisterClipboardFormatW($0) }
+
+/// Puts a snapshot back. `owner` must be a window: with a nil owner,
+/// `SetClipboardData` fails after `EmptyClipboard`.
+func restoreClipboard(_ snap: ClipboardSnapshot, owner: HWND?) {
+    guard let owner, openClipboardRetrying(owner: owner) else { return }
+    defer { CloseClipboard() }
+    EmptyClipboard()
+    for item in snap.items { setClipboardBytes(item.format, item.data) }
+    setClipboardBytes(excludeFromHistory, [0])
+}
+
+private func setClipboardBytes(_ fmt: UINT, _ bytes: [UInt8]) {
+    guard fmt != 0, !bytes.isEmpty, let h = GlobalAlloc(UINT(GMEM_MOVEABLE), SIZE_T(bytes.count)) else { return }
+    guard let p = GlobalLock(h) else { _ = GlobalFree(h); return }
+    bytes.withUnsafeBytes { p.copyMemory(from: $0.baseAddress!, byteCount: $0.count) }
+    GlobalUnlock(h)
+    if SetClipboardData(fmt, h) == nil { _ = GlobalFree(h) }   // on success the system owns it
 }
 
 /// Reads the selection via Ctrl+C.

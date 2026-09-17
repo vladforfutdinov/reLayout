@@ -285,7 +285,7 @@ jobs:
           $arch    = '${{ matrix.arch }}'
           $payload = "dist/payload-$arch"
 
-          # The installer-style SFX stub (7zS.sfx, from 7-Zip Extra) reads a leading
+          # The installer-style SFX stub (7zSD.sfx, from the LZMA SDK) reads a leading
           # config block and runs a program after extracting to a temp dir; the
           # plain 7z.sfx ignores that block. Concatenate:
           #   stub + config + archive  ->  one self-running .exe
@@ -295,16 +295,17 @@ jobs:
           if (-not $sevenZip) { choco install 7zip -y --no-progress | Out-Null
             $sevenZip = Get-ChildItem 'C:\Program Files\7-Zip\7z.exe' -ErrorAction SilentlyContinue | Select-Object -First 1 }
           if (-not $sevenZip) { throw '7z.exe not found' }
-          $extra = "dist/7z-extra.7z"
-          Invoke-WebRequest 'https://github.com/ip7z/7zip/releases/download/26.03/7z2603-extra.7z' -OutFile $extra
-          $hash = (Get-FileHash $extra -Algorithm SHA256).Hash
-          if ($hash -ne '191894E6ACB3647FFB69CE630479FF318523B2E2B9890AA7F05C1127C2E59B8F') { throw "7z extra hash mismatch: $hash" }
-          & $sevenZip.FullName x $extra -odist/7z-extra -y | Out-Null
-          # Root stubs are x86 (run on arm64 too). Either one honors the config block.
-          $sfx = @('7zS.sfx', '7zSD.sfx') | ForEach-Object { "dist/7z-extra/$_" } |
-                 Where-Object { Test-Path $_ } | Select-Object -First 1
-          if (-not $sfx) { Get-ChildItem -Recurse dist/7z-extra | Write-Host; throw 'no installer SFX stub in 7-Zip Extra' }
-          $sfx = (Resolve-Path $sfx).Path
+          $sdk = "dist/lzma-sdk.7z"
+          Invoke-WebRequest 'https://github.com/ip7z/7zip/releases/download/26.03/lzma2603.7z' -OutFile $sdk
+          $hash = (Get-FileHash $sdk -Algorithm SHA256).Hash
+          if ($hash -ne '86C213F752520AB5325C310F50BEF63EC344B56DD1C80B0246D06DC6CEC953B2') { throw "LZMA SDK hash mismatch: $hash" }
+          & $sevenZip.FullName x $sdk -odist/lzma-sdk -y | Out-Null
+          # The shallowest stub is the x86 one, which also runs on arm64.
+          $sfx = Get-ChildItem -Recurse dist/lzma-sdk -Include 7zSD.sfx, 7zS.sfx |
+                 Sort-Object { $_.FullName.Length } | Select-Object -First 1
+          if (-not $sfx) { Get-ChildItem -Recurse dist/lzma-sdk -Filter *.sfx | Write-Host; throw 'no installer SFX stub in the LZMA SDK' }
+          Write-Host "SFX stub: $($sfx.FullName)"
+          $sfx = $sfx.FullName
 
           $arc = "dist/payload-$arch.7z"
           if (Test-Path $arc) { Remove-Item $arc }

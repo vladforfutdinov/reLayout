@@ -153,7 +153,7 @@ private func settingsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lPa
         cancelHotkeyCapture()       // don't leave a capture targeting a dead window
         settingsHwnd = nil          // NB: do NOT PostQuitMessage — only this window closes
     case UINT(WM_NCDESTROY):        // children are gone, the font is free
-        if let f = uiFont { DeleteObject(unsafeBitCast(f, to: HGDIOBJ.self)); uiFont = nil }
+        if let f = uiFont { DeleteObject(UnsafeMutableRawPointer(f)); uiFont = nil }
     default:
         break
     }

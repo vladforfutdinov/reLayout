@@ -27,7 +27,7 @@ vs submit) can be told apart, after v1.2.24 stopped correcting on Enter.
   field before Return, `finishEnter` polls under the gate (25 ms, 3 equal reads,
   0.5 s cap), then deletes break + word and retypes fix + real Return. Held
   Returns are not followed up (their "before" read would race the replayed key).
-  Opt-out `autoEnterNewline`. Verified live by the user: TextEdit, Telegram
+  Settings sub-option "Also fix on Enter" (`autoEnterNewline`, default on). Verified live by the user: TextEdit, Telegram
   (Shift+Enter fixed, two sends untouched), a Notes list item, Raycast unchanged.
 
 ## v1.2.25 — trailing layout-mapped char converts; auto-correct off for one-script layouts

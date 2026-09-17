@@ -21,3 +21,6 @@ scripts/identity.env
 # SwiftPM
 .build/
 docs/SNAPSHOT.md
+
+# per-clone state of the global post-commit history-drift hook
+.claude/.last-history-drift-head

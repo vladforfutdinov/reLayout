@@ -104,7 +104,8 @@ let defaultExcludedApps = [
 ]
 
 func loadExcludedApps() -> [String] {
-    guard let stored = withPrefsKey(write: false) { readString($0, keyExcluded) } else { return defaultExcludedApps }
+    let stored = withPrefsKey(write: false, { readString($0, keyExcluded) })
+    guard let stored else { return defaultExcludedApps }
     return stored.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces).lowercased() }
                  .filter { !$0.isEmpty }
 }

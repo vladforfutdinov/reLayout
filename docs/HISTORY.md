@@ -44,6 +44,18 @@ An audit of the frozen Windows port (written by an older model) found 15 bugs an
   after it (memory-backed formats only, up to 64 MB; the tray window owns the
   restore; tagged `ExcludeClipboardContentFromMonitorProcessing` to stay out of
   Win+V history).
+- The rule is now both platforms': macOS lost both Shift+Cmd+Left line grabs, the
+  `lineGrab` branch of `convert()` and the Cmd+X read that existed only for them
+  (`6317f9d`). A shipped behavior is gone with it: after typing a word, the hotkey
+  no longer fixes it unless it is selected — that case returns with the auto mode
+  and its typed-word buffer, whose agreed rules are: on by option only, fires on
+  space/Enter/Tab, resets after firing and on arrows, a mouse click or a focus
+  change. Modifier combos still to decide.
+- UIA needed `objbase.h` before `uiautomation.h`: `WIN32_LEAN_AND_MEAN` keeps it
+  out of `windows.h`, and the `interface` keyword was undefined (`0af53e4`).
+  Green on x64 and arm64 (run 35277002142).
+- Nothing here is hand-tested yet; only the macOS engine tests (54) run, and they
+  cover neither `convert()` nor the read paths.
 - Batch 6 — the hotkey acts only on what the user pointed at. Selection is read
   through UI Automation (`windows/uia/relayout_uia.cpp`, one C++ target because
   Swift has no COM), the clipboard only when a control exposes no UIA text. The

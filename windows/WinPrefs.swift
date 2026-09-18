@@ -129,6 +129,11 @@ func saveLanguage(_ code: String?) {
     }
 }
 
+/// Troubleshooting log (WinDebug.swift); set by hand in the registry, never by the app.
+func loadDebugLog() -> Bool {
+    (withPrefsKey(write: false) { readDword($0, "DebugLog") } ?? 0) != 0
+}
+
 func loadDoubleTap() -> Bool {
     (withPrefsKey(write: false) { readDword($0, keyDoubleTap) } ?? 0) != 0
 }

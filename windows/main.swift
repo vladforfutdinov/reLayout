@@ -44,6 +44,7 @@ func triggerHotkey() {
 }
 
 func performRetype() {
+    dwatch("hotkey")
     // Press-again undo. Off in double-tap mode, where a second press is the trigger.
     if !loadDoubleTap(), let last = lastConversion, GetTickCount() &- last.time < undoWindowMs {
         lastConversion = nil
@@ -109,6 +110,7 @@ let alreadyRunning = "Local\\reLayout".withCString(encodedAs: UTF16.self) { name
 if alreadyRunning { ExitProcess(0) }
 
 WinLoc.load()
+dlogStartup()
 
 // Global hotkey via a low-level keyboard hook (see WinHotkey.swift) so a bare
 // modifier (e.g. Left Shift) can be a hotkey, which RegisterHotKey can't do.

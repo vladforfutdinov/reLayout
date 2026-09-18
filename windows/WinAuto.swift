@@ -228,6 +228,7 @@ func runAutoEnter() {
     defer { finishFix() }
     guard let job = enterJob else { return }
     enterJob = nil
+    dwatch("enter fix")
     guard let after = awaitSettledField(before: job.before, read: readFieldSnapshot,
                                         wait: { pumpWait(DWORD($0)) }),
           enterOutcome(before: job.before, after: after, word: job.word) == .newline else { return }
@@ -244,6 +245,7 @@ func runAutoFix() {
     defer { finishFix() }
     guard let job = queued else { return }
     queued = nil
+    dwatch("auto fix erase=\(job.fix.erase) len=\(job.fix.text.count)")
     sendBackspaces(job.fix.erase)
     guard sendUnicode(job.fix.text) else { return }
     sendKeyTap(job.boundary, shift: job.shift)

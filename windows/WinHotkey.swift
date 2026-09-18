@@ -128,6 +128,7 @@ private func handleCapture(_ vk: UINT, down: Bool, up: Bool) {
 private let llProc: HOOKPROC = { nCode, wParam, lParam in
     if nCode == 0 /* HC_ACTION */, let p = UnsafeRawPointer(bitPattern: Int(lParam)) {
         let info = p.assumingMemoryBound(to: KBDLLHOOKSTRUCT.self).pointee
+        dlogHook(vk: info.vkCode, scan: info.scanCode, flags: info.flags, message: UInt(wParam))
         // Ignore our own synthesized input (Ctrl+C / typing) — else it would feed
         // back into detection and loop.
         if (info.flags & 0x10 /* LLKHF_INJECTED */) == 0 {

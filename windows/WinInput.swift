@@ -26,7 +26,11 @@ private func vkEvent(_ vk: Int32, up: Bool = false) -> INPUT {
 private func send(_ inputs: [INPUT]) -> Bool {
     var arr = inputs
     // Fewer events than asked = blocked (UIPI: elevated foreground window).
-    return SendInput(UINT(arr.count), &arr, Int32(MemoryLayout<INPUT>.size)) == UINT(arr.count)
+    let accepted = SendInput(UINT(arr.count), &arr, Int32(MemoryLayout<INPUT>.size))
+    dlog("send \(arr.count) accepted=\(accepted) err=\(accepted == UINT(arr.count) ? 0 : GetLastError()) "
+         + arr.map { "[\(String($0.ki.wVk, radix: 16)) \(String($0.ki.wScan, radix: 16)) \(String($0.ki.dwFlags, radix: 16))]" }
+              .joined(separator: " "))
+    return accepted == UINT(arr.count)
 }
 
 private func tap(_ vk: Int32, with mod: Int32) -> [INPUT] {

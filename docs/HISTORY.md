@@ -56,6 +56,12 @@ An audit of the frozen Windows port (written by an older model) found 15 bugs an
   Green on x64 and arm64 (run 35277002142).
 - Nothing here is hand-tested yet; only the macOS engine tests (54) run, and they
   cover neither `convert()` nor the read paths.
+- Testing in UTM (QEMU, Windows on ARM): an endless "aaaa" after a Ctrl+Alt+R and
+  once after typing with auto-correct off. Suspects: the 0xE8 mask key (now sent
+  only for a lone Alt or Win — with Ctrl held, Alt's release opens no menu), or
+  QEMU dropping a key-up. An opt-in log (`WinDebug.swift`, registry `DebugLog`=1)
+  records every hook event with its injected flag and every SendInput batch to
+  `%TEMP%\relayout-debug.log` to tell which.
 - Windows Settings re-laid out after the macOS window: logo + bold name, launch at
   login, right-aligned gray captions for Language/Hotkey, a hotkey field that records
   on click (a bare-modifier tap waits 350 ms for a second tap: the double tap that

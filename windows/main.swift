@@ -66,9 +66,7 @@ private func retype(_ text: String, cur: WinLayout) {
     let enabled = WinLayout.installedList()
     guard let curIdx = enabled.firstIndex(where: { $0.id == cur.id }),
           let plan = planRetype(text, enabled: enabled, curIdx: curIdx, model: trigram) else { return }
-    guard sendUnicode(plan.out) else { return }
-    pumpWait(20)
-    switchLayout(to: plan.dst)
+    guard typeText(plan.out, in: plan.dst) else { return }   // also leaves dst active
     recordConversion(original: plan.replaced, typed: plan.out, src: plan.src)
 }
 
@@ -77,16 +75,14 @@ private func retype(_ text: String, cur: WinLayout) {
 private func performUndo(_ last: Conversion) {
     guard waitModifiersReleased() else { return }
     selectLeft(last.typed.count)
-    // A Tab boundary goes back as the real key, like it was typed (a line break
-    // already does: sendUnicode turns it into Enter).
+    // The original goes back in its own layout, which also stays active. A Tab
+    // boundary goes back as the real key, like it was typed.
     if last.original.last == "\t" {
-        guard sendUnicode(String(last.original.dropLast())) else { return }
+        guard typeText(String(last.original.dropLast()), in: last.src) else { return }
         sendKeyTap(VK_TAB)
     } else {
-        guard sendUnicode(last.original) else { return }
+        guard typeText(last.original, in: last.src) else { return }
     }
-    pumpWait(20)
-    switchLayout(to: last.src)
 }
 
 /// Fallback for controls without UI Automation text (Electron, old apps): read the

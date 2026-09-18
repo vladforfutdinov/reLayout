@@ -51,23 +51,83 @@ func pumpWait(_ ms: DWORD) {
     }
 }
 
-/// Types `s` as Unicode key events, replacing the active selection. Line breaks
-/// (`\r\n`, `\n`, `\r`) go out as a real Enter: apps act on the key, not on a
-/// VK_PACKET carrying U+000D.
-/// - Returns: false if the input was blocked.
-func sendUnicode(_ s: String) -> Bool {
+/// A key of `layout` pressed or released, with the scan code that layout gives it.
+private func strokeEvent(_ vk: Int32, _ layout: WinLayout, up: Bool = false) -> INPUT {
+    let scan = WORD(truncatingIfNeeded: MapVirtualKeyExW(UINT(vk), 0 /* MAPVK_VK_TO_VSC */, layout.hkl))
+    return keyEvent(vk: WORD(vk), scan: scan, flags: up ? DWORD(KEYEVENTF_KEYUP) : 0)
+}
+
+/// Switches the focused window to `layout` and waits until it took effect there.
+/// - Returns: false when it did not within ~300 ms.
+func activateLayout(_ layout: WinLayout) -> Bool {
+    switchLayout(to: layout)
+    for _ in 0..<30 {
+        if let cur = WinLayout.current(), cur.hkl == layout.hkl { return true }
+        pumpWait(10)
+    }
+    return false
+}
+
+/// Types `s` as real key presses of `layout`, switching the focused window to it
+/// first, in one batch. Unicode events (VK_PACKET) can't be batched: Windows keeps
+/// one pending packet character per thread, so a busy app (Windows 11 Notepad)
+/// reads the same character for several presses. A converted text is made of the
+/// target layout's characters by construction; one the layout lacks, or a switch
+/// that doesn't take, falls back to paced Unicode events.
+func typeText(_ s: String, in layout: WinLayout) -> Bool {
+    guard activateLayout(layout) else { return sendUnicode(s) }
     var inputs: [INPUT] = []
     for ch in s {
         if ch == "\r\n" || ch == "\n" || ch == "\r" {
             inputs += [vkEvent(VK_RETURN), vkEvent(VK_RETURN, up: true)]
             continue
         }
-        for u in String(ch).utf16 {
-            inputs.append(keyEvent(vk: 0, scan: u, flags: DWORD(KEYEVENTF_UNICODE)))
-            inputs.append(keyEvent(vk: 0, scan: u, flags: DWORD(KEYEVENTF_UNICODE) | DWORD(KEYEVENTF_KEYUP)))
+        guard let stroke = layout.charToStroke[String(ch)] else {
+            guard inputs.isEmpty || send(inputs) else { return false }
+            inputs = []
+            guard sendUnicode(String(ch)) else { return false }
+            continue
         }
+        // mods: 1 = Shift, 2 = AltGr (Ctrl+Alt), 3 = both — see WinLayout.
+        let shift = stroke.mods & 1 != 0, altGr = stroke.mods & 2 != 0
+        let key = Int32(stroke.keyCode)
+        if altGr { inputs += [strokeEvent(VK_CONTROL, layout), strokeEvent(VK_MENU, layout)] }
+        if shift { inputs.append(strokeEvent(VK_SHIFT, layout)) }
+        inputs += [strokeEvent(key, layout), strokeEvent(key, layout, up: true)]
+        if shift { inputs.append(strokeEvent(VK_SHIFT, layout, up: true)) }
+        if altGr { inputs += [strokeEvent(VK_MENU, layout, up: true), strokeEvent(VK_CONTROL, layout, up: true)] }
     }
     return inputs.isEmpty || send(inputs)
+}
+
+/// Types `s` as Unicode key events, replacing the active selection. Line breaks
+/// (`\r\n`, `\n`, `\r`), spaces and tabs go out as real keys: apps act on the key,
+/// not on a VK_PACKET carrying the character.
+/// - Returns: false if the input was blocked.
+func sendUnicode(_ s: String) -> Bool {
+    // One character per SendInput call with a short pause, like the macOS app's
+    // typeUnicode: Windows 11 Notepad, fed a whole text in one batch — or in back-to-
+    // back calls — repeated one character for everything after the first space.
+    // The pause needs a 1 ms timer: at the default 15.6 ms it types slower than a hand.
+    timeBeginPeriod(1)
+    defer { timeEndPeriod(1) }
+    for ch in s {
+        var inputs: [INPUT] = []
+        if ch == "\r\n" || ch == "\n" || ch == "\r" {
+            inputs = [vkEvent(VK_RETURN), vkEvent(VK_RETURN, up: true)]
+        } else if ch == " " || ch == "\t" {
+            let vk = ch == " " ? VK_SPACE : VK_TAB
+            inputs = [vkEvent(vk), vkEvent(vk, up: true)]
+        } else {
+            for u in String(ch).utf16 {
+                inputs.append(keyEvent(vk: 0, scan: u, flags: DWORD(KEYEVENTF_UNICODE)))
+                inputs.append(keyEvent(vk: 0, scan: u, flags: DWORD(KEYEVENTF_UNICODE) | DWORD(KEYEVENTF_KEYUP)))
+            }
+        }
+        guard send(inputs) else { return false }
+        pumpWait(1)
+    }
+    return true
 }
 
 /// Selects the `count` characters left of the caret (Shift+Left), so typing

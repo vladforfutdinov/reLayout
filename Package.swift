@@ -36,7 +36,8 @@ targets.append(
             .linkedLibrary("comctl32"),  // SysLink control in the Settings window
             .linkedLibrary("ole32"),     // UI Automation lives behind COM
             .linkedLibrary("oleaut32"),  // BSTR
-            .linkedLibrary("uuid")       // CLSID_CUIAutomation
+            .linkedLibrary("uuid"),      // CLSID_CUIAutomation
+            .linkedLibrary("winmm")      // timeBeginPeriod: a 1 ms pause between typed characters
         ]
     )
 )

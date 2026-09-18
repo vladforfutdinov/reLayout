@@ -233,9 +233,8 @@ func runAutoEnter() {
                                         wait: { pumpWait(DWORD($0)) }),
           enterOutcome(before: job.before, after: after, word: job.word) == .newline else { return }
     sendBackspaces(job.word.count + 1)   // the word and the line break
-    guard sendUnicode(job.text) else { return }
+    guard typeText(job.text, in: job.target) else { return }   // also leaves target active
     sendKeyTap(Int32(vkReturn))
-    switchLayout(to: job.target)
     recordConversion(original: job.word + "\r", typed: job.text + "\r", src: job.src)
 }
 
@@ -247,9 +246,8 @@ func runAutoFix() {
     queued = nil
     dwatch("auto fix erase=\(job.fix.erase) len=\(job.fix.text.count)")
     sendBackspaces(job.fix.erase)
-    guard sendUnicode(job.fix.text) else { return }
+    guard typeText(job.fix.text, in: job.target) else { return }   // also leaves target active
     sendKeyTap(job.boundary, shift: job.shift)
-    switchLayout(to: job.target)
     let boundary = job.boundary == Int32(vkTab) ? "\t" : " "
     recordConversion(original: job.fix.original + boundary, typed: job.fix.text + boundary, src: job.src)
 }
@@ -277,7 +275,7 @@ private func finishFix() {
         if key.text.isEmpty || key.vk == vkSpace || key.vk == vkTab {
             sendKeyTap(Int32(key.vk), shift: key.shift)   // apps act on these keys, not on their text
         } else {
-            _ = sendUnicode(key.text)
+            if let cur = WinLayout.current() { _ = typeText(key.text, in: cur) } else { _ = sendUnicode(key.text) }
         }
     }
 }

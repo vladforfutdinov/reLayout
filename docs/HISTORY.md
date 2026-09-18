@@ -56,6 +56,19 @@ An audit of the frozen Windows port (written by an older model) found 15 bugs an
   Green on x64 and arm64 (run 35277002142).
 - Nothing here is hand-tested yet; only the macOS engine tests (54) run, and they
   cover neither `convert()` nor the read paths.
+- Typing is real keys now (`typeText`): the focused window is switched to the
+  target layout first (polled until `GetKeyboardLayout` agrees, ≤300 ms), then the
+  text goes out as that layout's key presses (+Shift/AltGr) in one SendInput batch.
+  VK_PACKET could not be batched: Windows keeps one pending packet character per
+  thread, so a busy Windows 11 Notepad read the same character for several
+  presses ("цштвщц оооооо …", "xnjnj" -> "ооото"); pacing only made it rarer and
+  typed slower than a hand. Characters the layout lacks fall back to Unicode events
+  paced at 1 ms (`timeBeginPeriod(1)`, winmm). Line breaks, spaces and tabs are real
+  keys everywhere. Undo types the original the same way in the source layout.
+- The UTM "aaaa" floods came from the reLayout on the Mac host: its auto mode
+  corrected what it saw typed into the UTM window, and UTM forwarded the Unicode
+  events' key code 0 — kVK_ANSI_A — to the guest. Quitting it on the Mac stopped
+  them. VM apps belong in the macOS exclusions (open).
 - Testing in UTM (QEMU, Windows on ARM): an endless "aaaa" after a Ctrl+Alt+R and
   once after typing with auto-correct off. Suspects: the 0xE8 mask key (now sent
   only for a lone Alt or Win — with Ctrl held, Alt's release opens no menu), or

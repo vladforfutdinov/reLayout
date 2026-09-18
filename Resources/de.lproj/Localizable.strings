@@ -30,6 +30,7 @@
 "settings.exc.choose" = "Auswählen…";
 "settings.exc.remove" = "Entfernen";
 "settings.exc.done" = "Fertig";
+"settings.exc.info" = "Terminals, Code-Editoren, virtuelle Maschinen und Remotedesktops stehen von Anfang an in der Liste: Dort tippt man Befehle oder Code, oder ein anderes System mit eigenem Layout empfängt die Tasten – die Autokorrektur würde schaden. Entferne ein Programm, um sie dort einzuschalten.";
 
 // Windows port
 "win.pressKey" = "Taste drücken oder Modifikator antippen…";

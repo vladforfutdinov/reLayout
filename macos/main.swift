@@ -1246,6 +1246,11 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         let title = NSTextField(labelWithString: L("settings.exc.title"))
         title.font = .boldSystemFont(ofSize: 13)
         title.translatesAutoresizingMaskIntoConstraints = false
+        // Why a fresh install already lists apps (terminals, editors, VMs).
+        let info = NSImageView(image: NSImage(systemSymbolName: "info.circle", accessibilityDescription: nil) ?? NSImage())
+        info.contentTintColor = .secondaryLabelColor
+        info.toolTip = L("settings.exc.info")
+        info.translatesAutoresizingMaskIntoConstraints = false
 
         let table = NSTableView()
         table.headerView = nil
@@ -1280,11 +1285,13 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         bar.orientation = .horizontal; bar.spacing = 8; bar.distribution = .fill
         bar.translatesAutoresizingMaskIntoConstraints = false
 
-        content.addSubview(title); content.addSubview(scroll); content.addSubview(bar)
+        content.addSubview(title); content.addSubview(info); content.addSubview(scroll); content.addSubview(bar)
         NSLayoutConstraint.activate([
             content.widthAnchor.constraint(equalToConstant: 380),
             title.topAnchor.constraint(equalTo: content.topAnchor, constant: 16),
             title.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 16),
+            info.leadingAnchor.constraint(equalTo: title.trailingAnchor, constant: 4),
+            info.centerYAnchor.constraint(equalTo: title.centerYAnchor),
             scroll.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 10),
             scroll.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 16),
             scroll.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -16),

@@ -30,6 +30,7 @@
 "settings.exc.choose" = "Wybierz…";
 "settings.exc.remove" = "Usuń";
 "settings.exc.done" = "Gotowe";
+"settings.exc.info" = "Terminale, edytory kodu, maszyny wirtualne i pulpity zdalne są na liście od początku: wpisuje się tam polecenia lub kod albo klawisze trafiają do innego systemu z własnym układem, więc autokorekta by szkodziła. Usuń program z listy, aby ją w nim włączyć.";
 
 // Windows port
 "win.pressKey" = "Naciśnij klawisz lub modyfikator…";

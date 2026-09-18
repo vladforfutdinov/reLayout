@@ -30,6 +30,7 @@
 "settings.exc.choose" = "Choisir…";
 "settings.exc.remove" = "Retirer";
 "settings.exc.done" = "Terminé";
+"settings.exc.info" = "Les terminaux, éditeurs de code, machines virtuelles et bureaux à distance figurent d’emblée dans la liste : on y tape des commandes ou du code, ou un autre système avec sa propre disposition reçoit les touches, et la correction automatique y nuirait. Retirez-en un pour l’y activer.";
 
 // Windows port
 "win.pressKey" = "Appuyez sur une touche ou un modificateur…";

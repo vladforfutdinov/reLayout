@@ -129,43 +129,6 @@ private func textWidth(_ text: String, _ hwnd: HWND?) -> Int32 {
     return size.cx * 96 / uiDpi
 }
 
-/// Shows `text` while the mouse is over `control`. A control that takes the mouse
-/// (a button) is its own tool; a static one is passed as a rectangle of the window,
-/// since the static lets the mouse through to it.
-private func addTooltip(_ parent: HWND?, _ control: HWND?, _ text: String, overWindow: Bool = false) {
-    if tooltip == nil {
-        tooltip = "tooltips_class32".withCString(encodedAs: UTF16.self) { cls in
-            CreateWindowExW(DWORD(WS_EX_TOPMOST), cls, nil,
-                            DWORD(WS_POPUP) | DWORD(0x01 /* TTS_ALWAYSTIP */),
-                            0, 0, 0, 0, parent, nil, GetModuleHandleW(nil), nil)
-        }
-        SendMessageW(tooltip, UINT(0x0418 /* TTM_SETMAXTIPWIDTH */), 0, LPARAM(sc(320)))
-    }
-    guard let tooltip, let control else { return }
-    text.withCString(encodedAs: UTF16.self) { txt in
-        var info = TTTOOLINFOW()
-        info.cbSize = UINT(MemoryLayout<TTTOOLINFOW>.size)
-        info.hwnd = parent
-        if overWindow {
-            info.uFlags = UINT(0x0010 /* TTF_SUBCLASS */)
-            info.uId = UINT_PTR(UInt(bitPattern: Int(GetDlgCtrlID(control))))
-            var r = RECT()
-            GetWindowRect(control, &r)
-            withUnsafeMutablePointer(to: &r) {
-                $0.withMemoryRebound(to: POINT.self, capacity: 2) { _ = MapWindowPoints(nil, parent, $0, 2) }
-            }
-            info.rect = r
-        } else {
-            info.uFlags = UINT(0x0001 /* TTF_IDISHWND */ | 0x0010 /* TTF_SUBCLASS */)
-            info.uId = UINT_PTR(UInt(bitPattern: control))
-        }
-        info.lpszText = UnsafeMutablePointer(mutating: txt)
-        _ = withUnsafeMutablePointer(to: &info) {
-            SendMessageW(tooltip, UINT(0x0432 /* TTM_ADDTOOLW */), 0, LPARAM(Int(bitPattern: $0)))
-        }
-    }
-}
-
 private func setFieldText(_ hwnd: HWND?, _ id: Int, _ s: String) {
     s.withCString(encodedAs: UTF16.self) { _ = SetWindowTextW(GetDlgItem(hwnd, Int32(id)), $0) }
 }
@@ -276,7 +239,7 @@ private func buildControls(_ hwnd: HWND?) {
     let reset = makeControl("BUTTON", "\u{E7A7}" /* Undo glyph */, Int32(WS_TABSTOP),
                             clientWidth - margin - 28, y - 1, 28, 26, hwnd, idBtnReset)
     setFont(reset, glyphFont)
-    addTooltip(hwnd, reset, L("settings.restoreDefault"))
+    addTooltip(&tooltip, hwnd, reset, L("settings.restoreDefault"))
     y += 38
     makeControl("STATIC", "", 0x0010 /* SS_ETCHEDHORZ */, margin, y, content, 1, hwnd, 0)
     y += 14
@@ -295,7 +258,7 @@ private func buildControls(_ hwnd: HWND?) {
                                margin + autoW + 2, y + 2, 20, 20, hwnd, idAutoInfo)
         setFont(info, glyphFont)
         let installed = WinLayout.installedList().map(\.displayName).joined(separator: ", ")
-        addTooltip(hwnd, info, L("settings.autoCorrectUnavailable", installed), overWindow: true)
+        addTooltip(&tooltip, hwnd, info, L("settings.autoCorrectUnavailable", installed), overWindow: true)
     }
     let excTitle = L("settings.exceptions")
     let excW = textWidth(excTitle, hwnd) + 24

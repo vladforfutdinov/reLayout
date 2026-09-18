@@ -30,6 +30,7 @@
 "settings.exc.choose" = "선택…";
 "settings.exc.remove" = "제거";
 "settings.exc.done" = "완료";
+"settings.exc.info" = "터미널, 코드 편집기, 가상 머신, 원격 데스크톱은 처음부터 목록에 있습니다. 여기서는 명령이나 코드를 입력하거나 자체 자판을 가진 다른 시스템이 키를 받으므로 자동 수정이 오히려 해가 됩니다. 항목을 제거하면 해당 앱에서 자동 수정이 켜집니다.";
 
 // Windows port
 "win.pressKey" = "키를 누르거나 보조 키를 탭하세요…";

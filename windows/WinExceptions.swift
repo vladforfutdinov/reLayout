@@ -15,6 +15,9 @@ private var exceptionsHwnd: HWND?
 private var exceptionsClassW = Array("ReLayoutExceptionsWnd".utf16) + [0]
 private var exceptionsClassRegistered = false
 private var excDpi: Int32 = 96
+private var excTooltip: HWND?
+private var excGlyphFont: HFONT?
+private let idExcInfo: Int = 205
 
 private func esc(_ v: Int32) -> Int32 { v * excDpi / 96 }   // scale a 96-dpi coord
 
@@ -65,6 +68,8 @@ private func exceptionsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ l
         }
     case UINT(WM_DESTROY):
         exceptionsHwnd = nil
+        excTooltip = nil   // owned by the window: destroyed with it
+        if let f = excGlyphFont { DeleteObject(UnsafeMutableRawPointer(f)); excGlyphFont = nil }
     default:
         break
     }
@@ -108,7 +113,19 @@ func openExceptions(owner: HWND?) {
     excDpi = dpi > 0 ? Int32(dpi) : 96
 
     makeExcControl("STATIC", L("win.exc.help"),
-                   0, 16, 12, 392, 36, hwnd, 0)
+                   0, 16, 12, 364, 36, hwnd, 0)
+    // Why a fresh install already lists programs (terminals, editors, VMs).
+    makeExcControl("STATIC", "\u{E946}" /* Info glyph */, 0, 388, 12, 20, 20, hwnd, idExcInfo)
+    let info = GetDlgItem(hwnd, Int32(idExcInfo))
+    let glyph = "Segoe MDL2 Assets".withCString(encodedAs: UTF16.self) {
+        CreateFontW(-(10 * excDpi / 72), 0, 0, 0, Int32(FW_NORMAL), 0, 0, 0, DWORD(DEFAULT_CHARSET),
+                    DWORD(OUT_DEFAULT_PRECIS), DWORD(CLIP_DEFAULT_PRECIS), DWORD(CLEARTYPE_QUALITY),
+                    DWORD(DEFAULT_PITCH), $0)
+    }
+    excGlyphFont = glyph
+    SendMessageW(info, UINT(WM_SETFONT), unsafeBitCast(glyph, to: WPARAM.self), LPARAM(1))
+    excTooltip = nil
+    addTooltip(&excTooltip, hwnd, info, L("settings.exc.info"), overWindow: true)
     makeExcControl("EDIT", "", Int32(WS_BORDER) | Int32(WS_VSCROLL) | Int32(WS_TABSTOP)
                    | Int32(ES_MULTILINE) | Int32(ES_WANTRETURN) | Int32(ES_AUTOVSCROLL),
                    16, 52, 392, 210, hwnd, idExcEdit)

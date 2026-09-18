@@ -30,6 +30,7 @@
 "settings.exc.choose" = "Elegir…";
 "settings.exc.remove" = "Quitar";
 "settings.exc.done" = "Listo";
+"settings.exc.info" = "Los terminales, editores de código, máquinas virtuales y escritorios remotos están en la lista desde el principio: allí se escriben comandos o código, u otro sistema con su propia distribución recibe las teclas, y la autocorrección haría daño. Quita uno para activarla en él.";
 
 // Windows port
 "win.pressKey" = "Pulsa una tecla o un modificador…";

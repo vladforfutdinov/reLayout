@@ -76,7 +76,8 @@ An audit of the frozen Windows port (written by an older model) found 15 bugs an
   it (a new VM would be missing, and one may want reLayout on in a VM). New
   defaults reach a saved list once each via the engine's `mergeExclusions` and a
   "seen defaults" record, so a removed entry stays removed. The hotkey ignores
-  exceptions, as before.
+  exceptions, as before. An ⓘ in the Exceptions window (both platforms, key `settings.exc.info`
+  in all 12 languages) says why a fresh install already lists apps.
 - Testing in UTM (QEMU, Windows on ARM): an endless "aaaa" after a Ctrl+Alt+R and
   once after typing with auto-correct off. Suspects: the 0xE8 mask key (now sent
   only for a lone Alt or Win — with Ctrl held, Alt's release opens no menu), or

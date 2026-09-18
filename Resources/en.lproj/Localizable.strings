@@ -30,6 +30,7 @@
 "settings.exc.choose" = "Choose…";
 "settings.exc.remove" = "Remove";
 "settings.exc.done" = "Done";
+"settings.exc.info" = "Terminals, code editors, virtual machines and remote desktops are listed from the start: there you type commands or code, or another system with its own layout takes the keys, so auto-correct would do harm. Remove one to turn auto-correct on in it.";
 
 // Windows port
 "win.pressKey" = "Press a key or tap a modifier…";

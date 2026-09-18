@@ -30,6 +30,7 @@
 "settings.exc.choose" = "Escolher…";
 "settings.exc.remove" = "Remover";
 "settings.exc.done" = "Concluído";
+"settings.exc.info" = "Terminais, editores de código, máquinas virtuais e áreas de trabalho remotas já vêm na lista: neles se digitam comandos ou código, ou outro sistema com o seu próprio layout recebe as teclas, e a correção automática atrapalharia. Remova um para ativá-la nele.";
 
 // Windows port
 "win.pressKey" = "Pressione uma tecla ou um modificador…";

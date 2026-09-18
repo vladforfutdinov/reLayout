@@ -31,9 +31,9 @@
 "settings.exc.remove" = "Remover";
 "settings.exc.done" = "Concluído";
 "settings.exc.info" = "Terminais, editores de código, máquinas virtuais e áreas de trabalho remotas já vêm na lista: neles se digitam comandos ou código, ou outro sistema com o seu próprio layout recebe as teclas, e a correção automática atrapalharia. Remova um para ativá-la nele.";
+"settings.exc.hint" = "A correção automática fica desligada nestes programas:";
 
 // Windows port
 "win.pressKey" = "Pressione uma tecla ou um modificador…";
 "win.version" = "versão %@";
 "win.hookFailed" = "O reLayout não conseguiu instalar o gancho de teclado (erro %@).";
-"win.exc.hint" = "A correção automática fica desligada nestes programas:";

@@ -31,9 +31,9 @@
 "settings.exc.remove" = "Entfernen";
 "settings.exc.done" = "Fertig";
 "settings.exc.info" = "Terminals, Code-Editoren, virtuelle Maschinen und Remotedesktops stehen von Anfang an in der Liste: Dort tippt man Befehle oder Code, oder ein anderes System mit eigenem Layout empfängt die Tasten – die Autokorrektur würde schaden. Entferne ein Programm, um sie dort einzuschalten.";
+"settings.exc.hint" = "In diesen Programmen ist die Autokorrektur aus:";
 
 // Windows port
 "win.pressKey" = "Taste drücken oder Modifikator antippen…";
 "win.version" = "Version %@";
 "win.hookFailed" = "reLayout konnte den Tastatur-Hook nicht installieren (Fehler %@).";
-"win.exc.hint" = "In diesen Programmen ist die Autokorrektur aus:";

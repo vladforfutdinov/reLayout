@@ -87,7 +87,8 @@ An audit of the frozen Windows port (written by an older model) found 15 bugs an
   copy or PATH, else a generic icon and the file name), "Exclude current app" (the
   last foreground program, tracked with a WinEvent hook), "Choose…" (the Open
   dialog), "Remove"/Delete, "Done"/Esc; every change saves at once. The inner title
-  duplicating the caption became a one-line hint (`win.exc.hint`); the text-area
+  duplicating the caption became a one-line hint (`settings.exc.hint`, shown under
+  the title on macOS too); the text-area
   keys were dropped from all 12 languages.
 - Testing in UTM (QEMU, Windows on ARM): an endless "aaaa" after a Ctrl+Alt+R and
   once after typing with auto-correct off. Suspects: the 0xE8 mask key (now sent

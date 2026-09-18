@@ -31,9 +31,9 @@
 "settings.exc.remove" = "Usuń";
 "settings.exc.done" = "Gotowe";
 "settings.exc.info" = "Terminale, edytory kodu, maszyny wirtualne i pulpity zdalne są na liście od początku: wpisuje się tam polecenia lub kod albo klawisze trafiają do innego systemu z własnym układem, więc autokorekta by szkodziła. Usuń program z listy, aby ją w nim włączyć.";
+"settings.exc.hint" = "W tych programach autokorekta jest wyłączona:";
 
 // Windows port
 "win.pressKey" = "Naciśnij klawisz lub modyfikator…";
 "win.version" = "wersja %@";
 "win.hookFailed" = "reLayout nie mógł zainstalować przechwytywania klawiatury (błąd %@).";
-"win.exc.hint" = "W tych programach autokorekta jest wyłączona:";

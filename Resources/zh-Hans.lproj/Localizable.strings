@@ -31,9 +31,9 @@
 "settings.exc.remove" = "移除";
 "settings.exc.done" = "完成";
 "settings.exc.info" = "终端、代码编辑器、虚拟机和远程桌面默认就在列表中：在那里输入的是命令或代码，或者按键会交给使用自己键盘布局的另一个系统，自动更正只会添乱。将某项移除即可在其中启用自动更正。";
+"settings.exc.hint" = "在以下程序中不进行自动更正：";
 
 // Windows port
 "win.pressKey" = "按下按键或轻点修饰键…";
 "win.version" = "版本 %@";
 "win.hookFailed" = "reLayout 无法安装键盘钩子（错误 %@）。";
-"win.exc.hint" = "在以下程序中不进行自动更正：";

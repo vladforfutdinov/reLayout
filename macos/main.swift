@@ -1251,6 +1251,11 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         info.contentTintColor = .secondaryLabelColor
         info.toolTip = L("settings.exc.info")
         info.translatesAutoresizingMaskIntoConstraints = false
+        // What the list does, under its name.
+        let hint = NSTextField(labelWithString: L("settings.exc.hint"))
+        hint.font = .systemFont(ofSize: 11)
+        hint.textColor = .secondaryLabelColor
+        hint.translatesAutoresizingMaskIntoConstraints = false
 
         let table = NSTableView()
         table.headerView = nil
@@ -1285,14 +1290,18 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         bar.orientation = .horizontal; bar.spacing = 8; bar.distribution = .fill
         bar.translatesAutoresizingMaskIntoConstraints = false
 
-        content.addSubview(title); content.addSubview(info); content.addSubview(scroll); content.addSubview(bar)
+        content.addSubview(title); content.addSubview(info); content.addSubview(hint)
+        content.addSubview(scroll); content.addSubview(bar)
         NSLayoutConstraint.activate([
             content.widthAnchor.constraint(equalToConstant: 380),
             title.topAnchor.constraint(equalTo: content.topAnchor, constant: 16),
             title.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 16),
             info.leadingAnchor.constraint(equalTo: title.trailingAnchor, constant: 4),
             info.centerYAnchor.constraint(equalTo: title.centerYAnchor),
-            scroll.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 10),
+            hint.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 2),
+            hint.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 16),
+            hint.trailingAnchor.constraint(lessThanOrEqualTo: content.trailingAnchor, constant: -16),
+            scroll.topAnchor.constraint(equalTo: hint.bottomAnchor, constant: 10),
             scroll.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 16),
             scroll.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -16),
             scroll.heightAnchor.constraint(equalToConstant: 200),

@@ -237,7 +237,7 @@ private let clientH: Int32 = 322
 
 private func buildExceptions(_ hwnd: HWND?) {
     // The window caption already names it; this line says what the list does.
-    let title = L("win.exc.hint")
+    let title = L("settings.exc.hint")
     makeExcControl("STATIC", title, 0, 16, 16, 360, 20, hwnd, idExcTitle)
 
     // Why a fresh install already lists programs (terminals, editors, VMs).

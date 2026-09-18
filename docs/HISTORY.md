@@ -56,6 +56,9 @@ An audit of the frozen Windows port (written by an older model) found 15 bugs an
   Green on x64 and arm64 (run 35277002142).
 - Nothing here is hand-tested yet; only the macOS engine tests (54) run, and they
   cover neither `convert()` nor the read paths.
+- Windows unfrozen: `build-windows` now also runs on `v*` tags and attaches the
+  installer and portable exe (x64, arm64) to the Release, versioned from the tag.
+  Still unsigned and without auto-update.
 - Typing is real keys now (`typeText`): the focused window is switched to the
   target layout first (polled until `GetKeyboardLayout` agrees, ≤300 ms), then the
   text goes out as that layout's key presses (+Shift/AltGr) in one SendInput batch.

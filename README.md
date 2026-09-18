@@ -47,9 +47,10 @@ Set your own hotkey (a combo, a modifier tap, or a tap sequence) and toggle auto
 `windows/` holds a Windows port with the same engine: the hotkey (a combo or a bare-modifier
 tap) converts a selection read through UI Automation, with the clipboard — saved and restored —
 as the fallback; auto-correct, its Enter follow-up, app exceptions and press-again undo work as
-on macOS, and the UI follows the same translations. It is not released yet: builds come from a
-manual run of the `build` workflow (installer and portable `.exe` for x64 and arm64), unsigned,
-and not yet tested on real hardware.
+on macOS, and the UI follows the same translations. Each release attaches an installer
+(`reLayout-windows-<arch>-setup.exe`) and a portable `.exe` for x64 and arm64. They are not
+code-signed yet, so SmartScreen asks to confirm the first run ("More info" → "Run anyway"),
+and there is no auto-update — download a newer release to upgrade.
 
 ## Why it handles `ß`/`æ` → `ы`/`э`
 

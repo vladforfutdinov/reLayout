@@ -132,6 +132,9 @@ Notes for a fork:
   deploy key as the `TAP_DEPLOY_KEY` secret, and set `RELAYOUT_TAP_REPO`.
 - The Windows port's About link (`windows/Identity.swift`) is stamped by CI
   from `RELAYOUT_REPO_SLUG` / `github.repository` — nothing to edit.
+- On a tag, `build-windows` (x64 + arm64) builds the installer and the portable
+  SFX and attaches them to the Release the macOS job created; the version comes
+  from the tag. No Windows secrets: the files are not Authenticode-signed yet.
 - The remaining signing/notarization secrets (top of this file) are yours to
   create — they were never shared with the upstream repo.
 

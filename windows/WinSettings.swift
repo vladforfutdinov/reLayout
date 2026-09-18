@@ -31,6 +31,7 @@ private let idCancel: Int = 2   // IDCANCEL: Esc, through IsDialogMessageW
 private let WM_REBUILD = UINT(WM_APP) + 20
 private let tapTimer: UINT_PTR = 1
 private let layoutTimer: UINT_PTR = 2
+private let themeTimer: UINT_PTR = 3
 
 // The installed layouts the window was built for. Windows sends a background app no
 // notice when one is added or removed, so while Settings is open the list is
@@ -387,9 +388,10 @@ private func settingsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lPa
         fitClientArea(hwnd, center: false)
         return 0
     case WM_REBUILD:
-        rebuildControls(hwnd)
-        fitClientArea(hwnd, center: false)
-        InvalidateRect(hwnd, nil, true)
+        rebuildWithoutFlicker(hwnd) {
+            rebuildControls(hwnd)
+            fitClientArea(hwnd, center: false)
+        }
         return 0
     case UINT(WM_CTLCOLORSTATIC), UINT(WM_CTLCOLORBTN):
         // Theme colors: gray for captions, the footer and disabled titles.
@@ -412,11 +414,13 @@ private func settingsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lPa
         FillRect(HDC(bitPattern: UInt(wParam)), &r, backgroundBrush)
         return 1
     case UINT(WM_SETTINGCHANGE):
-        // Light/dark switch: rebuild in the new colors.
-        if let p = UnsafePointer<WCHAR>(bitPattern: Int(lParam)),
-           String(decodingCString: p, as: UTF16.self) == "ImmersiveColorSet" {
-            PostMessageW(hwnd, WM_REBUILD, 0, 0)
-        }
+        // A theme switch arrives as a burst of broadcasts, some before the registry
+        // holds the new value: check once, shortly after the last one.
+        SetTimer(hwnd, themeTimer, 300, nil)
+    case UINT(WM_TIMER) where wParam == WPARAM(themeTimer):
+        KillTimer(hwnd, themeTimer)
+        if appsUseDarkTheme() != colors.dark { PostMessageW(hwnd, WM_REBUILD, 0, 0) }
+        return 0
     case UINT(WM_TIMER) where wParam == WPARAM(layoutTimer):
         rebuildIfLayoutsChanged(hwnd)
         return 0
@@ -480,6 +484,7 @@ private func settingsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lPa
         cancelHotkeyCapture()       // don't leave a capture targeting a dead window
         KillTimer(hwnd, tapTimer)
         KillTimer(hwnd, layoutTimer)
+        KillTimer(hwnd, themeTimer)
         pendingTapVK = 0
         settingsHwnd = nil          // NB: do NOT PostQuitMessage — only this window closes
     case UINT(WM_NCDESTROY):        // children are gone: fonts, icon and tooltip are free

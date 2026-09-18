@@ -78,7 +78,9 @@ An audit of the frozen Windows port (written by an older model) found 15 bugs an
   check box draws its title black in dark mode, so each title is a separate label
   that clicks its box. Settings' logo stays the app-icon tile in both themes, as on
   macOS (a themed bare glyph was tried and rejected); both windows rebuild on a
-  theme switch.
+  theme switch — once, 300 ms after the burst of setting broadcasts and only if
+  light/dark really changed, with painting held off (WM_SETREDRAW) and one redraw
+  after; tearing the controls down in view flickered.
   The local build script stamps the About link's repo from the origin remote, like
   scripts/build.sh, and restores Identity.swift afterwards.
 - Windows unfrozen: `build-windows` now also runs on `v*` tags and attaches the

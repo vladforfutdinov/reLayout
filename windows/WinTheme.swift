@@ -64,6 +64,15 @@ func applyControlTheme(_ ctl: HWND?, className: String, dark: Bool) {
     sub.withCString(encodedAs: UTF16.self) { relayout_set_window_theme(UnsafeMutableRawPointer(ctl), $0) }
 }
 
+/// Rebuilds a window's controls with its painting held off, then paints it once:
+/// tearing down and recreating the controls in view flickers.
+func rebuildWithoutFlicker(_ hwnd: HWND?, _ rebuild: () -> Void) {
+    SendMessageW(hwnd, UINT(WM_SETREDRAW), 0, 0)
+    rebuild()
+    SendMessageW(hwnd, UINT(WM_SETREDRAW), 1, 0)
+    RedrawWindow(hwnd, nil, nil, UINT(RDW_ERASE | RDW_FRAME | RDW_INVALIDATE | RDW_ALLCHILDREN))
+}
+
 /// Popup menus (the tray menu) follow the taskbar's theme, as the system's do.
 func applyMenuTheme() {
     relayout_allow_dark_menus(taskbarIsDark() ? 1 : 0)

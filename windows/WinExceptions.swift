@@ -23,6 +23,7 @@ private var excGlyphFont: HFONT?
 private var shownApps: [String] = []   // row i shows shownApps[i]
 private var excColors = ThemeColors.current()
 private var excBrush: HBRUSH?
+private let excThemeTimer: UINT_PTR = 1
 
 private func esc(_ v: Int32) -> Int32 { v * excDpi / 96 }   // scale a 96-dpi coord
 
@@ -323,16 +324,19 @@ private func exceptionsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ l
         FillRect(HDC(bitPattern: UInt(wParam)), &r, excBrush)
         return 1
     case UINT(WM_SETTINGCHANGE):
-        // Light/dark switch: rebuild the controls in the new colors.
-        if let p = UnsafePointer<WCHAR>(bitPattern: Int(lParam)),
-           String(decodingCString: p, as: UTF16.self) == "ImmersiveColorSet" {
+        // A theme switch arrives as a burst of broadcasts: check once, after it.
+        SetTimer(hwnd, excThemeTimer, 300, nil)
+    case UINT(WM_TIMER) where wParam == WPARAM(excThemeTimer):
+        KillTimer(hwnd, excThemeTimer)
+        guard appsUseDarkTheme() != excColors.dark else { return 0 }
+        rebuildWithoutFlicker(hwnd) {
             var child = GetWindow(hwnd, UINT(GW_CHILD))
             while let c = child { child = GetWindow(c, UINT(GW_HWNDNEXT)); DestroyWindow(c) }
             if let tip = excTooltip { DestroyWindow(tip) }
             if let f = excGlyphFont { DeleteObject(UnsafeMutableRawPointer(f)); excGlyphFont = nil }
             buildExceptions(hwnd)
-            InvalidateRect(hwnd, nil, true)
         }
+        return 0
     case UINT(WM_DESTROY):
         exceptionsHwnd = nil
         if let b = excBrush { DeleteObject(UnsafeMutableRawPointer(b)); excBrush = nil }

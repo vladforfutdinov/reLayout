@@ -30,3 +30,18 @@
 "settings.exc.choose" = "선택…";
 "settings.exc.remove" = "제거";
 "settings.exc.done" = "완료";
+
+// Windows port
+"win.set" = "설정";
+"win.reset" = "재설정";
+"win.pressKey" = "키를 누르거나 보조 키를 탭하세요…";
+"win.doubleTap" = "두 번 눌러 실행";
+"win.keyboardSettings" = "키보드 설정…";
+"win.version" = "버전 %@";
+"win.tagline" = "선택한 텍스트를 올바른 자판으로 다시 입력합니다";
+"win.close" = "닫기";
+"win.exc.help" = "이 프로그램에서는 자동 수정을 하지 않습니다 — 한 줄에 실행 파일 이름 하나:";
+"win.exc.restore" = "기본값 복원";
+"win.exc.cancel" = "취소";
+"win.exc.save" = "저장";
+"win.hookFailed" = "reLayout에서 키보드 후크를 설치하지 못했습니다(오류 %@).";

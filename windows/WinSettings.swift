@@ -1,9 +1,10 @@
 import WinSDK
 
 // Native Settings window opened from the tray. Themed (ComCtl32 v6 via the app
-// manifest), Segoe UI, DPI-scaled and centered: the convert-hotkey recorder, a
-// launch-at-login checkbox, a shortcut to Windows keyboard settings, and an
-// About section. Lives on the app's single UI thread (the main GetMessage loop).
+// manifest), Segoe UI, DPI-scaled and centered: UI language, the convert-hotkey
+// recorder, auto-correct and its options, launch at login, a shortcut to Windows
+// keyboard settings, and an About section. Lives on the app's single UI thread.
+// The controls are rebuilt, not patched, when the language or the DPI changes.
 
 private let idChkStartup:  Int = 101
 private let idBtnKeyboard: Int = 102
@@ -16,6 +17,7 @@ private let idChkDouble:   Int = 108
 private let idChkAuto:     Int = 109
 private let idChkAutoEnter: Int = 110
 private let idBtnExceptions: Int = 111
+private let idCmbLanguage: Int = 112
 
 private var settingsHwnd: HWND?
 private var settingsClassW = Array("ReLayoutSettingsWnd".utf16) + [0]
@@ -29,6 +31,21 @@ private let nmClick  = UINT(bitPattern: -2)
 private let nmReturn = UINT(bitPattern: -4)
 
 private func sc(_ v: Int32) -> Int32 { v * uiDpi / 96 }   // scale a 96-dpi coord
+
+// Client area at 96 dpi.
+private let clientWidth: Int32 = 440
+private let clientHeight: Int32 = 436
+
+private func makeFont() {
+    if let f = uiFont { DeleteObject(UnsafeMutableRawPointer(f)) }
+    uiFont = "Segoe UI".withCString(encodedAs: UTF16.self) { f in
+        CreateFontW(-(9 * uiDpi / 72), 0, 0, 0, Int32(FW_NORMAL),
+                    0, 0, 0,
+                    DWORD(DEFAULT_CHARSET), DWORD(OUT_DEFAULT_PRECIS),
+                    DWORD(CLIP_DEFAULT_PRECIS), DWORD(CLEARTYPE_QUALITY),
+                    DWORD(DEFAULT_PITCH), f)
+    }
+}
 
 /// The Settings font, shared with the Exceptions window (opened from here).
 func settingsFont() -> HFONT? { uiFont }
@@ -64,54 +81,94 @@ private func applyHotkey(_ hwnd: HWND?, _ mods: UINT, _ vk: UINT) {
     updateTrayTooltip()
 }
 
+private func check(_ ctl: HWND?, _ on: Bool) {
+    SendMessageW(ctl, UINT(BM_SETCHECK), WPARAM(on ? 1 : 0), 0)
+}
+
 private func buildControls(_ hwnd: HWND?) {
-    _ = makeControl("STATIC", "Hotkey:", 0, 20, 18, 56, 20, hwnd, 0)
+    L("settings.title").withCString(encodedAs: UTF16.self) { _ = SetWindowTextW(hwnd, $0) }
+
+    // UI language: "System Default" first, then the shipped ones by their own name.
+    _ = makeControl("STATIC", L("settings.language"), 0, 20, 19, 110, 20, hwnd, 0)
+    let lang = makeControl("COMBOBOX", "", Int32(0x0003 /* CBS_DROPDOWNLIST */) | Int32(WS_VSCROLL) | Int32(WS_TABSTOP),
+                           140, 15, 280, 240, hwnd, idCmbLanguage)
+    let names = [L("settings.language.system")] + WinLoc.languages.map(\.name)
+    for name in names {
+        name.withCString(encodedAs: UTF16.self) {
+            _ = SendMessageW(lang, UINT(0x0143 /* CB_ADDSTRING */), 0, LPARAM(Int(bitPattern: $0)))
+        }
+    }
+    let selected = loadLanguage().flatMap { code in WinLoc.languages.firstIndex { $0.code == code } }.map { $0 + 1 } ?? 0
+    SendMessageW(lang, UINT(0x014E /* CB_SETCURSEL */), WPARAM(selected), 0)
+
     // Read-only field showing the current hotkey; "Set" captures a new one
     // (including a bare modifier like Left Shift); "Reset" restores the default.
+    _ = makeControl("STATIC", L("settings.hotkey"), 0, 20, 55, 100, 20, hwnd, 0)
     let cur = loadHotkey()
     _ = makeControl("EDIT", hotkeyLabel(cur.mods, cur.vk),
                     Int32(0x0800) /* ES_READONLY */ | Int32(WS_BORDER) | Int32(WS_TABSTOP),
-                    80, 15, 150, 24, hwnd, idHotkeyField)
-    _ = makeControl("BUTTON", "Set",   Int32(WS_TABSTOP), 240, 15, 58, 26, hwnd, idBtnSet)
-    _ = makeControl("BUTTON", "Reset", Int32(WS_TABSTOP), 304, 15, 58, 26, hwnd, idBtnReset)
+                    124, 52, 136, 24, hwnd, idHotkeyField)
+    _ = makeControl("BUTTON", L("win.set"),   Int32(WS_TABSTOP), 266, 51, 70, 26, hwnd, idBtnSet)
+    _ = makeControl("BUTTON", L("win.reset"), Int32(WS_TABSTOP), 342, 51, 78, 26, hwnd, idBtnReset)
 
-    let dbl = makeControl("BUTTON", "Trigger on double-tap",
-                          Int32(BS_AUTOCHECKBOX) | Int32(WS_TABSTOP), 20, 48, 280, 22, hwnd, idChkDouble)
-    SendMessageW(dbl, UINT(BM_SETCHECK), WPARAM(loadDoubleTap() ? 1 : 0), 0)
+    check(makeControl("BUTTON", L("win.doubleTap"),
+                      Int32(BS_AUTOCHECKBOX) | Int32(WS_TABSTOP), 20, 88, 400, 22, hwnd, idChkDouble),
+          loadDoubleTap())
 
-    let auto = makeControl("BUTTON", "Auto-correct while typing",
-                           Int32(BS_AUTOCHECKBOX) | Int32(WS_TABSTOP), 20, 80, 280, 22, hwnd, idChkAuto)
-    SendMessageW(auto, UINT(BM_SETCHECK), WPARAM(loadAutoMode() ? 1 : 0), 0)
     // Needs a Cyrillic and a Latin layout: the decision is cross-script only.
-    if !WinLayout.crossScriptAvailable() { EnableWindow(auto, false) }
+    let available = WinLayout.crossScriptAvailable()
+    let auto = makeControl("BUTTON", L("settings.autoCorrect"),
+                           Int32(BS_AUTOCHECKBOX) | Int32(WS_TABSTOP), 20, 116, 400, 22, hwnd, idChkAuto)
+    check(auto, loadAutoMode())
+    EnableWindow(auto, available)
 
-    // Sub-option of auto-correct: indented, and dead while auto-correct is off.
-    let onEnter = makeControl("BUTTON", "Also fix on Enter",
-                              Int32(BS_AUTOCHECKBOX) | Int32(WS_TABSTOP), 40, 104, 260, 22, hwnd, idChkAutoEnter)
-    SendMessageW(onEnter, UINT(BM_SETCHECK), WPARAM(loadAutoEnter() ? 1 : 0), 0)
-    EnableWindow(onEnter, WinLayout.crossScriptAvailable() && loadAutoMode())
-
-    let exceptions = makeControl("BUTTON", "Exceptions…", Int32(WS_TABSTOP), 40, 132, 140, 28, hwnd, idBtnExceptions)
+    // Sub-options of auto-correct: indented, and dead while it is off.
+    let onEnter = makeControl("BUTTON", L("settings.autoCorrectEnter"),
+                              Int32(BS_AUTOCHECKBOX) | Int32(WS_TABSTOP), 40, 140, 380, 22, hwnd, idChkAutoEnter)
+    check(onEnter, loadAutoEnter())
+    EnableWindow(onEnter, available && loadAutoMode())
+    let exceptions = makeControl("BUTTON", L("settings.exceptions"), Int32(WS_TABSTOP),
+                                 40, 166, 160, 28, hwnd, idBtnExceptions)
     EnableWindow(exceptions, loadAutoMode())
 
-    let chk = makeControl("BUTTON", "Launch at login",
-                          Int32(BS_AUTOCHECKBOX) | Int32(WS_TABSTOP), 20, 172, 220, 22, hwnd, idChkStartup)
-    SendMessageW(chk, UINT(BM_SETCHECK), WPARAM(startupEnabled() ? 1 : 0), 0)
-    if !startupAvailable() { EnableWindow(chk, false) }
+    let startup = makeControl("BUTTON", L("settings.openAtLogin"),
+                              Int32(BS_AUTOCHECKBOX) | Int32(WS_TABSTOP), 20, 206, 400, 22, hwnd, idChkStartup)
+    check(startup, startupEnabled())
+    if !startupAvailable() { EnableWindow(startup, false) }
 
-    _ = makeControl("BUTTON", "Keyboard settings…",
-                    Int32(WS_TABSTOP), 20, 208, 170, 30, hwnd, idBtnKeyboard)
+    _ = makeControl("BUTTON", L("win.keyboardSettings"), Int32(WS_TABSTOP), 20, 240, 200, 30, hwnd, idBtnKeyboard)
 
     // ── About section ──
-    _ = makeControl("STATIC", "", 0x0010 /* SS_ETCHEDHORZ */, 20, 252, 342, 1, hwnd, 0)
-    _ = makeControl("STATIC", "reLayout  ·  version \(appVersion)", 0, 20, 264, 342, 20, hwnd, 0)
-    _ = makeControl("STATIC", "Retype selection in the correct keyboard layout", 0, 20, 284, 342, 20, hwnd, 0)
-    _ = makeControl("STATIC", "© 2026 Volodymyr Forfutdinov", 0, 20, 304, 342, 20, hwnd, 0)
+    _ = makeControl("STATIC", "", 0x0010 /* SS_ETCHEDHORZ */, 20, 284, 400, 1, hwnd, 0)
+    _ = makeControl("STATIC", "reLayout  ·  \(L("win.version", appVersion))", 0, 20, 296, 400, 20, hwnd, 0)
+    _ = makeControl("STATIC", L("win.tagline"), 0, 20, 316, 400, 20, hwnd, 0)
+    _ = makeControl("STATIC", "© 2026 Volodymyr Forfutdinov", 0, 20, 336, 400, 20, hwnd, 0)
     _ = makeControl("SysLink", "<a>github.com/\(repoSlug)</a>",
-                    Int32(WS_TABSTOP), 20, 326, 342, 22, hwnd, idLnkAbout)
+                    Int32(WS_TABSTOP), 20, 358, 400, 22, hwnd, idLnkAbout)
 
-    _ = makeControl("BUTTON", "Close",
-                    Int32(WS_TABSTOP), 262, 358, 100, 30, hwnd, idBtnClose)
+    _ = makeControl("BUTTON", L("win.close"), Int32(WS_TABSTOP), 320, 392, 100, 30, hwnd, idBtnClose)
+}
+
+/// Destroys every control and builds them again — for a language or DPI change.
+private func rebuildControls(_ hwnd: HWND?) {
+    cancelHotkeyCapture()   // its callbacks target the field being destroyed
+    var child = GetWindow(hwnd, UINT(GW_CHILD))
+    while let c = child {
+        child = GetWindow(c, UINT(GW_HWNDNEXT))
+        DestroyWindow(c)
+    }
+    makeFont()
+    buildControls(hwnd)
+}
+
+/// Sizes the window to the scaled client area, keeping its position.
+private func fitClientArea(_ hwnd: HWND?) {
+    var wr = RECT(); GetWindowRect(hwnd, &wr)
+    var cr = RECT(); GetClientRect(hwnd, &cr)
+    SetWindowPos(hwnd, nil, 0, 0,
+                 sc(clientWidth) + (wr.right - wr.left) - (cr.right - cr.left),
+                 sc(clientHeight) + (wr.bottom - wr.top) - (cr.bottom - cr.top),
+                 UINT(SWP_NOMOVE) | UINT(SWP_NOZORDER))
 }
 
 private func sizeAndCenter(_ hwnd: HWND?) {
@@ -121,8 +178,8 @@ private func sizeAndCenter(_ hwnd: HWND?) {
     var cr = RECT(); GetClientRect(hwnd, &cr)
     let ncw = (wr.right - wr.left) - (cr.right - cr.left)
     let nch = (wr.bottom - wr.top) - (cr.bottom - cr.top)
-    let w = sc(380) + ncw
-    let h = sc(402) + nch
+    let w = sc(clientWidth) + ncw
+    let h = sc(clientHeight) + nch
     var mi = MONITORINFO(); mi.cbSize = DWORD(MemoryLayout<MONITORINFO>.size)
     GetMonitorInfoW(MonitorFromWindow(hwnd, DWORD(MONITOR_DEFAULTTONEAREST)), &mi)
     let x = mi.rcWork.left + ((mi.rcWork.right - mi.rcWork.left) - w) / 2
@@ -135,18 +192,27 @@ private func settingsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lPa
     case UINT(WM_CREATE):
         let dpi = GetDpiForWindow(hwnd)
         uiDpi = dpi > 0 ? Int32(dpi) : 96
-        let face = "Segoe UI"
-        uiFont = face.withCString(encodedAs: UTF16.self) { f in
-            CreateFontW(-(9 * uiDpi / 72), 0, 0, 0, Int32(FW_NORMAL),
-                        0, 0, 0,
-                        DWORD(DEFAULT_CHARSET), DWORD(OUT_DEFAULT_PRECIS),
-                        DWORD(CLIP_DEFAULT_PRECIS), DWORD(CLEARTYPE_QUALITY),
-                        DWORD(DEFAULT_PITCH), f)
-        }
+        makeFont()
         buildControls(hwnd)
         sizeAndCenter(hwnd)
+    case UINT(0x02E0 /* WM_DPICHANGED */):
+        // Moved to a monitor with another scale: rebuild at the new DPI and take the
+        // position Windows suggests.
+        uiDpi = Int32((UInt(truncatingIfNeeded: wParam) >> 16) & 0xFFFF)
+        rebuildControls(hwnd)
+        if let suggested = UnsafeRawPointer(bitPattern: Int(lParam))?.assumingMemoryBound(to: RECT.self).pointee {
+            SetWindowPos(hwnd, nil, suggested.left, suggested.top, 0, 0, UINT(SWP_NOSIZE) | UINT(SWP_NOZORDER))
+        }
+        fitClientArea(hwnd)
+        return 0
     case UINT(WM_COMMAND):
+        let notification = (UInt(truncatingIfNeeded: wParam) >> 16) & 0xFFFF
         switch Int(UInt(truncatingIfNeeded: wParam) & 0xFFFF) {
+        case idCmbLanguage where notification == 1 /* CBN_SELCHANGE */:
+            let index = Int(SendMessageW(GetDlgItem(hwnd, Int32(idCmbLanguage)), UINT(0x0147 /* CB_GETCURSEL */), 0, 0))
+            saveLanguage(index > 0 && index <= WinLoc.languages.count ? WinLoc.languages[index - 1].code : nil)
+            WinLoc.load()
+            rebuildControls(hwnd)
         case idChkStartup:
             let checked = SendMessageW(GetDlgItem(hwnd, Int32(idChkStartup)), UINT(BM_GETCHECK), 0, 0)
             setStartup(checked == LRESULT(BST_CHECKED))
@@ -167,7 +233,7 @@ private func settingsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lPa
         case idBtnExceptions: openExceptions(owner: hwnd)
         case idBtnKeyboard: openExternally("ms-settings:keyboard")
         case idBtnSet:
-            setFieldText(hwnd, idHotkeyField, "Press a key or tap a modifier…")
+            setFieldText(hwnd, idHotkeyField, L("win.pressKey"))
             startHotkeyCapture(onLive: { s in setFieldText(hwnd, idHotkeyField, s) },
                                onDone: { mods, vk in applyHotkey(hwnd, mods, vk) })
         case idBtnReset:    applyHotkey(hwnd, defaultHotkey.mods, defaultHotkey.vk)
@@ -191,6 +257,9 @@ private func settingsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lPa
     }
     return DefWindowProcW(hwnd, msg, wParam, lParam)
 }
+
+/// The open Settings window, for keyboard navigation in the message loop.
+func settingsWindow() -> HWND? { settingsHwnd }
 
 /// Syncs the open Settings window's launch-at-login checkbox with the registry.
 func refreshSettingsStartup() {
@@ -221,14 +290,14 @@ func openSettings() {
             wc.hCursor = LoadCursorW(nil, UnsafePointer<WCHAR>(bitPattern: 32512))   // IDC_ARROW
             wc.hbrBackground = HBRUSH(bitPattern: Int(COLOR_BTNFACE) + 1)
             wc.hIcon = LoadIconW(hInst, UnsafePointer<WCHAR>(bitPattern: 1))          // app icon (id 1)
-            _ = RegisterClassW(&wc)
+            settingsClassRegistered = RegisterClassW(&wc) != 0
         }
-        settingsClassRegistered = true
     }
+    guard settingsClassRegistered else { return }
 
     let style = DWORD(WS_OVERLAPPED) | DWORD(WS_CAPTION) | DWORD(WS_SYSMENU)
     settingsHwnd = settingsClassW.withUnsafeBufferPointer { name in
-        "reLayout — Settings".withCString(encodedAs: UTF16.self) { title in
+        L("settings.title").withCString(encodedAs: UTF16.self) { title in
             CreateWindowExW(0, name.baseAddress, title, style,
                             Int32(CW_USEDEFAULT), Int32(CW_USEDEFAULT), 400, 240,
                             nil, nil, hInst, nil)

@@ -273,6 +273,12 @@ jobs:
           # next to the exe (the macOS app reads them from its bundle).
           New-Item -ItemType Directory -Force -Path "$payload/trigram" | Out-Null
           Copy-Item Resources/trigram/*.txt "$payload/trigram"
+          # UI strings: the macOS app's Localizable.strings, read from lang/<code>.lproj.
+          New-Item -ItemType Directory -Force -Path "$payload/lang" | Out-Null
+          Get-ChildItem Resources -Directory -Filter *.lproj | ForEach-Object {
+            New-Item -ItemType Directory -Force -Path "$payload/lang/$($_.Name)" | Out-Null
+            Copy-Item "$($_.FullName)/Localizable.strings" "$payload/lang/$($_.Name)/"
+          }
 
           # The Swift runtime links the MSVC CRT, which a clean Windows lacks:
           # bundle it app-locally from the VS redist folder for this arch.

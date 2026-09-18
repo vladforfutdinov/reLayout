@@ -30,3 +30,18 @@
 "settings.exc.choose" = "Elegir…";
 "settings.exc.remove" = "Quitar";
 "settings.exc.done" = "Listo";
+
+// Windows port
+"win.set" = "Definir";
+"win.reset" = "Restablecer";
+"win.pressKey" = "Pulsa una tecla o un modificador…";
+"win.doubleTap" = "Activar con doble pulsación";
+"win.keyboardSettings" = "Ajustes del teclado…";
+"win.version" = "versión %@";
+"win.tagline" = "Reescribe la selección con la distribución correcta";
+"win.close" = "Cerrar";
+"win.exc.help" = "La autocorrección no actúa en estos programas — un nombre de ejecutable por línea:";
+"win.exc.restore" = "Restaurar valores predeterminados";
+"win.exc.cancel" = "Cancelar";
+"win.exc.save" = "Guardar";
+"win.hookFailed" = "reLayout no pudo instalar su gancho de teclado (error %@).";

@@ -12,6 +12,7 @@ private let keyDoubleTap  = "DoubleTap"
 private let keyAutoMode   = "AutoCorrect"
 private let keyAutoEnter  = "AutoCorrectOnEnter"
 private let keyExcluded   = "AutoCorrectExcluded"
+private let keyLanguage   = "Language"
 
 private let kKeyQuery: REGSAM = 0x0001   // KEY_QUERY_VALUE
 private let kKeySet:   REGSAM = 0x0002   // KEY_SET_VALUE
@@ -113,6 +114,18 @@ func loadExcludedApps() -> [String] {
 func saveExcludedApps(_ apps: [String]) {
     _ = withPrefsKey(write: true) { key -> Bool in
         writeString(key, keyExcluded, apps.joined(separator: "\r\n")); return true
+    }
+}
+
+/// UI language override ("ru", "zh-Hans"); nil follows the system.
+func loadLanguage() -> String? {
+    let code = withPrefsKey(write: false, { readString($0, keyLanguage) })
+    return (code?.isEmpty ?? true) ? nil : code
+}
+
+func saveLanguage(_ code: String?) {
+    _ = withPrefsKey(write: true) { key -> Bool in
+        writeString(key, keyLanguage, code ?? ""); return true
     }
 }
 

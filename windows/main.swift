@@ -108,12 +108,14 @@ let alreadyRunning = "Local\\reLayout".withCString(encodedAs: UTF16.self) { name
 }
 if alreadyRunning { ExitProcess(0) }
 
+WinLoc.load()
+
 // Global hotkey via a low-level keyboard hook (see WinHotkey.swift) so a bare
 // modifier (e.g. Left Shift) can be a hotkey, which RegisterHotKey can't do.
 // The hook posts WM_RETYPE to this thread; we run the conversion here.
 if !installHotkeyHook() {
     let err = GetLastError()
-    let text = "reLayout could not install its keyboard hook (error \(err))."
+    let text = L("win.hookFailed", "\(err)")
     text.withCString(encodedAs: UTF16.self) { t in
         "reLayout".withCString(encodedAs: UTF16.self) { c in
             _ = MessageBoxW(nil, t, c, UINT(MB_ICONERROR))
@@ -129,6 +131,10 @@ var msg = MSG()
 while GetMessageW(&msg, nil, 0, 0) {
     if msg.message == WM_RETYPE {
         triggerHotkey()
+    }
+    // Tab / Shift+Tab / arrows / Space between the controls of our windows.
+    if [settingsWindow(), exceptionsWindow()].contains(where: { $0 != nil && IsDialogMessageW($0, &msg) }) {
+        continue
     }
     TranslateMessage(&msg)
     DispatchMessageW(&msg)

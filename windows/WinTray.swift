@@ -125,12 +125,12 @@ private func currentHotkeyLabel() -> String {
 
 private func showTrayMenu(_ hwnd: HWND?) {
     guard let menu = CreatePopupMenu() else { return }
-    appendItem(menu, menuSettings, "Settings…")
+    appendItem(menu, menuSettings, L("menu.settings"))
     let startupFlags = UINT(MF_STRING) | (startupEnabled() ? UINT(MF_CHECKED) : UINT(MF_UNCHECKED))
-    appendItem(menu, menuStartup, "Launch at login",
+    appendItem(menu, menuStartup, L("settings.openAtLogin"),
                flags: startupFlags | (startupAvailable() ? 0 : UINT(MF_GRAYED)))
     _ = AppendMenuW(menu, UINT(MF_SEPARATOR), 0, nil)
-    appendItem(menu, menuQuit, "Quit reLayout")
+    appendItem(menu, menuQuit, L("menu.quit"))
 
     var pt = POINT()
     GetCursorPos(&pt)
@@ -188,9 +188,12 @@ func setupTray() -> Bool {
     nid.uID = 1
     nid.uFlags = UINT(NIF_ICON) | UINT(NIF_MESSAGE) | UINT(NIF_TIP)
     nid.uCallbackMessage = trayCallback
-    // Our embedded app icon (resource id 1 from relayout.rc); fall back to the
-    // system application icon if the resource is somehow missing.
-    nid.hIcon = LoadIconW(GetModuleHandleW(nil), UnsafePointer<WCHAR>(bitPattern: 1))
+    // Our embedded app icon (resource id 1 from relayout.rc) at the small-icon
+    // size for this DPI — LoadIconW gives the 32 px one, scaled down blurry. Fall
+    // back to the system application icon if the resource is somehow missing.
+    let small = LoadImageW(GetModuleHandleW(nil), UnsafePointer<WCHAR>(bitPattern: 1), UINT(IMAGE_ICON),
+                           GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), 0)
+    nid.hIcon = small.map { HICON(OpaquePointer($0)) }
              ?? LoadIconW(nil, UnsafePointer<WCHAR>(bitPattern: 32512))
     writeTooltip()                              // hover tooltip = "reLayout — <hotkey>"
     addTrayIcon()

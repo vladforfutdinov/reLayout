@@ -30,3 +30,18 @@
 "settings.exc.choose" = "選択…";
 "settings.exc.remove" = "削除";
 "settings.exc.done" = "完了";
+
+// Windows port
+"win.set" = "設定";
+"win.reset" = "リセット";
+"win.pressKey" = "キーを押すか修飾キーをタップ…";
+"win.doubleTap" = "ダブルタップで実行";
+"win.keyboardSettings" = "キーボードの設定…";
+"win.version" = "バージョン %@";
+"win.tagline" = "選択範囲を正しいレイアウトで打ち直します";
+"win.close" = "閉じる";
+"win.exc.help" = "これらのプログラムでは自動修正しません（1行に1つの実行ファイル名）：";
+"win.exc.restore" = "デフォルトに戻す";
+"win.exc.cancel" = "キャンセル";
+"win.exc.save" = "保存";
+"win.hookFailed" = "reLayout はキーボードフックをインストールできませんでした（エラー %@）。";

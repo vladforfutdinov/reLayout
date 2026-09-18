@@ -30,3 +30,18 @@
 "settings.exc.choose" = "Wybierz…";
 "settings.exc.remove" = "Usuń";
 "settings.exc.done" = "Gotowe";
+
+// Windows port
+"win.set" = "Ustaw";
+"win.reset" = "Resetuj";
+"win.pressKey" = "Naciśnij klawisz lub modyfikator…";
+"win.doubleTap" = "Uruchamiaj podwójnym naciśnięciem";
+"win.keyboardSettings" = "Ustawienia klawiatury…";
+"win.version" = "wersja %@";
+"win.tagline" = "Przepisuje zaznaczenie we właściwym układzie";
+"win.close" = "Zamknij";
+"win.exc.help" = "W tych programach autokorekta jest wyłączona — jedna nazwa pliku wykonywalnego w wierszu:";
+"win.exc.restore" = "Przywróć domyślne";
+"win.exc.cancel" = "Anuluj";
+"win.exc.save" = "Zapisz";
+"win.hookFailed" = "reLayout nie mógł zainstalować przechwytywania klawiatury (błąd %@).";

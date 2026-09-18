@@ -30,3 +30,18 @@
 "settings.exc.choose" = "Вибрати…";
 "settings.exc.remove" = "Видалити";
 "settings.exc.done" = "Готово";
+
+// Windows port
+"win.set" = "Задати";
+"win.reset" = "Скинути";
+"win.pressKey" = "Натисніть клавішу або модифікатор…";
+"win.doubleTap" = "Спрацьовувати за подвійним натисканням";
+"win.keyboardSettings" = "Параметри клавіатури…";
+"win.version" = "версія %@";
+"win.tagline" = "Перенабирає виділене в правильній розкладці";
+"win.close" = "Закрити";
+"win.exc.help" = "У цих програмах автовиправлення вимкнено — по одній назві файлу в рядку:";
+"win.exc.restore" = "Повернути типові";
+"win.exc.cancel" = "Скасувати";
+"win.exc.save" = "Зберегти";
+"win.hookFailed" = "reLayout не зміг установити перехоплення клавіатури (помилка %@).";

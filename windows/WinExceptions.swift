@@ -71,6 +71,9 @@ private func exceptionsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ l
     return DefWindowProcW(hwnd, msg, wParam, lParam)
 }
 
+/// The open Exceptions window, for keyboard navigation in the message loop.
+func exceptionsWindow() -> HWND? { exceptionsHwnd }
+
 func openExceptions(owner: HWND?) {
     if let existing = exceptionsHwnd {
         ShowWindow(existing, SW_SHOW)
@@ -94,7 +97,7 @@ func openExceptions(owner: HWND?) {
 
     let style = DWORD(WS_OVERLAPPED) | DWORD(WS_CAPTION) | DWORD(WS_SYSMENU)
     exceptionsHwnd = exceptionsClassW.withUnsafeBufferPointer { name in
-        "reLayout — Exceptions".withCString(encodedAs: UTF16.self) { title in
+        L("settings.exc.title").withCString(encodedAs: UTF16.self) { title in
             CreateWindowExW(0, name.baseAddress, title, style,
                             Int32(CW_USEDEFAULT), Int32(CW_USEDEFAULT), 440, 400,
                             owner, nil, hInst, nil)
@@ -104,14 +107,14 @@ func openExceptions(owner: HWND?) {
     let dpi = GetDpiForWindow(hwnd)
     excDpi = dpi > 0 ? Int32(dpi) : 96
 
-    makeExcControl("STATIC", "Auto-correct stays off in these programs — one executable name per line:",
+    makeExcControl("STATIC", L("win.exc.help"),
                    0, 16, 12, 392, 36, hwnd, 0)
     makeExcControl("EDIT", "", Int32(WS_BORDER) | Int32(WS_VSCROLL) | Int32(WS_TABSTOP)
                    | Int32(ES_MULTILINE) | Int32(ES_WANTRETURN) | Int32(ES_AUTOVSCROLL),
                    16, 52, 392, 210, hwnd, idExcEdit)
-    makeExcControl("BUTTON", "Restore defaults", Int32(WS_TABSTOP), 16, 274, 140, 30, hwnd, idExcReset)
-    makeExcControl("BUTTON", "Cancel", Int32(WS_TABSTOP), 226, 274, 84, 30, hwnd, idExcCancel)
-    makeExcControl("BUTTON", "Save", Int32(WS_TABSTOP), 320, 274, 88, 30, hwnd, idExcSave)
+    makeExcControl("BUTTON", L("win.exc.restore"), Int32(WS_TABSTOP), 16, 274, 180, 30, hwnd, idExcReset)
+    makeExcControl("BUTTON", L("win.exc.cancel"), Int32(WS_TABSTOP), 226, 274, 88, 30, hwnd, idExcCancel)
+    makeExcControl("BUTTON", L("win.exc.save"), Int32(WS_TABSTOP), 320, 274, 88, 30, hwnd, idExcSave)
     setEditText(hwnd, loadExcludedApps())
 
     // Grow to fit the scaled client area (the window was created at 96-dpi sizes).

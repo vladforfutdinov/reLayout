@@ -30,3 +30,18 @@
 "settings.exc.choose" = "Выбрать…";
 "settings.exc.remove" = "Удалить";
 "settings.exc.done" = "Готово";
+
+// Windows port
+"win.set" = "Задать";
+"win.reset" = "Сбросить";
+"win.pressKey" = "Нажмите клавишу или модификатор…";
+"win.doubleTap" = "Срабатывать по двойному нажатию";
+"win.keyboardSettings" = "Параметры клавиатуры…";
+"win.version" = "версия %@";
+"win.tagline" = "Перенабирает выделенное в правильной раскладке";
+"win.close" = "Закрыть";
+"win.exc.help" = "В этих программах автоисправление выключено — по одному имени файла в строке:";
+"win.exc.restore" = "Вернуть по умолчанию";
+"win.exc.cancel" = "Отмена";
+"win.exc.save" = "Сохранить";
+"win.hookFailed" = "reLayout не смог установить перехват клавиатуры (ошибка %@).";

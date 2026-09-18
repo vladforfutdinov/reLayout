@@ -30,3 +30,18 @@
 "settings.exc.choose" = "选择…";
 "settings.exc.remove" = "移除";
 "settings.exc.done" = "完成";
+
+// Windows port
+"win.set" = "设置";
+"win.reset" = "重置";
+"win.pressKey" = "按下按键或轻点修饰键…";
+"win.doubleTap" = "双击触发";
+"win.keyboardSettings" = "键盘设置…";
+"win.version" = "版本 %@";
+"win.tagline" = "用正确的键盘布局重新输入所选文字";
+"win.close" = "关闭";
+"win.exc.help" = "在这些程序中不进行自动更正——每行一个可执行文件名：";
+"win.exc.restore" = "恢复默认";
+"win.exc.cancel" = "取消";
+"win.exc.save" = "保存";
+"win.hookFailed" = "reLayout 无法安装键盘钩子（错误 %@）。";

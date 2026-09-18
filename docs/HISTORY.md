@@ -56,6 +56,15 @@ An audit of the frozen Windows port (written by an older model) found 15 bugs an
   Green on x64 and arm64 (run 35277002142).
 - Nothing here is hand-tested yet; only the macOS engine tests (54) run, and they
   cover neither `convert()` nor the read paths.
+- Windows UI is localized from the macOS `Localizable.strings` (CI ships them as
+  `lang/<code>.lproj` next to the exe; `parseStrings` in `Core/Strings.swift`
+  reads them; a test checks every language carries every English key). 13
+  Windows-only keys (`win.*`) were added to all 12 tables. Settings got a language
+  picker (system default + shipped languages by their own name) that rebuilds the
+  window live. Also: Settings rebuilds itself on `WM_DPICHANGED`, Tab/arrows work
+  in Settings and Exceptions (`IsDialogMessageW` in the loop), the tray icon loads
+  at the small-icon size for the DPI, and the Settings class flag is set only when
+  `RegisterClassW` succeeds.
 - The hotkey's layout choice moved into the engine as `planRetype` (mixed word ->
   `fixMixedWord`; no current-script text -> convert back into the active layout;
   else `pickTarget`: the other of two, the first of many unless current is first,

@@ -4,6 +4,34 @@ Committed, repo-travelling backlog of planned-but-not-started work. Operational
 day-to-day state lives in the gitignored `docs/SNAPSHOT.md`; durable history in
 `docs/HISTORY.md`. Move an item out of here once it's in progress.
 
+## Windows default hotkey
+
+Replace the Windows default `Ctrl+Alt+R` (`defaultHotkey`, `windows/WinPrefs.swift`)
+with something closer to the macOS default, a tap of left ⌥.
+
+**Why:** Ctrl+Alt is AltGr on many European layouts, so the combo can collide with a
+character, and a three-key chord is heavier than the one-tap macOS default.
+Candidates: a tap of a modifier (left Alt is safe — the port already replays a lone
+Alt/Win release behind mask key 0xE8 so the menu bar doesn't open), right Ctrl, or a
+double tap of Shift (not five: five Shift presses open Windows' Sticky Keys prompt).
+
+**Steps:** pick the key; change `defaultHotkey`; existing users keep their saved
+hotkey (registry `HotkeyMods`/`HotkeyVK`), only fresh installs change; update the
+default named in `README.md` and in the landing page's Windows install steps
+(`index.html` on `gh-pages`).
+
+## Windows keyboard in the landing demo
+
+The hero demo on the landing page (`index.html` on `gh-pages`) draws a Mac keyboard
+row — fn, control, option, command — with the ⌥ key lighting up as the hotkey. Add a
+Windows variant: Ctrl, Win, Alt, with the Windows default hotkey lit.
+
+**Steps:** a second key row in the `.kb` block, shown for Windows visitors by the
+same OS detection that already makes "Download for Windows" the primary button
+(`navigator.userAgentData.platform` / `navigator.platform`); the animation script
+highlights the hotkey key per variant. Do it after the default hotkey above is
+settled, so the demo shows the real one.
+
 ## Wide trigram model set
 
 Generate trigram models for ~40–60 langs (all Cyrillic + common Latin from the

@@ -152,6 +152,15 @@ func loadDebugLog() -> Bool {
     (withPrefsKey(write: false) { readDword($0, "DebugLog") } ?? 0) != 0
 }
 
+/// The release tag the tray last announced, so each version is announced once.
+func loadNotifiedUpdate() -> String? {
+    withPrefsKey(write: false, { readString($0, "UpdateNotified") })
+}
+
+func saveNotifiedUpdate(_ tag: String) {
+    _ = withPrefsKey(write: true) { key -> Bool in writeString(key, "UpdateNotified", tag); return true }
+}
+
 func loadDoubleTap() -> Bool {
     (withPrefsKey(write: false) { readDword($0, keyDoubleTap) } ?? 0) != 0
 }

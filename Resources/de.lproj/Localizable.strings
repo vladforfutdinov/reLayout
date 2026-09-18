@@ -37,3 +37,7 @@
 "win.pressKey" = "Taste drücken oder Modifikator antippen…";
 "win.version" = "Version %@";
 "win.hookFailed" = "reLayout konnte den Tastatur-Hook nicht installieren (Fehler %@).";
+"win.update.available" = "Update verfügbar: %@";
+"win.update.notice" = "reLayout %@ ist verfügbar. Zum Herunterladen das Menü öffnen.";
+"win.update.latest" = "Du verwendest die neueste Version.";
+"win.update.failed" = "Suche nach Updates fehlgeschlagen.";

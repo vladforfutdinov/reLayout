@@ -346,3 +346,22 @@ public func awaitSettledField(before: FieldSnapshot, read: () -> FieldSnapshot?,
 public func mergeExclusions(saved: [String], defaults: [String], seen: Set<String>) -> [String] {
     saved + defaults.filter { !seen.contains($0) && !saved.contains($0) }
 }
+
+// MARK: - Versions
+
+/// True when release tag `candidate` ("v1.3.0") is newer than `current` ("1.2.27").
+/// Numeric dot parts only; anything unparsable (a dev build's "0.0.0-dev" suffix,
+/// a pre-release tag) is never newer.
+public func isNewerVersion(_ candidate: String, than current: String) -> Bool {
+    func parts(_ v: String) -> [Int]? {
+        let bare = v.hasPrefix("v") ? v.dropFirst() : v[...]
+        let nums = bare.split(separator: ".").map { Int($0) }
+        return nums.contains(nil) || nums.isEmpty ? nil : nums.map { $0! }
+    }
+    guard let a = parts(candidate), let b = parts(current) else { return false }
+    for i in 0..<max(a.count, b.count) {
+        let x = i < a.count ? a[i] : 0, y = i < b.count ? b[i] : 0
+        if x != y { return x > y }
+    }
+    return false
+}

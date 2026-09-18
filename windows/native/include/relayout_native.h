@@ -1,5 +1,5 @@
-#ifndef RELAYOUT_UIA_H
-#define RELAYOUT_UIA_H
+#ifndef RELAYOUT_NATIVE_H
+#define RELAYOUT_NATIVE_H
 
 #include <stdint.h>
 
@@ -25,6 +25,12 @@ int32_t relayout_uia_snapshot(uint16_t *tail, int32_t cap,
 /// 1 when the focused control is a password field, 0 when it is not, negative when
 /// UI Automation cannot say.
 int32_t relayout_uia_is_password(void);
+
+/// HTTPS GET through WinHTTP (system proxy settings, 5 s connect/10 s receive).
+/// Writes up to `cap` bytes of the body into `buf`.
+/// Returns the body length, or a negative value on any failure or a non-200 status.
+int32_t relayout_https_get(const uint16_t *host, const uint16_t *path,
+                           uint8_t *buf, int32_t cap);
 
 #ifdef __cplusplus
 }

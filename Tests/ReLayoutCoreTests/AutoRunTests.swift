@@ -129,4 +129,14 @@ final class AutoRunTests: XCTestCase {
     func testMergeAddsNothingTwice() {
         XCTAssertEqual(mergeExclusions(saved: ["vm"], defaults: ["vm"], seen: []), ["vm"])
     }
+
+    func testNewerVersion() {
+        XCTAssertTrue(isNewerVersion("v1.3.0", than: "1.2.27"))
+        XCTAssertTrue(isNewerVersion("v1.2.28", than: "1.2.27"))
+        XCTAssertTrue(isNewerVersion("v1.3", than: "1.2.27"))
+        XCTAssertFalse(isNewerVersion("v1.2.27", than: "1.2.27"))
+        XCTAssertFalse(isNewerVersion("v1.2.9", than: "1.2.27"))      // numeric, not string order
+        XCTAssertFalse(isNewerVersion("v2.0.0-beta", than: "1.2.27"))  // pre-release: never offered
+        XCTAssertFalse(isNewerVersion("v9.9.9", than: "0.0.0-dev"))    // dev build: never checks
+    }
 }

@@ -131,15 +131,17 @@ func autoFeed(vk: UINT, scan: WORD, shortcut: Bool, shift: Bool) -> Bool {
         }
     }
 
-    // A different field may hold other text. The password check rides along, so it
-    // costs one UI Automation call per field, not per key.
+    // A different window may hold other text.
     let focus = focusWindow()
     if focus != lastFocus {
         lastFocus = focus
         run.reset()
-        passwordField = focusIsPasswordField()
     }
-    if passwordField { return false }   // never buffer a password
+    // Password check once per word, as it starts: a browser page is one window, so
+    // moving from the login field to the password field changes no focus window.
+    // One UI Automation call per word, not per key; a password never reaches the run.
+    if run.word.isEmpty && run.trail.isEmpty { passwordField = focusIsPasswordField() }
+    if passwordField { run.reset(); return false }
 
     // Backspace edits the word; Ctrl+Backspace removes a word — nothing left to track.
     if vk == vkBack {

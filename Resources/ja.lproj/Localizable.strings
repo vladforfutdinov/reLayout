@@ -37,3 +37,7 @@
 "win.pressKey" = "キーを押すか修飾キーをタップ…";
 "win.version" = "バージョン %@";
 "win.hookFailed" = "reLayout はキーボードフックをインストールできませんでした（エラー %@）。";
+"win.update.available" = "アップデートがあります：%@";
+"win.update.notice" = "reLayout %@ が利用可能です。メニューからダウンロードできます。";
+"win.update.latest" = "最新バージョンを使用しています。";
+"win.update.failed" = "アップデートを確認できませんでした。";

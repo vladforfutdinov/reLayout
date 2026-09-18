@@ -37,3 +37,7 @@
 "win.pressKey" = "Appuyez sur une touche ou un modificateur…";
 "win.version" = "version %@";
 "win.hookFailed" = "reLayout n’a pas pu installer son hook clavier (erreur %@).";
+"win.update.available" = "Mise à jour disponible : %@";
+"win.update.notice" = "reLayout %@ est disponible. Ouvrez le menu pour le télécharger.";
+"win.update.latest" = "Vous utilisez la dernière version.";
+"win.update.failed" = "Impossible de rechercher les mises à jour.";

@@ -37,3 +37,7 @@
 "win.pressKey" = "Нажмите клавишу или модификатор…";
 "win.version" = "версия %@";
 "win.hookFailed" = "reLayout не смог установить перехват клавиатуры (ошибка %@).";
+"win.update.available" = "Доступно обновление: %@";
+"win.update.notice" = "Доступен reLayout %@. Откройте меню, чтобы скачать.";
+"win.update.latest" = "У вас последняя версия.";
+"win.update.failed" = "Не удалось проверить обновления.";

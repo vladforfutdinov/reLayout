@@ -56,9 +56,22 @@ An audit of the frozen Windows port (written by an older model) found 15 bugs an
   Green on x64 and arm64 (run 35277002142).
 - Nothing here is hand-tested yet; only the macOS engine tests (54) run, and they
   cover neither `convert()` nor the read paths.
+- Hand test on Windows (UTM, arm64): Enter follow-up, hotkey recording incl. double
+  tap, tray and autostart OK. Undo "didn't work" because the hotkey was a double
+  tap, where undo is off by design (as on macOS). Password fields were corrected on
+  Google's login page: the check ran only on a focus-window change, and a browser
+  page is one window — it now runs as each word starts (one UIA call per word; a
+  password never enters the run), matching macOS' per-evaluation AX check.
 - Windows unfrozen: `build-windows` now also runs on `v*` tags and attaches the
   installer and portable exe (x64, arm64) to the Release, versioned from the tag.
-  Still unsigned and without auto-update.
+  Still unsigned. A light update check replaces auto-update for now
+  (`WinUpdate.swift`): GitHub's latest release a minute after start and daily,
+  over WinHTTP (not in Swift's WinSDK module, so `relayout_http.cpp` joins the UIA
+  code in the C++ target, renamed `RelayoutNative`, `windows/native/`); a newer
+  one (engine `isNewerVersion`, tested) is announced once per version in the tray
+  and listed at the top of the menu, which opens the release page; "Check for
+  Updates…" checks on demand. Dev builds skip it. The tray menu now matches macOS:
+  Check for Updates…, Settings…, Quit — launch at login moved to Settings only.
 - Typing is real keys now (`typeText`): the focused window is switched to the
   target layout first (polled until `GetKeyboardLayout` agrees, ≤300 ms), then the
   text goes out as that layout's key presses (+Shift/AltGr) in one SendInput batch.

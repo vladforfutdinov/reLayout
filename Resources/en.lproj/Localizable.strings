@@ -37,3 +37,7 @@
 "win.pressKey" = "Press a key or tap a modifier…";
 "win.version" = "version %@";
 "win.hookFailed" = "reLayout could not install its keyboard hook (error %@).";
+"win.update.available" = "Update available: %@";
+"win.update.notice" = "reLayout %@ is available. Open the menu to download it.";
+"win.update.latest" = "You're using the latest version.";
+"win.update.failed" = "Couldn't check for updates.";

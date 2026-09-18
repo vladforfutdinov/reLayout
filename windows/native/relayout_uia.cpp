@@ -8,7 +8,7 @@
 #include <uiautomation.h>
 #include <string.h>
 
-#include "include/relayout_uia.h"
+#include "include/relayout_native.h"
 
 namespace {
 

@@ -37,3 +37,7 @@
 "win.pressKey" = "Націсніце клавішу або мадыфікатар…";
 "win.version" = "версія %@";
 "win.hookFailed" = "reLayout не змог усталяваць перахоп клавіятуры (памылка %@).";
+"win.update.available" = "Даступна абнаўленне: %@";
+"win.update.notice" = "Даступны reLayout %@. Адкрыйце меню, каб спампаваць.";
+"win.update.latest" = "У вас апошняя версія.";
+"win.update.failed" = "Не ўдалося праверыць абнаўленні.";

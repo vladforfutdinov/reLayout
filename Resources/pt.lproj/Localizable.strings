@@ -37,3 +37,7 @@
 "win.pressKey" = "Pressione uma tecla ou um modificador…";
 "win.version" = "versão %@";
 "win.hookFailed" = "O reLayout não conseguiu instalar o gancho de teclado (erro %@).";
+"win.update.available" = "Atualização disponível: %@";
+"win.update.notice" = "O reLayout %@ está disponível. Abra o menu para baixá-lo.";
+"win.update.latest" = "Você está usando a versão mais recente.";
+"win.update.failed" = "Não foi possível verificar atualizações.";

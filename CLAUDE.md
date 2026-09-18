@@ -21,7 +21,7 @@ At the end of a session (or before `/clear`): run **`/handoff`** — it updates 
 ```
 Core/        shared platform-free engine, auto-mode state machine, trigram model, .strings reader (SwiftPM module ReLayoutCore)
 macos/       macOS app — main.swift, tests.swift, Info.plist
-windows/     Windows port (preview) — Win*.swift + main.swift, uia/ (C++ UI Automation target)
+windows/     Windows port (preview) — Win*.swift + main.swift, native/ (C++: UI Automation, WinHTTP)
 Resources/   macOS bundle resources — <lang>.lproj + icon PNGs + trigram/<lang>.txt
 Tests/       SwiftPM engine tests
 scripts/     build.sh, run-tests.sh, make-cert.sh, make-dmg.sh, notarize.sh, trigram/

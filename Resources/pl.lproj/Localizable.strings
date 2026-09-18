@@ -37,3 +37,7 @@
 "win.pressKey" = "Naciśnij klawisz lub modyfikator…";
 "win.version" = "wersja %@";
 "win.hookFailed" = "reLayout nie mógł zainstalować przechwytywania klawiatury (błąd %@).";
+"win.update.available" = "Dostępna aktualizacja: %@";
+"win.update.notice" = "Dostępny jest reLayout %@. Otwórz menu, aby go pobrać.";
+"win.update.latest" = "Używasz najnowszej wersji.";
+"win.update.failed" = "Nie udało się sprawdzić aktualizacji.";

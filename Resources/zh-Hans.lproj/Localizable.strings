@@ -37,3 +37,7 @@
 "win.pressKey" = "按下按键或轻点修饰键…";
 "win.version" = "版本 %@";
 "win.hookFailed" = "reLayout 无法安装键盘钩子（错误 %@）。";
+"win.update.available" = "有可用更新：%@";
+"win.update.notice" = "reLayout %@ 已推出。打开菜单即可下载。";
+"win.update.latest" = "你使用的是最新版本。";
+"win.update.failed" = "无法检查更新。";

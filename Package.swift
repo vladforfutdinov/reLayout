@@ -18,15 +18,15 @@ var targets: [Target] = [
 // (the manifest is evaluated on the build host). macOS `swift test` ignores it.
 #if os(Windows)
 targets.append(
-    // COM (UI Automation) is unusable from Swift, so the text read is one C++ file.
-    .target(name: "RelayoutUIA", path: "windows/uia", publicHeadersPath: "include")
+    // Win32 that Swift can't reach — COM (UI Automation) and WinHTTP — as C++.
+    .target(name: "RelayoutNative", path: "windows/native", publicHeadersPath: "include")
 )
 targets.append(
     .executableTarget(
         name: "ReLayoutWin",
-        dependencies: ["ReLayoutCore", "RelayoutUIA"],
+        dependencies: ["ReLayoutCore", "RelayoutNative"],
         path: "windows",
-        exclude: ["uia"],
+        exclude: ["native"],
         // Link as a GUI-subsystem app so launching it does NOT pop a console
         // window — reLayout is a tray app. /ENTRY:mainCRTStartup keeps the
         // normal C `main` entry (the GUI subsystem would otherwise want WinMain).
@@ -40,7 +40,8 @@ targets.append(
             .linkedLibrary("winmm"),     // timeBeginPeriod: a 1 ms pause between typed characters
             .linkedLibrary("shell32"),   // program icons in the exceptions list
             .linkedLibrary("version"),   // program descriptions in the exceptions list
-            .linkedLibrary("comdlg32")   // "Choose…" in the exceptions list
+            .linkedLibrary("comdlg32"),  // "Choose…" in the exceptions list
+            .linkedLibrary("winhttp")    // the update check
         ]
     )
 )

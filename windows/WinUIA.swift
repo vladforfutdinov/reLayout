@@ -1,7 +1,7 @@
-import RelayoutUIA
+import RelayoutNative
 import ReLayoutCore
 
-// Swift side of the UI Automation read (windows/uia): the selection, read without
+// Swift side of the UI Automation read (windows/native): the selection, read without
 // touching it or the clipboard, like the macOS AX path.
 
 /// The focused control's selected text.

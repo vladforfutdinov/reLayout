@@ -1,15 +1,15 @@
 import WinSDK
 
 // System-tray presence: a hidden window receives the tray callback and shows a
-// right-click menu. Menu mirrors the macOS app: a header, the convert hotkey
-// hint, a launch-at-login toggle, a shortcut to Windows keyboard settings, an
-// About link, and Quit. (Live layout badge / Settings UI come later.)
+// menu — an available update, Check for Updates, Settings, Quit (as on macOS).
+// The same window runs the auto-correct fixes and the update timers.
 
 private let trayCallback = UINT(WM_APP) + 1
 
 private let menuSettings: UINT = 1
-private let menuStartup:  UINT = 2
 private let menuQuit:     UINT = 3
+private let menuUpdate:   UINT = 4
+private let menuCheck:    UINT = 5
 
 // repoSlug lives in Identity.swift (CI-stamped, like Version.swift).
 let aboutURL = "https://github.com/\(repoSlug)"
@@ -121,10 +121,14 @@ private func appendItem(_ menu: HMENU?, _ id: UINT, _ title: String, flags: UINT
 
 private func showTrayMenu(_ hwnd: HWND?) {
     guard let menu = CreatePopupMenu() else { return }
+    if let tag = availableUpdate {
+        appendItem(menu, menuUpdate, L("win.update.available", tag))
+        _ = AppendMenuW(menu, UINT(MF_SEPARATOR), 0, nil)
+    }
+    // As the macOS menu: Check for Updates, Settings, Quit. Launch at login lives
+    // in Settings only.
+    appendItem(menu, menuCheck, L("menu.checkUpdates"))
     appendItem(menu, menuSettings, L("menu.settings"))
-    let startupFlags = UINT(MF_STRING) | (startupEnabled() ? UINT(MF_CHECKED) : UINT(MF_UNCHECKED))
-    appendItem(menu, menuStartup, L("settings.openAtLogin"),
-               flags: startupFlags | (startupAvailable() ? 0 : UINT(MF_GRAYED)))
     _ = AppendMenuW(menu, UINT(MF_SEPARATOR), 0, nil)
     appendItem(menu, menuQuit, L("menu.quit"))
 
@@ -139,8 +143,9 @@ private func showTrayMenu(_ hwnd: HWND?) {
 private func handleCommand(_ id: UINT) {
     switch id {
     case menuSettings: openSettings()
-    case menuStartup:  setStartup(!startupEnabled()); refreshSettingsStartup()
     case menuQuit:     PostQuitMessage(0)
+    case menuUpdate:   openExternally(releasePageURL)
+    case menuCheck:    checkForUpdates(trayHwnd, manual: true)
     default:           break
     }
 }
@@ -157,6 +162,10 @@ private func trayWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lParam:
         runAutoFix()
     case WM_AUTOENTER:
         runAutoEnter()
+    case WM_UPDATE_RESULT:
+        handleUpdateResult(manual: wParam != 0)
+    case UINT(WM_TIMER):
+        _ = handleUpdateTimer(hwnd, wParam)
     case UINT(WM_COMMAND):
         handleCommand(UINT(truncatingIfNeeded: wParam) & 0xFFFF)
     case UINT(WM_DESTROY):
@@ -193,6 +202,7 @@ func setupTray() -> Bool {
              ?? LoadIconW(nil, UnsafePointer<WCHAR>(bitPattern: 32512))
     writeTooltip()                              // hover tooltip = "reLayout — <hotkey>"
     addTrayIcon()
+    scheduleUpdateChecks(hwnd)
     return true
 }
 
@@ -220,6 +230,24 @@ func updateTrayTooltip() {
     guard trayHwnd != nil else { return }
     writeTooltip()
     _ = Shell_NotifyIconW(DWORD(NIM_MODIFY), &nid)
+}
+
+/// A balloon from the tray icon (Windows shows it as a notification).
+func showTrayNotice(title: String, text: String) {
+    guard trayHwnd != nil else { return }
+    func fill<T>(_ field: inout T, _ s: String) {
+        let units = Array(s.utf16) + [0]
+        withUnsafeMutableBytes(of: &field) { dst in
+            memset(dst.baseAddress, 0, dst.count)
+            units.withUnsafeBytes { src in _ = memcpy(dst.baseAddress, src.baseAddress, min(dst.count - 2, src.count)) }
+        }
+    }
+    var notice = nid
+    notice.uFlags = UINT(NIF_INFO)
+    fill(&notice.szInfoTitle, title)
+    fill(&notice.szInfo, text)
+    notice.dwInfoFlags = DWORD(NIIF_INFO)
+    _ = Shell_NotifyIconW(DWORD(NIM_MODIFY), &notice)
 }
 
 func removeTray() {

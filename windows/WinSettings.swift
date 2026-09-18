@@ -56,11 +56,11 @@ private func applyFont(_ h: HWND?) {
 
 private func makeControl(_ cls: String, _ text: String, _ style: Int32,
                          _ x: Int32, _ y: Int32, _ w: Int32, _ h: Int32,
-                         _ parent: HWND?, _ id: Int) -> HWND? {
+                         _ parent: HWND?, _ id: Int, exStyle: DWORD = 0) -> HWND? {
     let hInst = GetModuleHandleW(nil)
     return cls.withCString(encodedAs: UTF16.self) { clsP in
         text.withCString(encodedAs: UTF16.self) { txtP in
-            let ctl = CreateWindowExW(0, clsP, txtP,
+            let ctl = CreateWindowExW(exStyle, clsP, txtP,
                                       DWORD(UInt32(bitPattern: style)) | DWORD(WS_CHILD) | DWORD(WS_VISIBLE),
                                       sc(x), sc(y), sc(w), sc(h), parent, HMENU(bitPattern: id), hInst, nil)
             applyFont(ctl)
@@ -105,9 +105,10 @@ private func buildControls(_ hwnd: HWND?) {
     // (including a bare modifier like Left Shift); "Reset" restores the default.
     _ = makeControl("STATIC", L("settings.hotkey"), 0, 20, 55, 100, 20, hwnd, 0)
     let cur = loadHotkey()
+    // Themed sunken edge, like a native field (WS_BORDER draws a flat black frame).
     _ = makeControl("EDIT", hotkeyLabel(cur.mods, cur.vk),
-                    Int32(0x0800) /* ES_READONLY */ | Int32(WS_BORDER) | Int32(WS_TABSTOP),
-                    124, 52, 136, 24, hwnd, idHotkeyField)
+                    Int32(0x0800) /* ES_READONLY */ | Int32(0x0080) /* ES_AUTOHSCROLL */ | Int32(WS_TABSTOP),
+                    124, 52, 136, 24, hwnd, idHotkeyField, exStyle: DWORD(WS_EX_CLIENTEDGE))
     _ = makeControl("BUTTON", L("win.set"),   Int32(WS_TABSTOP), 266, 51, 70, 26, hwnd, idBtnSet)
     _ = makeControl("BUTTON", L("win.reset"), Int32(WS_TABSTOP), 342, 51, 78, 26, hwnd, idBtnReset)
 

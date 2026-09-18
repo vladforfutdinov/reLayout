@@ -15,6 +15,12 @@ final class StringsTests: XCTestCase {
         XCTAssertEqual(table["two"], "a\nb")
     }
 
+    func testReadsCRLFFiles() {
+        // A Windows checkout: a comment must end at "\r\n", not swallow the rest.
+        let table = parseStrings("\"a\" = \"1\";\r\n// note\r\n\"b\" = \"2\";\r\n")
+        XCTAssertEqual(table, ["a": "1", "b": "2"])
+    }
+
     func testSkipsMalformedEntries() {
         let table = parseStrings("\"broken\" \"x\";\n\"ok\" = \"yes\";")
         XCTAssertEqual(table["ok"], "yes")
@@ -37,5 +43,12 @@ final class StringsTests: XCTestCase {
             let missing = Set(english.keys).subtracting(table.keys)
             XCTAssertTrue(missing.isEmpty, "\(lang) lacks \(missing.sorted())")
         }
+    }
+
+    func testTrigramModelReadsCRLFFiles() {
+        // Same Windows-checkout trap for the shipped models: "\r\n" must split lines.
+        let model = TrigramModel(text: "# model\r\nfloor -5.0\r\n^^a -1.0\r\n")
+        XCTAssertEqual(model?.floor, -5.0)
+        XCTAssertEqual(model?.score("a") ?? 0, (-1.0 + -5.0) / 2, accuracy: 0.001)   // "^^a" known, "^a$" not
     }
 }

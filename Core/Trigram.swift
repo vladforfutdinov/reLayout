@@ -28,9 +28,10 @@ public struct TrigramModel {
     public init?(text: String) {
         var floor: Float?
         var table: [String: Float] = [:]
-        for raw in text.split(separator: "\n") {
+        // isNewline, not "\n": in a CRLF file (a Windows checkout) "\r\n" is a single
+        // Character, so splitting on "\n" alone would leave the file one long line.
+        for raw in text.split(whereSeparator: \.isNewline) {
             var line = raw
-            if line.last == "\r" { line = line.dropLast() }          // tolerate CRLF
             while line.first == " " { line = line.dropFirst() }
             if line.isEmpty || line.first == "#" { continue }
             // Split on the LAST space — trigrams are letters + ^/$ only, never a space.

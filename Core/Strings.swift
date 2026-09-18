@@ -2,8 +2,9 @@
 // translations as the macOS app (Resources/<lang>.lproj/Localizable.strings).
 // macOS itself reads them through Bundle; this parser is for platforms without it.
 
-/// Parses `"key" = "value";` pairs. Handles `//` and `/* */` comments and the
-/// escapes the shipped files use (`\"`, `\\`, `\n`, `\t`). Malformed entries are
+/// Parses `"key" = "value";` pairs. Handles `//` and `/* */` comments, the escapes
+/// the shipped files use (`\"`, `\\`, `\n`, `\t`) and CRLF line ends (a Windows
+/// checkout — "\r\n" is one Character, never equal to "\n"). Malformed entries are
 /// skipped, never fatal.
 public func parseStrings(_ text: String) -> [String: String] {
     var table: [String: String] = [:]
@@ -13,7 +14,7 @@ public func parseStrings(_ text: String) -> [String: String] {
         while let c = chars.first {
             if c.isWhitespace { chars.removeFirst(); continue }
             if c == "/", chars.dropFirst().first == "/" {
-                while let n = chars.first, n != "\n" { chars.removeFirst() }
+                while let n = chars.first, !n.isNewline { chars.removeFirst() }
                 continue
             }
             if c == "/", chars.dropFirst().first == "*" {

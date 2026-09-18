@@ -56,6 +56,13 @@ An audit of the frozen Windows port (written by an older model) found 15 bugs an
   Green on x64 and arm64 (run 35277002142).
 - Nothing here is hand-tested yet; only the macOS engine tests (54) run, and they
   cover neither `convert()` nor the read paths.
+- First run on real Windows (arm64): every string after the first `//` comment
+  showed as its key. GitHub's Windows runners check files out with CRLF, and in
+  Swift "\r\n" is ONE Character, never equal to "\n": the `.strings` comment skip
+  ran to the end of the file, and `TrigramModel(text:)`'s `split(separator: "\n")`
+  left each model one line — auto mode would never have fired. Both now split on
+  `isNewline`; `.gitattributes` pins LF for `*.strings` and the models; two CRLF
+  tests. The hotkey field got a themed sunken edge instead of a flat border.
 - Windows UI is localized from the macOS `Localizable.strings` (CI ships them as
   `lang/<code>.lproj` next to the exe; `parseStrings` in `Core/Strings.swift`
   reads them; a test checks every language carries every English key). 13

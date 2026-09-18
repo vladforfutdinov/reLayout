@@ -1487,31 +1487,10 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         decideAutoTarget(w, cur: cur, enabled: enabled, model: trigram)
     }
 
-    // A word that mixes scripts came from a mid-word layout switch: one half was
-    // typed before the switch, the other after. Which half is wrong is not decidable
-    // from the layouts alone — "ghjсто" wants its head fixed ("просто"), "мирqwerty"
-    // its tail ("мирйцукен") — the two are structurally identical, so both readings
-    // are scored with the trigram models and the better one wins. Unlike auto-mode
-    // there are no confidence gates: the hotkey is an explicit user request.
-    // Returns nil when `w` is not a pure-letter mixed-script word.
+    // Mid-word layout switch ("ghjсто"): the engine scores both readings.
     private func mixedWordFix(_ w: String, cur: Layout,
                               enabled: [Layout]) -> (out: String, dst: Layout, src: Layout)? {
-        guard w.allSatisfy(\.isLetter), hasCyr(w[...]), hasLatin(w[...]) else { return nil }
-        var best: (out: String, dst: Layout, src: Layout, score: Float)?
-        func offer(_ out: String?, dst: Layout, src: Layout) {
-            guard let out, out != w,
-                  let lang = dst.languageCode, let model = trigram(lang) else { return }
-            let s = model.score(out)
-            if best == nil || s > best!.score { best = (out, dst, src, s) }
-        }
-        for t in enabled where t.isCyrillic != cur.isCyrillic {
-            // Head reading: the other-script run predates the switch -> current layout.
-            offer(convertScriptRuns(w, src: t, dst: cur), dst: cur, src: t)
-            // Tail reading: what was typed on the current layout is the wrong half.
-            offer(convertScriptRuns(w, src: cur, dst: t), dst: t, src: cur)
-        }
-        guard let b = best else { return nil }
-        return (b.out, b.dst, b.src)
+        fixMixedWord(w, cur: cur, enabled: enabled, model: trigram)
     }
 
     // MARK: - auto-mode live monitor

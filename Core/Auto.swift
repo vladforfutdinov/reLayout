@@ -97,6 +97,34 @@ public func decideAutoTarget<L: AutoLayout>(_ w: String, cur: L, enabled: [L],
 }
 
 
+// MARK: - Mid-word layout switch
+
+/// Fixes a word that mixes scripts because the layout was switched mid-word. Which
+/// half is wrong is not decidable from the layouts alone — "ghjсто" wants its head
+/// fixed ("просто"), "мирqwerty" its tail ("мирйцукен"), and the two are shaped the
+/// same — so both readings are scored with the trigram models and the better wins.
+/// No confidence gates: this serves the hotkey, an explicit request.
+/// - Parameter model: trigram model for a language code, cached by the caller.
+/// - Returns: the fixed word, the layout it is now in (`dst`) and the one the wrong
+///   half was typed in (`src`); nil when `w` is not a pure-letter mixed-script word.
+public func fixMixedWord<L: AutoLayout>(_ w: String, cur: L, enabled: [L],
+                                        model: (String) -> TrigramModel?) -> (out: String, dst: L, src: L)? {
+    guard w.allSatisfy(\.isLetter), hasCyr(w[...]), hasLatin(w[...]) else { return nil }
+    var best: (out: String, dst: L, src: L, score: Float)?
+    func offer(_ out: String?, dst: L, src: L) {
+        guard let out, out != w, let lang = dst.languageCode, let m = model(lang) else { return }
+        let score = m.score(out)
+        if best == nil || score > best!.score { best = (out, dst, src, score) }
+    }
+    for t in enabled where t.isCyrillic != cur.isCyrillic {
+        // Head reading: the other-script run predates the switch -> current layout.
+        offer(convertScriptRuns(w, src: t, dst: cur), dst: cur, src: t)
+        // Tail reading: what was typed on the current layout is the wrong half.
+        offer(convertScriptRuns(w, src: cur, dst: t), dst: t, src: cur)
+    }
+    return best.map { ($0.out, $0.dst, $0.src) }
+}
+
 // MARK: - The typed-word run
 
 /// Length of `w` without its trailing non-letters: a trailing mapped char is the

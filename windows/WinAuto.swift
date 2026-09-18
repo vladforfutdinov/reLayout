@@ -68,7 +68,7 @@ private func foregroundProcessName() -> String {
 
 private var models: [String: TrigramModel?] = [:]
 
-private func trigram(_ lang: String) -> TrigramModel? {
+func trigram(_ lang: String) -> TrigramModel? {
     if let cached = models[lang] { return cached }
     let model = (try? String(contentsOfFile: "\(exeDirectory())\\trigram\\\(lang).txt", encoding: .utf8))
         .flatMap(TrigramModel.init(text:))

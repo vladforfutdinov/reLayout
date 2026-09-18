@@ -56,6 +56,9 @@ An audit of the frozen Windows port (written by an older model) found 15 bugs an
   Green on x64 and arm64 (run 35277002142).
 - Nothing here is hand-tested yet; only the macOS engine tests (54) run, and they
   cover neither `convert()` nor the read paths.
+- `mixedWordFix` moved into the engine as `fixMixedWord` (both readings of a
+  mid-word layout switch, trigram-scored; 3 tests) and now also serves the Windows
+  hotkey for a single-word selection like "ghjсто".
 - The typed-word run moved into the engine too (`AutoRun` in `Core/Auto.swift`):
   word material, the word/trail/new-run state machine, Backspace, the short-word
   rule with the erase/undo text of a swallowed preposition, and the Enter settle

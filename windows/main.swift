@@ -38,6 +38,14 @@ private func retype(_ text: String, cur: WinLayout) {
     guard !text.isEmpty else { return }
     let all = WinLayout.installedList()
     guard all.count >= 2 else { return }
+    // A single word with both scripts came from a mid-word layout switch
+    // ("ghjсто"): the engine scores both readings of it.
+    if tokenize(text).count == 1, let mixed = fixMixedWord(text, cur: cur, enabled: all, model: trigram) {
+        guard sendUnicode(mixed.out) else { return }
+        pumpWait(20)
+        switchLayout(to: mixed.dst)
+        return
+    }
     let dst = all.first(where: { $0.isCyrillic != cur.isCyrillic && $0.id != cur.id })
         ?? all.first(where: { $0.id != cur.id })
     guard let dst, let out = convertWrong(text, src: cur, dst: dst) else { return }

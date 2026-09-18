@@ -278,4 +278,28 @@ final class EngineTests: XCTestCase {
         let (latin, cyr) = makeLayouts()
         XCTAssertNil(decideAutoTarget("ghbdtn", cur: latin, enabled: [latin, cyr], model: { _ in nil }))
     }
+
+    // MARK: - fixMixedWord (mid-word layout switch, hotkey path)
+
+    private func fixMixed(_ w: String, cyrKnows: [String], latinKnows: [String],
+                          curIsCyrillic: Bool) -> String? {
+        let (latin, cyr) = makeLayouts()
+        let models = ["en": model(knowing: latinKnows), "uk": model(knowing: cyrKnows)]
+        return fixMixedWord(w, cur: curIsCyrillic ? cyr : latin, enabled: [latin, cyr],
+                            model: { models[$0] })?.out
+    }
+
+    func testFixMixedWordFixesTheHeadWhenThatReadsBetter() {
+        // "ghbвет": "ghb" typed before switching to Cyrillic -> "привет".
+        XCTAssertEqual(fixMixed("ghbвет", cyrKnows: ["привет"], latinKnows: [], curIsCyrillic: true), "привет")
+    }
+
+    func testFixMixedWordFixesTheTailWhenThatReadsBetter() {
+        // "прbdtn": the Latin tail was typed after forgetting to switch back.
+        XCTAssertEqual(fixMixed("прbdtn", cyrKnows: ["привет"], latinKnows: [], curIsCyrillic: false), "привет")
+    }
+
+    func testFixMixedWordIgnoresSingleScriptWords() {
+        XCTAssertNil(fixMixed("ghbdtn", cyrKnows: ["привет"], latinKnows: [], curIsCyrillic: false))
+    }
 }

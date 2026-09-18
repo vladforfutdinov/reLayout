@@ -62,6 +62,24 @@ An audit of the frozen Windows port (written by an older model) found 15 bugs an
   Google's login page: the check ran only on a focus-window change, and a browser
   page is one window — it now runs as each word starts (one UIA call per word; a
   password never enters the run), matching macOS' per-evaluation AX check.
+- Windows Settings polish: the hotkey field is a button (no selectable text or
+  caret; click/Space records, losing focus cancels); the window width follows the
+  widest row, like the macOS window; the update check and its menu item exist only
+  in release builds (a numeric version) — local "dev" and CI's "0.0.0-dev" skip it.
+  The tray glyph follows the taskbar theme like the macOS menu-bar icon: two new
+  icon resources (2, 3) built from `Resources/for-{light,dark}-text-1024.png`,
+  picked by `SystemUsesLightTheme` and swapped on WM_SETTINGCHANGE
+  "ImmersiveColorSet". Tap sequences stay at ×2: five Shift presses open Windows'
+  Sticky Keys prompt. Settings, Exceptions and the tray menu follow the theme too
+  (`WinTheme.swift`, `native/relayout_theme.cpp`): a DWM dark title bar, the
+  system's DarkMode_Explorer / DarkMode_CFD control styles, background, text and
+  1 px separators painted in the theme's colors, and the tray menu via uxtheme's
+  undocumented SetPreferredAppMode (ordinal 135; a no-op if missing). A themed
+  check box draws its title black in dark mode, so each title is a separate label
+  that clicks its box. Settings' logo is the bare "rL" glyph in the theme's
+  contrast (resources 2/3, now 16-256 px); both windows rebuild on a theme switch.
+  The local build script stamps the About link's repo from the origin remote, like
+  scripts/build.sh, and restores Identity.swift afterwards.
 - Windows unfrozen: `build-windows` now also runs on `v*` tags and attaches the
   installer and portable exe (x64, arm64) to the Release, versioned from the tag.
   Still unsigned. A light update check replaces auto-update for now

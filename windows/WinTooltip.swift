@@ -14,6 +14,7 @@ func addTooltip(_ tooltip: inout HWND?, _ parent: HWND?, _ control: HWND?, _ tex
                             DWORD(WS_POPUP) | DWORD(0x01 /* TTS_ALWAYSTIP */),
                             0, 0, 0, 0, parent, nil, GetModuleHandleW(nil), nil)
         }
+        applyControlTheme(tooltip, className: "tooltips_class32", dark: appsUseDarkTheme())
         SendMessageW(tooltip, UINT(0x0418 /* TTM_SETMAXTIPWIDTH */), 0, LPARAM(320 * Int32(GetDpiForWindow(parent)) / 96))
     }
     guard let tip = tooltip, let control else { return }

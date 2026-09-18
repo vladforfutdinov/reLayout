@@ -7,7 +7,7 @@ import RelayoutNative
 // Update check, the light form of the macOS Sparkle updater: asks GitHub for the
 // latest release a minute after start and then daily, and if it is newer shows one
 // tray notice per version plus a menu item that opens the release page. Nothing is
-// downloaded or installed. Dev builds ("0.0.0-dev") and identity-less builds skip it.
+// downloaded or installed. Dev builds skip it and show no menu item.
 
 let WM_UPDATE_RESULT = UINT(WM_APP) + 13
 
@@ -21,7 +21,9 @@ private let resultLock = NSLock()
 
 var releasePageURL: String { "https://github.com/\(repoSlug)/releases/latest" }
 
-private var updatesEnabled: Bool { !repoSlug.isEmpty && !appVersion.hasSuffix("-dev") }
+/// Only a release build checks: its version is a number ("1.2.27"). Local builds
+/// say "dev", CI's untagged ones "0.0.0-dev" — neither parses as newer than 0.
+var updatesEnabled: Bool { isNewerVersion(appVersion, than: "0") }
 
 func scheduleUpdateChecks(_ hwnd: HWND?) {
     guard updatesEnabled else { return }

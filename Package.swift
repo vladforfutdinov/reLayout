@@ -41,7 +41,9 @@ targets.append(
             .linkedLibrary("shell32"),   // program icons in the exceptions list
             .linkedLibrary("version"),   // program descriptions in the exceptions list
             .linkedLibrary("comdlg32"),  // "Choose…" in the exceptions list
-            .linkedLibrary("winhttp")    // the update check
+            .linkedLibrary("winhttp"),   // the update check
+            .linkedLibrary("dwmapi"),    // dark title bars
+            .linkedLibrary("uxtheme")    // dark control styles
         ]
     )
 )

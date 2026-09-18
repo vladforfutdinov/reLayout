@@ -11,8 +11,20 @@ Push-Location windows
 if ($LASTEXITCODE -ne 0) { throw "llvm-rc failed ($LASTEXITCODE)" }
 Pop-Location
 
-swift build -c release --product ReLayoutWin -Xlinker "$((Resolve-Path relayout.res).Path)"
-if ($LASTEXITCODE -ne 0) { throw "swift build failed ($LASTEXITCODE)" }
+# The About link's repo, like scripts/build.sh: RELAYOUT_REPO_SLUG, else the origin
+# remote. Stamped into windows\Identity.swift for the build only, then restored.
+$slug = $env:RELAYOUT_REPO_SLUG
+if (-not $slug) {
+  $origin = git remote get-url origin 2>$null
+  if ($origin -match 'github\.com[:/](.+?)(\.git)?$') { $slug = $Matches[1] }
+}
+if ($slug) { "let repoSlug = `"$slug`"" | Set-Content -Encoding utf8 windows\Identity.swift }
+try {
+  swift build -c release --product ReLayoutWin -Xlinker "$((Resolve-Path relayout.res).Path)"
+  if ($LASTEXITCODE -ne 0) { throw "swift build failed ($LASTEXITCODE)" }
+} finally {
+  if ($slug) { git checkout -- windows\Identity.swift }
+}
 
 $out = "dist\win"
 New-Item -ItemType Directory -Force -Path "$out\trigram", "$out\lang" | Out-Null

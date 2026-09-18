@@ -127,7 +127,7 @@ private func showTrayMenu(_ hwnd: HWND?) {
     }
     // As the macOS menu: Check for Updates, Settings, Quit. Launch at login lives
     // in Settings only.
-    appendItem(menu, menuCheck, L("menu.checkUpdates"))
+    if updatesEnabled { appendItem(menu, menuCheck, L("menu.checkUpdates")) }   // like macOS' non-Sparkle build
     appendItem(menu, menuSettings, L("menu.settings"))
     _ = AppendMenuW(menu, UINT(MF_SEPARATOR), 0, nil)
     appendItem(menu, menuQuit, L("menu.quit"))
@@ -164,8 +164,16 @@ private func trayWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lParam:
         runAutoEnter()
     case WM_UPDATE_RESULT:
         handleUpdateResult(manual: wParam != 0)
-    case UINT(WM_TIMER):
+    case UINT(WM_TIMER) where wParam != WPARAM(themeTimer):
         _ = handleUpdateTimer(hwnd, wParam)
+    case UINT(WM_SETTINGCHANGE), UINT(WM_THEMECHANGED):
+        // A light/dark switch arrives as one of several setting broadcasts, possibly
+        // before the registry holds the new value: re-read shortly after any of them.
+        SetTimer(hwnd, themeTimer, 300, nil)
+    case UINT(WM_TIMER) where wParam == WPARAM(themeTimer):
+        KillTimer(hwnd, themeTimer)
+        if taskbarIsLight() != trayIsLight { refreshTrayIcon() }
+        applyMenuTheme()
     case UINT(WM_COMMAND):
         handleCommand(UINT(truncatingIfNeeded: wParam) & 0xFFFF)
     case UINT(WM_DESTROY):
@@ -193,13 +201,8 @@ func setupTray() -> Bool {
     nid.uID = 1
     nid.uFlags = UINT(NIF_ICON) | UINT(NIF_MESSAGE) | UINT(NIF_TIP)
     nid.uCallbackMessage = trayCallback
-    // Our embedded app icon (resource id 1 from relayout.rc) at the small-icon
-    // size for this DPI — LoadIconW gives the 32 px one, scaled down blurry. Fall
-    // back to the system application icon if the resource is somehow missing.
-    let small = LoadImageW(GetModuleHandleW(nil), UnsafePointer<WCHAR>(bitPattern: 1), UINT(IMAGE_ICON),
-                           GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), 0)
-    nid.hIcon = small.map { HICON(OpaquePointer($0)) }
-             ?? LoadIconW(nil, UnsafePointer<WCHAR>(bitPattern: 32512))
+    nid.hIcon = themedTrayIcon()
+    applyMenuTheme()
     writeTooltip()                              // hover tooltip = "reLayout — <hotkey>"
     addTrayIcon()
     scheduleUpdateChecks(hwnd)
@@ -230,6 +233,46 @@ func updateTrayTooltip() {
     guard trayHwnd != nil else { return }
     writeTooltip()
     _ = Shell_NotifyIconW(DWORD(NIM_MODIFY), &nid)
+}
+
+/// True when the taskbar is light (Settings > Personalization > Colors).
+private func taskbarIsLight() -> Bool {
+    var value: DWORD = 0
+    var size = DWORD(MemoryLayout<DWORD>.size)
+    let r = "Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize".withCString(encodedAs: UTF16.self) { key in
+        "SystemUsesLightTheme".withCString(encodedAs: UTF16.self) { name in
+            RegGetValueW(kHKCU, key, name, DWORD(0x10 /* RRF_RT_REG_DWORD */), nil, &value, &size)
+        }
+    }
+    return r == 0 && value != 0   // missing (older Windows): the dark taskbar default
+}
+
+/// The tray glyph for the taskbar's theme, at the small-icon size for this DPI
+/// (LoadIconW would give the 32 px one, scaled down blurry). Falls back to the app
+/// icon, then to the system one.
+private func themedTrayIcon() -> HICON? {
+    let hInst = GetModuleHandleW(nil)
+    trayIsLight = taskbarIsLight()
+    for id in [trayIsLight ? 2 : 3, 1] {
+        if let image = LoadImageW(hInst, UnsafePointer<WCHAR>(bitPattern: id), UINT(IMAGE_ICON),
+                                  GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), 0) {
+            return HICON(OpaquePointer(image))
+        }
+    }
+    return LoadIconW(nil, UnsafePointer<WCHAR>(bitPattern: 32512))
+}
+
+private let themeTimer: UINT_PTR = 20
+private var trayIsLight = true   // the taskbar theme the current glyph was picked for
+
+/// Re-picks the tray glyph after a theme change.
+private func refreshTrayIcon() {
+    guard trayHwnd != nil else { return }
+    let old = nid.hIcon
+    nid.hIcon = themedTrayIcon()
+    applyMenuTheme()
+    _ = Shell_NotifyIconW(DWORD(NIM_MODIFY), &nid)
+    if let old { DestroyIcon(old) }
 }
 
 /// A balloon from the tray icon (Windows shows it as a notification).

@@ -21,6 +21,8 @@ private var excDpi: Int32 = 96
 private var excTooltip: HWND?
 private var excGlyphFont: HFONT?
 private var shownApps: [String] = []   // row i shows shownApps[i]
+private var excColors = ThemeColors.current()
+private var excBrush: HBRUSH?
 
 private func esc(_ v: Int32) -> Int32 { v * excDpi / 96 }   // scale a 96-dpi coord
 
@@ -219,6 +221,7 @@ private func makeExcControl(_ cls: String, _ text: String, _ style: Int32,
                                       DWORD(UInt32(bitPattern: style)) | DWORD(WS_CHILD) | DWORD(WS_VISIBLE),
                                       esc(x), esc(y), esc(w), esc(h), parent, HMENU(bitPattern: id), hInst, nil)
             SendMessageW(ctl, UINT(WM_SETFONT), unsafeBitCast(settingsFont(), to: WPARAM.self), LPARAM(1))
+            applyControlTheme(ctl, className: cls, dark: excColors.dark)
             return ctl
         }
     }
@@ -236,6 +239,10 @@ private let clientW: Int32 = 424
 private let clientH: Int32 = 322
 
 private func buildExceptions(_ hwnd: HWND?) {
+    excColors = ThemeColors.current()
+    if let b = excBrush { DeleteObject(UnsafeMutableRawPointer(b)) }
+    excBrush = CreateSolidBrush(excColors.background)
+    applyTitleBarTheme(hwnd, dark: excColors.dark)
     // The window caption already names it; this line says what the list does.
     let title = L("settings.exc.hint")
     makeExcControl("STATIC", title, 0, 16, 16, 360, 20, hwnd, idExcTitle)
@@ -254,6 +261,12 @@ private func buildExceptions(_ hwnd: HWND?) {
                               16, 44, clientW - 32, 220, hwnd, idExcList, exStyle: DWORD(WS_EX_CLIENTEDGE))
     SendMessageW(list, UINT(0x1036 /* LVM_SETEXTENDEDLISTVIEWSTYLE */), 0,
                  LPARAM(0x20 /* LVS_EX_FULLROWSELECT */ | 0x10000 /* LVS_EX_DOUBLEBUFFER */))
+    if excColors.dark {
+        let bg = LPARAM(Int(excColors.background)), fg = LPARAM(Int(excColors.text))
+        SendMessageW(list, UINT(0x1001 /* LVM_SETBKCOLOR */), 0, bg)
+        SendMessageW(list, UINT(0x1026 /* LVM_SETTEXTBKCOLOR */), 0, bg)
+        SendMessageW(list, UINT(0x1024 /* LVM_SETTEXTCOLOR */), 0, fg)
+    }
     var column = LVCOLUMNW()
     column.mask = UINT(0x2 /* LVCF_WIDTH */)
     column.cx = esc(clientW - 32) - GetSystemMetrics(SM_CXVSCROLL) - 4
@@ -298,8 +311,31 @@ private func exceptionsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ l
                 if key == WORD(VK_DELETE) { removeSelected(hwnd) }
             }
         }
+    case UINT(WM_CTLCOLORSTATIC), UINT(WM_CTLCOLORBTN):
+        let dc = HDC(bitPattern: UInt(wParam))
+        SetTextColor(dc, excColors.text)
+        SetBkColor(dc, excColors.background)
+        SetBkMode(dc, TRANSPARENT)
+        return LRESULT(Int(bitPattern: excBrush))
+    case UINT(WM_ERASEBKGND):
+        var r = RECT()
+        GetClientRect(hwnd, &r)
+        FillRect(HDC(bitPattern: UInt(wParam)), &r, excBrush)
+        return 1
+    case UINT(WM_SETTINGCHANGE):
+        // Light/dark switch: rebuild the controls in the new colors.
+        if let p = UnsafePointer<WCHAR>(bitPattern: Int(lParam)),
+           String(decodingCString: p, as: UTF16.self) == "ImmersiveColorSet" {
+            var child = GetWindow(hwnd, UINT(GW_CHILD))
+            while let c = child { child = GetWindow(c, UINT(GW_HWNDNEXT)); DestroyWindow(c) }
+            if let tip = excTooltip { DestroyWindow(tip) }
+            if let f = excGlyphFont { DeleteObject(UnsafeMutableRawPointer(f)); excGlyphFont = nil }
+            buildExceptions(hwnd)
+            InvalidateRect(hwnd, nil, true)
+        }
     case UINT(WM_DESTROY):
         exceptionsHwnd = nil
+        if let b = excBrush { DeleteObject(UnsafeMutableRawPointer(b)); excBrush = nil }
         excTooltip = nil   // owned by the window: destroyed with it
         if let f = excGlyphFont { DeleteObject(UnsafeMutableRawPointer(f)); excGlyphFont = nil }
     default:

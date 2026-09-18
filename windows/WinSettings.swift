@@ -23,6 +23,10 @@ private let idVersion:       Int = 122
 private let idCopyright:     Int = 123
 private let secondaryIDs: Set<Int> = [idCapLanguage, idCapHotkey, idVersion, idCopyright]
 
+private let idSeparator:     Int = 150
+// A check box's title is a separate label with the box's id + labelOffset.
+private let labelOffset = 1000
+
 private let idCancel: Int = 2   // IDCANCEL: Esc, through IsDialogMessageW
 private let WM_REBUILD = UINT(WM_APP) + 20
 private let tapTimer: UINT_PTR = 1
@@ -53,6 +57,9 @@ private var nameFont: HFONT?
 private var glyphFont: HFONT?
 private var logoIcon: HICON?
 private var tooltip: HWND?
+private var colors = ThemeColors.current()
+private var backgroundBrush: HBRUSH?
+private var separatorBrush: HBRUSH?
 
 // A bare-modifier tap waits this long for a second tap, which makes it a double tap
 // — the Windows form of the macOS tap sequence recorded in the same field.
@@ -65,8 +72,9 @@ private let nmReturn = UINT(bitPattern: -4)
 
 private func sc(_ v: Int32) -> Int32 { v * uiDpi / 96 }   // scale a 96-dpi coord
 
-// Client width at 96 dpi; the height follows the layout.
-private let clientWidth: Int32 = 440
+// Client size at 96 dpi; both follow the content (the widest row), like the macOS
+// window, so long translations fit and short ones leave no empty margin.
+private var clientWidth: Int32 = 360
 private let margin: Int32 = 20
 private var clientHeight: Int32 = 400
 
@@ -85,6 +93,8 @@ private func freeResources() {
     uiFont = nil; nameFont = nil; glyphFont = nil
     if let icon = logoIcon { DestroyIcon(icon); logoIcon = nil }
     if let tip = tooltip { DestroyWindow(tip); tooltip = nil }   // a popup, not a child
+    for b in [backgroundBrush, separatorBrush] { if let b { DeleteObject(UnsafeMutableRawPointer(b)) } }
+    backgroundBrush = nil; separatorBrush = nil
 }
 
 private func makeResources() {
@@ -92,6 +102,9 @@ private func makeResources() {
     uiFont = font("Segoe UI", points: 9)
     nameFont = font("Segoe UI", points: 11, bold: true)
     glyphFont = font("Segoe MDL2 Assets", points: 10)   // Windows 10+ icon font
+    colors = ThemeColors.current()
+    backgroundBrush = CreateSolidBrush(colors.background)
+    separatorBrush = CreateSolidBrush(colors.separator)
 }
 
 /// The Settings font, shared with the Exceptions window (opened from here).
@@ -112,6 +125,7 @@ private func makeControl(_ cls: String, _ text: String, _ style: Int32,
                                       DWORD(UInt32(bitPattern: style)) | DWORD(WS_CHILD) | DWORD(WS_VISIBLE),
                                       sc(x), sc(y), sc(w), sc(h), parent, HMENU(bitPattern: id), hInst, nil)
             setFont(ctl, uiFont)
+            applyControlTheme(ctl, className: cls, dark: colors.dark)
             return ctl
         }
     }
@@ -131,6 +145,29 @@ private func textWidth(_ text: String, _ hwnd: HWND?) -> Int32 {
 
 private func setFieldText(_ hwnd: HWND?, _ id: Int, _ s: String) {
     s.withCString(encodedAs: UTF16.self) { _ = SetWindowTextW(GetDlgItem(hwnd, Int32(id)), $0) }
+}
+
+/// A check box whose title is a separate label: a themed check box draws its text
+/// black even in dark mode, a static label takes the theme's color. Clicking the
+/// label clicks the box (WM_COMMAND).
+@discardableResult
+private func makeCheck(_ title: String, _ x: Int32, _ y: Int32, _ w: Int32, _ hwnd: HWND?, _ id: Int,
+                       on: Bool, enabled: Bool) -> HWND? {
+    let box = makeControl("BUTTON", "", Int32(BS_AUTOCHECKBOX) | Int32(WS_TABSTOP), x, y + 2, 18, 18, hwnd, id)
+    check(box, on)
+    makeControl("STATIC", title, Int32(0x0100 /* SS_NOTIFY */), x + 22, y + 3, w - 22, 20, hwnd, id + labelOffset)
+    enableCheck(hwnd, id, enabled)
+    return box
+}
+
+private func enableCheck(_ hwnd: HWND?, _ id: Int, _ on: Bool) {
+    EnableWindow(GetDlgItem(hwnd, Int32(id)), on)
+    EnableWindow(GetDlgItem(hwnd, Int32(id + labelOffset)), on)
+}
+
+/// A 1 px rule in the theme's separator color (an etched line reads wrong in dark).
+private func separator(_ hwnd: HWND?, _ y: Int32, _ width: Int32) {
+    makeControl("STATIC", "", 0, margin, y, width, 1, hwnd, idSeparator)
 }
 
 private func check(_ ctl: HWND?, _ on: Bool) {
@@ -180,38 +217,53 @@ private func captured(_ hwnd: HWND?, _ mods: UINT, _ vk: UINT) {
 private func finishRecording(_ hwnd: HWND?, _ mods: UINT, _ vk: UINT, doubleTap: Bool) {
     cancelHotkeyCapture()
     applyHotkey(hwnd, mods, vk, doubleTap: doubleTap)
-    SetFocus(hwnd)   // leave the field, so the next click records again
+    SetFocus(hwnd)   // leave the button; the next click records again
 }
 
 // MARK: - layout
 
 private func buildControls(_ hwnd: HWND?) {
     L("settings.title").withCString(encodedAs: UTF16.self) { _ = SetWindowTextW(hwnd, $0) }
+    applyTitleBarTheme(hwnd, dark: colors.dark)
+    // Widest row decides the width: auto-correct + ⓘ + Exceptions…, the indented
+    // Enter option, the caption column + a usable field, the footer link.
+    let captionW = max(textWidth(L("settings.language"), hwnd), textWidth(L("settings.hotkey"), hwnd)) + 4
+    let autoTitle = L("settings.autoCorrect")
+    let autoW = textWidth(autoTitle, hwnd) + 24   // + the check box itself
+    let excTitle = L("settings.exceptions")
+    let excW = textWidth(excTitle, hwnd) + 24
+    let rows: [Int32] = [
+        autoW + 24 + 16 + excW,
+        20 + textWidth(L("settings.autoCorrectEnter"), hwnd) + 24,
+        textWidth(L("settings.openAtLogin"), hwnd) + 24,
+        captionW + 10 + 200,
+        textWidth("github.com/\(repoSlug)", hwnd) + 8,
+    ]
+    clientWidth = max(rows.max() ?? 0, 280) + 2 * margin
     let content = clientWidth - 2 * margin
     var y: Int32 = margin
 
     // ── header: logo + name ──
     let logo = makeControl("STATIC", "", Int32(0x0003 /* SS_ICON */) | Int32(0x0200 /* SS_CENTERIMAGE */),
                            (clientWidth - 64) / 2, y, 64, 64, hwnd, 0)
-    logoIcon = LoadImageW(GetModuleHandleW(nil), UnsafePointer<WCHAR>(bitPattern: 1), UINT(IMAGE_ICON),
-                          sc(64), sc(64), 0).map { HICON(OpaquePointer($0)) }
+    // The bare "rL" glyph in the theme's contrast, like the macOS menu-bar mark:
+    // dark letters in light mode (resource 2), white in dark mode (3).
+    logoIcon = LoadImageW(GetModuleHandleW(nil), UnsafePointer<WCHAR>(bitPattern: colors.dark ? 3 : 2),
+                          UINT(IMAGE_ICON), sc(64), sc(64), 0).map { HICON(OpaquePointer($0)) }
     SendMessageW(logo, UINT(0x0170 /* STM_SETICON */), unsafeBitCast(logoIcon, to: WPARAM.self), 0)
     y += 70
     let name = makeControl("STATIC", "reLayout", Int32(0x0001 /* SS_CENTER */), margin, y, content, 24, hwnd, idName)
     setFont(name, nameFont)
     y += 36
-    makeControl("STATIC", "", 0x0010 /* SS_ETCHEDHORZ */, margin, y, content, 1, hwnd, 0)
+    separator(hwnd, y, content)
     y += 14
 
     // ── section A: launch at login + language ──
-    let startup = makeControl("BUTTON", L("settings.openAtLogin"),
-                              Int32(BS_AUTOCHECKBOX) | Int32(WS_TABSTOP), margin, y, content, 22, hwnd, idChkStartup)
-    check(startup, startupEnabled())
-    if !startupAvailable() { EnableWindow(startup, false) }
+    makeCheck(L("settings.openAtLogin"), margin, y, content, hwnd, idChkStartup,
+              on: startupEnabled(), enabled: startupAvailable())
     y += 32
 
     // Right-aligned caption column shared by "Language:" and "Hotkey:".
-    let captionW = max(textWidth(L("settings.language"), hwnd), textWidth(L("settings.hotkey"), hwnd)) + 4
     let fieldX = margin + captionW + 10
     let fieldW = clientWidth - margin - fieldX
 
@@ -227,32 +279,28 @@ private func buildControls(_ hwnd: HWND?) {
     let selected = loadLanguage().flatMap { code in WinLoc.languages.firstIndex { $0.code == code } }.map { $0 + 1 } ?? 0
     SendMessageW(lang, UINT(0x014E /* CB_SETCURSEL */), WPARAM(selected), 0)
     y += 38
-    makeControl("STATIC", "", 0x0010 /* SS_ETCHEDHORZ */, margin, y, content, 1, hwnd, 0)
+    separator(hwnd, y, content)
     y += 14
 
-    // ── section B: hotkey — click the field to record; ↺ restores the default ──
+    // ── section B: hotkey — click it (or Space) to record; ↺ restores the default ──
+    // A button, not an edit box: nothing to select, no text caret, reachable by Tab.
+    // BS_NOTIFY reports losing focus, which ends a recording.
     makeControl("STATIC", L("settings.hotkey"), Int32(0x0002 /* SS_RIGHT */),
                 margin, y + 4, captionW, 20, hwnd, idCapHotkey)
-    makeControl("EDIT", currentHotkeyDisplay(),
-                Int32(0x0800) /* ES_READONLY */ | Int32(0x0001) /* ES_CENTER */ | Int32(WS_TABSTOP),
-                fieldX, y, fieldW - 34, 24, hwnd, idHotkeyField, exStyle: DWORD(WS_EX_CLIENTEDGE))
+    makeControl("BUTTON", currentHotkeyDisplay(), Int32(0x4000 /* BS_NOTIFY */) | Int32(WS_TABSTOP),
+                fieldX, y - 1, fieldW - 34, 26, hwnd, idHotkeyField)
     let reset = makeControl("BUTTON", "\u{E7A7}" /* Undo glyph */, Int32(WS_TABSTOP),
                             clientWidth - margin - 28, y - 1, 28, 26, hwnd, idBtnReset)
     setFont(reset, glyphFont)
     addTooltip(&tooltip, hwnd, reset, L("settings.restoreDefault"))
     y += 38
-    makeControl("STATIC", "", 0x0010 /* SS_ETCHEDHORZ */, margin, y, content, 1, hwnd, 0)
+    separator(hwnd, y, content)
     y += 14
 
     // ── section C: auto-correct (ⓘ explains why it is off), Exceptions…, on Enter ──
     builtForLayouts = installedLayouts()
     let available = WinLayout.crossScriptAvailable()
-    let autoTitle = L("settings.autoCorrect")
-    let autoW = textWidth(autoTitle, hwnd) + 24   // + the check box itself
-    let auto = makeControl("BUTTON", autoTitle, Int32(BS_AUTOCHECKBOX) | Int32(WS_TABSTOP),
-                           margin, y, autoW, 22, hwnd, idChkAuto)
-    check(auto, available && loadAutoMode())
-    EnableWindow(auto, available)
+    makeCheck(autoTitle, margin, y, autoW, hwnd, idChkAuto, on: available && loadAutoMode(), enabled: available)
     if !available {
         let info = makeControl("STATIC", "\u{E946}" /* Info glyph */, 0,
                                margin + autoW + 2, y + 2, 20, 20, hwnd, idAutoInfo)
@@ -260,17 +308,12 @@ private func buildControls(_ hwnd: HWND?) {
         let installed = WinLayout.installedList().map(\.displayName).joined(separator: ", ")
         addTooltip(&tooltip, hwnd, info, L("settings.autoCorrectUnavailable", installed), overWindow: true)
     }
-    let excTitle = L("settings.exceptions")
-    let excW = textWidth(excTitle, hwnd) + 24
     let exceptions = makeControl("BUTTON", excTitle, Int32(WS_TABSTOP),
                                  clientWidth - margin - excW, y - 2, excW, 26, hwnd, idBtnExceptions)
     EnableWindow(exceptions, available)
     y += 28
-    let onEnter = makeControl("BUTTON", L("settings.autoCorrectEnter"),
-                              Int32(BS_AUTOCHECKBOX) | Int32(WS_TABSTOP), margin + 20, y, content - 20, 22,
-                              hwnd, idChkAutoEnter)
-    check(onEnter, loadAutoEnter())
-    EnableWindow(onEnter, available && loadAutoMode())
+    makeCheck(L("settings.autoCorrectEnter"), margin + 20, y, content - 20, hwnd, idChkAutoEnter,
+              on: loadAutoEnter(), enabled: available && loadAutoMode())
     y += 42
 
     // ── footer: version, link, copyright — centered, secondary ──
@@ -347,18 +390,34 @@ private func settingsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lPa
     case WM_REBUILD:
         rebuildControls(hwnd)
         fitClientArea(hwnd, center: false)
+        InvalidateRect(hwnd, nil, true)
         return 0
-    case UINT(WM_CTLCOLORSTATIC):
-        // Captions and footer in the secondary color, like the macOS form.
+    case UINT(WM_CTLCOLORSTATIC), UINT(WM_CTLCOLORBTN):
+        // Theme colors: gray for captions, the footer and disabled titles.
         let ctl = HWND(bitPattern: Int(lParam))
         let dc = HDC(bitPattern: UInt(wParam))
         let id = Int(GetDlgCtrlID(ctl))
-        if id == idHotkeyField { break }   // a read-only edit asks too: keep its default look
-        if secondaryIDs.contains(id) {
-            SetTextColor(dc, GetSysColor(COLOR_GRAYTEXT))
-        }
+        if id == idSeparator { return LRESULT(Int(bitPattern: separatorBrush)) }
+        SetTextColor(dc, secondaryIDs.contains(id) || !IsWindowEnabled(ctl) ? colors.secondary : colors.text)
+        SetBkColor(dc, colors.background)
         SetBkMode(dc, TRANSPARENT)
-        return LRESULT(Int(bitPattern: GetSysColorBrush(COLOR_BTNFACE)))
+        return LRESULT(Int(bitPattern: backgroundBrush))
+    case UINT(WM_CTLCOLORLISTBOX), UINT(WM_CTLCOLOREDIT) where colors.dark:   // the language list
+        let dc = HDC(bitPattern: UInt(wParam))
+        SetTextColor(dc, colors.text)
+        SetBkColor(dc, colors.background)
+        return LRESULT(Int(bitPattern: backgroundBrush))
+    case UINT(WM_ERASEBKGND):
+        var r = RECT()
+        GetClientRect(hwnd, &r)
+        FillRect(HDC(bitPattern: UInt(wParam)), &r, backgroundBrush)
+        return 1
+    case UINT(WM_SETTINGCHANGE):
+        // Light/dark switch: rebuild in the new colors.
+        if let p = UnsafePointer<WCHAR>(bitPattern: Int(lParam)),
+           String(decodingCString: p, as: UTF16.self) == "ImmersiveColorSet" {
+            PostMessageW(hwnd, WM_REBUILD, 0, 0)
+        }
     case UINT(WM_TIMER) where wParam == WPARAM(layoutTimer):
         rebuildIfLayoutsChanged(hwnd)
         return 0
@@ -374,6 +433,10 @@ private func settingsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lPa
     case UINT(WM_COMMAND):
         let notification = (UInt(truncatingIfNeeded: wParam) >> 16) & 0xFFFF
         switch Int(UInt(truncatingIfNeeded: wParam) & 0xFFFF) {
+        case let label where label > labelOffset && notification == 0 /* STN_CLICKED */:
+            // A check box's title was clicked: click the box.
+            let box = GetDlgItem(hwnd, Int32(label - labelOffset))
+            if IsWindowEnabled(box) { SendMessageW(box, UINT(0x00F5 /* BM_CLICK */), 0, 0) }
         case idCmbLanguage where notification == 1 /* CBN_SELCHANGE */:
             let index = Int(SendMessageW(GetDlgItem(hwnd, Int32(idCmbLanguage)), UINT(0x0147 /* CB_GETCURSEL */), 0, 0))
             saveLanguage(index > 0 && index <= WinLoc.languages.count ? WinLoc.languages[index - 1].code : nil)
@@ -381,9 +444,9 @@ private func settingsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lPa
             // Not here: the combo box is still inside its own notification, and
             // destroying it now crashes when it returns. Rebuild once it is done.
             PostMessageW(hwnd, WM_REBUILD, 0, 0)
-        case idHotkeyField where notification == 0x0100 /* EN_SETFOCUS */:
+        case idHotkeyField where notification == 0 /* BN_CLICKED */:
             startRecording(hwnd)
-        case idHotkeyField where notification == 0x0200 /* EN_KILLFOCUS */:
+        case idHotkeyField where notification == 7 /* BN_KILLFOCUS */:
             // Focus left without a key: stop recording, show the hotkey again.
             if pendingTapVK == 0 {
                 cancelHotkeyCapture()
@@ -396,7 +459,7 @@ private func settingsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lPa
             let on = isChecked(hwnd, idChkAuto)
             saveAutoMode(on)
             reloadAutoMode()
-            EnableWindow(GetDlgItem(hwnd, Int32(idChkAutoEnter)), on)
+            enableCheck(hwnd, idChkAutoEnter, on)
         case idChkAutoEnter:
             saveAutoEnter(isChecked(hwnd, idChkAutoEnter))
             reloadAutoMode()
@@ -475,5 +538,5 @@ func openSettings() {
     }
     ShowWindow(settingsHwnd, SW_SHOW)
     SetForegroundWindow(settingsHwnd)
-    SetFocus(settingsHwnd)   // not the hotkey field: focusing it would start recording
+    SetFocus(settingsHwnd)
 }

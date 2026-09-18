@@ -35,8 +35,5 @@
 // Windows port
 "win.pressKey" = "Pulsa una tecla o un modificador…";
 "win.version" = "versión %@";
-"win.exc.help" = "La autocorrección no actúa en estos programas — un nombre de ejecutable por línea:";
-"win.exc.restore" = "Restaurar valores predeterminados";
-"win.exc.cancel" = "Cancelar";
-"win.exc.save" = "Guardar";
 "win.hookFailed" = "reLayout no pudo instalar su gancho de teclado (error %@).";
+"win.exc.hint" = "La autocorrección no actúa en estos programas:";

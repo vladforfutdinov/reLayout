@@ -35,8 +35,5 @@
 // Windows port
 "win.pressKey" = "キーを押すか修飾キーをタップ…";
 "win.version" = "バージョン %@";
-"win.exc.help" = "これらのプログラムでは自動修正しません（1行に1つの実行ファイル名）：";
-"win.exc.restore" = "デフォルトに戻す";
-"win.exc.cancel" = "キャンセル";
-"win.exc.save" = "保存";
 "win.hookFailed" = "reLayout はキーボードフックをインストールできませんでした（エラー %@）。";
+"win.exc.hint" = "これらのプログラムでは自動修正しません：";

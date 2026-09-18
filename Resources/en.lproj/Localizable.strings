@@ -35,8 +35,5 @@
 // Windows port
 "win.pressKey" = "Press a key or tap a modifier…";
 "win.version" = "version %@";
-"win.exc.help" = "Auto-correct stays off in these programs — one executable name per line:";
-"win.exc.restore" = "Restore defaults";
-"win.exc.cancel" = "Cancel";
-"win.exc.save" = "Save";
 "win.hookFailed" = "reLayout could not install its keyboard hook (error %@).";
+"win.exc.hint" = "Auto-correct stays off in these programs:";

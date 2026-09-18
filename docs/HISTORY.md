@@ -82,6 +82,13 @@ An audit of the frozen Windows port (written by an older model) found 15 bugs an
   as on macOS: remove a terminal and auto-correct works there from the typed-word
   run. The hotkey stays off in consoles: typing goes to the shell's cursor, not
   over a mouse selection, so it can't replace a word in the middle of a line.
+  The Windows Exceptions window became a real list like the macOS sheet (it was a
+  text area of executable names): program icon and description (from the running
+  copy or PATH, else a generic icon and the file name), "Exclude current app" (the
+  last foreground program, tracked with a WinEvent hook), "Choose…" (the Open
+  dialog), "Remove"/Delete, "Done"/Esc; every change saves at once. The inner title
+  duplicating the caption became a one-line hint (`win.exc.hint`); the text-area
+  keys were dropped from all 12 languages.
 - Testing in UTM (QEMU, Windows on ARM): an endless "aaaa" after a Ctrl+Alt+R and
   once after typing with auto-correct off. Suspects: the 0xE8 mask key (now sent
   only for a lone Alt or Win — with Ctrl held, Alt's release opens no menu), or

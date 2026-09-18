@@ -35,8 +35,5 @@
 // Windows port
 "win.pressKey" = "Taste drücken oder Modifikator antippen…";
 "win.version" = "Version %@";
-"win.exc.help" = "In diesen Programmen bleibt die Autokorrektur aus — ein Programmname pro Zeile:";
-"win.exc.restore" = "Standard wiederherstellen";
-"win.exc.cancel" = "Abbrechen";
-"win.exc.save" = "Sichern";
 "win.hookFailed" = "reLayout konnte den Tastatur-Hook nicht installieren (Fehler %@).";
+"win.exc.hint" = "In diesen Programmen ist die Autokorrektur aus:";

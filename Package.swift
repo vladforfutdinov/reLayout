@@ -37,7 +37,10 @@ targets.append(
             .linkedLibrary("ole32"),     // UI Automation lives behind COM
             .linkedLibrary("oleaut32"),  // BSTR
             .linkedLibrary("uuid"),      // CLSID_CUIAutomation
-            .linkedLibrary("winmm")      // timeBeginPeriod: a 1 ms pause between typed characters
+            .linkedLibrary("winmm"),     // timeBeginPeriod: a 1 ms pause between typed characters
+            .linkedLibrary("shell32"),   // program icons in the exceptions list
+            .linkedLibrary("version"),   // program descriptions in the exceptions list
+            .linkedLibrary("comdlg32")   // "Choose…" in the exceptions list
         ]
     )
 )

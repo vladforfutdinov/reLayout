@@ -123,6 +123,7 @@ if !installHotkeyHook() {
 }
 reloadAutoMode()
 installAutoMouseHook()   // a click moves the caret: the typed-word buffer resets
+trackForegroundApps()    // for "Exclude current app"
 _ = setupTray()
 
 var msg = MSG()

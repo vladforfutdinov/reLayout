@@ -35,8 +35,5 @@
 // Windows port
 "win.pressKey" = "Appuyez sur une touche ou un modificateur…";
 "win.version" = "version %@";
-"win.exc.help" = "La correction automatique reste inactive dans ces programmes — un nom d’exécutable par ligne :";
-"win.exc.restore" = "Rétablir les valeurs par défaut";
-"win.exc.cancel" = "Annuler";
-"win.exc.save" = "Enregistrer";
 "win.hookFailed" = "reLayout n’a pas pu installer son hook clavier (erreur %@).";
+"win.exc.hint" = "La correction automatique est désactivée dans ces programmes :";

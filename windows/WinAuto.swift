@@ -54,17 +54,7 @@ private func autoExcluded() -> Bool {
 
 /// Executable name of the foreground window's process, lowercased ("code.exe").
 private func foregroundProcessName() -> String {
-    var pid: DWORD = 0
-    GetWindowThreadProcessId(GetForegroundWindow(), &pid)
-    guard pid != 0,
-          let handle = OpenProcess(DWORD(0x1000 /* PROCESS_QUERY_LIMITED_INFORMATION */), false, pid)
-    else { return "" }
-    defer { CloseHandle(handle) }
-    var buf = [WCHAR](repeating: 0, count: 1024)
-    var size = DWORD(buf.count)
-    guard QueryFullProcessImageNameW(handle, 0, &buf, &size) else { return "" }
-    let path = String(decoding: buf.prefix(Int(size)), as: UTF16.self)
-    return (path.split(separator: "\\").last.map(String.init) ?? path).lowercased()
+    processImagePath(of: GetForegroundWindow()).map(exeName) ?? ""
 }
 
 // MARK: - trigram models (shipped next to the exe as trigram/<lang>.txt)

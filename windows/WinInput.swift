@@ -179,6 +179,25 @@ func focusWindow() -> HWND? {
     return GetForegroundWindow()
 }
 
+/// Full path of the executable that owns `hwnd`.
+func processImagePath(of hwnd: HWND?) -> String? {
+    var pid: DWORD = 0
+    GetWindowThreadProcessId(hwnd, &pid)
+    guard pid != 0, pid != GetCurrentProcessId(),
+          let handle = OpenProcess(DWORD(0x1000 /* PROCESS_QUERY_LIMITED_INFORMATION */), false, pid)
+    else { return nil }
+    defer { CloseHandle(handle) }
+    var buf = [WCHAR](repeating: 0, count: 1024)
+    var size = DWORD(buf.count)
+    guard QueryFullProcessImageNameW(handle, 0, &buf, &size) else { return nil }
+    return String(decoding: buf.prefix(Int(size)), as: UTF16.self)
+}
+
+/// "C:\\Windows\\System32\\cmd.exe" -> "cmd.exe": the key the exceptions list uses.
+func exeName(_ path: String) -> String {
+    (path.split(separator: "\\").last.map(String.init) ?? path).lowercased()
+}
+
 /// True for terminal windows: Ctrl+C there interrupts the running program.
 func foregroundIsConsole() -> Bool {
     guard let fg = GetForegroundWindow() else { return false }

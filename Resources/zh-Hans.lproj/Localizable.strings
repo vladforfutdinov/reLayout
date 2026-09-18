@@ -35,8 +35,5 @@
 // Windows port
 "win.pressKey" = "按下按键或轻点修饰键…";
 "win.version" = "版本 %@";
-"win.exc.help" = "在这些程序中不进行自动更正——每行一个可执行文件名：";
-"win.exc.restore" = "恢复默认";
-"win.exc.cancel" = "取消";
-"win.exc.save" = "保存";
 "win.hookFailed" = "reLayout 无法安装键盘钩子（错误 %@）。";
+"win.exc.hint" = "在以下程序中不进行自动更正：";

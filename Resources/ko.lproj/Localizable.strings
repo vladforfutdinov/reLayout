@@ -35,8 +35,5 @@
 // Windows port
 "win.pressKey" = "키를 누르거나 보조 키를 탭하세요…";
 "win.version" = "버전 %@";
-"win.exc.help" = "이 프로그램에서는 자동 수정을 하지 않습니다 — 한 줄에 실행 파일 이름 하나:";
-"win.exc.restore" = "기본값 복원";
-"win.exc.cancel" = "취소";
-"win.exc.save" = "저장";
 "win.hookFailed" = "reLayout에서 키보드 후크를 설치하지 못했습니다(오류 %@).";
+"win.exc.hint" = "다음 프로그램에서는 자동 수정을 하지 않습니다:";

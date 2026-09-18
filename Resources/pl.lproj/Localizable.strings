@@ -35,8 +35,5 @@
 // Windows port
 "win.pressKey" = "Naciśnij klawisz lub modyfikator…";
 "win.version" = "wersja %@";
-"win.exc.help" = "W tych programach autokorekta jest wyłączona — jedna nazwa pliku wykonywalnego w wierszu:";
-"win.exc.restore" = "Przywróć domyślne";
-"win.exc.cancel" = "Anuluj";
-"win.exc.save" = "Zapisz";
 "win.hookFailed" = "reLayout nie mógł zainstalować przechwytywania klawiatury (błąd %@).";
+"win.exc.hint" = "W tych programach autokorekta jest wyłączona:";

@@ -56,6 +56,16 @@ An audit of the frozen Windows port (written by an older model) found 15 bugs an
   Green on x64 and arm64 (run 35277002142).
 - Nothing here is hand-tested yet; only the macOS engine tests (54) run, and they
   cover neither `convert()` nor the read paths.
+- The typed-word run moved into the engine too (`AutoRun` in `Core/Auto.swift`):
+  word material, the word/trail/new-run state machine, Backspace, the short-word
+  rule with the erase/undo text of a swallowed preposition, and the Enter settle
+  loop (`awaitSettledField`). macOS and Windows both drive it; 16 new tests. Drift
+  it removed on Windows: digits now end the run, a mapped char or connector counts
+  only before any trail, Backspace forgets the previous word once the word is
+  empty, erase counts characters not UTF-16 units. Also fixed on Windows: AltGr
+  (Ctrl+Alt) types instead of ending the run, Backspace during a fix un-types a
+  held key, a replayed Return skips the Enter follow-up, and Shift survives on a
+  re-sent boundary.
 - Auto mode on Windows (`windows/WinAuto.swift`, opt-in): the keyboard hook feeds
   typed characters into a word buffer; space/Tab evaluates it through the shared
   `decideAutoTarget`; the fix is backspaced in, retyped, the boundary key re-sent

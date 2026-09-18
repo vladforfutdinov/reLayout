@@ -141,9 +141,15 @@ private let llProc: HOOKPROC = { nCode, wParam, lParam in
             }
             if handleDetect(vk, down: down, up: up) { return 1 }
             // Auto mode watches the same keys: it corrects what it saw typed.
-            if down, autoFeed(vk: vk, scan: WORD(truncatingIfNeeded: info.scanCode),
-                              modifiers: currentMods() & ~4 /* Shift types, it doesn't command */ != 0) {
-                return 1
+            if down {
+                let mods = currentMods()
+                let ctrl = mods & 2 != 0, alt = mods & 1 != 0, win = mods & 8 != 0
+                // AltGr is Ctrl+Alt together and types characters; either alone, or
+                // Win, makes the key a command.
+                if autoFeed(vk: vk, scan: WORD(truncatingIfNeeded: info.scanCode),
+                            shortcut: win || ctrl != alt, shift: mods & 4 != 0) {
+                    return 1
+                }
             }
         }
     }

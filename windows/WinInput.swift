@@ -75,8 +75,10 @@ func sendBackspaces(_ count: Int) {
 }
 
 /// Presses one key, as the app expects it (Space/Tab act on the key, not on text).
-func sendKeyTap(_ vk: Int32) {
-    send([vkEvent(vk), vkEvent(vk, up: true)])
+/// - Parameter shift: hold Shift around it (Shift+Tab, Shift+Enter).
+func sendKeyTap(_ vk: Int32, shift: Bool = false) {
+    let tap = [vkEvent(vk), vkEvent(vk, up: true)]
+    send(shift ? [vkEvent(VK_SHIFT)] + tap + [vkEvent(VK_SHIFT, up: true)] : tap)
 }
 
 private let maskKey = [keyEvent(vk: 0xE8, scan: 0, flags: 0), keyEvent(vk: 0xE8, scan: 0, flags: DWORD(KEYEVENTF_KEYUP))]

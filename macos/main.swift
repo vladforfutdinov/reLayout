@@ -1522,8 +1522,9 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     }
     fileprivate var autoTap: CFMachPort?
     private var autoTapSource: CFRunLoopSource?
-    fileprivate var autoBuffer = ""
-    fileprivate var autoTrail = ""      // punctuation typed right after the buffered word
+    // The typed-word run (word, trail, previous word) lives in the engine: the same
+    // state machine drives the Windows port, and its rules are tested there.
+    fileprivate var autoRun = AutoRun()
 
     // Fast typing races the retype: the deletes + retype of a finished word land
     // in the middle of the characters typed since, producing mixed text and bogus
@@ -1539,18 +1540,6 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     fileprivate var gateSince = 0.0
     fileprivate let gateMaxHold = 3.0
 
-    // The previous word of the current typing run (words separated by single
-    // spaces), remembered for short-word (preposition) adjacency. A 1-2 char word
-    // is too short to auto-fix on its own confidence, so it fires only when it
-    // borders a real conversion: a following long word swallows a `pending` short
-    // candidate ("d ljhjut" -> "в дороге"). Reset when the run breaks.
-    private struct AutoPrev {
-        let raw: String       // as-typed text still on screen
-        let out: String       // its cross-script conversion
-        let target: Layout
-        let committed: Bool   // true: already retyped; false: pending short candidate
-    }
-    private var autoPrev: AutoPrev?
 
     // Apps where auto-correct stays off — a user-editable deny-list (Settings >
     // Auto-correct > Exceptions…). Seeded once with common terminals/IDEs.
@@ -1584,7 +1573,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             // pending preposition no longer sit right before the caret, and a later
             // correction would delete someone else's text.
             if type != .keyDown || (!synth && (event.flags.contains(.maskCommand) || event.flags.contains(.maskControl))) {
-                me.autoBuffer = ""; me.autoTrail = ""; me.autoPrev = nil
+                me.autoRun.reset()
             }
             if type == .keyDown, !synth,
                event.getIntegerValueField(.keyboardEventKeycode) == Int64(kVK_Delete) {
@@ -1627,7 +1616,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
 
     private func stopAutoMonitor() {
         removeEventTap(&autoTap, &autoTapSource)
-        autoBuffer = ""; autoTrail = ""; autoPrev = nil; autoPending = 0; autoHeld = []
+        autoRun.reset(); autoPending = 0; autoHeld = []
     }
 
     // Backspace edits the word being typed, so the buffer has to follow it: drop
@@ -1642,10 +1631,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     // instead of reaching the app).
     fileprivate func autoBackspace(wide: Bool) -> Bool {
         if !autoHeld.isEmpty, !wide { autoHeld.removeLast(); return true }
-        if wide { autoHeld = []; autoBuffer = ""; autoTrail = ""; autoPrev = nil; return false }
-        if !autoTrail.isEmpty { autoTrail.removeLast(); return false }
-        autoBuffer = String(autoBuffer.dropLast())
-        if autoBuffer.isEmpty { autoPrev = nil }
+        if wide { autoHeld = [] }
+        autoRun.backspace(wide: wide)
         return false
     }
 
@@ -1661,40 +1648,19 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         // the new word, not revert the old fix. The undo hotkey itself is a
         // modifier/Cmd-combo (filtered above), so it never reaches here.
         lastConversion = nil
-        // A key that produces no character (Globe/fn — the layout switch itself,
-        // dead keys, F-keys) is not word material and must NOT break the run:
-        // switching layout mid-word is exactly the case that has to keep "ghj"
-        // buffered so "ghjсто" evaluates as one word.
-        dbg("feed \(s.debugDescription) buf=\(autoBuffer.debugDescription)")
-        if s.isEmpty { return false }
-        if s == "\r" || s == "\n" {
+        dbg("feed \(s.debugDescription) buf=\(autoRun.word.debugDescription)")
+        switch autoRun.feed(s, mapsToCyrillic: { self.feedsAsCyr(String($0)) }) {
+        case .none:
+            return false
+        case .enter(let word, let trail):
             // Return may submit (launcher query, chat send), so it is never swallowed
             // and nothing is converted before it. `autoEnterFollowUp` looks at what
             // the app did and fixes the word only if Return inserted a line break.
-            let word = autoBuffer, trail = autoTrail
-            autoBuffer = ""; autoTrail = ""; autoPrev = nil
             autoEnterFollowUp(word: word, trail: trail, flags: flags)
             return false
+        case .boundary(let word, let trail):
+            return autoEvaluate(word: word, trail: trail, boundary: s, flags: flags)
         }
-        if s == " " || s == "\t" {
-            let fired = autoEvaluate(boundary: s, flags: flags)
-            autoBuffer = ""; autoTrail = ""
-            return fired
-        } else if s.count == 1, let c = s.first,
-                  c.isLetter || (autoTrail.isEmpty && (feedsAsCyr(s) || (isWordConnector(c) && !autoBuffer.isEmpty))) {
-            if !autoTrail.isEmpty { autoBuffer = ""; autoTrail = ""; autoPrev = nil }   // "a?b": a new run
-            autoBuffer.append(c)
-            if autoBuffer.count > 64 { autoBuffer.removeFirst(autoBuffer.count - 64) }
-        } else if !autoBuffer.isEmpty, s.count == 1, let c = s.first, c.isPunctuation || c.isSymbol {
-            // Punctuation that is not word material on any enabled layout trails the
-            // word ("ltkfq?"). The word is judged only when whitespace follows, so
-            // the trail converts with it ("делай,") while "@"/"/" inside an address
-            // or path — never followed by whitespace — break nothing.
-            autoTrail.append(c)
-        } else {
-            autoBuffer = ""; autoTrail = ""; autoPrev = nil   // navigation / interior punctuation -> end the run
-        }
-        return false
     }
 
     private var autoEnterNewline: Bool { UserDefaults.standard.object(forKey: "autoEnterNewline") as? Bool ?? true }
@@ -1703,7 +1669,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     // (no preposition adjacency across a line) in a field whose caret and text are
     // readable is followed up; everything else keeps plain Return behaviour.
     private func autoEnterFollowUp(word: String, trail: String, flags: CGEventFlags) {
-        guard autoEnterNewline, word.reversed().drop(while: { !$0.isLetter }).count >= 3,
+        guard autoEnterNewline, wordBody(word) >= 3,
               !isAutoExcluded() else { return }
         let enabled = Layout.enabledList()
         guard let cur = enabled.first(where: { $0.id == currentSourceID() }),
@@ -1723,15 +1689,9 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     // then retypes the word above the new line only for `.newline`.
     private func finishEnter(el: AXUIElement, before: FieldSnapshot, word: String, trail: String, out: String,
                              outTrail: String, flags: CGEventFlags, target: Layout, srcSource: TISInputSource) {
-        var last: FieldSnapshot?, stable = 0, settled: FieldSnapshot?
-        for _ in 0..<20 {
-            usleep(25_000)
-            let snap = fieldSnapshot(el)
-            stable = (snap != nil && snap == last) ? stable + 1 : 0
-            last = snap
-            if stable >= 3, let snap, snap != before { settled = snap; break }
-        }
-        guard let after = settled else { dbg("enter: field did not settle"); return }
+        guard let after = awaitSettledField(before: before, read: { self.fieldSnapshot(el) },
+                                            wait: { usleep(useconds_t($0 * 1000)) })
+        else { dbg("enter: field did not settle"); return }
         let outcome = enterOutcome(before: before, after: after, word: word + trail)
         dbg("enter: \(outcome) before=\(before.tail.debugDescription) after=\(after.tail.debugDescription)")
         guard outcome == .newline else { return }
@@ -1788,57 +1748,29 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     }
 
     @discardableResult
-    private func autoEvaluate(boundary: String, flags: CGEventFlags) -> Bool {
-        let word = autoBuffer
+    private func autoEvaluate(word: String, trail: String, boundary: String, flags: CGEventFlags) -> Bool {
         // Any non-word event (empty word from a double space, excluded app) breaks
         // the run so a stale short candidate can't attach across the gap.
         guard !word.isEmpty, !isAutoExcluded() else {
             dbg("auto: skipped (word=\(word.debugDescription) excluded=\(isAutoExcluded()))")
-            autoPrev = nil; return false
+            autoRun.noCandidate(); return false
         }
         let enabled = Layout.enabledList()
         guard let cur = enabled.first(where: { $0.id == currentSourceID() }),
               let d = autoDecide(word, cur: cur, enabled: enabled) else {
             dbg("auto: no candidate for \(word.debugDescription)")
-            autoPrev = nil; return false
+            autoRun.noCandidate(); return false
         }
         dbg("auto: \(word.debugDescription) -> \(d.out.debugDescription) [\(d.target.id)]")
         let srcSource = cur.source
-        let trail = autoTrail
         let outTrail = transliterate(trail, from: cur, to: d.target)
-
-        // A trailing mapped char is the weakest evidence ("vs." reads as "мію"), so
-        // length is judged without it: "vj]" waits for a neighbour like a preposition.
-        let body = word.reversed().drop(while: { !$0.isLetter }).count
-        if body >= 3 {
-            // A word long enough to trust on its own. If the immediately-preceding
-            // word was a pending short candidate of the same script, fold it into
-            // this one correction (forward adjacency) — the "d ljhjut" case.
-            let swallow = autoPrev.flatMap {
-                (!$0.committed && $0.target.isCyrillic == d.target.isCyrillic) ? $0 : nil
-            }
-            autoPrev = AutoPrev(raw: word + trail, out: d.out + outTrail, target: d.target, committed: true)
-            beginCorrection {
-                self.autoCorrect(word: word, trail: trail, outTrail: outTrail, boundary: boundary, boundaryFlags: flags,
-                                 target: d.target, srcSource: srcSource, out: d.out, swallow: swallow)
-            }
-            return true
-        } else if let p = autoPrev, p.committed, p.target.isCyrillic == d.target.isCyrillic {
-            // Short word right after a committed conversion of the same script.
-            autoPrev = AutoPrev(raw: word + trail, out: d.out + outTrail, target: d.target, committed: true)
-            beginCorrection {
-                self.autoCorrect(word: word, trail: trail, outTrail: outTrail, boundary: boundary, boundaryFlags: flags,
-                                 target: d.target, srcSource: srcSource, out: d.out, swallow: nil)
-            }
-            return true
-        } else {
-            // Short candidate with no anchor yet: leave it on screen, remember it so
-            // a following long conversion may swallow it.
-            // ponytail: one-neighbour lookback — a stack ("bp pf ghbdtn") fixes only
-            // the last preposition; widen to a pending list if that ever matters.
-            autoPrev = AutoPrev(raw: word + trail, out: d.out + outTrail, target: d.target, committed: false)
+        // The short-word rule (engine): a 1-2 letter word waits for a neighbour.
+        guard let fix = autoRun.plan(raw: word + trail, out: d.out + outTrail, cyrillic: d.target.isCyrillic)
+        else { return false }
+        beginCorrection {
+            self.autoCorrect(fix, boundary: boundary, boundaryFlags: flags, target: d.target, srcSource: srcSource)
         }
-        return false
+        return true
     }
 
     // Run one retype on `worker` with the keystroke gate held: everything the user
@@ -1867,7 +1799,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         while let k = rest.popFirst() {
             if k.s == "\r" || k.s == "\n" {
                 // No Return follow-up here: its "before" read would race this very key.
-                autoBuffer = ""; autoTrail = ""; autoPrev = nil
+                autoRun.reset()
             } else if autoMode, autoFeed(k.s, flags: k.flags) { autoHeld = Array(rest); break }
             worker.async { self.typeKey(k.s, flags: k.flags) }
         }
@@ -1884,23 +1816,19 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         }
     }
 
-    // Delete the wrong word, retype the converted text
-    // and boundary, switch the system layout. Records it so the hotkey undo reverts.
-    // `swallow` (forward adjacency) additionally rewrites the preceding short word,
-    // still on screen as `swallow.raw` one space before `word`.
-    private func autoCorrect(word: String, trail: String, outTrail: String, boundary: String, boundaryFlags: CGEventFlags, target: Layout,
-                             srcSource: TISInputSource, out: String, swallow: AutoPrev?) {
+    // Delete the wrong word (and a swallowed preposition before it), retype the
+    // conversion and the boundary, switch the system layout. Records it so the
+    // hotkey undo reverts.
+    private func autoCorrect(_ fix: AutoRun.Fix, boundary: String, boundaryFlags: CGEventFlags,
+                             target: Layout, srcSource: TISInputSource) {
         waitModifiersReleased()
-        let extra = swallow.map { $0.raw.count + 1 } ?? 0   // "<raw> " before the word
-        for _ in 0..<(word.count + trail.count + extra) { postKey(CGKeyCode(kVK_Delete), []) }
+        for _ in 0..<fix.erase { postKey(CGKeyCode(kVK_Delete), []) }
         usleep(10_000)
-        let prefix = swallow.map { $0.out + " " } ?? ""
-        let rawPrefix = swallow.map { $0.raw + " " } ?? ""
-        typeUnicode(prefix + out + outTrail)
+        typeUnicode(fix.text)
         typeKey(boundary, flags: boundaryFlags)
         usleep(10_000)
         DispatchQueue.main.sync { _ = TISSelectInputSource(target.source) }
-        lastConversion = Conversion(original: rawPrefix + word + trail + boundary, typed: prefix + out + outTrail + boundary,
+        lastConversion = Conversion(original: fix.original + boundary, typed: fix.text + boundary,
                                     srcSource: srcSource, time: ProcessInfo.processInfo.systemUptime)
     }
 

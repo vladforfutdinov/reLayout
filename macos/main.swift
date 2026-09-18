@@ -1554,6 +1554,9 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             if type != .keyDown || (!synth && (event.flags.contains(.maskCommand) || event.flags.contains(.maskControl))) {
                 me.autoRun.reset()
             }
+            // A click also ends the undo window: undo reselects from the caret, which
+            // is no longer right after the text the conversion typed.
+            if type != .keyDown { me.lastConversion = nil }
             if type == .keyDown, !synth,
                event.getIntegerValueField(.keyboardEventKeycode) == Int64(kVK_Delete) {
                 // Backspace (bare, or Option/Cmd-wide) edits the word being typed —

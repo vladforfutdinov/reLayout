@@ -59,8 +59,9 @@ An audit of the frozen Windows port (written by an older model) found 15 bugs an
 - Press-again undo is back on Windows (it was removed with the old MVP): a second
   hotkey within 1.5 s reselects what the last conversion typed and types the
   original back, for hotkey, auto and Enter fixes alike; off in double-tap mode.
-  Any real key, a click or keys replayed after a fix end the window — unlike
-  macOS, a click clears it too, since undo would reselect at the new caret.
+  Any real key, a click or keys replayed after a fix end the window. A click now
+  ends it on macOS too: undo reselects from the caret, and after a click that is
+  no longer right after the typed text.
 - `mixedWordFix` moved into the engine as `fixMixedWord` (both readings of a
   mid-word layout switch, trigram-scored; 3 tests) and now also serves the Windows
   hotkey for a single-word selection like "ghjсто".

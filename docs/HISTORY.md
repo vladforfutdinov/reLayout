@@ -62,7 +62,10 @@ An audit of the frozen Windows port (written by an older model) found 15 bugs an
   ran to the end of the file, and `TrigramModel(text:)`'s `split(separator: "\n")`
   left each model one line — auto mode would never have fired. Both now split on
   `isNewline`; `.gitattributes` pins LF for `*.strings` and the models; two CRLF
-  tests. The hotkey field got a themed sunken edge instead of a flat border.
+  tests. The hotkey field got a themed sunken edge instead of a flat border, and
+  Settings now says why auto-correct is unavailable (`settings.autoCorrectUnavailable`
+  with the installed layouts) in place of its dead sub-options — macOS shows the
+  same text in an ⓘ tooltip, which Windows can't do on a disabled control.
 - Windows UI is localized from the macOS `Localizable.strings` (CI ships them as
   `lang/<code>.lproj` next to the exe; `parseStrings` in `Core/Strings.swift`
   reads them; a test checks every language carries every English key). 13

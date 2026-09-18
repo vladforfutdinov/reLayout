@@ -123,14 +123,21 @@ private func buildControls(_ hwnd: HWND?) {
     check(auto, loadAutoMode())
     EnableWindow(auto, available)
 
-    // Sub-options of auto-correct: indented, and dead while it is off.
-    let onEnter = makeControl("BUTTON", L("settings.autoCorrectEnter"),
-                              Int32(BS_AUTOCHECKBOX) | Int32(WS_TABSTOP), 40, 140, 380, 22, hwnd, idChkAutoEnter)
-    check(onEnter, loadAutoEnter())
-    EnableWindow(onEnter, available && loadAutoMode())
-    let exceptions = makeControl("BUTTON", L("settings.exceptions"), Int32(WS_TABSTOP),
-                                 40, 166, 160, 28, hwnd, idBtnExceptions)
-    EnableWindow(exceptions, loadAutoMode())
+    if available {
+        // Sub-options of auto-correct: indented, and dead while it is off.
+        let onEnter = makeControl("BUTTON", L("settings.autoCorrectEnter"),
+                                  Int32(BS_AUTOCHECKBOX) | Int32(WS_TABSTOP), 40, 140, 380, 22, hwnd, idChkAutoEnter)
+        check(onEnter, loadAutoEnter())
+        EnableWindow(onEnter, loadAutoMode())
+        let exceptions = makeControl("BUTTON", L("settings.exceptions"), Int32(WS_TABSTOP),
+                                     40, 166, 160, 28, hwnd, idBtnExceptions)
+        EnableWindow(exceptions, loadAutoMode())
+    } else {
+        // Why it is off, in place of its dead sub-options. Not a tooltip: Windows
+        // shows none on a disabled control.
+        let installed = WinLayout.installedList().map(\.displayName).joined(separator: ", ")
+        _ = makeControl("STATIC", L("settings.autoCorrectUnavailable", installed), 0, 40, 140, 380, 56, hwnd, 0)
+    }
 
     let startup = makeControl("BUTTON", L("settings.openAtLogin"),
                               Int32(BS_AUTOCHECKBOX) | Int32(WS_TABSTOP), 20, 206, 400, 22, hwnd, idChkStartup)

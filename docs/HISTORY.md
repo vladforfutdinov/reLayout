@@ -68,7 +68,10 @@ An audit of the frozen Windows port (written by an older model) found 15 bugs an
 - The UTM "aaaa" floods came from the reLayout on the Mac host: its auto mode
   corrected what it saw typed into the UTM window, and UTM forwarded the Unicode
   events' key code 0 — kVK_ANSI_A — to the guest. Quitting it on the Mac stopped
-  them. VM apps belong in the macOS exclusions (open).
+  them (confirmed twice). macOS now always excludes VM and remote-desktop apps
+  (UTM, Parallels, VMware Fusion, VirtualBox, Microsoft Remote Desktop) from both
+  auto-correct and the hotkey — a hard-coded set outside the user's list, so users
+  with a saved list get it without a migration.
 - Testing in UTM (QEMU, Windows on ARM): an endless "aaaa" after a Ctrl+Alt+R and
   once after typing with auto-correct off. Suspects: the 0xE8 mask key (now sent
   only for a lone Alt or Win — with Ctrl held, Alt's release opens no menu), or

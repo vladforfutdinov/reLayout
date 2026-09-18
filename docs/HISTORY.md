@@ -56,6 +56,14 @@ An audit of the frozen Windows port (written by an older model) found 15 bugs an
   Green on x64 and arm64 (run 35277002142).
 - Nothing here is hand-tested yet; only the macOS engine tests (54) run, and they
   cover neither `convert()` nor the read paths.
+- Windows Settings re-laid out after the macOS window: logo + bold name, launch at
+  login, right-aligned gray captions for Language/Hotkey, a hotkey field that records
+  on click (a bare-modifier tap waits 350 ms for a second tap: the double tap that
+  macOS records as a tap sequence, so the separate checkbox is gone) with an ↺
+  restore button, auto-correct with an ⓘ tooltip when unavailable and Exceptions…
+  on the same row, "Also fix on Enter" indented, and a centered gray footer. The
+  Set/Reset/Close/Keyboard-settings buttons and the tagline went away; Esc closes.
+  Six `win.*` keys became unused and were dropped from all 12 tables.
 - First run on real Windows (arm64): every string after the first `//` comment
   showed as its key. GitHub's Windows runners check files out with CRLF, and in
   Swift "\r\n" is ONE Character, never equal to "\n": the `.strings` comment skip

@@ -192,6 +192,12 @@ func startHotkeyCapture(onLive: @escaping (String) -> Void,
 
 func cancelHotkeyCapture() { endCapture() }
 
+/// The saved hotkey as shown in Settings and the tray, "×2" for a double tap.
+func currentHotkeyDisplay() -> String {
+    let hk = loadHotkey()
+    return hotkeyLabel(hk.mods, hk.vk) + (loadDoubleTap() ? " ×2" : "")
+}
+
 // Human label, e.g. "Left Shift" (modifier-tap) or "Ctrl+Alt+R" (combo).
 func hotkeyLabel(_ mods: UINT, _ vk: UINT) -> String {
     if isModifierVK(vk) && mods == 0 { return keyName(vk) }

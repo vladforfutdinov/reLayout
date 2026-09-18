@@ -32,14 +32,8 @@
 "settings.exc.done" = "Terminé";
 
 // Windows port
-"win.set" = "Définir";
-"win.reset" = "Réinitialiser";
 "win.pressKey" = "Appuyez sur une touche ou un modificateur…";
-"win.doubleTap" = "Déclencher par double appui";
-"win.keyboardSettings" = "Paramètres du clavier…";
 "win.version" = "version %@";
-"win.tagline" = "Retape la sélection dans la bonne disposition";
-"win.close" = "Fermer";
 "win.exc.help" = "La correction automatique reste inactive dans ces programmes — un nom d’exécutable par ligne :";
 "win.exc.restore" = "Rétablir les valeurs par défaut";
 "win.exc.cancel" = "Annuler";

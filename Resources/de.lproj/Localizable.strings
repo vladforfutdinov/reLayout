@@ -32,14 +32,8 @@
 "settings.exc.done" = "Fertig";
 
 // Windows port
-"win.set" = "Festlegen";
-"win.reset" = "Zurücksetzen";
 "win.pressKey" = "Taste drücken oder Modifikator antippen…";
-"win.doubleTap" = "Bei Doppeltippen auslösen";
-"win.keyboardSettings" = "Tastatureinstellungen…";
 "win.version" = "Version %@";
-"win.tagline" = "Tippt die Auswahl im richtigen Tastaturlayout neu";
-"win.close" = "Schließen";
 "win.exc.help" = "In diesen Programmen bleibt die Autokorrektur aus — ein Programmname pro Zeile:";
 "win.exc.restore" = "Standard wiederherstellen";
 "win.exc.cancel" = "Abbrechen";

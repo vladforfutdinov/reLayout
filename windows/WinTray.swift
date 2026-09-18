@@ -118,10 +118,6 @@ private func appendItem(_ menu: HMENU?, _ id: UINT, _ title: String, flags: UINT
 }
 
 // Label for the current convert hotkey (shared formatter in WinHotkey).
-private func currentHotkeyLabel() -> String {
-    let hk = loadHotkey()
-    return hotkeyLabel(hk.mods, hk.vk)
-}
 
 private func showTrayMenu(_ hwnd: HWND?) {
     guard let menu = CreatePopupMenu() else { return }
@@ -210,7 +206,7 @@ private func addTrayIcon() {
 
 // Fill nid.szTip from the current hotkey (does not push to the shell on its own).
 private func writeTooltip() {
-    let tip = Array("reLayout — \(currentHotkeyLabel())".utf16) + [0]
+    let tip = Array("reLayout — \(currentHotkeyDisplay())".utf16) + [0]
     withUnsafeMutableBytes(of: &nid.szTip) { dst in
         memset(dst.baseAddress, 0, dst.count)
         tip.withUnsafeBytes { src in

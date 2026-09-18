@@ -32,14 +32,8 @@
 "settings.exc.done" = "Done";
 
 // Windows port
-"win.set" = "Set";
-"win.reset" = "Reset";
 "win.pressKey" = "Press a key or tap a modifier…";
-"win.doubleTap" = "Trigger on double-tap";
-"win.keyboardSettings" = "Keyboard settings…";
 "win.version" = "version %@";
-"win.tagline" = "Retype selection in the correct keyboard layout";
-"win.close" = "Close";
 "win.exc.help" = "Auto-correct stays off in these programs — one executable name per line:";
 "win.exc.restore" = "Restore defaults";
 "win.exc.cancel" = "Cancel";

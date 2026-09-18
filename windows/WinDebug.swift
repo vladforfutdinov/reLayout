@@ -1,11 +1,13 @@
 import WinSDK
 import Foundation
 
-// Opt-in diagnostics, off unless HKCU\Software\reLayout\DebugLog = 1. Writes to
-// %TEMP%\relayout-debug.log what reLayout sends (SendInput batches) and every key
-// event the hook sees, real or injected. That records keystrokes, so the flag is
-// for troubleshooting only, set by hand and never by the app.
+// Diagnostics for DEBUG builds only (scripts/build-windows.ps1 -DebugLog): with
+// HKCU\Software\reLayout\DebugLog = 1 it writes to %TEMP%\relayout-debug.log what
+// reLayout sends (SendInput batches) and every key event the hook sees, real or
+// injected. That records keystrokes, so a release build compiles it out entirely
+// — the same rule as the macOS app's dbg().
 
+#if DEBUG
 private let debugEnabled = loadDebugLog()
 
 private let logPath: String = {
@@ -41,3 +43,9 @@ func dlogStartup() {
          + "KEYBDINPUT size=\(MemoryLayout<KEYBDINPUT>.size) "
          + "KBDLLHOOKSTRUCT size=\(MemoryLayout<KBDLLHOOKSTRUCT>.size)")
 }
+#else
+@inline(__always) func dlog(_ line: @autoclosure () -> String) {}
+@inline(__always) func dwatch(_ reason: String) {}
+@inline(__always) func dlogHook(vk: UInt32, scan: UInt32, flags: UInt32, message: UInt) {}
+@inline(__always) func dlogStartup() {}
+#endif

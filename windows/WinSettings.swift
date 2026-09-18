@@ -247,9 +247,9 @@ private func buildControls(_ hwnd: HWND?) {
     // ── header: logo + name ──
     let logo = makeControl("STATIC", "", Int32(0x0003 /* SS_ICON */) | Int32(0x0200 /* SS_CENTERIMAGE */),
                            (clientWidth - 64) / 2, y, 64, 64, hwnd, 0)
-    // The app icon's tile, as the macOS window shows it, in either theme.
-    logoIcon = LoadImageW(GetModuleHandleW(nil), UnsafePointer<WCHAR>(bitPattern: 1), UINT(IMAGE_ICON),
-                          sc(64), sc(64), 0).map { HICON(OpaquePointer($0)) }
+    // The app-icon tile in contrast to the window: dark in light mode, light in dark.
+    logoIcon = LoadImageW(GetModuleHandleW(nil), UnsafePointer<WCHAR>(bitPattern: colors.dark ? 5 : 4),
+                          UINT(IMAGE_ICON), sc(64), sc(64), 0).map { HICON(OpaquePointer($0)) }
     SendMessageW(logo, UINT(0x0170 /* STM_SETICON */), unsafeBitCast(logoIcon, to: WPARAM.self), 0)
     y += 70
     let name = makeControl("STATIC", "reLayout", Int32(0x0001 /* SS_CENTER */), margin, y, content, 24, hwnd, idName)

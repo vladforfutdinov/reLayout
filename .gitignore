@@ -1,5 +1,7 @@
 # build output (.app/.dmg/.zip produced by scripts/build.sh + make-dmg.sh)
 /dist/
+# Windows resource compiled by scripts/build-windows.ps1 and CI
+/relayout.res
 
 # local owner identity (copy scripts/identity.env.example; CI uses repo variables)
 scripts/identity.env

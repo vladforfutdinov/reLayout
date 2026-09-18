@@ -80,7 +80,12 @@ An audit of the frozen Windows port (written by an older model) found 15 bugs an
   macOS (a themed bare glyph was tried and rejected); both windows rebuild on a
   theme switch — once, 300 ms after the burst of setting broadcasts and only if
   light/dark really changed, with painting held off (WM_SETREDRAW) and one redraw
-  after; tearing the controls down in view flickered.
+  after; tearing the controls down in view flickered. Settings' logo was then
+  settled as the app-icon tile in contrast to the window: a dark tile with white
+  letters in light mode, the app icon's light tile in dark mode (resources 4/5,
+  drawn like the macOS icon in build.sh). The keystroke diagnostics log is compiled
+  into DEBUG builds only (`scripts/build-windows.ps1 -DebugLog`); a release exe no
+  longer contains it, matching the macOS rule for dbg().
   The local build script stamps the About link's repo from the origin remote, like
   scripts/build.sh, and restores Identity.swift afterwards.
 - Windows unfrozen: `build-windows` now also runs on `v*` tags and attaches the

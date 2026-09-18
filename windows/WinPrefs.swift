@@ -147,10 +147,12 @@ func saveLanguage(_ code: String?) {
     }
 }
 
-/// Troubleshooting log (WinDebug.swift); set by hand in the registry, never by the app.
+#if DEBUG
+/// Troubleshooting log (WinDebug.swift, DEBUG builds); set by hand in the registry.
 func loadDebugLog() -> Bool {
     (withPrefsKey(write: false) { readDword($0, "DebugLog") } ?? 0) != 0
 }
+#endif
 
 /// The release tag the tray last announced, so each version is announced once.
 func loadNotifiedUpdate() -> String? {

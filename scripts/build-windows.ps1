@@ -3,8 +3,11 @@
 # trigram models and UI strings next to the exe, where the app looks for them.
 # Run from anywhere on a Windows machine with the Swift toolchain and VS Build
 # Tools. Output: dist\win\ReLayoutWin.exe (Swift runtime DLLs come from PATH).
+# -DebugLog compiles in the keystroke diagnostics (WinDebug.swift); never ship that.
+param([switch]$DebugLog)
 $ErrorActionPreference = 'Stop'
 Set-Location (Split-Path $PSScriptRoot)
+$debugFlags = if ($DebugLog) { @('-Xswiftc', '-DDEBUG') } else { @() }
 
 Push-Location windows
 & llvm-rc /FO "$PWD\..\relayout.res" relayout.rc
@@ -20,7 +23,7 @@ if (-not $slug) {
 }
 if ($slug) { "let repoSlug = `"$slug`"" | Set-Content -Encoding utf8 windows\Identity.swift }
 try {
-  swift build -c release --product ReLayoutWin -Xlinker "$((Resolve-Path relayout.res).Path)"
+  swift build -c release --product ReLayoutWin -Xlinker "$((Resolve-Path relayout.res).Path)" @debugFlags
   if ($LASTEXITCODE -ne 0) { throw "swift build failed ($LASTEXITCODE)" }
 } finally {
   if ($slug) { git checkout -- windows\Identity.swift }

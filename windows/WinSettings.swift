@@ -24,6 +24,7 @@ private let idCopyright:     Int = 123
 private let secondaryIDs: Set<Int> = [idCapLanguage, idCapHotkey, idVersion, idCopyright]
 
 private let idCancel: Int = 2   // IDCANCEL: Esc, through IsDialogMessageW
+private let WM_REBUILD = UINT(WM_APP) + 20
 private let tapTimer: UINT_PTR = 1
 
 private var settingsHwnd: HWND?
@@ -348,6 +349,10 @@ private func settingsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lPa
         }
         fitClientArea(hwnd, center: false)
         return 0
+    case WM_REBUILD:
+        rebuildControls(hwnd)
+        fitClientArea(hwnd, center: false)
+        return 0
     case UINT(WM_CTLCOLORSTATIC):
         // Captions and footer in the secondary color, like the macOS form.
         let ctl = HWND(bitPattern: Int(lParam))
@@ -373,8 +378,9 @@ private func settingsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lPa
             let index = Int(SendMessageW(GetDlgItem(hwnd, Int32(idCmbLanguage)), UINT(0x0147 /* CB_GETCURSEL */), 0, 0))
             saveLanguage(index > 0 && index <= WinLoc.languages.count ? WinLoc.languages[index - 1].code : nil)
             WinLoc.load()
-            rebuildControls(hwnd)
-            fitClientArea(hwnd, center: false)
+            // Not here: the combo box is still inside its own notification, and
+            // destroying it now crashes when it returns. Rebuild once it is done.
+            PostMessageW(hwnd, WM_REBUILD, 0, 0)
         case idHotkeyField where notification == 0x0100 /* EN_SETFOCUS */:
             startRecording(hwnd)
         case idHotkeyField where notification == 0x0200 /* EN_KILLFOCUS */:

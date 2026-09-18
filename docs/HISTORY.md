@@ -63,7 +63,10 @@ An audit of the frozen Windows port (written by an older model) found 15 bugs an
   restore button, auto-correct with an ⓘ tooltip when unavailable and Exceptions…
   on the same row, "Also fix on Enter" indented, and a centered gray footer. The
   Set/Reset/Close/Keyboard-settings buttons and the tagline went away; Esc closes.
-  Six `win.*` keys became unused and were dropped from all 12 tables.
+  Six `win.*` keys became unused and were dropped from all 12 tables. Switching
+  the language crashed on real Windows: the controls (the combo box among them)
+  were rebuilt inside the combo's own CBN_SELCHANGE, so it returned into freed
+  memory; the rebuild is now posted (`WM_REBUILD`) and runs after it.
 - First run on real Windows (arm64): every string after the first `//` comment
   showed as its key. GitHub's Windows runners check files out with CRLF, and in
   Swift "\r\n" is ONE Character, never equal to "\n": the `.strings` comment skip

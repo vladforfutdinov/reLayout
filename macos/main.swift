@@ -654,6 +654,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     func applicationDidFinishLaunching(_ note: Notification) {
         UserDefaults.standard.set(0, forKey: "NSInitialToolTipDelay")   // app-wide: tooltips show at once
         Loc.load()   // apply saved language override before any UI is built
+        mergeNewDefaultExclusions()
 #if SPARKLE
         updater = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
 #endif
@@ -1473,27 +1474,32 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     fileprivate let gateMaxHold = 3.0
 
 
-    // Virtual machines and remote desktops: typing there goes to another system with
-    // its own keyboard layout, which the Mac knows nothing about. A correction made
-    // here is forwarded by the VM as raw key codes — a Unicode event's key code 0 is
-    // kVK_ANSI_A, so UTM typed "aaaa" in the guest. Always excluded, from auto-correct
-    // and the hotkey alike, outside the user's list, so existing users get it too.
-    private static let remoteInputApps: Set<String> = [
-        "com.utmapp.UTM", "com.parallels.desktop.console", "com.vmware.fusion",
-        "org.virtualbox.app.VirtualBoxVM", "com.microsoft.rdc.macos",
-    ]
-    private func frontmostIsRemoteInput() -> Bool {
-        NSWorkspace.shared.frontmostApplication?.bundleIdentifier
-            .map(AppController.remoteInputApps.contains) ?? false
-    }
-
     // Apps where auto-correct stays off — a user-editable deny-list (Settings >
     // Auto-correct > Exceptions…). Seeded once with common terminals/IDEs.
+    // Virtual machines and remote desktops are in it too: typing there goes to
+    // another system with its own layout, which the Mac can't see, and a correction
+    // is forwarded as raw key codes — a Unicode event's key code 0 is kVK_ANSI_A, so
+    // UTM typed "aaaa" in a Windows guest.
     private static let defaultExcludedApps: [String] = [
         "com.apple.Terminal", "com.googlecode.iterm2", "com.microsoft.VSCode",
         "com.apple.dt.Xcode", "com.sublimetext.4", "org.alacritty",
         "net.kovidgoyal.kitty", "com.github.wez.wezterm",
+        "com.utmapp.UTM", "com.parallels.desktop.console", "com.vmware.fusion",
+        "org.virtualbox.app.VirtualBoxVM", "com.microsoft.rdc.macos",
     ]
+    // The defaults before the "seen" record existed — what a list saved back then
+    // already reflects (entries removed from it stay removed).
+    private static let firstDefaultExcludedApps: [String] = Array(defaultExcludedApps.prefix(8))
+
+    /// Adds defaults introduced since the user's list was saved, once each, so a new
+    /// default reaches existing users while one they removed never comes back.
+    private func mergeNewDefaultExclusions() {
+        let d = UserDefaults.standard
+        let seen = Set(d.stringArray(forKey: "autoExcludedDefaultsSeen") ?? AppController.firstDefaultExcludedApps)
+        d.set(AppController.defaultExcludedApps, forKey: "autoExcludedDefaultsSeen")
+        guard let saved = d.array(forKey: "autoExcludedApps") as? [String] else { return }   // defaults apply as-is
+        autoExcludedApps = mergeExclusions(saved: saved, defaults: AppController.defaultExcludedApps, seen: seen)
+    }
     var autoExcludedApps: [String] {
         get { UserDefaults.standard.array(forKey: "autoExcludedApps") as? [String]
                 ?? AppController.defaultExcludedApps }
@@ -1782,7 +1788,6 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     }
 
     private func isAutoExcluded() -> Bool {
-        if frontmostIsRemoteInput() { return true }
         if let bid = NSWorkspace.shared.frontmostApplication?.bundleIdentifier,
            autoExcludedApps.contains(bid) { return true }   // user deny-list
         let sys = AXUIElementCreateSystemWide()
@@ -1839,8 +1844,6 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             DispatchQueue.main.async { self.promptAccessibilityIfNeeded() }
             return
         }
-        // Inside a VM or a remote desktop the selection belongs to the guest.
-        if frontmostIsRemoteInput() { return }
 
         // Press-again undo: a second hotkey within undoWindow of a conversion
         // reverses it. Disabled when "Trigger on double-tap" is on — a second

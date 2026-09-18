@@ -1,5 +1,6 @@
 import WinSDK
 import Foundation
+import ReLayoutCore
 
 // Small registry-backed preferences under HKCU\Software\reLayout. Currently the
 // convert hotkey (modifiers + virtual-key), stored as two REG_DWORD values.
@@ -12,6 +13,7 @@ private let keyDoubleTap  = "DoubleTap"
 private let keyAutoMode   = "AutoCorrect"
 private let keyAutoEnter  = "AutoCorrectOnEnter"
 private let keyExcluded   = "AutoCorrectExcluded"
+private let keyExcludedSeen = "AutoCorrectExcludedDefaultsSeen"
 private let keyLanguage   = "Language"
 
 private let kKeyQuery: REGSAM = 0x0001   // KEY_QUERY_VALUE
@@ -97,23 +99,39 @@ private func writeString(_ key: HKEY, _ name: String, _ value: String) {
 }
 
 /// Programs where auto-correct stays off, one executable name per line. Terminals
-/// and editors by default — typing there is commands and code, not prose.
+/// and editors by default — typing there is commands and code, not prose — and
+/// virtual machines and remote desktops, where it goes to another system with its
+/// own layout.
 let defaultExcludedApps = [
     "cmd.exe", "powershell.exe", "pwsh.exe", "conhost.exe", "windowsterminal.exe",
     "wt.exe", "mintty.exe", "putty.exe", "alacritty.exe", "wezterm-gui.exe",
     "code.exe", "devenv.exe", "idea64.exe", "rider64.exe", "sublime_text.exe",
+    "vmconnect.exe", "vmware.exe", "virtualboxvm.exe", "mstsc.exe", "msrdc.exe",
 ]
+// The defaults a list saved before the "seen" record existed already reflects.
+private let firstDefaultExcludedApps = Array(defaultExcludedApps.prefix(15))
 
+private func splitLines(_ s: String) -> [String] {
+    s.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces).lowercased() }
+     .filter { !$0.isEmpty }
+}
+
+/// The saved list, plus defaults introduced since it was saved (once each: one the
+/// user removed stays removed — see the engine's mergeExclusions).
 func loadExcludedApps() -> [String] {
     let stored = withPrefsKey(write: false, { readString($0, keyExcluded) })
     guard let stored else { return defaultExcludedApps }
-    return stored.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces).lowercased() }
-                 .filter { !$0.isEmpty }
+    let seen = withPrefsKey(write: false, { readString($0, keyExcludedSeen) }).map(splitLines) ?? firstDefaultExcludedApps
+    let merged = mergeExclusions(saved: splitLines(stored), defaults: defaultExcludedApps, seen: Set(seen))
+    if Set(seen) != Set(defaultExcludedApps) { saveExcludedApps(merged) }
+    return merged
 }
 
 func saveExcludedApps(_ apps: [String]) {
     _ = withPrefsKey(write: true) { key -> Bool in
-        writeString(key, keyExcluded, apps.joined(separator: "\r\n")); return true
+        writeString(key, keyExcluded, apps.joined(separator: "\r\n"))
+        writeString(key, keyExcludedSeen, defaultExcludedApps.joined(separator: "\r\n"))
+        return true
     }
 }
 

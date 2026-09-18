@@ -334,3 +334,15 @@ public func awaitSettledField(before: FieldSnapshot, read: () -> FieldSnapshot?,
     }
     return nil
 }
+
+// MARK: - Exceptions list
+
+/// The user's saved exceptions plus any default introduced since they last saw the
+/// defaults. Each new default is offered once: one the user removed stays removed.
+/// - Parameters:
+///   - saved: the user's list as stored.
+///   - defaults: the current defaults.
+///   - seen: the defaults the stored list already reflects.
+public func mergeExclusions(saved: [String], defaults: [String], seen: Set<String>) -> [String] {
+    saved + defaults.filter { !seen.contains($0) && !saved.contains($0) }
+}

@@ -118,4 +118,15 @@ final class AutoRunTests: XCTestCase {
         let before = FieldSnapshot(count: 6, caret: 6, tail: "ghbdtn")
         XCTAssertNil(awaitSettledField(before: before, read: { before }, wait: { _ in }))
     }
+
+    func testNewDefaultExclusionsReachASavedList() {
+        let merged = mergeExclusions(saved: ["terminal"], defaults: ["terminal", "editor", "vm"],
+                                     seen: ["terminal", "editor"])
+        // "editor" was seen and removed by the user; only the new "vm" is added.
+        XCTAssertEqual(merged, ["terminal", "vm"])
+    }
+
+    func testMergeAddsNothingTwice() {
+        XCTAssertEqual(mergeExclusions(saved: ["vm"], defaults: ["vm"], seen: []), ["vm"])
+    }
 }

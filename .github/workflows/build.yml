@@ -132,10 +132,15 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # hand-written notes (same file the Sparkle appcast embeds) are prepended
-          # to the auto-generated body, which keeps the Full Changelog link
+          # hand-written notes are prepended to the auto-generated body, which keeps
+          # the Full Changelog link: the macOS file (the same one the Sparkle
+          # appcast embeds), then the Windows one — one section per platform
           NOTES="docs/release-notes/${GITHUB_REF_NAME}.md"
-          [ -f "$NOTES" ] && NOTES_ARG=(--notes-file "$NOTES") || NOTES_ARG=()
+          WIN_NOTES="docs/release-notes/${GITHUB_REF_NAME}-windows.md"
+          BODY="$RUNNER_TEMP/release-notes.md"; : > "$BODY"
+          [ -f "$NOTES" ] && cat "$NOTES" >> "$BODY"
+          [ -f "$WIN_NOTES" ] && { printf '\n' >> "$BODY"; cat "$WIN_NOTES" >> "$BODY"; }
+          [ -s "$BODY" ] && NOTES_ARG=(--notes-file "$BODY") || NOTES_ARG=()
           gh release create "${GITHUB_REF_NAME}" dist/reLayout.dmg dist/reLayout.zip \
             --title "${GITHUB_REF_NAME}" --generate-notes "${NOTES_ARG[@]}"
 

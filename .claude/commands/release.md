@@ -30,20 +30,26 @@ Steps:
    new append-only block via `/handoff`, not here; `docs/SNAPSHOT.md` is the
    gitignored working note.
 
-4. **Draft the release notes.** Read `git log <prevtag>..HEAD --oneline` and the
-   actual diffs for anything user-visible. Write short markdown: a `## What's new
-   in vX.Y.Z` header, one bullet per **user-visible** change in plain language
-   (not raw commit titles), with a concrete before/after example where it helps.
-   Skip pure internal/refactor/test/doc commits. **Show the draft and get the
-   user's OK before tagging** — wording is the point of this command.
+4. **Draft the release notes — one per platform.** Read `git log <prevtag>..HEAD
+   --oneline` and the actual diffs for anything user-visible. Write short markdown
+   for each platform that changed: a `## What's new in vX.Y.Z — macOS` (or
+   `— Windows (preview)`) header, one bullet per **user-visible** change in plain
+   language (not raw commit titles), with a concrete before/after example where it
+   helps. **One line per bullet** — no hard wraps: a line break inside a bullet
+   renders as a break in the Sparkle window and on GitHub. Skip pure internal/
+   refactor/test/doc commits; a Mac user's notes don't mention Windows and vice
+   versa. **Show the drafts and get the user's OK before tagging** — wording is the
+   point of this command.
 
-5. **Commit the notes as `docs/release-notes/vX.Y.Z.md`.** This file is the single
-   source: CI prepends it to the GitHub release body (keeping the auto-generated
-   Full Changelog link) and renders it via the GitHub `/markdown` API into the
-   Sparkle appcast item's `<description>`, which is what users read in the "new
-   version available" window. It must be committed **before** the tag — CI reads it
-   from the tagged commit. Keep it self-contained markdown (headers, bullets,
-   inline code); no relative links, since it is rendered outside the repo.
+5. **Commit the notes before the tag** — CI reads them from the tagged commit:
+   - `docs/release-notes/vX.Y.Z.md` — macOS. Rendered via the GitHub `/markdown`
+     API into the Sparkle appcast item's `<description>` (the "new version
+     available" window) and put first in the GitHub release body.
+   - `docs/release-notes/vX.Y.Z-windows.md` — Windows, if it changed. Appended to
+     the release body after the macOS section.
+   CI prepends both to the auto-generated body, keeping the Full Changelog link.
+   Keep them self-contained markdown (headers, bullets, inline code); no relative
+   links, since they are rendered outside the repo.
 
 6. **Tag and push.** Annotated tag (`git tag -a vX.Y.Z -m "<one-line summary>"`),
    then `git push origin main` and `git push origin vX.Y.Z`. This starts CI.

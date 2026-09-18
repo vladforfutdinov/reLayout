@@ -91,7 +91,10 @@ private func handleDetect(_ vk: UINT, down: Bool, up: Bool) -> Bool {
         if down, vk == hkVK, modsHeldExact(hkMods) {
             if !comboFired {
                 comboFired = true
-                if hkMods & (1 /*MOD_ALT*/ | 8 /*MOD_WIN*/) != 0 { sendMaskKey() }
+                // Only a lone Alt opens the menu bar on release, and Win opens Start;
+                // with Ctrl held too (Ctrl+Alt+R) Alt goes up as a plain key, so no mask.
+                let alt = hkMods & 1 /*MOD_ALT*/ != 0, ctrl = hkMods & 2 /*MOD_CONTROL*/ != 0
+                if (alt && !ctrl) || hkMods & 8 /*MOD_WIN*/ != 0 { sendMaskKey() }
                 postTrigger()
             }
             return true

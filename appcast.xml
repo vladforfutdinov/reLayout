@@ -8,26 +8,12 @@
             <sparkle:version>263</sparkle:version>
             <sparkle:shortVersionString>1.3.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
-            <description><![CDATA[<h2>What's new in v1.3.0</h2>
+            <description><![CDATA[<h2>What's new in v1.3.0 — macOS</h2>
 <ul>
-<li><strong>The hotkey converts only what you select.</strong> It no longer guesses the word<br>
-before the caret when nothing is selected — that guess could rewrite text you<br>
-didn't mean. Select the text (or just the word) and press the hotkey; words you<br>
-have just typed are what auto-correct is for.</li>
-<li><strong>Auto-correct stays out of virtual machines and remote desktops.</strong> UTM,<br>
-Parallels, VMware Fusion, VirtualBox and Microsoft Remote Desktop are now on the<br>
-exceptions list: the guest system has its own layout, and a correction made from<br>
-the Mac could type garbage there (e.g. a row of <code class="notranslate">aaaa</code> in a Windows VM). They are<br>
-added once to your existing list; remove any of them to turn auto-correct back on<br>
-there.</li>
-<li><strong>The Exceptions sheet explains itself</strong> — a line under the title says what the<br>
-list does, and an ⓘ tells why terminals, editors and VMs are listed from the start.</li>
-<li><strong>Undo is safer:</strong> a click after a conversion ends the press-again undo window,<br>
-so a late second press can't replace text at the new caret position.</li>
-<li><strong>Windows (preview).</strong> This release also includes the first builds of reLayout<br>
-for Windows — an installer and a portable <code class="notranslate">.exe</code> for x64 and ARM64, with the same<br>
-hotkey, auto-correct, exceptions and translations. They are not code-signed yet,<br>
-so SmartScreen asks you to confirm the first run.</li>
+<li><strong>The hotkey converts only what you select.</strong> It no longer guesses the word before the caret when nothing is selected — that guess could rewrite text you didn't mean. Select the text (or just the word) and press the hotkey; words you have just typed are what auto-correct is for.</li>
+<li><strong>Auto-correct stays out of virtual machines and remote desktops.</strong> UTM, Parallels, VMware Fusion, VirtualBox and Microsoft Remote Desktop are now on the exceptions list: the guest system has its own layout, and a correction made from the Mac could type garbage there (e.g. a row of <code class="notranslate">aaaa</code> in a Windows VM). They are added once to your existing list; remove any of them to turn auto-correct back on there.</li>
+<li><strong>The Exceptions sheet explains itself</strong> — a line under the title says what the list does, and an ⓘ tells why terminals, editors and VMs are listed from the start.</li>
+<li><strong>Undo is safer:</strong> a click after a conversion ends the press-again undo window, so a late second press can't replace text at the new caret position.</li>
 </ul>]]></description>
             <enclosure url="https://github.com/vladforfutdinov/reLayout/releases/download/v1.3.0/reLayout.zip" length="1734398" type="application/octet-stream" sparkle:edSignature="4F+1xV7khkHe1jDJHeagLLz3lve30VSLS+mFTI6oAPQI9gK9klqs9MDEfUhhkYveWgNEKOKGnIUNIYPFl2TuAQ=="/>
         </item>

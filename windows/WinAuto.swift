@@ -33,6 +33,7 @@ private struct QueuedFix {
     let boundary: Int32
     let shift: Bool          // Shift+Tab stays Shift+Tab when re-sent
     let target: WinLayout
+    let src: WinLayout       // for undo
 }
 private var queued: QueuedFix?
 
@@ -188,7 +189,7 @@ private func evaluate(word: String, trail: String, boundary: Int32, shift: Bool,
     // The short-word rule (engine): a 1-2 letter word waits for a neighbour.
     guard let fix = run.plan(raw: word + trail, out: decided.out + outTrail,
                              cyrillic: decided.target.isCyrillic) else { return false }
-    queued = QueuedFix(fix: fix, boundary: boundary, shift: shift, target: decided.target)
+    queued = QueuedFix(fix: fix, boundary: boundary, shift: shift, target: decided.target, src: cur)
     correcting = true
     gateSince = GetTickCount()
     PostMessageW(trayWindow(), WM_AUTOFIX, 0, 0)
@@ -202,6 +203,7 @@ private struct EnterJob {
     let word: String        // word + trail, as typed
     let text: String        // its conversion
     let target: WinLayout
+    let src: WinLayout      // for undo
 }
 private var enterJob: EnterJob?
 
@@ -215,7 +217,7 @@ private func enterFollowUp(word: String, trail: String, cur: WinLayout) {
     else { return }
     let outTrail = trail.isEmpty ? "" : transliterate(trail, from: cur, to: decided.target)
     enterJob = EnterJob(before: before, word: word + trail,
-                        text: decided.out + outTrail, target: decided.target)
+                        text: decided.out + outTrail, target: decided.target, src: cur)
     correcting = true
     gateSince = GetTickCount()
     PostMessageW(trayWindow(), WM_AUTOENTER, 0, 0)
@@ -233,6 +235,7 @@ func runAutoEnter() {
     guard sendUnicode(job.text) else { return }
     sendKeyTap(Int32(vkReturn))
     switchLayout(to: job.target)
+    recordConversion(original: job.word + "\r", typed: job.text + "\r", src: job.src)
 }
 
 // MARK: - the fix (runs on the UI thread, off the hook)
@@ -245,6 +248,8 @@ func runAutoFix() {
     guard sendUnicode(job.fix.text) else { return }
     sendKeyTap(job.boundary, shift: job.shift)
     switchLayout(to: job.target)
+    let boundary = job.boundary == Int32(vkTab) ? "\t" : " "
+    recordConversion(original: job.fix.original + boundary, typed: job.fix.text + boundary, src: job.src)
 }
 
 /// Replays what was typed during the fix, feeding each key through the run first
@@ -253,6 +258,8 @@ private func finishFix() {
     correcting = false
     let replay = held
     held = []
+    // Keys typed during the fix land after it: the caret has moved past the fix.
+    if !replay.isEmpty { forgetConversion() }
     for (i, key) in replay.enumerated() {
         if key.vk == vkReturn {
             // No Enter follow-up here: its "before" read would race this very key.
@@ -282,6 +289,7 @@ private let mouseProc: HOOKPROC = { nCode, wParam, lParam in
     if nCode == 0, wParam == WPARAM(WM_LBUTTONDOWN) || wParam == WPARAM(WM_RBUTTONDOWN)
         || wParam == WPARAM(WM_MBUTTONDOWN) {
         resetAutoBuffer()
+        forgetConversion()
     }
     return CallNextHookEx(nil, nCode, wParam, lParam)
 }

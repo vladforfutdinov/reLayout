@@ -56,6 +56,11 @@ An audit of the frozen Windows port (written by an older model) found 15 bugs an
   Green on x64 and arm64 (run 35277002142).
 - Nothing here is hand-tested yet; only the macOS engine tests (54) run, and they
   cover neither `convert()` nor the read paths.
+- Press-again undo is back on Windows (it was removed with the old MVP): a second
+  hotkey within 1.5 s reselects what the last conversion typed and types the
+  original back, for hotkey, auto and Enter fixes alike; off in double-tap mode.
+  Any real key, a click or keys replayed after a fix end the window — unlike
+  macOS, a click clears it too, since undo would reselect at the new caret.
 - `mixedWordFix` moved into the engine as `fixMixedWord` (both readings of a
   mid-word layout switch, trigram-scored; 3 tests) and now also serves the Windows
   hotkey for a single-word selection like "ghjсто".

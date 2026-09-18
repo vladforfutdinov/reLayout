@@ -140,6 +140,9 @@ private let llProc: HOOKPROC = { nCode, wParam, lParam in
                 return CallNextHookEx(nil, nCode, wParam, lParam)
             }
             if handleDetect(vk, down: down, up: up) { return 1 }
+            // A real key (not a modifier, which may belong to the hotkey itself)
+            // ends the undo window.
+            if down, !isModifierVK(vk) { forgetConversion() }
             // Auto mode watches the same keys: it corrects what it saw typed.
             if down {
                 let mods = currentMods()

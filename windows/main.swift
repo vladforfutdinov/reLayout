@@ -1,8 +1,30 @@
 import WinSDK
 import ReLayoutCore
 
-// reLayout — Windows. Hotkey -> read selection (clipboard) -> convert with the
-// shared engine -> type the result -> switch layout. (No undo on Windows.)
+// reLayout — Windows. Hotkey -> read the selection (UI Automation, else the
+// clipboard) -> convert with the shared engine -> type the result -> switch layout.
+// Pressing the hotkey again right after a conversion undoes it.
+
+/// The last conversion (hotkey or auto mode), kept briefly so a second hotkey
+/// press can put the original back.
+struct Conversion {
+    let original: String
+    let typed: String
+    let src: WinLayout
+    let time: DWORD
+}
+private var lastConversion: Conversion?
+private let undoWindowMs: DWORD = 1500
+
+func recordConversion(original: String, typed: String, src: WinLayout) {
+    lastConversion = Conversion(original: original, typed: typed, src: src, time: GetTickCount())
+}
+
+/// Any real keystroke or click moves on from the last conversion: the caret is no
+/// longer right after the typed text, so undo would reselect the wrong characters.
+func forgetConversion() {
+    lastConversion = nil
+}
 
 // "Trigger on double-tap": fire only on the second hotkey press within the window.
 private var lastTriggerTick: DWORD = 0
@@ -22,8 +44,13 @@ func triggerHotkey() {
 }
 
 // Source = current (foreground) layout. Target = the other-script enabled layout,
-// else simply the other one. Each press converts fresh — no undo on Windows.
+// else simply the other one.
 func performRetype() {
+    // Press-again undo. Off in double-tap mode, where a second press is the trigger.
+    if !loadDoubleTap(), let last = lastConversion, GetTickCount() &- last.time < undoWindowMs {
+        lastConversion = nil
+        return performUndo(last)
+    }
     guard !foregroundIsConsole(), let cur = WinLayout.current() else { return }
     guard waitModifiersReleased() else { return }
 
@@ -44,6 +71,7 @@ private func retype(_ text: String, cur: WinLayout) {
         guard sendUnicode(mixed.out) else { return }
         pumpWait(20)
         switchLayout(to: mixed.dst)
+        recordConversion(original: text, typed: mixed.out, src: mixed.src)
         return
     }
     let dst = all.first(where: { $0.isCyrillic != cur.isCyrillic && $0.id != cur.id })
@@ -52,6 +80,24 @@ private func retype(_ text: String, cur: WinLayout) {
     guard sendUnicode(out) else { return }
     pumpWait(20)
     switchLayout(to: dst)
+    recordConversion(original: text, typed: out, src: cur)
+}
+
+/// Reselects what the conversion typed (the caret sits right after it), types the
+/// original back and returns to the source layout.
+private func performUndo(_ last: Conversion) {
+    guard waitModifiersReleased() else { return }
+    selectLeft(last.typed.count)
+    // A Tab boundary goes back as the real key, like it was typed (a line break
+    // already does: sendUnicode turns it into Enter).
+    if last.original.last == "\t" {
+        guard sendUnicode(String(last.original.dropLast())) else { return }
+        sendKeyTap(VK_TAB)
+    } else {
+        guard sendUnicode(last.original) else { return }
+    }
+    pumpWait(20)
+    switchLayout(to: last.src)
 }
 
 /// Fallback for controls without UI Automation text (Electron, old apps): read the

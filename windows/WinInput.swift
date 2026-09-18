@@ -66,6 +66,17 @@ func sendUnicode(_ s: String) -> Bool {
     return inputs.isEmpty || send(inputs)
 }
 
+/// Selects the `count` characters left of the caret (Shift+Left), so typing
+/// replaces exactly them.
+func selectLeft(_ count: Int) {
+    guard count > 0 else { return }
+    var inputs = [vkEvent(VK_SHIFT)]
+    for _ in 0..<count { inputs += [vkEvent(VK_LEFT), vkEvent(VK_LEFT, up: true)] }
+    inputs.append(vkEvent(VK_SHIFT, up: true))
+    send(inputs)
+    pumpWait(20)
+}
+
 /// Presses Backspace `count` times, in one batch.
 func sendBackspaces(_ count: Int) {
     guard count > 0 else { return }

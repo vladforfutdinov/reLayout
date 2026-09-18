@@ -40,6 +40,7 @@ dist/        build output (.app/.dmg/.zip) — gitignored
 ./scripts/run-tests.sh   # build & run unit tests (-DTESTING; entry point swaps to macos/tests.swift)
 ./scripts/make-dmg.sh    # -> reLayout.dmg drag-to-Applications installer
 swift test               # cross-platform engine tests via SwiftPM (Tests/ReLayoutCoreTests)
+scripts/build-windows.ps1  # on Windows: release build of the port into dist\win (exe + trigram/ + lang/)
 ```
 
 Scripts `cd` to the repo root, so they work from anywhere. Build output (`ReLayout.app`, `reLayout.dmg`, `reLayout.zip`) lands under `dist/` (gitignored).

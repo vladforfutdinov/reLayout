@@ -43,8 +43,6 @@ func triggerHotkey() {
     }
 }
 
-// Source = current (foreground) layout. Target = the other-script enabled layout,
-// else simply the other one.
 func performRetype() {
     // Press-again undo. Off in double-tap mode, where a second press is the trigger.
     if !loadDoubleTap(), let last = lastConversion, GetTickCount() &- last.time < undoWindowMs {
@@ -60,27 +58,17 @@ func performRetype() {
     retype(selected, cur: cur)
 }
 
-/// Converts the selected `text` and types the result over it.
+/// Converts the selected `text` and types the result over it. Which layouts it
+/// converts between is the engine's call (`planRetype`), shared with macOS.
 private func retype(_ text: String, cur: WinLayout) {
     guard !text.isEmpty else { return }
-    let all = WinLayout.installedList()
-    guard all.count >= 2 else { return }
-    // A single word with both scripts came from a mid-word layout switch
-    // ("ghjсто"): the engine scores both readings of it.
-    if tokenize(text).count == 1, let mixed = fixMixedWord(text, cur: cur, enabled: all, model: trigram) {
-        guard sendUnicode(mixed.out) else { return }
-        pumpWait(20)
-        switchLayout(to: mixed.dst)
-        recordConversion(original: text, typed: mixed.out, src: mixed.src)
-        return
-    }
-    let dst = all.first(where: { $0.isCyrillic != cur.isCyrillic && $0.id != cur.id })
-        ?? all.first(where: { $0.id != cur.id })
-    guard let dst, let out = convertWrong(text, src: cur, dst: dst) else { return }
-    guard sendUnicode(out) else { return }
+    let enabled = WinLayout.installedList()
+    guard let curIdx = enabled.firstIndex(where: { $0.id == cur.id }),
+          let plan = planRetype(text, enabled: enabled, curIdx: curIdx, model: trigram) else { return }
+    guard sendUnicode(plan.out) else { return }
     pumpWait(20)
-    switchLayout(to: dst)
-    recordConversion(original: text, typed: out, src: cur)
+    switchLayout(to: plan.dst)
+    recordConversion(original: plan.replaced, typed: plan.out, src: plan.src)
 }
 
 /// Reselects what the conversion typed (the caret sits right after it), types the

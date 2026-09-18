@@ -125,6 +125,69 @@ public func fixMixedWord<L: AutoLayout>(_ w: String, cur: L, enabled: [L],
     return best.map { ($0.out, $0.dst, $0.src) }
 }
 
+// MARK: - Hotkey: which layouts a selection converts between
+
+/// Plans the hotkey conversion of a selection.
+///
+/// In order: a single word with both scripts is a mid-word layout switch
+/// (`fixMixedWord`); a text with none of the current layout's script was typed
+/// before the user switched, so it converts from its own script back to the
+/// current layout; otherwise the current layout is the wrong one and the target
+/// comes from `pickTarget`.
+/// - Parameters:
+///   - enabled: the enabled layouts, in the system's order.
+///   - curIdx: index of the active layout in `enabled`.
+///   - model: trigram model for a language code (only the mixed-word case uses it).
+/// - Returns: the converted text, its layouts, and the part of `text` it replaces;
+///   nil when nothing converts.
+public func planRetype<L: AutoLayout>(_ text: String, enabled: [L], curIdx: Int,
+                                      model: (String) -> TrigramModel?)
+    -> (out: String, dst: L, src: L, replaced: String)? {
+    guard enabled.count >= 2, enabled.indices.contains(curIdx) else { return nil }
+    let cur = enabled[curIdx]
+
+    let toks = tokenize(text)
+    if toks.count == 1, let word = toks.first, !(word.first?.isWhitespace ?? true),
+       let fix = fixMixedWord(String(word), cur: cur, enabled: enabled, model: model) {
+        return (fix.out, fix.dst, fix.src, String(word))
+    }
+
+    // Switched after typing: the wrong layout is the text's, the target the current.
+    if !textHasScript(text, cyrillic: cur.isCyrillic),
+       let wrongCyr = dominantScript(text), wrongCyr != cur.isCyrillic,
+       let src = enabled.first(where: { $0.isCyrillic == wrongCyr }),
+       let out = convertWrong(text, src: src, dst: cur) {
+        return (out, cur, src, text)
+    }
+
+    let target = pickTarget(text, enabled: enabled, curIdx: curIdx)
+    guard let out = convertWrong(text, src: cur, dst: target) else { return nil }
+    return (out, target, cur, text)
+}
+
+/// Target layout when the current one is the wrong one: with two layouts, the
+/// other; with more, the first unless the current is first — then the one the
+/// rest of the text is written in, if exactly one layout has that script, else
+/// the second.
+public func pickTarget<L: LayoutMaps>(_ text: String, enabled: [L], curIdx: Int) -> L {
+    if enabled.count == 2 { return enabled[curIdx == 0 ? 1 : 0] }
+    if curIdx != 0 { return enabled[0] }
+    return restTextLayout(text, enabled: enabled, curIdx: curIdx) ?? enabled[1]
+}
+
+/// The layout implied by the words of the other script in `text`, when exactly one
+/// enabled layout has that script.
+private func restTextLayout<L: LayoutMaps>(_ text: String, enabled: [L], curIdx: Int) -> L? {
+    let cur = enabled[curIdx]
+    let words = tokenize(text).filter { !($0.first?.isWhitespace ?? true) }
+    let otherScriptPresent = cur.isCyrillic
+        ? words.contains { !hasCyr($0) && hasLatin($0) }
+        : words.contains { hasCyr($0) }
+    guard otherScriptPresent else { return nil }
+    let candidates = enabled.indices.filter { $0 != curIdx && enabled[$0].isCyrillic != cur.isCyrillic }
+    return candidates.count == 1 ? enabled[candidates[0]] : nil
+}
+
 // MARK: - The typed-word run
 
 /// Length of `w` without its trailing non-letters: a trailing mapped char is the

@@ -56,6 +56,12 @@ An audit of the frozen Windows port (written by an older model) found 15 bugs an
   Green on x64 and arm64 (run 35277002142).
 - Nothing here is hand-tested yet; only the macOS engine tests (54) run, and they
   cover neither `convert()` nor the read paths.
+- The hotkey's layout choice moved into the engine as `planRetype` (mixed word ->
+  `fixMixedWord`; no current-script text -> convert back into the active layout;
+  else `pickTarget`: the other of two, the first of many unless current is first,
+  then the script of the rest of the text or the second). macOS lost its copies of
+  `pickTarget`/`restTextLayout`/`mixedWordFix`; Windows swapped its simpler
+  "other script, else the other one" rule for it. 6 new tests.
 - Press-again undo is back on Windows (it was removed with the old MVP): a second
   hotkey within 1.5 s reselects what the last conversion typed and types the
   original back, for hotkey, auto and Enter fixes alike; off in double-tap mode.

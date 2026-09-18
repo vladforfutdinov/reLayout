@@ -302,4 +302,56 @@ final class EngineTests: XCTestCase {
     func testFixMixedWordIgnoresSingleScriptWords() {
         XCTAssertNil(fixMixed("ghbdtn", cyrKnows: ["привет"], latinKnows: [], curIsCyrillic: false))
     }
+
+    // MARK: - planRetype / pickTarget (hotkey layout choice)
+
+    private func plan(_ text: String, enabled: [FakeLayout], curIdx: Int)
+        -> (out: String, dst: FakeLayout, src: FakeLayout, replaced: String)? {
+        planRetype(text, enabled: enabled, curIdx: curIdx, model: { _ in nil })
+    }
+
+    func testPlanConvertsFromTheActiveLayout() {
+        let (latin, cyr) = makeLayouts()
+        let p = plan("ghbdtn", enabled: [latin, cyr], curIdx: 0)
+        XCTAssertEqual(p?.out, "привет")
+        XCTAssertTrue(p?.dst.isCyrillic ?? false)
+    }
+
+    func testPlanDetectsASwitchMadeAfterTyping() {
+        // Cyrillic is active, but the text has no Cyrillic: it was typed on Latin,
+        // and converts back into the active layout.
+        let (latin, cyr) = makeLayouts()
+        let p = plan("ghbdtn", enabled: [latin, cyr], curIdx: 1)
+        XCTAssertEqual(p?.out, "привет")
+        XCTAssertTrue(p?.dst.isCyrillic ?? false)
+        XCTAssertFalse(p?.src.isCyrillic ?? true)
+    }
+
+    func testPlanNeedsTwoLayouts() {
+        let (latin, _) = makeLayouts()
+        XCTAssertNil(plan("ghbdtn", enabled: [latin], curIdx: 0))
+    }
+
+    func testPickTargetWithTwoLayoutsIsTheOther() {
+        let (latin, cyr) = makeLayouts()
+        XCTAssertTrue(pickTarget("x", enabled: [latin, cyr], curIdx: 0).isCyrillic)
+        XCTAssertFalse(pickTarget("x", enabled: [latin, cyr], curIdx: 1).isCyrillic)
+    }
+
+    func testPickTargetWithMoreLayoutsPrefersTheFirst() {
+        let (latin, cyr) = makeLayouts()
+        var second = cyr; second.languageCode = "ru"
+        // Current is not first -> the first.
+        XCTAssertEqual(pickTarget("x", enabled: [latin, cyr, second], curIdx: 2).languageCode, "en")
+    }
+
+    func testPickTargetFromTheFirstFollowsTheRestOfTheText() {
+        let (latin, cyr) = makeLayouts()
+        var german = latin; german.languageCode = "de"
+        // Current is first (Latin); the text also holds Cyrillic, and exactly one
+        // enabled layout is Cyrillic -> that one, not simply the second.
+        XCTAssertEqual(pickTarget("ghbdtn привет", enabled: [latin, german, cyr], curIdx: 0).languageCode, "uk")
+        // No other-script words -> the second.
+        XCTAssertEqual(pickTarget("ghbdtn", enabled: [latin, german, cyr], curIdx: 0).languageCode, "de")
+    }
 }

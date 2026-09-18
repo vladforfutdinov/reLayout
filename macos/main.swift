@@ -1416,57 +1416,15 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         up?.post(tap: .cgSessionEventTap)
     }
 
-    // Source = current (wrong) layout. Target chosen by:
-    //   - 2 enabled       -> the other one
-    //   - >2, cur != #0   -> #0 (first)
-    //   - >2, cur == #0   -> layout of the OTHER-script words if uniquely determinable,
-    //                        else #1 (second)
+    // Which layouts the selection converts between is the engine's call
+    // (planRetype in Core/Auto.swift), shared with the Windows port.
     private func convert(_ text: String) -> (out: String, dst: Layout, src: Layout, replaced: String)? {
         let enabled = Layout.enabledList()
-        guard enabled.count >= 2 else { return nil }
         let curID = currentSourceID()
         guard let curIdx = enabled.firstIndex(where: { $0.id == curID }) else { return nil }
-        let cur = enabled[curIdx]
-
-        // Mid-word layout switch ("ghjсто"): the word carries both scripts, so
-        // neither anchor rule fits — the wrong half may be the head (switched after
-        // mistyping) or the tail (forgot to switch). Decided by trigram score, see
-        // mixedWordFix. Applies to a single-word selection; a multi-word selection
-        // converts as a whole.
-        let toks = tokenize(text)
-        if let last = toks.last, !(last.first?.isWhitespace ?? true),
-           toks.count == 1,
-           let fix = mixedWordFix(String(last), cur: cur, enabled: enabled) {
-            dbg("convert[mixed] src=\(fix.src.id) -> dst=\(fix.dst.id)")
-            return (fix.out, fix.dst, fix.src, String(last))
-        }
-
-        // Hybrid source detection: normally the wrong layout is the active one (you
-        // pressed the hotkey right after mistyping). But if the text contains NONE
-        // of the current layout's script, you switched layout after typing — detect
-        // the wrong layout from the text instead, and convert back to the current
-        // (target) layout. Common case is untouched -> no regression.
-        if !textHasScript(text, cyrillic: cur.isCyrillic),
-           let wrongCyr = dominantScript(text), wrongCyr != cur.isCyrillic,
-           let src = enabled.first(where: { $0.isCyrillic == wrongCyr }),
-           let out = convertWrong(text, src: src, dst: cur) {
-            dbg("convert[detected] src=\(src.id) -> dst=\(cur.id)")
-            return (out, cur, src, text)
-        }
-
-        let target = pickTarget(text, cur: cur, curIdx: curIdx, enabled: enabled)
-
-        dbg("convert cur=\(cur.id) -> target=\(target.id)")
-        guard let out = convertWrong(text, src: cur, dst: target) else { return nil }
-        return (out, target, cur, text)
-    }
-
-    // Target choice (see convert() doc comment): 2 enabled -> the other; >2 ->
-    // first unless current is first, then by the rest of the text or second.
-    private func pickTarget(_ text: String, cur: Layout, curIdx: Int, enabled: [Layout]) -> Layout {
-        if enabled.count == 2 { return enabled[curIdx == 0 ? 1 : 0] }
-        if curIdx != 0 { return enabled[0] }
-        return restTextLayout(text, cur: cur, enabled: enabled) ?? enabled[1]
+        let plan = planRetype(text, enabled: enabled, curIdx: curIdx, model: trigram)
+        dbg("convert cur=\(curID) -> \(plan.map { "\($0.src.id) -> \($0.dst.id)" } ?? "nothing")")
+        return plan
     }
 
     // MARK: - auto-mode (trigram detection)
@@ -1487,11 +1445,6 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         decideAutoTarget(w, cur: cur, enabled: enabled, model: trigram)
     }
 
-    // Mid-word layout switch ("ghjсто"): the engine scores both readings.
-    private func mixedWordFix(_ w: String, cur: Layout,
-                              enabled: [Layout]) -> (out: String, dst: Layout, src: Layout)? {
-        fixMixedWord(w, cur: cur, enabled: enabled, model: trigram)
-    }
 
     // MARK: - auto-mode live monitor
 
@@ -1825,22 +1778,6 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         if AXUIElementCopyAttributeValue(el as! AXUIElement, kAXSubroleAttribute as CFString, &sub) == .success,
            let s = sub as? String, s == (kAXSecureTextFieldSubrole as String) { return true }
         return false
-    }
-
-    // The target implied by the NON-wrong (other-script) words in the selection,
-    // but only when exactly one enabled layout has that script. Else nil.
-    private func restTextLayout(_ text: String, cur: Layout, enabled: [Layout]) -> Layout? {
-        if cur.isCyrillic {
-            let restLatin = tokenize(text).contains { !($0.first?.isWhitespace ?? true) && !hasCyr($0) && hasLatin($0) }
-            guard restLatin else { return nil }
-            let cands = enabled.filter { !$0.isCyrillic && $0.id != cur.id }
-            return cands.count == 1 ? cands[0] : nil
-        } else {
-            let restCyr = tokenize(text).contains { !($0.first?.isWhitespace ?? true) && hasCyr($0) }
-            guard restCyr else { return nil }
-            let cands = enabled.filter { $0.isCyrillic && $0.id != cur.id }
-            return cands.count == 1 ? cands[0] : nil
-        }
     }
 
     private func currentSourceID() -> String {

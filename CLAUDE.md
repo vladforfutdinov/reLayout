@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-reLayout is a tiny menu-bar macOS app (with a nascent Windows port) that retypes selected text in the correct keyboard layout — Punto/Caramba style. Hotkey → read selection → convert via the active OS keyboard layouts → type back → switch system input source. Press the hotkey again within ~1.5 s to undo.
+reLayout is a tiny menu-bar macOS app (with a Windows port in preview) that retypes selected text in the correct keyboard layout — Punto/Caramba style. Hotkey → read selection → convert via the active OS keyboard layouts → type back → switch system input source. Press the hotkey again within ~1.5 s to undo.
 
 ## Session handoff (context across sessions)
 
@@ -19,9 +19,9 @@ At the end of a session (or before `/clear`): run **`/handoff`** — it updates 
 ## Layout
 
 ```
-Core/        shared platform-free engine + trigram model (SwiftPM module ReLayoutCore)
+Core/        shared platform-free engine, auto-mode state machine, trigram model, .strings reader (SwiftPM module ReLayoutCore)
 macos/       macOS app — main.swift, tests.swift, Info.plist
-windows/     Windows MVP — Win*.swift + main.swift
+windows/     Windows port (preview) — Win*.swift + main.swift, uia/ (C++ UI Automation target)
 Resources/   macOS bundle resources — <lang>.lproj + icon PNGs + trigram/<lang>.txt
 Tests/       SwiftPM engine tests
 scripts/     build.sh, run-tests.sh, make-cert.sh, make-dmg.sh, notarize.sh, trigram/
@@ -53,13 +53,14 @@ Build env vars, the release/notarization flow, and the full architecture (engine
 - **`Core/Engine.swift`** — platform-free conversion engine (no AppKit/Carbon/WinSDK). Shared verbatim by the macOS app, the Windows port (`ReLayoutCore` SwiftPM module), and the tests. Algorithm: `char → (reverse source layout) → KeyStroke → (target layout) → char`, over the actually-installed layouts. Not a char→char table.
 - **`Core/Trigram.swift`** — char-trigram language model for the auto-correct mode. Models generated offline by `scripts/trigram/gen.py`, shipped as `Resources/trigram/<lang>.txt`. Auto-correct is cross-script only (ru/uk ↔ en), default off.
 - **`macos/main.swift`** — the macOS app (single file): localization, hotkey system (combos + modifier taps), AX-first selection read/write, input-source switching, Settings/menu-bar/login-item, Sparkle.
-- **`windows/`** — Windows MVP (`WinLayout`/`WinInput`/`WinTray` + `main.swift`), built only under `#if os(Windows)`.
+- **`Core/Auto.swift`** — what both apps share beyond conversion: the auto-mode decision (`decideAutoTarget`), the typed-word state machine (`AutoRun`), the hotkey's layout choice (`planRetype`, `fixMixedWord`). Platform code only feeds keystrokes and performs the fix.
+- **`windows/`** — Windows port (preview): hook-based hotkey + auto mode, UI Automation read, Settings/tray, built only under `#if os(Windows)`. Not released; CI builds it on manual dispatch.
 
 Details for each → [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## Conventions worth knowing
 
-- When changing the conversion algorithm, edit `Core/Engine.swift` and add a test in `Tests/ReLayoutCoreTests/EngineTests.swift` — both platforms then pick it up. Don't duplicate engine code into `macos/main.swift`.
-- Localizable keys: add to **every** `Resources/<lang>.lproj/Localizable.strings`. Missing keys fall back to the key string itself, which ships visibly broken UI.
+- When changing the conversion algorithm or an auto-mode rule, edit `Core/` and add a test in `Tests/ReLayoutCoreTests/` — both platforms then pick it up. Don't duplicate engine code into `macos/main.swift` or `windows/`.
+- Localizable keys: add to **every** `Resources/<lang>.lproj/Localizable.strings` — both apps read them, and `StringsTests` fails when a language lacks an English key. On macOS a missing key shows the key string itself.
 - App icon and "rL" wordmark are generated inline by `scripts/build.sh` (a tiny Swift snippet using `NSImage`) from `Resources/for-{light,dark}-text-1024.png`. The menu-bar icon is appearance-aware (white on dark, black on light) loaded via `NSImage(named:)`.
 - Carbon (`UCKeyTranslate`, `RegisterEventHotKey`) is intentional — there is no modern Swift replacement that exposes layouts at this level. Don't try to "modernize" it away.

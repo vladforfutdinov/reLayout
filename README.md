@@ -5,9 +5,9 @@
 ![reLayout in action: ](assets/demo.gif)
 
 Punto/Caramba-style "retype the selection in the correct keyboard layout" for macOS — a
-tiny menu-bar app. Select (or just type) wrong-layout text, hit the hotkey, and it's
-retyped in the right layout; the system input source flips so you can keep going. Press the
-hotkey again within ~1.5 s to undo.
+tiny menu-bar app (a Windows port is in preview, see [below](#windows-preview)). Select
+wrong-layout text, hit the hotkey, and it's retyped in the right layout; the system input
+source flips so you can keep going. Press the hotkey again within ~1.5 s to undo.
 
 Works with **any** enabled keyboard layouts — not hard-coded to a specific pair. An optional
 **auto-correct** mode (default off) fixes wrong-layout words as you type, no hotkey needed.
@@ -27,10 +27,11 @@ First launch asks for **Accessibility** (to read the selection / send keystrokes
 
 ## Use
 
-1. Select the mistyped text — or press the hotkey with nothing selected and just the word at
-   the caret is converted (mid-word signs stay in the word: `rjt-xnj` → `кое-что`).
+1. Select the mistyped text. The hotkey acts only on a selection — it never guesses which
+   unselected text you meant; words you just typed are the job of auto-correct (below).
 2. Press the hotkey (default: **tap left Option**).
 3. Press it again within ~1.5 s to **undo** (restores the text and the previous input source).
+   A click or any other key in between ends the undo window.
 
 Conversion is **per word**: only words typed in the layout active when you press the hotkey are
 converted; the rest is left alone. `я сказал ghbdtn` (US active) → `я сказал привет`.
@@ -40,6 +41,15 @@ Switching the layout in the middle of a word is handled too: `ghj` + Globe + `с
 
 Set your own hotkey (a combo, a modifier tap, or a tap sequence) and toggle auto-correct in
 **rL → Settings…**.
+
+## Windows (preview)
+
+`windows/` holds a Windows port with the same engine: the hotkey (a combo or a bare-modifier
+tap) converts a selection read through UI Automation, with the clipboard — saved and restored —
+as the fallback; auto-correct, its Enter follow-up, app exceptions and press-again undo work as
+on macOS, and the UI follows the same translations. It is not released yet: builds come from a
+manual run of the `build` workflow (installer and portable `.exe` for x64 and arm64), unsigned,
+and not yet tested on real hardware.
 
 ## Why it handles `ß`/`æ` → `ы`/`э`
 

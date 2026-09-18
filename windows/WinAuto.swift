@@ -42,10 +42,12 @@ private let navigationVKs: Set<UINT> = Set([0x1B, 0x2D, 0x2E] + (0x21...0x28).ma
 
 private let vkBack = UINT(0x08), vkTab = UINT(0x09), vkReturn = UINT(0x0D), vkSpace = UINT(0x20)
 
-/// Auto mode stays off in terminals and in the user's deny-list: what is typed
-/// there is commands and code, not prose.
+/// Auto mode stays off in password fields and in the user's deny-list. Terminals
+/// are in that list by default, not ruled out here: the run needs no text from the
+/// window, so a user who removes one gets auto-correct there (the hotkey stays off
+/// in consoles — typing goes to the shell's cursor, not over a mouse selection).
 private func autoExcluded() -> Bool {
-    if foregroundIsConsole() || passwordField { return true }
+    if passwordField { return true }
     guard !excludedApps.isEmpty else { return false }
     return excludedApps.contains(foregroundProcessName())
 }

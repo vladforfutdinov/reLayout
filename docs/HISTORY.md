@@ -77,7 +77,11 @@ An audit of the frozen Windows port (written by an older model) found 15 bugs an
   defaults reach a saved list once each via the engine's `mergeExclusions` and a
   "seen defaults" record, so a removed entry stays removed. The hotkey ignores
   exceptions, as before. An ⓘ in the Exceptions window (both platforms, key `settings.exc.info`
-  in all 12 languages) says why a fresh install already lists apps.
+  in all 12 languages) says why a fresh install already lists apps. Auto mode in
+  Windows consoles now follows the list alone (the hard-coded console check went),
+  as on macOS: remove a terminal and auto-correct works there from the typed-word
+  run. The hotkey stays off in consoles: typing goes to the shell's cursor, not
+  over a mouse selection, so it can't replace a word in the middle of a line.
 - Testing in UTM (QEMU, Windows on ARM): an endless "aaaa" after a Ctrl+Alt+R and
   once after typing with auto-correct off. Suspects: the 0xE8 mask key (now sent
   only for a lone Alt or Win — with Ctrl held, Alt's release opens no menu), or

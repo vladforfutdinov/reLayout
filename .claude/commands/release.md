@@ -53,6 +53,7 @@ Steps:
    `gh release view vX.Y.Z --json body` and the `<description>` of the newest item
    in `appcast.xml` on `gh-pages`.
 
-Don't bump version files (the version comes from the git tag). Don't touch the
-Windows job (frozen; tag releases are macOS-only). Two standing rules apply: notes
+Don't bump version files (the version comes from the git tag). The same tag also builds the Windows
+installer and portable exe (x64, arm64) and attaches them to the Release — check
+those jobs in step 7 too, and mention Windows changes in the notes. Two standing rules apply: notes
 are mandatory on every tag, and the docs must be current before tagging.

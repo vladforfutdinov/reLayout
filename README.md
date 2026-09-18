@@ -72,7 +72,9 @@ launcher query or chat message stays as typed, and browsers/Electron apps keep p
 click or a Cmd/Ctrl shortcut drops the unfinished word. **Cross-script
 only** (ru/uk ↔ en), tuned for ≥99% precision — with only same-script layouts enabled
 (e.g. ABC + German) the checkbox is disabled, with the reason behind its ⓘ hint — with a
-per-app deny-list (*Settings → Auto-correct → Exceptions…*). Secure fields are always skipped.
+per-app deny-list (*Settings → Auto-correct → Exceptions…*): terminals, code editors, virtual
+machines and remote desktops are on it from the start — remove one to turn auto-correct on
+there. Secure fields are always skipped.
 Typing straight through a fix is safe — in auto-correct and on the hotkey alike: the keys you press
 while text is being retyped are held for those few milliseconds and typed back right after, so
 nothing lands in the middle of the fix. Fixing a typo with Backspace mid-word is safe too.

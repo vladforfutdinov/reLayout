@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>reLayout — fix wrong-layout typing in one keystroke, for macOS</title>
-<meta name="description" content="A tiny macOS menu-bar app that retypes text typed in the wrong keyboard layout. Any layouts, optional auto-correct, reads quietly so DeepL stays out of the way. Free and open source.">
+<title>reLayout — fix wrong-layout typing in one keystroke, for macOS and Windows</title>
+<meta name="description" content="A tiny macOS menu-bar and Windows tray app that retypes text typed in the wrong keyboard layout. Any layouts, optional auto-correct, reads quietly so DeepL stays out of the way. Free and open source.">
 <meta property="og:title" content="reLayout">
-<meta property="og:description" content="Retype wrong-layout text in the right layout. Punto/Caramba-style, for macOS.">
+<meta property="og:description" content="Retype wrong-layout text in the right layout. Punto/Caramba-style, for macOS and Windows.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://relayout.forfutdinov.com/">
 <meta property="og:image" content="https://relayout.forfutdinov.com/logo.png">
@@ -250,7 +250,7 @@
       <a href="#features">Features</a>
       <a href="#install">Install</a>
       <a href="https://github.com/vladforfutdinov/reLayout">GitHub</a>
-      <a class="nav-cta" href="https://github.com/vladforfutdinov/reLayout/releases/latest"><i class="ph ph-download-simple"></i>Download</a>
+      <a class="nav-cta" href="#install"><i class="ph ph-download-simple"></i>Download</a>
     </div>
   </div>
 </nav>
@@ -262,12 +262,12 @@
       <div class="reveal">
         <img class="herologo" src="logo.png" width="84" height="84" alt="reLayout">
         <h1>Wrong keyboard layout?<br><span class="hl">Fixed in one keystroke.</span></h1>
-        <p class="lede">reLayout retypes text you typed in the wrong layout and flips the input source. Punto-style, for macOS.</p>
+        <p class="lede">reLayout retypes text you typed in the wrong layout and flips the input source. Punto-style, for macOS and Windows.</p>
         <div class="cta">
-          <a class="btn primary" href="https://github.com/vladforfutdinov/reLayout/releases/latest"><i class="ph ph-download-simple"></i>Download for macOS</a>
-          <a class="btn" href="https://github.com/vladforfutdinov/reLayout"><i class="ph ph-github-logo"></i>GitHub</a>
+          <a class="btn primary" id="dlMac" href="https://github.com/vladforfutdinov/reLayout/releases/latest/download/reLayout.dmg"><i class="ph ph-apple-logo"></i>Download for macOS</a>
+          <a class="btn" id="dlWin" href="https://github.com/vladforfutdinov/reLayout/releases/latest/download/reLayout-windows-x64-setup.exe"><i class="ph ph-windows-logo"></i>Download for Windows</a>
         </div>
-        <p class="avail"><b>macOS 13+</b>, signed and notarized. <span class="soon">Windows coming soon.</span></p>
+        <p class="avail"><b>macOS 13+</b>, signed and notarized. <b>Windows 10 and 11</b>, x64 and ARM64 — <span class="soon">preview</span>.</p>
       </div>
 
       <div class="demo reveal" aria-hidden="true">
@@ -327,19 +327,19 @@
       <div class="tile reveal">
         <i class="ph ph-eye-slash"></i>
         <h3>Reads quietly</h3>
-        <p>Accessibility-first, no clipboard churn. DeepL stays out of the way.</p>
+        <p>Accessibility on macOS, UI Automation on Windows — no clipboard churn. DeepL stays out of the way.</p>
       </div>
       <div class="tile reveal">
         <i class="ph ph-prohibit"></i>
         <h3>Per-app exceptions</h3>
-        <p>Skip terminals, IDEs, or any app. Password fields always skipped.</p>
+        <p>Terminals, IDEs and virtual machines by default, or any app. Password fields always skipped.</p>
       </div>
 
       <div class="tile sp4 reveal">
         <i class="ph ph-arrows-clockwise"></i>
         <div>
           <h3>Stays current on its own</h3>
-          <p>Signed, notarized, and auto-updating via Sparkle. Or install and upgrade through Homebrew.</p>
+          <p>On macOS: signed, notarized, auto-updating via Sparkle, or through Homebrew. On Windows: a tray notice when a new release is out.</p>
         </div>
       </div>
     </div>
@@ -351,12 +351,12 @@
     <h2 class="reveal">Built for the messy reality</h2>
     <p class="sec-lede reveal">Real typing is messy. reLayout covers the cases the simple switchers skip.</p>
     <div class="edge">
-      <div class="row reveal"><i class="ph ph-cursor-text"></i><div><b>Nothing selected?</b><p>It grabs from the caret back to the start of the line, then converts.</p></div></div>
+      <div class="row reveal"><i class="ph ph-cursor-text"></i><div><b>Just typed it?</b><p>The hotkey converts what you select and never guesses. Words you have just typed are auto-correct's job.</p></div></div>
       <div class="row reveal"><i class="ph ph-magnifying-glass"></i><div><b>Switched layout after mistyping?</b><p>It reads the wrong layout from the text itself, not just the active one.</p></div></div>
       <div class="row reveal"><i class="ph ph-brackets-curly"></i><div><b>Option-layer characters?</b><p>Even ß and æ map to ы and э. It works on key position, not a letter table.</p></div></div>
       <div class="row reveal"><i class="ph ph-globe-hemisphere-east"></i><div><b>Any script you use?</b><p>Ukrainian, English, anything installed. Convert between whichever two are active.</p></div></div>
       <div class="row reveal"><i class="ph ph-lock-key"></i><div><b>In a password field?</b><p>Secure text fields are always left alone, hotkey and auto-correct both.</p></div></div>
-      <div class="row reveal"><i class="ph ph-terminal-window"></i><div><b>In a terminal or IDE?</b><p>Excluded by default for auto-correct, and the list is yours to edit.</p></div></div>
+      <div class="row reveal"><i class="ph ph-terminal-window"></i><div><b>In a terminal, an IDE or a VM?</b><p>Excluded by default for auto-correct — a VM's guest has its own layout. The list is yours to edit.</p></div></div>
       <div class="row reveal"><i class="ph ph-arrow-counter-clockwise"></i><div><b>Changed your mind?</b><p>Press the hotkey again within ~1.5s to put the original text back.</p></div></div>
       <div class="row reveal"><i class="ph ph-hand-tap"></i><div><b>Want a chord or a double-tap?</b><p>Record a combo, a modifier tap, or a tap sequence like double Shift.</p></div></div>
     </div>
@@ -406,8 +406,13 @@
           </tr>
           <tr>
             <td class="feat">Reads without the clipboard</td>
-            <td class="us"><i class="ph ph-check yes"></i><small>Accessibility API</small></td>
+            <td class="us"><i class="ph ph-check yes"></i><small>Accessibility / UI Automation</small></td>
             <td><i class="ph ph-x no"></i><small>clipboard churn</small></td>
+          </tr>
+          <tr>
+            <td class="feat">macOS and Windows</td>
+            <td class="us"><i class="ph ph-check yes"></i><small>one engine</small></td>
+            <td><i class="ph ph-minus par"></i><small>usually one platform</small></td>
           </tr>
           <tr>
             <td class="feat">Open source and free</td>
@@ -416,7 +421,7 @@
           </tr>
           <tr>
             <td class="feat">Native, no Electron</td>
-            <td class="us"><span class="val">1.6 MB</span></td>
+            <td class="us"><span class="val">1.8 MB</span><small>on macOS</small></td>
             <td><i class="ph ph-minus par"></i><small>varies</small></td>
           </tr>
         </tbody>
@@ -428,7 +433,9 @@
 <section id="install">
   <div class="wrap">
     <h2 class="reveal">Install</h2>
-    <div class="col" style="margin-top:28px">
+
+    <h3 class="reveal" style="margin:28px 0 0">macOS</h3>
+    <div class="col" style="margin-top:16px">
       <div class="card reveal">
         <h3>Homebrew</h3>
         <div class="codeblock">
@@ -439,14 +446,27 @@
       </div>
       <div class="card reveal">
         <h3>Direct download</h3>
-        <p class="note" style="margin-top:0">Grab <b style="color:var(--fg)">reLayout.dmg</b> from the <a href="https://github.com/vladforfutdinov/reLayout/releases/latest">latest release</a> and drag it to Applications.</p>
+        <p class="note" style="margin-top:0">Grab <a href="https://github.com/vladforfutdinov/reLayout/releases/latest/download/reLayout.dmg"><b>reLayout.dmg</b></a> from the <a href="https://github.com/vladforfutdinov/reLayout/releases/latest">latest release</a> and drag it to Applications.</p>
       </div>
     </div>
-
-    <div class="steps" style="margin-top:32px">
+    <div class="steps" style="margin-top:16px">
       <div class="step reveal"><p>Launch reLayout. It lives in the menu bar as the <b>rL</b> icon.</p></div>
       <div class="step reveal"><p>Grant <b>Accessibility</b> in System Settings, then relaunch.</p></div>
       <div class="step reveal"><p>Select wrong-layout text and tap your hotkey (default <b>left&nbsp;⌥</b>).</p></div>
+    </div>
+
+    <h3 class="reveal" style="margin:40px 0 0">Windows <span style="color:var(--faint);font-weight:400">— preview</span></h3>
+    <div class="col" style="margin-top:16px">
+      <div class="card reveal">
+        <h3>Installer</h3>
+        <p class="note" style="margin-top:0"><a href="https://github.com/vladforfutdinov/reLayout/releases/latest/download/reLayout-windows-x64-setup.exe"><b>reLayout-windows-x64-setup.exe</b></a> for most PCs, <a href="https://github.com/vladforfutdinov/reLayout/releases/latest/download/reLayout-windows-arm64-setup.exe"><b>reLayout-windows-arm64-setup.exe</b></a> for ARM (Snapdragon). A portable <code>.exe</code> for each is in the <a href="https://github.com/vladforfutdinov/reLayout/releases/latest">latest release</a>.</p>
+        <p class="note">Not code-signed yet: SmartScreen asks to confirm the first run — <b style="color:var(--fg)">More info → Run anyway</b>.</p>
+      </div>
+    </div>
+    <div class="steps" style="margin-top:16px">
+      <div class="step reveal"><p>Run the installer. reLayout lives in the tray as the <b>rL</b> icon.</p></div>
+      <div class="step reveal"><p>Open <b>Settings</b> from the tray to pick your hotkey or turn on auto-correct.</p></div>
+      <div class="step reveal"><p>Select wrong-layout text and press your hotkey (default <b>Ctrl+Alt+R</b>).</p></div>
     </div>
   </div>
 </section>
@@ -462,6 +482,16 @@
 </footer>
 
 <script>
+  // the primary download button follows the visitor's OS
+  (function(){
+    var p = ((navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || '').toLowerCase();
+    if (p.indexOf('win') === 0) {
+      var mac = document.getElementById('dlMac'), win = document.getElementById('dlWin');
+      mac.classList.remove('primary'); win.classList.add('primary');
+      win.parentNode.insertBefore(win, mac);
+    }
+  })();
+
   // copy buttons
   document.querySelectorAll('.copy').forEach(function(b){
     b.addEventListener('click', function(){

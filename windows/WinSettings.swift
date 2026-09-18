@@ -113,7 +113,10 @@ private func textWidth(_ text: String, _ hwnd: HWND?) -> Int32 {
     return size.cx * 96 / uiDpi
 }
 
-private func addTooltip(_ parent: HWND?, _ control: HWND?, _ text: String) {
+/// Shows `text` while the mouse is over `control`. A control that takes the mouse
+/// (a button) is its own tool; a static one is passed as a rectangle of the window,
+/// since the static lets the mouse through to it.
+private func addTooltip(_ parent: HWND?, _ control: HWND?, _ text: String, overWindow: Bool = false) {
     if tooltip == nil {
         tooltip = "tooltips_class32".withCString(encodedAs: UTF16.self) { cls in
             CreateWindowExW(DWORD(WS_EX_TOPMOST), cls, nil,
@@ -126,9 +129,20 @@ private func addTooltip(_ parent: HWND?, _ control: HWND?, _ text: String) {
     text.withCString(encodedAs: UTF16.self) { txt in
         var info = TTTOOLINFOW()
         info.cbSize = UINT(MemoryLayout<TTTOOLINFOW>.size)
-        info.uFlags = UINT(0x0001 /* TTF_IDISHWND */ | 0x0010 /* TTF_SUBCLASS */)
         info.hwnd = parent
-        info.uId = UINT_PTR(UInt(bitPattern: control))
+        if overWindow {
+            info.uFlags = UINT(0x0010 /* TTF_SUBCLASS */)
+            info.uId = UINT_PTR(UInt(bitPattern: Int(GetDlgCtrlID(control))))
+            var r = RECT()
+            GetWindowRect(control, &r)
+            withUnsafeMutablePointer(to: &r) {
+                $0.withMemoryRebound(to: POINT.self, capacity: 2) { _ = MapWindowPoints(nil, parent, $0, 2) }
+            }
+            info.rect = r
+        } else {
+            info.uFlags = UINT(0x0001 /* TTF_IDISHWND */ | 0x0010 /* TTF_SUBCLASS */)
+            info.uId = UINT_PTR(UInt(bitPattern: control))
+        }
         info.lpszText = UnsafeMutablePointer(mutating: txt)
         _ = withUnsafeMutablePointer(to: &info) {
             SendMessageW(tooltip, UINT(0x0432 /* TTM_ADDTOOLW */), 0, LPARAM(Int(bitPattern: $0)))
@@ -260,11 +274,11 @@ private func buildControls(_ hwnd: HWND?) {
     check(auto, available && loadAutoMode())
     EnableWindow(auto, available)
     if !available {
-        let info = makeControl("STATIC", "\u{E946}" /* Info glyph */, Int32(0x0100 /* SS_NOTIFY */),
+        let info = makeControl("STATIC", "\u{E946}" /* Info glyph */, 0,
                                margin + autoW + 2, y + 2, 20, 20, hwnd, idAutoInfo)
         setFont(info, glyphFont)
         let installed = WinLayout.installedList().map(\.displayName).joined(separator: ", ")
-        addTooltip(hwnd, info, L("settings.autoCorrectUnavailable", installed))
+        addTooltip(hwnd, info, L("settings.autoCorrectUnavailable", installed), overWindow: true)
     }
     let excTitle = L("settings.exceptions")
     let excW = textWidth(excTitle, hwnd) + 24

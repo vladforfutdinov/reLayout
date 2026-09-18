@@ -6,7 +6,28 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
-## Windows port — audit fixes, batch 1 (not built yet)
+## v1.3.0 — Windows port (preview), shared engine, selection-only hotkey
+
+Released 2026-09-19 (tag `v1.3.0` on `ce2e535`, 50 commits from `5b51064`). The
+frozen Windows MVP was audited, rebuilt to feature parity with macOS and shipped as
+a preview; the platform-free logic moved into the engine; the hotkey became
+selection-only on both platforms. Entries below run oldest-last within the block.
+
+- Release: macOS dmg/zip + Sparkle appcast + Homebrew cask, and — first time — the
+  Windows installer and portable exe for x64/ARM64 (CI build `35401084438`). Notes
+  split per platform: `docs/release-notes/v1.3.0.md` (macOS, Sparkle window) and
+  `v1.3.0-windows.md`, one line per bullet (hard wraps rendered as `<br>`); the
+  published release body and the appcast item were corrected by hand
+  (`a7e3669`, gh-pages `c9b6cc1`). `.claude/commands/release.md` updated for both.
+- Landing page (`index.html` on `gh-pages`, `95907cd`): macOS and Windows downloads
+  (the visitor's OS picks the primary button), per-platform install sections, the
+  stale "Nothing selected? grabs the line" item replaced. Backlog (`a7b13d5`): a
+  Windows default hotkey closer to macOS', and a Windows keyboard in the demo.
+- Dev loop: Windows builds and runs in the user's UTM VM over SSH
+  (`scripts/build-windows.ps1`, ~30 s vs ~6 min on CI), launched into the desktop
+  session with a scheduled task; `-DebugLog` adds the keystroke diagnostics.
+
+### Windows port — audit fixes, batch 1
 
 An audit of the frozen Windows port (written by an older model) found 15 bugs and
 31 risks. The first batch fixes input and layout handling:

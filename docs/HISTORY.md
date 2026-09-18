@@ -76,8 +76,9 @@ An audit of the frozen Windows port (written by an older model) found 15 bugs an
   1 px separators painted in the theme's colors, and the tray menu via uxtheme's
   undocumented SetPreferredAppMode (ordinal 135; a no-op if missing). A themed
   check box draws its title black in dark mode, so each title is a separate label
-  that clicks its box. Settings' logo is the bare "rL" glyph in the theme's
-  contrast (resources 2/3, now 16-256 px); both windows rebuild on a theme switch.
+  that clicks its box. Settings' logo stays the app-icon tile in both themes, as on
+  macOS (a themed bare glyph was tried and rejected); both windows rebuild on a
+  theme switch.
   The local build script stamps the About link's repo from the origin remote, like
   scripts/build.sh, and restores Identity.swift afterwards.
 - Windows unfrozen: `build-windows` now also runs on `v*` tags and attaches the

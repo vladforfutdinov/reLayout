@@ -4,8 +4,7 @@
 // so Explorer/Alt-Tab pick it as the application icon automatically.
 1 ICON "relayout.ico"
 // "rL" glyphs that follow the theme, like the macOS menu-bar icon: dark letters on
-// light (2), white on dark (3). The tray picks by the taskbar, Settings' logo by the
-// app mode. Made from Resources/for-{light,dark}-text-1024.png, 16-256 px.
+// light (2), white on dark (3), picked by the taskbar's theme for the tray. Made from Resources/for-{light,dark}-text-1024.png, 16-256 px.
 2 ICON "tray-on-light.ico"
 3 ICON "tray-on-dark.ico"
 // App manifest (RT_MANIFEST = 24): pulls in ComCtl32 v6 for themed controls +

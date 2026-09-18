@@ -69,6 +69,10 @@ An audit of the frozen Windows port (written by an older model) found 15 bugs an
   memory; the rebuild is now posted (`WM_REBUILD`) and runs after it.
   The ⓘ tooltip did not show on real Windows; it is now a rectangle tool on the
   window (the static lets the mouse through) instead of a tool on the static.
+  A layout added while Settings was open went unnoticed (macOS reacts to the
+  enabled-input-sources notification; Windows sends a background app none): the
+  window now re-reads the layout list every 2 s and on activation, and rebuilds on
+  a change.
 - First run on real Windows (arm64): every string after the first `//` comment
   showed as its key. GitHub's Windows runners check files out with CRLF, and in
   Swift "\r\n" is ONE Character, never equal to "\n": the `.strings` comment skip

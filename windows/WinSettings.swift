@@ -26,6 +26,22 @@ private let secondaryIDs: Set<Int> = [idCapLanguage, idCapHotkey, idVersion, idC
 private let idCancel: Int = 2   // IDCANCEL: Esc, through IsDialogMessageW
 private let WM_REBUILD = UINT(WM_APP) + 20
 private let tapTimer: UINT_PTR = 1
+private let layoutTimer: UINT_PTR = 2
+
+// The installed layouts the window was built for. Windows sends a background app no
+// notice when one is added or removed, so while Settings is open the list is
+// re-read every 2 s and on activation; a change rebuilds the window, which
+// re-decides whether auto-correct is available (macOS reacts to its
+// enabled-input-sources notification instead).
+private var builtForLayouts: [UInt] = []
+
+private func installedLayouts() -> [UInt] {
+    WinLayout.installedList().map { UInt(bitPattern: $0.hkl) }
+}
+
+private func rebuildIfLayoutsChanged(_ hwnd: HWND?) {
+    if installedLayouts() != builtForLayouts { PostMessageW(hwnd, WM_REBUILD, 0, 0) }
+}
 
 private var settingsHwnd: HWND?
 private var settingsClassW = Array("ReLayoutSettingsWnd".utf16) + [0]
@@ -266,6 +282,7 @@ private func buildControls(_ hwnd: HWND?) {
     y += 14
 
     // ── section C: auto-correct (ⓘ explains why it is off), Exceptions…, on Enter ──
+    builtForLayouts = installedLayouts()
     let available = WinLayout.crossScriptAvailable()
     let autoTitle = L("settings.autoCorrect")
     let autoW = textWidth(autoTitle, hwnd) + 24   // + the check box itself
@@ -353,6 +370,7 @@ private func settingsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lPa
         makeResources()
         buildControls(hwnd)
         fitClientArea(hwnd, center: true)
+        SetTimer(hwnd, layoutTimer, 2000, nil)
     case UINT(0x02E0 /* WM_DPICHANGED */):
         // Moved to a monitor with another scale: rebuild at the new DPI and take the
         // position Windows suggests.
@@ -378,6 +396,11 @@ private func settingsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lPa
         }
         SetBkMode(dc, TRANSPARENT)
         return LRESULT(Int(bitPattern: GetSysColorBrush(COLOR_BTNFACE)))
+    case UINT(WM_TIMER) where wParam == WPARAM(layoutTimer):
+        rebuildIfLayoutsChanged(hwnd)
+        return 0
+    case UINT(WM_ACTIVATE) where (UInt(truncatingIfNeeded: wParam) & 0xFFFF) != 0 /* WA_INACTIVE */:
+        rebuildIfLayoutsChanged(hwnd)   // back from Windows' keyboard settings
     case UINT(WM_TIMER) where wParam == WPARAM(tapTimer):
         // No second tap came: a single bare-modifier tap.
         KillTimer(hwnd, tapTimer)
@@ -431,6 +454,7 @@ private func settingsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lPa
     case UINT(WM_DESTROY):
         cancelHotkeyCapture()       // don't leave a capture targeting a dead window
         KillTimer(hwnd, tapTimer)
+        KillTimer(hwnd, layoutTimer)
         pendingTapVK = 0
         settingsHwnd = nil          // NB: do NOT PostQuitMessage — only this window closes
     case UINT(WM_NCDESTROY):        // children are gone: fonts, icon and tooltip are free

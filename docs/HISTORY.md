@@ -122,9 +122,12 @@ An audit of the frozen Windows port (written by an older model) found 15 bugs an
 - Typing is real keys now (`typeText`): the focused window is switched to the
   target layout first (polled until `GetKeyboardLayout` agrees, ≤300 ms), then the
   text goes out as that layout's key presses (+Shift/AltGr) in one SendInput batch.
-  VK_PACKET could not be batched: Windows keeps one pending packet character per
-  thread, so a busy Windows 11 Notepad read the same character for several
-  presses ("цштвщц оооооо …", "xnjnj" -> "ооото"); pacing only made it rarer and
+  VK_PACKET could not be batched: a busy Windows 11 Notepad read the same character
+  for several presses ("цштвщц оооооо …", "xnjnj" -> "ооото", and a character sent
+  right after a packet space became a space). Undocumented; the explanation we
+  worked with — one pending packet character per thread, overwritten before the app
+  reads it — is an inference, and the tests ran in UTM (QEMU, Windows on ARM), so
+  virtualization may carry part of it. Pacing only made it rarer and
   typed slower than a hand. Characters the layout lacks fall back to Unicode events
   paced at 1 ms (`timeBeginPeriod(1)`, winmm). Line breaks, spaces and tabs are real
   keys everywhere. Undo types the original the same way in the source layout.

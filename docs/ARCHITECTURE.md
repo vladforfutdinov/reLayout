@@ -88,7 +88,7 @@ Holds everything outside the engine:
 - `main.swift` — single-instance mutex, message loop (with `IsDialogMessageW` for our windows), the hotkey retype and press-again undo.
 - `WinHotkey.swift` — low-level keyboard hook: combos and bare-modifier taps, hotkey capture for Settings; also feeds the auto mode.
 - `WinLayout.swift` — builds `LayoutMaps` via `ToUnicodeEx` (cached per HKL), language code, lists/switches HKLs.
-- `WinInput.swift` — `SendInput` writes: text as real key presses of the target layout after switching to it (`typeText`; VK_PACKET can't be batched — one pending packet char per thread), paced Unicode events as the fallback, Backspace, Shift+Left; the Ctrl+C fallback read with clipboard save/restore, `pumpWait`, focus/console helpers.
+- `WinInput.swift` — `SendInput` writes: text as real key presses of the target layout after switching to it (`typeText`; VK_PACKET can't be batched — a busy app reads one character several times, undocumented), paced Unicode events as the fallback, Backspace, Shift+Left; the Ctrl+C fallback read with clipboard save/restore, `pumpWait`, focus/console helpers.
 - `WinUIA.swift` + `native/relayout_uia.cpp` — UI Automation: the selection, the field snapshot for the Enter follow-up, the password-field flag. C++ because Swift has no COM.
 - `WinTheme.swift` + `native/relayout_theme.cpp` — light/dark: DWM title bar, the system's dark control styles, theme colors for background/text/separators, dark tray menu (uxtheme ordinal 135).
 - `WinUpdate.swift` + `native/relayout_http.cpp` — the update check (GitHub latest release over WinHTTP, which Swift's WinSDK module lacks).

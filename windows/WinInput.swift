@@ -69,9 +69,10 @@ func activateLayout(_ layout: WinLayout) -> Bool {
 }
 
 /// Types `s` as real key presses of `layout`, switching the focused window to it
-/// first, in one batch. Unicode events (VK_PACKET) can't be batched: Windows keeps
-/// one pending packet character per thread, so a busy app (Windows 11 Notepad)
-/// reads the same character for several presses. A converted text is made of the
+/// first, in one batch. Unicode events (VK_PACKET) can't be batched: a busy app
+/// (Windows 11 Notepad) reads the same character for several presses. Undocumented —
+/// the likely cause is one pending packet character per thread, overwritten before
+/// the app reads it — and observed under QEMU, which may contribute. A converted text is made of the
 /// target layout's characters by construction; one the layout lacks, or a switch
 /// that doesn't take, falls back to paced Unicode events.
 func typeText(_ s: String, in layout: WinLayout) -> Bool {

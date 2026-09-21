@@ -6,6 +6,16 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
+## After v1.3.0 — Windows fixes
+
+- Disabled check-box titles in Settings read clean in dark mode (`1c4ebe0`): a
+  disabled static ignores WM_CTLCOLORSTATIC and draws etched text, smeared on the
+  dark background ("Also fix on Enter" while auto-correct is off). Only the box is
+  disabled; its title stays enabled and is painted gray. Checked in the UTM VM in
+  both themes.
+- The VK_PACKET batching limit is recorded as an observation, not a documented
+  rule (`148416d`).
+
 ## v1.3.0 — Windows port (preview), shared engine, selection-only hotkey
 
 Released 2026-09-19 (tag `v1.3.0` on `ce2e535`, 50 commits from `5b51064`). The

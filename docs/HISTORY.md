@@ -6,6 +6,24 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
+## After v1.3.1 — macOS: line breaks and empty selection in VS Code
+
+- A line break retyped by the hotkey vanished in VS Code: a lone Unicode `\n`
+  key event inserts nothing there (tested: per-character `\n` joined the lines,
+  `\n` inside a multi-character event did not). A triple-clicked line lost its
+  break, two selected lines were joined, and the press-again undo then selected
+  one character too many and ate the break before the line. `typeUnicode` now
+  sends a line break in one event with its neighbour.
+- With nothing selected, VS Code's Cmd+C copies the whole caret line, which the
+  hotkey converted. The text is identical to a triple-clicked line; only VS
+  Code's clipboard metadata (`"isFromEmptySelection":true` inside
+  `org.chromium.web-custom-data`) tells them apart, so `copySelection` treats
+  that copy as no selection. Verified end to end in VS Code: one line, two
+  lines, no selection, each with the undo.
+- Cmd+Z after a hotkey retype still undoes in pieces in VS Code: each synthetic
+  key event is its own undo step there (20-character events only cut the count).
+  One step would need a paste, which the no-clipboard write rules out.
+
 ## After v1.3.0 — macOS: auto-correct in VS Code
 
 - Auto-correct in VS Code (Electron) could leave the wrong word half-erased:

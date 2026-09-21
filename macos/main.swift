@@ -1856,6 +1856,13 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         postKey(CGKeyCode(kVK_ANSI_C), .maskCommand)
         usleep(120_000)
         guard pb.changeCount != before, let c = pb.string(forType: .string), !c.isEmpty else { return nil }
+        // VS Code (Monaco) copies the whole caret line when nothing is selected and
+        // says so in its clipboard metadata; the hotkey converts only a selection.
+        if let meta = pb.data(forType: NSPasteboard.PasteboardType("org.chromium.web-custom-data")),
+           String(decoding: meta, as: UTF8.self).replacingOccurrences(of: "\0", with: "")
+               .contains("\"isFromEmptySelection\":true") {
+            dbg("Cmd+C copied a whole line from an empty selection"); return ""
+        }
         dbg("read via Cmd+C: \(c.debugDescription)")
         return c
     }
@@ -1956,11 +1963,16 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         DispatchQueue.main.sync { _ = TISSelectInputSource(last.srcSource) }
     }
 
-    // Insert a string by synthesizing per-character Unicode key events.
+    // Insert a string by synthesizing per-character Unicode key events. A line
+    // break rides in one event with its neighbour: VS Code drops a lone "\n".
     private func typeUnicode(_ s: String) {
         let src = CGEventSource(stateID: .combinedSessionState)
-        for ch in s {
-            let units = Array(String(ch).utf16)
+        var rest = s[...]
+        while let first = rest.popFirst() {
+            var piece = String(first)
+            while let c = rest.first, c.isNewline { piece.append(rest.removeFirst()) }
+            if first.isNewline, let c = rest.popFirst() { piece.append(c) }
+            let units = Array(piece.utf16)
             if let down = CGEvent(keyboardEventSource: src, virtualKey: 0, keyDown: true) {
                 down.flags = []
                 down.keyboardSetUnicodeString(stringLength: units.count, unicodeString: units)

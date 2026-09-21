@@ -1433,6 +1433,13 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         up?.post(tap: .cgSessionEventTap)
     }
 
+    // Electron/Chromium (VS Code) can apply a burst of deletes after text posted
+    // right behind it, leaving the old word half-erased; pace them and let them land.
+    private func eraseBack(_ n: Int) {
+        for _ in 0..<n { postKey(CGKeyCode(kVK_Delete), []); usleep(1500) }
+        usleep(30_000)
+    }
+
     // Which layouts the selection converts between is the engine's call
     // (planRetype in Core/Auto.swift), shared with the Windows port.
     private func convert(_ text: String) -> (out: String, dst: Layout, src: Layout, replaced: String)? {
@@ -1667,8 +1674,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         dbg("enter: \(outcome) before=\(before.tail.debugDescription) after=\(after.tail.debugDescription)")
         guard outcome == .newline else { return }
         waitModifiersReleased()
-        for _ in 0..<(word.count + trail.count + 1) { postKey(CGKeyCode(kVK_Delete), []) }
-        usleep(10_000)
+        eraseBack(word.count + trail.count + 1)
         typeUnicode(out + outTrail)
         typeKey("\r", flags: flags)
         usleep(10_000)
@@ -1793,8 +1799,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     private func autoCorrect(_ fix: AutoRun.Fix, boundary: String, boundaryFlags: CGEventFlags,
                              target: Layout, srcSource: TISInputSource) {
         waitModifiersReleased()
-        for _ in 0..<fix.erase { postKey(CGKeyCode(kVK_Delete), []) }
-        usleep(10_000)
+        eraseBack(fix.erase)
         typeUnicode(fix.text)
         typeKey(boundary, flags: boundaryFlags)
         usleep(10_000)

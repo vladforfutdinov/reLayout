@@ -6,6 +6,16 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
+## After v1.3.0 — macOS: auto-correct in VS Code
+
+- Auto-correct in VS Code (Electron) could leave the wrong word half-erased:
+  "ЬфсЩІ " became "ЬфсЩMa", and Cmd+Z showed "ЬфсЩMacOS". VS Code applied one
+  delete, then the retyped text, then the remaining deletes. The deletes went out
+  as one unpaced burst, 10 ms ahead of the text. `eraseBack` now paces them
+  (1.5 ms each) and waits 30 ms before typing; it is shared by `autoCorrect` and
+  the Enter follow-up. A synthetic replay did not reproduce the bug; the user
+  confirmed the fix on a dev build.
+
 ## After v1.3.0 — Windows fixes
 
 - Disabled check-box titles in Settings read clean in dark mode (`1c4ebe0`): a

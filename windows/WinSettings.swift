@@ -161,9 +161,11 @@ private func makeCheck(_ title: String, _ x: Int32, _ y: Int32, _ w: Int32, _ hw
     return box
 }
 
+/// Only the box is disabled: a disabled static draws etched text and ignores
+/// WM_CTLCOLORSTATIC, which looks smeared in dark mode. The label turns gray there.
 private func enableCheck(_ hwnd: HWND?, _ id: Int, _ on: Bool) {
     EnableWindow(GetDlgItem(hwnd, Int32(id)), on)
-    EnableWindow(GetDlgItem(hwnd, Int32(id + labelOffset)), on)
+    InvalidateRect(GetDlgItem(hwnd, Int32(id + labelOffset)), nil, true)
 }
 
 /// A 1 px rule in the theme's separator color (an etched line reads wrong in dark).
@@ -399,7 +401,8 @@ private func settingsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lPa
         let dc = HDC(bitPattern: UInt(wParam))
         let id = Int(GetDlgCtrlID(ctl))
         if id == idSeparator { return LRESULT(Int(bitPattern: separatorBrush)) }
-        SetTextColor(dc, secondaryIDs.contains(id) || !IsWindowEnabled(ctl) ? colors.secondary : colors.text)
+        let enabled = IsWindowEnabled(id > labelOffset ? GetDlgItem(hwnd, Int32(id - labelOffset)) : ctl)
+        SetTextColor(dc, secondaryIDs.contains(id) || !enabled ? colors.secondary : colors.text)
         SetBkColor(dc, colors.background)
         SetBkMode(dc, TRANSPARENT)
         return LRESULT(Int(bitPattern: backgroundBrush))

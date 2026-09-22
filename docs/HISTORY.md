@@ -6,6 +6,23 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
+## After v1.3.2 — hotkey converts the word being typed (both platforms)
+
+- With nothing selected, the hotkey converts the word typed before the caret:
+  the auto-mode `AutoRun` buffer (word + trail). The key monitor now feeds the
+  buffer whether or not auto-correct is on; only the boundary/Enter corrections
+  stay behind `autoMode` (macOS `autoFeed`, Windows `autoFeed`). Every reset
+  condition is unchanged, so an empty buffer (after a space, a click, an arrow, a
+  shortcut, a focus change) still means nothing to convert. macOS snapshots the
+  buffer in `triggerHotkey` and `retypeTyped` erases it with `eraseBack`;
+  Windows `retypeTyped` backspaces it and types the conversion with `typeText`.
+  Undo works as for a selection. Verified in VS Code on macOS ("ghbdtn" →
+  "привет" → undo; "a ghbdtn" → "a привет").
+- Unknown on macOS: whether a Carbon combo hotkey's keyDown reaches the session
+  tap first — if so its Cmd/Ctrl reset empties the buffer before the hotkey
+  fires. The default modifier-tap hotkey is unaffected; on Windows the hook
+  swallows the combo before `autoFeed`.
+
 ## After v1.3.1 — macOS: line breaks and empty selection in VS Code
 
 - A line break retyped by the hotkey vanished in VS Code: a lone Unicode `\n`

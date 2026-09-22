@@ -788,13 +788,14 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     // Single entry point for both hotkey modes. Fires once the hotkey has been
     // activated hotKeyTaps times within doubleTapWindow (1 = fire immediately).
     func triggerHotkey() {
-        if hotKeyTaps <= 1 { beginCorrection { self.performRetype() }; return }
+        let typed = autoRun.word + autoRun.trail
+        if hotKeyTaps <= 1 { beginCorrection { self.performRetype(typed: typed) }; return }
         let now = ProcessInfo.processInfo.systemUptime
         tapSeqCount = (now - tapSeqTime <= doubleTapWindow) ? tapSeqCount + 1 : 1
         tapSeqTime = now
         if tapSeqCount >= hotKeyTaps {
             tapSeqCount = 0
-            beginCorrection { self.performRetype() }
+            beginCorrection { self.performRetype(typed: typed) }
         }
     }
 
@@ -1580,7 +1581,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
                 // The boundary key that starts a correction is swallowed too: it
                 // would otherwise travel to the app in parallel with the deletes we
                 // are already posting, and land inside them.
-                if me.autoMode, me.autoFeed(s, flags: event.flags.intersection([.maskShift, .maskAlternate])) { return nil }
+                if me.autoFeed(s, flags: event.flags.intersection([.maskShift, .maskAlternate])) { return nil }
             } else if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
                 if let t = me.autoTap { CGEvent.tapEnable(tap: t, enable: true) }
             }
@@ -1627,7 +1628,9 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         // modifier/Cmd-combo (filtered above), so it never reaches here.
         lastConversion = nil
         dbg("feed \(s.debugDescription) buf=\(autoRun.word.debugDescription)")
-        switch autoRun.feed(s, mapsToCyrillic: { self.feedsAsCyr(String($0)) }) {
+        let event = autoRun.feed(s, mapsToCyrillic: { self.feedsAsCyr(String($0)) })
+        guard autoMode else { return false }   // the buffer still serves the hotkey
+        switch event {
         case .none:
             return false
         case .enter(let word, let trail):
@@ -1867,7 +1870,9 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         return c
     }
 
-    func performRetype() {
+    /// - Parameter typed: the word typed before the caret (auto-mode buffer),
+    ///   converted when nothing is selected.
+    func performRetype(typed: String = "") {
         guard AXIsProcessTrusted() else {
             DispatchQueue.main.async { self.promptAccessibilityIfNeeded() }
             return
@@ -1909,6 +1914,10 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
 
         // convert() touches TIS APIs, which must run on the main thread (macOS 26
         // asserts otherwise). Hop to main for it.
+        if sel?.isEmpty ?? true, !typed.isEmpty {
+            if clipboardTouched { restoreClipboard(clipboardSaved) }
+            retypeTyped(typed); return
+        }
         guard let text = sel, !text.isEmpty,
               let r = DispatchQueue.main.sync(execute: { self.convert(text) }) else {
             dbg("nothing to convert")
@@ -1939,6 +1948,20 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         // remember it so a quick second hotkey can undo
         lastConversion = Conversion(original: typed == r.out ? r.replaced : text, typed: typed,
                                     srcSource: r.src.source,
+                                    time: ProcessInfo.processInfo.systemUptime)
+    }
+
+    // No selection: erase the word just typed and type its conversion.
+    private func retypeTyped(_ typed: String) {
+        guard let r = DispatchQueue.main.sync(execute: { self.convert(typed) }) else {
+            dbg("nothing to convert in typed \(typed.debugDescription)"); return
+        }
+        dbg("type: \(r.out.debugDescription) replacing typed \(r.replaced.debugDescription)")
+        eraseBack(r.replaced.count)
+        typeUnicode(r.out)
+        usleep(20_000)
+        DispatchQueue.main.sync { self.autoRun.reset(); _ = TISSelectInputSource(r.dst.source) }
+        lastConversion = Conversion(original: r.replaced, typed: r.out, srcSource: r.src.source,
                                     time: ProcessInfo.processInfo.systemUptime)
     }
 

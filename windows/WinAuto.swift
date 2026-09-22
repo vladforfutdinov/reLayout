@@ -89,6 +89,11 @@ func resetAutoBuffer() {
     run.reset()
 }
 
+/// The word typed before the caret, for the hotkey with nothing selected.
+func typedWord() -> String {
+    run.word + run.trail
+}
+
 /// Re-reads the preferences (at startup and whenever Settings changes them).
 func reloadAutoMode() {
     autoEnabled = loadAutoMode()
@@ -114,8 +119,6 @@ private func mapsToCyrillic(_ ch: Character, cur: WinLayout) -> Bool {
 /// - Returns: true when the key must not reach the app — it is either held while a
 ///   fix is in flight, or the boundary key that the fix will retype itself.
 func autoFeed(vk: UINT, scan: WORD, shortcut: Bool, shift: Bool) -> Bool {
-    guard autoEnabled else { return false }
-
     if correcting {
         if GetTickCount() &- gateSince > gateMaxHoldMs {   // watchdog: never freeze the keyboard
             correcting = false
@@ -159,7 +162,9 @@ func autoFeed(vk: UINT, scan: WORD, shortcut: Bool, shift: Bool) -> Bool {
     case vkSpace:  text = " "
     default:       text = character(vk, scan, cur)
     }
-    switch run.feed(text, mapsToCyrillic: { mapsToCyrillic($0, cur: cur) }) {
+    let event = run.feed(text, mapsToCyrillic: { mapsToCyrillic($0, cur: cur) })
+    guard autoEnabled else { return false }   // the run still serves the hotkey
+    switch event {
     case .none:
         return false
     case .enter(let word, let trail):

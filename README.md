@@ -27,8 +27,8 @@ First launch asks for **Accessibility** (to read the selection / send keystrokes
 
 ## Use
 
-1. Select the mistyped text. The hotkey acts only on a selection — it never guesses which
-   unselected text you meant; words you just typed are the job of auto-correct (below).
+1. Select the mistyped text — or, with nothing selected, just keep the caret right after the word
+   you are typing: the hotkey then converts that word. It never guesses at other unselected text.
 2. Press the hotkey (default: **tap left Option**).
 3. Press it again within ~1.5 s to **undo** (restores the text and the previous input source).
    A click or any other key in between ends the undo window.

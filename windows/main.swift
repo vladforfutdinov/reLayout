@@ -53,10 +53,23 @@ func performRetype() {
     guard !foregroundIsConsole(), let cur = WinLayout.current() else { return }
     guard waitModifiersReleased() else { return }
 
-    // Selection only: the hotkey converts what the user pointed at, never a
-    // guess at the word before the caret. Unselected text is the auto mode's job.
-    guard let selected = readSelectedText() else { return retypeViaClipboard(cur) }
-    retype(selected, cur: cur)
+    // The selection, else the word just typed (the auto-mode run) — never a guess
+    // at text before the caret that we did not see typed.
+    let typed = typedWord()
+    guard let selected = readSelectedText() else { return retypeViaClipboard(cur, typed: typed) }
+    selected.isEmpty ? retypeTyped(typed, cur: cur) : retype(selected, cur: cur)
+}
+
+/// Nothing selected: backspaces the word just typed and types its conversion.
+private func retypeTyped(_ typed: String, cur: WinLayout) {
+    guard !typed.isEmpty else { return }
+    let enabled = WinLayout.installedList()
+    guard let curIdx = enabled.firstIndex(where: { $0.id == cur.id }),
+          let plan = planRetype(typed, enabled: enabled, curIdx: curIdx, model: trigram) else { return }
+    sendBackspaces(plan.replaced.count)
+    guard typeText(plan.out, in: plan.dst) else { return }
+    resetAutoBuffer()
+    recordConversion(original: plan.replaced, typed: plan.out, src: plan.src)
 }
 
 /// Converts the selected `text` and types the result over it. Which layouts it
@@ -87,14 +100,13 @@ private func performUndo(_ last: Conversion) {
 
 /// Fallback for controls without UI Automation text (Electron, old apps): read the
 /// selection with Ctrl+C and put the user's clipboard back afterwards. Nothing is
-/// selected -> nothing to convert.
-private func retypeViaClipboard(_ cur: WinLayout) {
+/// selected -> the word just typed.
+private func retypeViaClipboard(_ cur: WinLayout, typed: String) {
     let saved = saveClipboard()
     let seq = GetClipboardSequenceNumber()
-    defer {
-        if let saved, GetClipboardSequenceNumber() != seq { restoreClipboard(saved, owner: trayWindow()) }
-    }
-    guard let text = readSelection() else { return }
+    let text = readSelection()
+    if let saved, GetClipboardSequenceNumber() != seq { restoreClipboard(saved, owner: trayWindow()) }
+    guard let text else { return retypeTyped(typed, cur: cur) }
     retype(text, cur: cur)
 }
 

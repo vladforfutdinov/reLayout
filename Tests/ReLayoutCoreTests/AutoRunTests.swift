@@ -18,6 +18,35 @@ final class AutoRunTests: XCTestCase {
         XCTAssertEqual(run.word, "")
     }
 
+    func testHotkeyTargetSurvivesSpacesUntilTheNextKey() {
+        var run = AutoRun()
+        _ = type("ghbdtn", into: &run)
+        XCTAssertTrue(run.hotkeyTarget == ("ghbdtn", 0))
+        _ = type("?  ", into: &run)
+        XCTAssertTrue(run.hotkeyTarget == ("ghbdtn?", 2))
+        _ = type("v", into: &run)
+        XCTAssertTrue(run.hotkeyTarget == ("v", 0))
+        _ = type(" \t", into: &run)
+        XCTAssertTrue(run.hotkeyTarget == ("", 0))
+    }
+
+    func testBackspacingTheSpacesRejoinsTheWord() {
+        var run = AutoRun()
+        _ = type("ghbdtn  ", into: &run)
+        run.backspace(wide: false)
+        XCTAssertTrue(run.hotkeyTarget == ("ghbdtn", 1))
+        run.backspace(wide: false)
+        XCTAssertEqual(run.word, "ghbdtn")
+        XCTAssertNil(run.previous)
+    }
+
+    func testAFixedWordIsNoLongerTheHotkeyTarget() {
+        var run = AutoRun()
+        _ = type("ghbdtn ", into: &run)
+        XCTAssertNotNil(run.plan(raw: "ghbdtn", out: "привет", cyrillic: true))
+        XCTAssertTrue(run.hotkeyTarget == ("", 0))
+    }
+
     func testPunctuationTrailsTheWord() {
         var run = AutoRun()
         XCTAssertEqual(type("ltkfq? ", into: &run), [.boundary(word: "ltkfq", trail: "?")])

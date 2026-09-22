@@ -60,16 +60,18 @@ func performRetype() {
     selected.isEmpty ? retypeTyped(typed, cur: cur) : retype(selected, cur: cur)
 }
 
-/// Nothing selected: backspaces the word just typed and types its conversion.
-private func retypeTyped(_ typed: String, cur: WinLayout) {
-    guard !typed.isEmpty else { return }
+/// Nothing selected: backspaces the word just typed (and the spaces after it), types
+/// its conversion and the same spaces.
+private func retypeTyped(_ typed: (text: String, spaces: Int), cur: WinLayout) {
+    guard !typed.text.isEmpty else { return }
     let enabled = WinLayout.installedList()
     guard let curIdx = enabled.firstIndex(where: { $0.id == cur.id }),
-          let plan = planRetype(typed, enabled: enabled, curIdx: curIdx, model: trigram) else { return }
-    sendBackspaces(plan.replaced.count)
-    guard typeText(plan.out, in: plan.dst) else { return }
+          let plan = planRetype(typed.text, enabled: enabled, curIdx: curIdx, model: trigram) else { return }
+    let spaces = String(repeating: " ", count: typed.spaces)
+    sendBackspaces(plan.replaced.count + typed.spaces)
+    guard typeText(plan.out + spaces, in: plan.dst) else { return }
     resetAutoBuffer()
-    recordConversion(original: plan.replaced, typed: plan.out, src: plan.src)
+    recordConversion(original: plan.replaced + spaces, typed: plan.out + spaces, src: plan.src)
 }
 
 /// Converts the selected `text` and types the result over it. Which layouts it
@@ -80,6 +82,7 @@ private func retype(_ text: String, cur: WinLayout) {
     guard let curIdx = enabled.firstIndex(where: { $0.id == cur.id }),
           let plan = planRetype(text, enabled: enabled, curIdx: curIdx, model: trigram) else { return }
     guard typeText(plan.out, in: plan.dst) else { return }   // also leaves dst active
+    resetAutoBuffer()
     recordConversion(original: plan.replaced, typed: plan.out, src: plan.src)
 }
 
@@ -87,6 +90,7 @@ private func retype(_ text: String, cur: WinLayout) {
 /// original back and returns to the source layout.
 private func performUndo(_ last: Conversion) {
     guard waitModifiersReleased() else { return }
+    resetAutoBuffer()
     selectLeft(last.typed.count)
     // The original goes back in its own layout, which also stays active. A Tab
     // boundary goes back as the real key, like it was typed.
@@ -101,7 +105,7 @@ private func performUndo(_ last: Conversion) {
 /// Fallback for controls without UI Automation text (Electron, old apps): read the
 /// selection with Ctrl+C and put the user's clipboard back afterwards. Nothing is
 /// selected -> the word just typed.
-private func retypeViaClipboard(_ cur: WinLayout, typed: String) {
+private func retypeViaClipboard(_ cur: WinLayout, typed: (text: String, spaces: Int)) {
     let saved = saveClipboard()
     let seq = GetClipboardSequenceNumber()
     let text = readSelection()

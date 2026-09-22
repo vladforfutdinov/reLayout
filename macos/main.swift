@@ -788,7 +788,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     // Single entry point for both hotkey modes. Fires once the hotkey has been
     // activated hotKeyTaps times within doubleTapWindow (1 = fire immediately).
     func triggerHotkey() {
-        let typed = autoRun.word + autoRun.trail
+        let typed = autoRun.hotkeyTarget
         if hotKeyTaps <= 1 { beginCorrection { self.performRetype(typed: typed) }; return }
         let now = ProcessInfo.processInfo.systemUptime
         tapSeqCount = (now - tapSeqTime <= doubleTapWindow) ? tapSeqCount + 1 : 1
@@ -1870,9 +1870,9 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         return c
     }
 
-    /// - Parameter typed: the word typed before the caret (auto-mode buffer),
-    ///   converted when nothing is selected.
-    func performRetype(typed: String = "") {
+    /// - Parameter typed: the word typed before the caret and the spaces after it
+    ///   (`AutoRun.hotkeyTarget`), converted when nothing is selected.
+    func performRetype(typed: (text: String, spaces: Int) = ("", 0)) {
         guard AXIsProcessTrusted() else {
             DispatchQueue.main.async { self.promptAccessibilityIfNeeded() }
             return
@@ -1914,7 +1914,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
 
         // convert() touches TIS APIs, which must run on the main thread (macOS 26
         // asserts otherwise). Hop to main for it.
-        if sel?.isEmpty ?? true, !typed.isEmpty {
+        if sel?.isEmpty ?? true, !typed.text.isEmpty {
             if clipboardTouched { restoreClipboard(clipboardSaved) }
             retypeTyped(typed); return
         }
@@ -1942,7 +1942,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         dbg("type: \(typed.debugDescription) replacing \(r.replaced.debugDescription)")
         typeUnicode(typed)
         usleep(20_000)
-        DispatchQueue.main.sync { _ = TISSelectInputSource(r.dst.source) }
+        DispatchQueue.main.sync { self.autoRun.reset(); _ = TISSelectInputSource(r.dst.source) }
         // restore clipboard only if the Cmd+C read fallback dirtied it
         if clipboardTouched { restoreClipboard(clipboardSaved) }
         // remember it so a quick second hotkey can undo
@@ -1951,17 +1951,19 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
                                     time: ProcessInfo.processInfo.systemUptime)
     }
 
-    // No selection: erase the word just typed and type its conversion.
-    private func retypeTyped(_ typed: String) {
-        guard let r = DispatchQueue.main.sync(execute: { self.convert(typed) }) else {
-            dbg("nothing to convert in typed \(typed.debugDescription)"); return
+    // No selection: erase the word just typed (and the spaces after it), type its
+    // conversion and the same spaces.
+    private func retypeTyped(_ typed: (text: String, spaces: Int)) {
+        guard let r = DispatchQueue.main.sync(execute: { self.convert(typed.text) }) else {
+            dbg("nothing to convert in typed \(typed.text.debugDescription)"); return
         }
-        dbg("type: \(r.out.debugDescription) replacing typed \(r.replaced.debugDescription)")
-        eraseBack(r.replaced.count)
-        typeUnicode(r.out)
+        let spaces = String(repeating: " ", count: typed.spaces)
+        dbg("type: \(r.out.debugDescription) replacing typed \(r.replaced.debugDescription) +\(typed.spaces) spaces")
+        eraseBack(r.replaced.count + typed.spaces)
+        typeUnicode(r.out + spaces)
         usleep(20_000)
         DispatchQueue.main.sync { self.autoRun.reset(); _ = TISSelectInputSource(r.dst.source) }
-        lastConversion = Conversion(original: r.replaced, typed: r.out, srcSource: r.src.source,
+        lastConversion = Conversion(original: r.replaced + spaces, typed: r.out + spaces, srcSource: r.src.source,
                                     time: ProcessInfo.processInfo.systemUptime)
     }
 
@@ -1983,17 +1985,19 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             typeUnicode(last.original)
         }
         usleep(20_000)
-        DispatchQueue.main.sync { _ = TISSelectInputSource(last.srcSource) }
+        DispatchQueue.main.sync { self.autoRun.reset(); _ = TISSelectInputSource(last.srcSource) }
     }
 
     // Insert a string by synthesizing per-character Unicode key events. A line
-    // break rides in one event with its neighbour: VS Code drops a lone "\n".
+    // break rides in one event with its neighbour: VS Code drops a lone "\n". A run
+    // of spaces goes as one event: a second typed space fires the system's "period
+    // with double-space", which VS Code applies at the wrong place.
     private func typeUnicode(_ s: String) {
         let src = CGEventSource(stateID: .combinedSessionState)
         var rest = s[...]
         while let first = rest.popFirst() {
             var piece = String(first)
-            while let c = rest.first, c.isNewline { piece.append(rest.removeFirst()) }
+            while let c = rest.first, c.isNewline || (c == " " && first == " ") { piece.append(rest.removeFirst()) }
             if first.isNewline, let c = rest.popFirst() { piece.append(c) }
             let units = Array(piece.utf16)
             if let down = CGEvent(keyboardEventSource: src, virtualKey: 0, keyDown: true) {

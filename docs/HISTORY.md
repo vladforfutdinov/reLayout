@@ -18,6 +18,17 @@ work (not per commit). Operational "where are we right now" lives in
   Windows `retypeTyped` backspaces it and types the conversion with `typeText`.
   Undo works as for a selection. Verified in VS Code on macOS ("ghbdtn" →
   "привет" → undo; "a ghbdtn" → "a привет").
+- Spaces after the word keep it the target (a word is usually finished with a
+  space by reflex): engine `AutoRun.hotkeyTarget` = the word being typed, else
+  the last word + the count of spaces after it; the hotkey erases word + spaces
+  and types the conversion + the same spaces. Any other key after the spaces,
+  Tab/Return, and any conversion (`plan` drops it on a fix; platforms reset after
+  hotkey and undo) end it; backspacing all the spaces rejoins the word and drops
+  `previous` so the short-word rule cannot pair the word with itself.
+- macOS: two typed spaces fired the system's "period with double-space", which
+  VS Code applied at the wrong place ("ghbdtn  " → "прив.  т"). `typeUnicode`
+  now sends a run of spaces as one event. Verified in VS Code with auto-correct
+  off: one and two spaces, each with the undo.
 - Unknown on macOS: whether a Carbon combo hotkey's keyDown reaches the session
   tap first — if so its Cmd/Ctrl reset empties the buffer before the hotkey
   fires. The default modifier-tap hotkey is unaffected; on Windows the hook

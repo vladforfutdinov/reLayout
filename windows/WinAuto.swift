@@ -89,9 +89,10 @@ func resetAutoBuffer() {
     run.reset()
 }
 
-/// The word typed before the caret, for the hotkey with nothing selected.
-func typedWord() -> String {
-    run.word + run.trail
+/// The word typed before the caret and the spaces after it, for the hotkey with
+/// nothing selected.
+func typedWord() -> (text: String, spaces: Int) {
+    run.hotkeyTarget
 }
 
 /// Re-reads the preferences (at startup and whenever Settings changes them).

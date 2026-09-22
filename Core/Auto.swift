@@ -228,12 +228,26 @@ public struct AutoRun {
     public private(set) var word = ""
     public private(set) var trail = ""
     public private(set) var previous: Previous?
+    // The last word (+ trail) and the spaces typed after it: still the hotkey's
+    // target until any other key.
+    private var spacedWord = "", spacedTrail = "", spaces = 0
 
     public init() {}
+
+    /// What the hotkey converts with nothing selected: the word being typed, else
+    /// the last word followed only by spaces. Empty when there is none.
+    public var hotkeyTarget: (text: String, spaces: Int) {
+        word.isEmpty && trail.isEmpty ? (spacedWord + spacedTrail, spaces) : (word + trail, 0)
+    }
 
     /// Ends the run; the previous word can no longer join a correction.
     public mutating func reset() {
         word = ""; trail = ""; previous = nil
+        dropSpacedWord()
+    }
+
+    private mutating func dropSpacedWord() {
+        spacedWord = ""; spacedTrail = ""; spaces = 0
     }
 
     /// Feeds the text one keystroke produced.
@@ -251,11 +265,19 @@ public struct AutoRun {
             return ended
         }
         if s == " " || s == "\t" {
+            if s == "\t" {
+                dropSpacedWord()   // Tab may move focus: nothing to erase across it
+            } else if !word.isEmpty || !trail.isEmpty {
+                spacedWord = word; spacedTrail = trail; spaces = 1
+            } else if spaces > 0 {
+                spaces += 1
+            }
             let ended = Event.boundary(word: word, trail: trail)
             word = ""; trail = ""   // the previous word stays for the short-word rule
             return ended
         }
         guard s.count == 1, let c = s.first else { reset(); return .none }
+        dropSpacedWord()
         if c.isLetter || (trail.isEmpty && (mapsToCyrillic(c) || (isWordConnector(c) && !word.isEmpty))) {
             if !trail.isEmpty { reset() }   // "a?b": a new run
             word.append(c)
@@ -275,6 +297,13 @@ public struct AutoRun {
     /// ending. A wide delete (word/line) leaves nothing to track.
     public mutating func backspace(wide: Bool) {
         if wide { reset(); return }
+        if spaces > 0 {
+            // Deleting the last space rejoins the word: it is being typed again, and
+            // the short-word rule must not pair it with itself.
+            spaces -= 1
+            if spaces == 0 { word = spacedWord; trail = spacedTrail; previous = nil; dropSpacedWord() }
+            return
+        }
         if !trail.isEmpty { trail.removeLast(); return }
         word = String(word.dropLast())
         if word.isEmpty { previous = nil }
@@ -292,6 +321,12 @@ public struct AutoRun {
     ///   - cyrillic: the script of the conversion.
     /// - Returns: the correction, or nil when a short word waits for a neighbour.
     public mutating func plan(raw: String, out: String, cyrillic: Bool) -> Fix? {
+        let fix = planFix(raw: raw, out: out, cyrillic: cyrillic)
+        if fix != nil { dropSpacedWord() }   // converted: nothing left for the hotkey
+        return fix
+    }
+
+    private mutating func planFix(raw: String, out: String, cyrillic: Bool) -> Fix? {
         if wordBody(raw) >= 3 {
             // Long enough to trust alone. A pending short word right before it (the
             // "d ljhjut" case) is folded into the same correction.

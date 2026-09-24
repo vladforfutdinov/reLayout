@@ -6,6 +6,35 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
+## After v1.3.3 — the typed character comes from the layout, not from the event (macOS)
+
+- Auto mode read each typed character from the key event itself
+  (`keyboardGetUnicodeString`). The tap sits at the head of the session tap,
+  upstream of the window server applying the keyboard layout, so after reLayout
+  switched the layout the event kept carrying the previous layout's letters while
+  the app already inserted the new ones. Both reported symptoms are that one gap:
+  a word typed as `ghjcnj` buffered as `просто` — a plausible Russian word, so the
+  conversion never fired — and the mirror case buffered Latin for a word actually
+  typed in Cyrillic and "converted" it into the text already on screen, retyping it
+  unchanged.
+- `layoutChar(_:)` now derives the character from the physical key and modifiers
+  through the current layout's `strokeToChar` (Shift/Option via the event flags,
+  Caps Lock as upper case). The event's string stays as the fallback for keys no
+  layout maps: Return, Tab, dead keys, IME input. This matches what the Windows
+  port always did (`ToUnicodeEx` with the focus window's HKL).
+- Measured, not guessed: a debug trace comparing the event's character, the
+  current layout's character and the text the app inserted, across TextEdit and a
+  Chromium app, in both directions. The layout's character matched the screen every
+  time; the event's did not. TIS was never the liar — two earlier fixes built on
+  that assumption (layout inferred from the buffered characters, and the word
+  re-read from the field over Accessibility) were dropped once the trace showed
+  where the divergence came from; the Accessibility route is dead in Chromium
+  windows anyway.
+- The debug trace it took to find this is kept: the switch's TIS status
+  (`selectLayout`), the applied fix, and the focused app on every `feed` line.
+  `dbg` takes its message as an `@autoclosure`, so none of it costs anything in a
+  release build.
+
 ## After v1.3.2 — hotkey converts the word being typed (both platforms)
 
 - With nothing selected, the hotkey converts the word typed before the caret:

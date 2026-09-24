@@ -71,10 +71,12 @@ func L(_ key: String) -> String { Loc.bundle.localizedString(forKey: key, value:
 // Debug trace to /tmp/relayout.log. Compiled out unless built with -DDEBUG:
 // these lines include the user's selected text, which must never be written to
 // disk in a release build. The empty release body is inlined away under -O.
-func dbg(_ s: String) {
+// @autoclosure: in a release build the message is never built, so a trace whose
+// argument costs something (a TIS call, an AX read) is free there.
+func dbg(_ s: @autoclosure () -> String) {
 #if DEBUG
     let dbgPath = "/tmp/relayout.log"
-    let data = Data((s + "\n").utf8)
+    let data = Data((s() + "\n").utf8)
     if let h = FileHandle(forWritingAtPath: dbgPath) {
         h.seekToEndOfFile(); h.write(data); h.closeFile()
     } else {
@@ -1569,7 +1571,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
                 var len = 0
                 var buf = [UniChar](repeating: 0, count: 4)
                 event.keyboardGetUnicodeString(maxStringLength: 4, actualStringLength: &len, unicodeString: &buf)
-                let s = String(utf16CodeUnits: buf, count: len)
+                let s = me.layoutChar(event) ?? String(utf16CodeUnits: buf, count: len)
                 // Only text-producing keys are held back; modifiers, Globe, arrows
                 // and delete keep flowing so nothing the user does can be stalled
                 // by a correction that hangs.
@@ -1627,7 +1629,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         // the new word, not revert the old fix. The undo hotkey itself is a
         // modifier/Cmd-combo (filtered above), so it never reaches here.
         lastConversion = nil
-        dbg("feed \(s.debugDescription) buf=\(autoRun.word.debugDescription)")
+        dbg("feed \(s.debugDescription) buf=\(autoRun.word.debugDescription) "
+            + "app=\(NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "?")")
         let event = autoRun.feed(s, mapsToCyrillic: { self.feedsAsCyr(String($0)) })
         guard autoMode else { return false }   // the buffer still serves the hotkey
         switch event {
@@ -1681,7 +1684,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         typeUnicode(out + outTrail)
         typeKey("\r", flags: flags)
         usleep(10_000)
-        DispatchQueue.main.sync { _ = TISSelectInputSource(target.source) }
+        DispatchQueue.main.sync { self.selectLayout(target) }
         lastConversion = Conversion(original: word + trail + "\r", typed: out + outTrail + "\r",
                                     srcSource: srcSource, time: ProcessInfo.processInfo.systemUptime)
     }
@@ -1738,15 +1741,15 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         let enabled = Layout.enabledList()
         guard let cur = enabled.first(where: { $0.id == currentSourceID() }),
               let d = autoDecide(word, cur: cur, enabled: enabled) else {
-            dbg("auto: no candidate for \(word.debugDescription)")
+            dbg("auto: no candidate for \(word.debugDescription) cur=\(currentSourceID())")
             autoRun.noCandidate(); return false
         }
-        dbg("auto: \(word.debugDescription) -> \(d.out.debugDescription) [\(d.target.id)]")
+        dbg("auto: \(word.debugDescription) -> \(d.out.debugDescription) [\(d.target.id)] cur=\(cur.id)")
         let srcSource = cur.source
         let outTrail = transliterate(trail, from: cur, to: d.target)
         // The short-word rule (engine): a 1-2 letter word waits for a neighbour.
         guard let fix = autoRun.plan(raw: word + trail, out: d.out + outTrail, cyrillic: d.target.isCyrillic)
-        else { return false }
+        else { dbg("auto: short word waits for a neighbour"); return false }
         beginCorrection {
             self.autoCorrect(fix, boundary: boundary, boundaryFlags: flags, target: d.target, srcSource: srcSource)
         }
@@ -1802,11 +1805,12 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     private func autoCorrect(_ fix: AutoRun.Fix, boundary: String, boundaryFlags: CGEventFlags,
                              target: Layout, srcSource: TISInputSource) {
         waitModifiersReleased()
+        dbg("fix: erase=\(fix.erase) type=\(fix.text.debugDescription) -> \(target.id)")
         eraseBack(fix.erase)
         typeUnicode(fix.text)
         typeKey(boundary, flags: boundaryFlags)
         usleep(10_000)
-        DispatchQueue.main.sync { _ = TISSelectInputSource(target.source) }
+        DispatchQueue.main.sync { self.selectLayout(target) }
         lastConversion = Conversion(original: fix.original + boundary, typed: fix.text + boundary,
                                     srcSource: srcSource, time: ProcessInfo.processInfo.systemUptime)
     }
@@ -1822,6 +1826,36 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         if AXUIElementCopyAttributeValue(el as! AXUIElement, kAXSubroleAttribute as CFString, &sub) == .success,
            let s = sub as? String, s == (kAXSecureTextFieldSubrole as String) { return true }
         return false
+    }
+
+    // Every layout switch goes through here: TIS is documented to ignore a request
+    // for the source it already believes is current, so a view that has drifted from
+    // what the user actually types in silently swallows the switch. The trace tells
+    // a refused switch from one that was accepted and never applied.
+    @discardableResult
+    private func selectLayout(_ l: Layout) -> Bool {
+        let before = currentSourceID()
+        let st = TISSelectInputSource(l.source)
+        dbg("select \(l.id): status=\(st) before=\(before) after=\(currentSourceID())")
+        return st == noErr
+    }
+
+    // The character this key produces under the layout that is current NOW. The
+    // event's own string is attached upstream of the window server and goes stale
+    // after a layout switch: the trace caught a key reading as "п" while the app
+    // inserted "g", and the mirror case buffered Latin for a word typed in Cyrillic,
+    // which then "converted" into the text already on screen. Derived here from the
+    // physical key, it matched what the app inserted in every app measured (native
+    // and Chromium alike). nil for keys no layout maps (Return, Tab, dead keys) —
+    // the caller keeps the event's string for those.
+    private func layoutChar(_ event: CGEvent) -> String? {
+        guard let cur = Layout.enabledList().first(where: { $0.id == currentSourceID() }) else { return nil }
+        var mods = UInt32(0)
+        if event.flags.contains(.maskShift) { mods |= UInt32(shiftKey) >> 8 }
+        if event.flags.contains(.maskAlternate) { mods |= UInt32(optionKey) >> 8 }
+        let kc = UInt16(event.getIntegerValueField(.keyboardEventKeycode))
+        guard let c = cur.strokeToChar[KeyStroke(keyCode: kc, mods: mods)] else { return nil }
+        return event.flags.contains(.maskAlphaShift) ? c.uppercased() : c
     }
 
     private func currentSourceID() -> String {
@@ -1942,7 +1976,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         dbg("type: \(typed.debugDescription) replacing \(r.replaced.debugDescription)")
         typeUnicode(typed)
         usleep(20_000)
-        DispatchQueue.main.sync { self.autoRun.reset(); _ = TISSelectInputSource(r.dst.source) }
+        DispatchQueue.main.sync { self.autoRun.reset(); self.selectLayout(r.dst) }
         // restore clipboard only if the Cmd+C read fallback dirtied it
         if clipboardTouched { restoreClipboard(clipboardSaved) }
         // remember it so a quick second hotkey can undo
@@ -1962,7 +1996,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         eraseBack(r.replaced.count + typed.spaces)
         typeUnicode(r.out + spaces)
         usleep(20_000)
-        DispatchQueue.main.sync { self.autoRun.reset(); _ = TISSelectInputSource(r.dst.source) }
+        DispatchQueue.main.sync { self.autoRun.reset(); self.selectLayout(r.dst) }
         lastConversion = Conversion(original: r.replaced + spaces, typed: r.out + spaces, srcSource: r.src.source,
                                     time: ProcessInfo.processInfo.systemUptime)
     }

@@ -6,6 +6,21 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
+## After v1.3.4 — VS Code selection on Windows
+
+- The hotkey in VS Code converted a line the user never selected. VS Code reports
+  no selection over UI Automation unless its accessibility support is on, and
+  `Ctrl+C` with nothing selected copies the whole line, which the old guess (does
+  the text end in a line break?) could not reliably tell from a real selection.
+- `copiedFromEmptySelection` reads the mark Chromium puts on its own copy
+  (`isFromEmptySelection` in its clipboard metadata, the same signal the macOS app
+  uses); the trailing-newline guess stays as the fallback when the mark is absent.
+  `performRetype` now prefers the word it saw typed when UIA reports nothing
+  selected, and asks the clipboard only when there is no such word.
+- Verified in the UTM VM on a worktree build off `dd997c6`: a real selection, a
+  just-typed word with nothing selected, and a caret parked in existing text
+  (which must do nothing). `93bf8e5`
+
 ## After v1.3.3 — the typed character comes from the layout, not from the event (macOS)
 
 *(`b2eec3e`)*

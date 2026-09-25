@@ -284,10 +284,27 @@ private func setClipboardBytes(_ fmt: UINT, _ bytes: [UInt8]) {
     if SetClipboardData(fmt, h) == nil { _ = GlobalFree(h) }   // on success the system owns it
 }
 
+private let chromiumCustomData = "Chromium Web Custom MIME Data Format"
+    .withCString(encodedAs: UTF16.self) { RegisterClipboardFormatW($0) }
+
+/// Whether a Chromium editor (VS Code) marked the copy as made with nothing
+/// selected, i.e. its whole-line copy — the same metadata the macOS app reads.
+/// - Returns: nil when the clipboard carries no such mark.
+private func copiedFromEmptySelection() -> Bool? {
+    guard chromiumCustomData != 0, openClipboardRetrying() else { return nil }
+    defer { CloseClipboard() }
+    guard let h = GetClipboardData(chromiumCustomData), let p = GlobalLock(h) else { return nil }
+    defer { GlobalUnlock(h) }
+    let units = UnsafeBufferPointer(start: p.assumingMemoryBound(to: UInt16.self), count: Int(GlobalSize(h)) / 2)
+    let meta = String(decoding: units, as: UTF16.self)
+    guard meta.contains("\"isFromEmptySelection\":") else { return nil }
+    return meta.contains("\"isFromEmptySelection\":true")
+}
+
 /// Reads the selection via Ctrl+C.
 /// - Returns: nil if nothing is selected (clipboard unchanged, or an editor's
-///   whole-line copy ending in a line break); "" if something was copied but no
-///   text could be read.
+///   whole-line copy: marked as such by VS Code, else guessed from a trailing line
+///   break); "" if something was copied but no text could be read.
 func readSelection() -> String? {
     let before = GetClipboardSequenceNumber()
     guard send(tap(0x43 /* C */, with: VK_CONTROL)) else { return nil }
@@ -297,7 +314,8 @@ func readSelection() -> String? {
         pumpWait(20); waited += 20
     }
     let text = clipboardText()
-    return text.last?.isNewline == true ? nil : text
+    let wholeLine = copiedFromEmptySelection() ?? (text.last?.isNewline == true)
+    return wholeLine ? nil : text
 }
 
 /// Asks the focused window to switch to the given layout.

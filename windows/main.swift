@@ -57,7 +57,10 @@ func performRetype() {
     // at text before the caret that we did not see typed.
     let typed = typedWord()
     guard let selected = readSelectedText() else { return retypeViaClipboard(cur, typed: typed) }
-    selected.isEmpty ? retypeTyped(typed, cur: cur) : retype(selected, cur: cur)
+    if !selected.isEmpty { return retype(selected, cur: cur) }
+    // UIA reports no selection. VS Code says so even for a real one unless its
+    // accessibility support is on, so with no typed word, ask the clipboard.
+    typed.text.isEmpty ? retypeViaClipboard(cur, typed: typed) : retypeTyped(typed, cur: cur)
 }
 
 /// Nothing selected: backspaces the word just typed (and the spaces after it), types

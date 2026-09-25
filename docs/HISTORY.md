@@ -8,6 +8,8 @@ work (not per commit). Operational "where are we right now" lives in
 
 ## After v1.3.3 — the typed character comes from the layout, not from the event (macOS)
 
+*(`b2eec3e`)*
+
 - Auto mode read each typed character from the key event itself
   (`keyboardGetUnicodeString`). The tap sits at the head of the session tap,
   upstream of the window server applying the keyboard layout, so after reLayout

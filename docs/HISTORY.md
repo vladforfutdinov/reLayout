@@ -6,6 +6,26 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
+## After v1.3.5 — the doubled first letter (`ччасть`), investigated, not fixed (macOS)
+
+- Report: auto mode sometimes turned a word into one with its first letter
+  doubled (`xfcnm` → `ччасть`). Caught once in a trace (Claude desktop): the buffer
+  held `rкакю`, the mixed-word reading converted the Latin head, and `ккакю` was
+  typed over 5 erased characters. The field there is unreadable over AX, so
+  whether the stray head was on screen or only in the buffer stayed unknown.
+- Measured over two days of traced typing: after a Globe press the current input
+  source reported by TIS lags ~0.5 s — the next two keys still read in the old
+  layout (`зуpr` buffered for `pepr`), while the event's own string lags further.
+  Harmless when the lengths match: the mixed-word reading converts the stale head
+  and erases exactly the typed length. No duplicate or phantom key events were
+  seen (2085 keys, 2085 events).
+- Likeliest reading of the catch: a typo right after Globe, three backspaces for
+  four letters, the word retyped — so the doubled letter was already on screen and
+  the fix retyped it unchanged. Unconfirmed; the trace instrumentation (buffered
+  `dbg`, per-key keycode/event/layout lines, backspaces, held/replayed keys, the
+  field tail after a fix) was reverted. If it recurs: rebuild it and catch the
+  case in an app whose field AX can read.
+
 ## After v1.3.4 — VS Code selection on Windows
 
 - The hotkey in VS Code converted a line the user never selected. VS Code reports

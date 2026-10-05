@@ -29,6 +29,7 @@ First launch asks for **Accessibility** (to read the selection / send keystrokes
 
 1. Select the mistyped text — or select nothing right after typing the word (spaces after it are
    fine): the hotkey then converts the word you just typed. It never guesses at other unselected text.
+   This works in terminals too (on Windows consoles only the just-typed word is converted).
 2. Press the hotkey (default: **tap left Option**).
 3. Press it again within ~1.5 s to **undo** (restores the text and the previous input source).
    A click or any other key in between ends the undo window.
@@ -67,7 +68,7 @@ form is the plausible one, including a word split by a mid-word layout switch. A
 a space or Tab, with any punctuation just before it converted along ("ltkfq? " → "делай, ");
 Enter is never delayed: the word is fixed afterwards only if Enter made a new line in a field that
 exposes its text to Accessibility (TextEdit, Notes, Telegram's Shift+Enter …) — a submitted
-launcher query or chat message stays as typed, and browsers/Electron apps keep plain Enter
+launcher query or chat message stays as typed, and browsers/Electron apps and terminals keep plain Enter
 (*Settings → Also fix on Enter*, on by default). A
 click or a Cmd/Ctrl shortcut drops the unfinished word. **Cross-script
 only** (ru/uk ↔ en), tuned for ≥99% precision — with only same-script layouts enabled

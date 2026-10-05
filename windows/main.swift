@@ -50,12 +50,14 @@ func performRetype() {
         lastConversion = nil
         return performUndo(last)
     }
-    guard !foregroundIsConsole(), let cur = WinLayout.current() else { return }
+    guard let cur = WinLayout.current() else { return }
     guard waitModifiersReleased() else { return }
 
     // The selection, else the word just typed (the auto-mode run) — never a guess
     // at text before the caret that we did not see typed.
     let typed = typedWord()
+    // Consoles: only the typed word — reading a selection sends Ctrl+C, which interrupts.
+    if foregroundIsConsole() { return retypeTyped(typed, cur: cur) }
     guard let selected = readSelectedText() else { return retypeViaClipboard(cur, typed: typed) }
     if !selected.isEmpty { return retype(selected, cur: cur) }
     // UIA reports no selection. VS Code says so even for a real one unless its

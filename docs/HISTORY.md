@@ -6,6 +6,19 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
+## After v1.3.5 — terminals: hotkey on the typed word, no Enter follow-up
+
+- The typed-word buffer is fed everywhere, so the hotkey with nothing selected
+  already worked in macOS terminals. Windows blocked the hotkey in consoles
+  outright (selection read sends Ctrl+C); now a console converts only the typed
+  word, never a selection or the clipboard. Verified by hand in the UTM VM.
+- The Enter follow-up could misfire in a terminal: a silent command (`ssh host`)
+  leaves just the line break for >75 ms, which reads as `.newline`, and the
+  backspaces would go to the running program. Skipped where the focused text
+  view's `AXValue` is not settable (Terminal, Ghostty) — a field property, no app
+  list; kitty reports a settable value like a normal field and stays covered only
+  by the default exclusions. Windows skips it via `foregroundIsConsole()`.
+
 ## After v1.3.5 — the doubled first letter (`ччасть`), investigated, not fixed (macOS)
 
 - Report: auto mode sometimes turned a word into one with its first letter

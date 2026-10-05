@@ -44,8 +44,8 @@ private let vkBack = UINT(0x08), vkTab = UINT(0x09), vkReturn = UINT(0x0D), vkSp
 
 /// Auto mode stays off in password fields and in the user's deny-list. Terminals
 /// are in that list by default, not ruled out here: the run needs no text from the
-/// window, so a user who removes one gets auto-correct there (the hotkey stays off
-/// in consoles — typing goes to the shell's cursor, not over a mouse selection).
+/// window, so a user who removes one gets auto-correct there (the hotkey converts
+/// only the typed word in consoles — a selection read would send Ctrl+C).
 private func autoExcluded() -> Bool {
     if passwordField { return true }
     guard !excludedApps.isEmpty else { return false }
@@ -211,7 +211,7 @@ private var enterJob: EnterJob?
 /// let the UI thread see where Return took it: a new line means the word is still
 /// there to fix, a submitted field means it is gone.
 private func enterFollowUp(word: String, trail: String, cur: WinLayout) {
-    guard autoEnterEnabled, !correcting, wordBody(word) >= 3, !autoExcluded(),
+    guard autoEnterEnabled, !correcting, wordBody(word) >= 3, !autoExcluded(), !foregroundIsConsole(),
           let decided = decideAutoTarget(word, cur: cur, enabled: WinLayout.installedList(), model: trigram),
           let before = readFieldSnapshot(), before.tail.hasSuffix(word + trail)
     else { return }

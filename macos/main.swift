@@ -1658,7 +1658,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         let enabled = Layout.enabledList()
         guard let cur = enabled.first(where: { $0.id == currentSourceID() }),
               let d = autoDecide(word, cur: cur, enabled: enabled),
-              let el = focusedTextElement(), let before = fieldSnapshot(el),
+              let el = focusedTextElement(), isEditable(el), let before = fieldSnapshot(el),
               before.tail.hasSuffix(word + trail) else { return }
         let outTrail = transliterate(trail, from: cur, to: d.target)
         let srcSource = cur.source
@@ -1701,6 +1701,14 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     }
 
     // nil when the element does not expose caret, length and ranged text.
+    /// False for text views whose value can't be set — terminals (Terminal, Ghostty),
+    /// where Return runs the line instead of breaking it.
+    private func isEditable(_ el: AXUIElement) -> Bool {
+        var settable = DarwinBoolean(false)
+        return AXUIElementIsAttributeSettable(el, kAXValueAttribute as CFString, &settable) == .success
+            && settable.boolValue
+    }
+
     private func fieldSnapshot(_ el: AXUIElement) -> FieldSnapshot? {
         var n: CFTypeRef?, r: CFTypeRef?
         guard AXUIElementCopyAttributeValue(el, kAXNumberOfCharactersAttribute as CFString, &n) == .success,

@@ -6,7 +6,7 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
-## After v1.3.5 — terminals: hotkey on the typed word, no Enter follow-up
+## v1.3.6 — terminals: hotkey on the typed word, no Enter follow-up (`44ef948`, notes `a68e73d`)
 
 - The typed-word buffer is fed everywhere, so the hotkey with nothing selected
   already worked in macOS terminals. Windows blocked the hotkey in consoles
@@ -18,6 +18,9 @@ work (not per commit). Operational "where are we right now" lives in
   view's `AXValue` is not settable (Terminal, Ghostty) — a field property, no app
   list; kitty reports a settable value like a normal field and stays covered only
   by the default exclusions. Windows skips it via `foregroundIsConsole()`.
+- Probed later: Warp (non-settable `AXTextArea`, no `AXStringForRange`) and
+  WezTerm (focus reports the `AXWindow`, no text element) are skipped too.
+  iTerm and Alacritty not probed.
 
 ## After v1.3.5 — the doubled first letter (`ччасть`), investigated, not fixed (macOS)
 

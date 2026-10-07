@@ -1,0 +1,53 @@
+name: resign-appcast
+
+# Adds the missing sparkle:edSignature to an existing appcast item. generate_appcast
+# leaves an item unsigned when the archive's SUPublicEDKey differs from the signing
+# key — exactly the case for a key-rotation transition release (see RELEASING.md).
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release tag to re-sign, e.g. v1.3.8'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  resign:
+    runs-on: macos-latest
+    steps:
+      - name: Sign the release zip and patch appcast.xml
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+          TAG: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "bad tag $TAG"; exit 1; }
+          SPARKLE_VERSION="2.6.4"
+          mkdir -p sparkle
+          curl -fsSL "https://github.com/sparkle-project/Sparkle/releases/download/$SPARKLE_VERSION/Sparkle-$SPARKLE_VERSION.tar.xz" | tar -xJ -C sparkle
+          gh release download "$TAG" -R "$GITHUB_REPOSITORY" -p reLayout.zip -D rel
+          printf '%s' "$SPARKLE_ED_PRIVATE_KEY" > "$RUNNER_TEMP/ed_priv"
+          SIG="$(sparkle/bin/sign_update --ed-key-file "$RUNNER_TEMP/ed_priv" -p rel/reLayout.zip)"
+          rm -f "$RUNNER_TEMP/ed_priv"
+          git clone --depth 1 --branch gh-pages \
+            "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" pages
+          URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/reLayout.zip"
+          URL="$URL" SIG="$SIG" python3 - <<'EOF'
+          import os, re
+          p = "pages/appcast.xml"; x = open(p).read()
+          url, sig = os.environ["URL"], os.environ["SIG"]
+          pat = re.compile(r'(<enclosure url="' + re.escape(url) + r'")(?![^>]*edSignature)')
+          x, n = pat.subn(r'\1 sparkle:edSignature="' + sig + '"', x)
+          if n != 1:
+              raise SystemExit(f"expected one unsigned enclosure for {url}, patched {n}")
+          open(p, "w").write(x)
+          EOF
+          cd pages
+          git add appcast.xml
+          git -c user.name='github-actions[bot]' \
+              -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            commit -m "appcast ${TAG}: add edSignature"
+          git push origin gh-pages

@@ -79,6 +79,16 @@ On release, CI signs the embedded `Sparkle.framework` with your Developer ID
 notarizes, generates the signed appcast from `reLayout.zip`, and publishes it to
 `gh-pages`. If `SPARKLE_ED_PRIVATE_KEY` is unset the appcast step is skipped.
 
+**Rotating the EdDSA key.** Installed apps accept only updates signed with the key
+they embed, so rotation takes two releases:
+1. Put the new public key in `RELAYOUT_SU_PUBLIC_KEY` and the new private key in
+   `SPARKLE_ED_PRIVATE_KEY_NEXT`; keep the old `SPARKLE_ED_PRIVATE_KEY`. Tag the
+   transition release. `generate_appcast` leaves its item **unsigned** (the app's
+   key ≠ signing key) — run `gh workflow run resign-appcast -f version=vX.Y.Z` to
+   sign it with the old key.
+2. Once users are on it, point `build.yml` at `SPARKLE_ED_PRIVATE_KEY_NEXT`, tag the
+   next release, and delete the old secret.
+
 ### Release notes in the update window
 
 `docs/release-notes/vX.Y.Z.md` (committed **before** the tag) is the single source

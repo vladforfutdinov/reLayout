@@ -658,7 +658,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         Loc.load()   // apply saved language override before any UI is built
         mergeNewDefaultExclusions()
 #if SPARKLE
-        updater = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
+        updater = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: self, userDriverDelegate: nil)
 #endif
         promptAccessibilityIfNeeded()
         loadHotkey()
@@ -2116,6 +2116,17 @@ enum ReLayoutApp {
                 print("  \(s.debugDescription) -> \(convertWrong(s, src: src, dst: dst)?.debugDescription ?? "nil")")
             }
         }
+    }
+}
+#endif
+
+#if SPARKLE
+extension AppController: SPUUpdaterDelegate {
+    /// Silent updates install on quit; a menu-bar app never quits, so install (and relaunch) now.
+    func updater(_ updater: SPUUpdater, willInstallUpdateOnQuit item: SUAppcastItem,
+                 immediateInstallationBlock immediateInstallHandler: @escaping () -> Void) -> Bool {
+        immediateInstallHandler()
+        return true
     }
 }
 #endif

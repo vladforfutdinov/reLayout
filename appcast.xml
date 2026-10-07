@@ -13,7 +13,7 @@
 <li>Maintenance release: reLayout is now signed with renewed security certificates and update keys. Nothing changes in how the app works.</li>
 <li>Please install this update — future updates will only be accepted by 1.3.8 and later.</li>
 </ul>]]></description>
-            <enclosure url="https://github.com/vladforfutdinov/reLayout/releases/download/v1.3.8/reLayout.zip" length="1738386" type="application/octet-stream"/>
+            <enclosure url="https://github.com/vladforfutdinov/reLayout/releases/download/v1.3.8/reLayout.zip" sparkle:edSignature="kX1ZSAp53PjGWEflnd+ShVFiF66KsOVBQBbiuKGO5118xQopDGEC59h08yJ4REoXxNg0I87lqubxsn9IJOIbBQ==" length="1738386" type="application/octet-stream"/>
         </item>
     </channel>
 </rss>

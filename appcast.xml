@@ -3,17 +3,17 @@
     <channel>
         <title>ReLayout</title>
         <item>
-            <title>1.3.6</title>
-            <pubDate>Mon, 05 Oct 2026 22:05:24 +0000</pubDate>
-            <sparkle:version>286</sparkle:version>
-            <sparkle:shortVersionString>1.3.6</sparkle:shortVersionString>
+            <title>1.3.7</title>
+            <pubDate>Wed, 07 Oct 2026 08:07:58 +0000</pubDate>
+            <sparkle:version>288</sparkle:version>
+            <sparkle:shortVersionString>1.3.7</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
-            <description><![CDATA[<h2>What's new in v1.3.6 — macOS</h2>
+            <description><![CDATA[<h2>What's new in v1.3.7 — macOS</h2>
 <ul>
-<li>If you turned auto-correct on in a terminal (removed it from <em>Exceptions</em>), Return there is now left alone: reLayout no longer goes back to fix the last word after Return. In a terminal Return runs the command, so a quiet one like <code class="notranslate">ssh ghbdtn</code> could have received stray backspaces.</li>
-<li>Reminder: with nothing selected, the hotkey converts the word you just typed — and that works in terminals too.</li>
+<li>Automatic updates now actually install. With "Automatically download and install updates" on, a new version used to download and then wait for you to quit reLayout — which a menu-bar app practically never does. Now reLayout installs the update and relaunches itself right away.</li>
+<li>If you're on 1.3.6 or older, quit reLayout once from the menu (or install this version manually) — after that, updates arrive on their own.</li>
 </ul>]]></description>
-            <enclosure url="https://github.com/vladforfutdinov/reLayout/releases/download/v1.3.6/reLayout.zip" length="1737363" type="application/octet-stream" sparkle:edSignature="XrWrGo99+WTk2bbMhpJtf/Uc7UGfCCnDF8ggWhLk/UIrEJ2XPz5CmYwM2GKmUnXttkRPW3ns4+p9X4LeUpzdBA=="/>
+            <enclosure url="https://github.com/vladforfutdinov/reLayout/releases/download/v1.3.7/reLayout.zip" length="1738525" type="application/octet-stream" sparkle:edSignature="tkhET0UXsG+BFhf6XQ+nmMWSpeJrTZ/YlblmMIFqvCkj2Iov7q6Bs1gFsMhYZn85zNFeL9bFGb+qlAM73HZsBw=="/>
         </item>
     </channel>
 </rss>

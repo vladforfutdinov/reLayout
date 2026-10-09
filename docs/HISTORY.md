@@ -24,6 +24,9 @@ work (not per commit). Operational "where are we right now" lives in
   had the keyboard, and a tap cannot tell whether the physical key also reached
   the app, so dropping the injected copy could lose a letter. Workaround for a
   user who hits it: switch input sources with Ctrl+Space instead of Globe.
+- Seen on macOS 26.7.1 (25G241). The listen-only tap is kept as
+  `scripts/keyspy.swift` to re-check after a macOS update (27+): if no
+  `<<< INJECTED` line shows up over a day of Globe switching, Apple fixed it.
 
 ## v1.3.6 — terminals: hotkey on the typed word, no Enter follow-up (`44ef948`, notes `a68e73d`)
 

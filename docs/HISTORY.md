@@ -6,6 +6,25 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
+## After v1.3.8 — the doubled first letter is macOS, not reLayout
+
+- Closes "the doubled first letter" (below, after v1.3.5). Rebuilt the per-key
+  trace (uncommitted, removed after) with each keyDown's source pid, keyboard
+  type, autorepeat flag and delta time. Seven duplicates caught in daily typing
+  (`ґґ`, `сс`, `уу` …): each was a real keyDown from pid 0, then, right after a
+  Globe press, a second keyDown of the same key code from
+  `TextInputSwitcher` (keyboard type 91, pid of
+  `/System/Library/CoreServices/TextInputSwitcher.app`), 30–200 ms later and
+  typed in the new layout (`kл`). reLayout held nothing at the time
+  (`pending=0`).
+- Reproduced with reLayout quit, via a listen-only tap logging key codes and
+  source pids only: one injection in ~25 Globe switches, none in ~50 more on
+  purpose (double/triple Globe + letter) — intermittent, trigger not found.
+- Not filtered: the switcher probably re-posts keys it swallowed while its HUD
+  had the keyboard, and a tap cannot tell whether the physical key also reached
+  the app, so dropping the injected copy could lose a letter. Workaround for a
+  user who hits it: switch input sources with Ctrl+Space instead of Globe.
+
 ## v1.3.6 — terminals: hotkey on the typed word, no Enter follow-up (`44ef948`, notes `a68e73d`)
 
 - The typed-word buffer is fed everywhere, so the hotkey with nothing selected

@@ -230,8 +230,11 @@ public func planRetype<L: AutoLayout>(_ text: String, enabled: [L], curIdx: Int,
     let targets = enabled.filter { $0.isCyrillic != cur.isCyrillic }
     let target = bestConversion(text, pairs: targets.map { (cur, $0) }, model: model)?.dst
         ?? pickTarget(text, enabled: enabled, curIdx: curIdx)
-    guard let out = convertWrong(text, src: cur, dst: target) else { return nil }
-    return (out, target, cur, text)
+    if let out = convertWrong(text, src: cur, dst: target) { return (out, target, cur, text) }
+    // The positional pick was a same-script twin (Polish Programmers vs US: the
+    // same keys), so nothing changed: the other script is the only real target.
+    guard let t = targets.first, let out = convertWrong(text, src: cur, dst: t) else { return nil }
+    return (out, t, cur, text)
 }
 
 /// Among several layouts of one script (ru + uk, en + de): the pair whose

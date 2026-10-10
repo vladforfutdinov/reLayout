@@ -398,6 +398,16 @@ final class EngineTests: XCTestCase {
         XCTAssertEqual(planRetype("ghbdtn", enabled: [latin, uk, ru], curIdx: 0, model: { _ in nil })?.dst.languageCode, "uk")
     }
 
+    func testPlanFallsBackToTheOtherScriptPastASameScriptTwin() {
+        // [en, pl, uk] with Polish (Programmers) = the same keys as US: from pl the
+        // positional pick is en, which converts nothing — the Cyrillic layout must win.
+        let (latin, cyr) = makeLayouts()
+        var pl = latin; pl.languageCode = "pl"
+        let p = planRetype("ghbdtn", enabled: [latin, pl, cyr], curIdx: 1, model: { _ in nil })
+        XCTAssertEqual(p?.out, "привет")
+        XCTAssertTrue(p?.dst.isCyrillic ?? false)
+    }
+
     func testPickTargetWithTwoLayoutsIsTheOther() {
         let (latin, cyr) = makeLayouts()
         XCTAssertTrue(pickTarget("x", enabled: [latin, cyr], curIdx: 0).isCyrillic)

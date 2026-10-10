@@ -6,6 +6,19 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
+## After v1.3.10 — hotkey past a same-script twin layout
+
+- With three layouts where two share the script and the keys (US + Polish
+  Programmers + a Cyrillic one), the hotkey from the Polish layout picked the
+  positional target (US), converted nothing (same keys) and gave up; from US it
+  picked Polish, same result. `planRetype` now falls back to the other-script
+  target when the positional pick changes nothing. Test
+  `testPlanFallsBackToTheOtherScriptPastASameScriptTwin`.
+- No trigram model for pl/be/pt yet (only en, ru, uk, de, fr, es): auto mode is
+  silent on those layouts, the hotkey works.
+
+---
+
 ## v1.3.10 — learned words, trigram layout choice, uk ↔ ru opt-in (2026-10-10)
 
 - Tagged `b738f35`; notes `docs/release-notes/v1.3.10.md` + `-windows.md`.

@@ -620,6 +620,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         // `original`, typed in turn; `suffix` (spaces after a typed word) is kept.
         var alternatives: [(out: String, dst: Layout)] = []
         var suffix = ""
+        var selected = false   // converted a selection: the undo reselects the original
     }
     private var lastConversion: Conversion?
     private let undoWindow = 1.5
@@ -2254,7 +2255,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         lastConversion = Conversion(original: typed == r.out ? r.replaced : text, typed: typed,
                                     srcSource: r.src.source,
                                     time: ProcessInfo.processInfo.systemUptime, learned: r.learned,
-                                    alternatives: typed == r.out ? r.alternatives : [])
+                                    alternatives: typed == r.out ? r.alternatives : [], selected: true)
     }
 
     // No selection: erase the word just typed (and the spaces after it), type its
@@ -2310,7 +2311,14 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             typeUnicode(last.original)
         }
         usleep(20_000)
-        DispatchQueue.main.sync { _ = TISSelectInputSource(last.srcSource); self.rememberTyped(last.original) }
+        if last.selected {
+            // The user pointed at this text: give the selection back, so the next
+            // hotkey works on all of it, not on the word buffer.
+            for _ in 0..<last.original.count { postKey(CGKeyCode(kVK_LeftArrow), .maskShift) }
+            DispatchQueue.main.sync { _ = TISSelectInputSource(last.srcSource); self.autoRun.reset() }
+        } else {
+            DispatchQueue.main.sync { _ = TISSelectInputSource(last.srcSource); self.rememberTyped(last.original) }
+        }
     }
 
     // After an undo or a retarget the text before the caret is ours again: replay it

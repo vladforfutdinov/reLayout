@@ -6,6 +6,36 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
+## After v1.3.9 — learned words: the hotkey teaches auto mode
+
+- Trigram-only detection has a known ceiling: a short word of rare letters loses
+  to a substring of a frequent word in the other language ("учше" scores −1.94
+  in Russian, "exit" −2.41 in English), and a Russian word typed against a
+  Ukrainian-only setup ("c,hjc" → "сброс", uk −3.41) fails the punctuation gate.
+  A language dictionary is off the table by design, so the fix is the user's own
+  verdicts: the hotkey already marks every auto-mode miss.
+- Engine: `LearnedVerdict`, `learnedKey` (lowercased, trailing non-letters
+  dropped), `hotkeyMisses` (words of a hotkey conversion that `decideAutoTarget`
+  would leave), and a `learned` closure on `decideAutoTarget` — `keep` wins
+  before any gate, `convert` bypasses garbage/margin/punctuation gates. The
+  short-word neighbour rule still applies.
+- macOS: `convert()` learns misses with auto mode on; the undo of a hotkey
+  conversion forgets them, the undo of an auto-correction records `keep`.
+  Settings: "Learned words: N" with View… (sheet, Remove) and Reset (confirmed:
+  irreversible user data). Nine new `settings.learned.*` keys in all 12 languages.
+- A short hotkey conversion ("jr?" → "ок,") is a miss too, and a learned word
+  is fixed alone: `AutoRun.plan(trusted:)` skips the neighbour rule for it.
+- Side fixes found on the way: a language change kept the cached sheets in the
+  old language (now dropped); the version footer was hardcoded English; "Also
+  fix on Enter" lost its "also" in all languages; the Settings window opens
+  without the zoom animation.
+- Windows: compiles via the closure's default; learning not wired yet.
+- Rejected on the way: a typing-series history of judged words (the hotkey
+  itself is the signal) and a pause-based series boundary (a pause is thinking,
+  not proofreading).
+
+---
+
 ## After v1.3.8 — two short words in a row are fixed together
 
 - Auto mode trusted a 1–2 letter candidate only next to a long one, so a chain

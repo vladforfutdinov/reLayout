@@ -69,7 +69,7 @@ a space or Tab, with any punctuation just before it converted along ("ltkfq? " �
 Enter is never delayed: the word is fixed afterwards only if Enter made a new line in a field that
 exposes its text to Accessibility (TextEdit, Notes, Telegram's Shift+Enter …) — a submitted
 launcher query or chat message stays as typed, and browsers/Electron apps and terminals keep plain Enter
-(*Settings → Also fix on Enter*, on by default). A
+(*Settings → Fix on Enter*, on by default). A
 click or a Cmd/Ctrl shortcut drops the unfinished word. **Cross-script
 only** (ru/uk ↔ en), tuned for ≥99% precision — with only same-script layouts enabled
 (e.g. ABC + German) the checkbox is disabled, with the reason behind its ⓘ hint — with a
@@ -90,7 +90,10 @@ expander asks for. Everything below is verifiable in the source (MIT):
   [Sparkle](https://sparkle-project.org) update check (a signed appcast; off via Settings).
 - **The clipboard is left untouched** on the Accessibility path; the rare ⌘C fallback only reads.
   So watchers like DeepL's `Ctrl+C+C` don't fire.
-- **Password fields are skipped**, and only your settings are persisted — never text.
+- **Password fields are skipped**, and only your settings are persisted — never text. The one
+  exception is the auto-correct's learned words: a word you convert with the hotkey after
+  auto-correct left it alone (and a correction you undo) is stored locally so auto-correct
+  follows your verdict next time. Settings → Learned words shows the list and resets it.
 
 ## Build from source
 

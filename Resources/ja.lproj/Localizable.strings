@@ -20,7 +20,7 @@
 "menu.checkUpdates" = "アップデートを確認…";
 "settings.autoUpdate" = "自動的にアップデートを確認";
 "settings.autoCorrect" = "レイアウトを自動修正";
-"settings.autoCorrectEnter" = "Enter でも修正（改行のみ）";
+"settings.autoCorrectEnter" = "Enter で修正（改行のみ）";
 "settings.autoCorrectUnavailable" = "自動修正には異なる文字体系のレイアウト（例：英語と任意のキリル文字）が必要です。同じ文字体系のレイアウト（%@）は確実に区別できないため、ホットキーを使ってください。";
 
 // auto-correct exceptions
@@ -32,6 +32,19 @@
 "settings.exc.done" = "完了";
 "settings.exc.info" = "ターミナル、コードエディタ、仮想マシン、リモートデスクトップは最初からリストに入っています。そこではコマンドやコードを入力するか、独自のレイアウトを持つ別のシステムがキーを受け取るため、自動修正は害になります。削除するとそのアプリで自動修正が有効になります。";
 "settings.exc.hint" = "これらのプログラムでは自動修正しません：";
+
+// learned words
+"settings.learned" = "学習した単語: %@";
+"settings.learned.view" = "表示…";
+"settings.learned.reset" = "リセット";
+"settings.learned.cancel" = "キャンセル";
+"settings.learned.title" = "学習した単語";
+"settings.learned.hint" = "自動修正が見送った後にホットキーで変換した単語と、取り消した自動修正です。自動修正はこれらの判断に従います。";
+"settings.learned.keep" = "入力のまま";
+"settings.learned.confirm" = "学習した %@ 個の単語をすべて忘れますか？";
+"settings.learned.confirmInfo" = "これらの単語は自動修正が自身で判断するようになります。この操作は取り消せません。";
+"settings.learned.col.typed" = "入力";
+"settings.learned.col.out" = "変換後";
 
 // Windows port
 "win.pressKey" = "キーを押すか修飾キーをタップ…";

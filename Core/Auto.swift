@@ -24,17 +24,40 @@ public protocol AutoLayout: LayoutMaps {
 // (prepositions: d->в, yf->на) still score. autoEvaluate applies the extra
 // adjacency requirement that keeps short-word precision high; a bare candidate
 // from here only means "looks like a wrong-layout word of some length".
+/// The user's own verdict on a typed form, recorded from the hotkey (see
+/// `hotkeyMisses`) and from undoing an auto-correction. No dictionary of a
+/// language: only strings this user has explicitly fixed or restored.
+public enum LearnedVerdict: String { case convert, keep }
+
+/// The dictionary key of a typed form: lowercased, trailing non-letters dropped
+/// (the hotkey sees "учше," where the auto path judged "учше").
+public func learnedKey(_ w: String) -> String {
+    var s = Substring(w.lowercased())
+    while let l = s.last, !l.isLetter { s = s.dropLast() }
+    return String(s)
+}
+
 /// Decides whether a just-typed word was typed in the wrong layout.
-/// - Parameter model: trigram model for a language code, cached by the caller.
+/// - Parameters:
+///   - model: trigram model for a language code, cached by the caller.
+///   - learned: the user's verdict on a `learnedKey`; `.keep` leaves the word,
+///     `.convert` converts it past the plausibility gates.
 /// - Returns: the target layout and the converted word, or nil to leave the word alone.
 public func decideAutoTarget<L: AutoLayout>(_ w: String, cur: L, enabled: [L],
-                                            model: (String) -> TrigramModel?) -> (target: L, out: String)? {
+                                            model: (String) -> TrigramModel?,
+                                            learned: (String) -> LearnedVerdict? = { _ in nil }) -> (target: L, out: String)? {
     guard let curLang = cur.languageCode, let curModel = model(curLang) else { return nil }
     let targets = enabled.filter { $0.isCyrillic != cur.isCyrillic }   // cross-script only
     guard !targets.isEmpty else { return nil }
 
+    let forced: Bool
+    switch learned(learnedKey(w)) {
+    case .keep: return nil
+    case .convert: forced = true
+    case nil: forced = false
+    }
     let sTyped = curModel.score(w)
-    guard sTyped < autoGarbage else {
+    guard forced || sTyped < autoGarbage else {
         return nil   // already plausible -> leave it
     }
 
@@ -80,20 +103,42 @@ public func decideAutoTarget<L: AutoLayout>(_ w: String, cur: L, enabled: [L],
         }
         if !pureFor {
             guard let core = autoWordCore(w, src: cur, dst: t),
-                  core.count == w.count || curModel.score(String(core)) < autoGarbage
+                  forced || core.count == w.count || curModel.score(String(core)) < autoGarbage
             else { continue }
         }
         guard let out = convertWrong(w, src: cur, dst: t), out != w,
               let tLang = t.languageCode, let tModel = model(tLang) else { continue }
         let sAlt = tModel.score(out)
-        guard pureFor || sAlt > autoPunctPlausible else { continue }
-        guard sAlt - sTyped > autoMargin else { continue }
+        guard forced || pureFor || sAlt > autoPunctPlausible else { continue }
+        guard forced || sAlt - sTyped > autoMargin else { continue }
         if best == nil || sAlt > best!.2 { best = (t, out, sAlt) }
     }
     guard let b = best else {
         return nil
     }
     return (b.0, b.1)
+}
+
+/// The words of a hotkey conversion that auto mode would have left alone: the
+/// user just overruled it, so they are learned as `.convert`.
+/// - Parameters:
+///   - replaced: the text the hotkey converted, as typed.
+///   - out: its conversion (same whitespace, word for word).
+///   - src: the layout the text was typed in.
+/// - Returns: `learnedKey`s of the misses.
+public func hotkeyMisses<L: AutoLayout>(replaced: String, out: String, src: L, enabled: [L],
+                                        model: (String) -> TrigramModel?) -> [String] {
+    let typedWords = replaced.split(whereSeparator: { $0.isWhitespace })
+    let outWords = out.split(whereSeparator: { $0.isWhitespace })
+    guard typedWords.count == outWords.count else { return [] }
+    return zip(typedWords, outWords).compactMap { t, o in
+        let key = learnedKey(String(t))
+        // A short candidate is a miss too: auto trusts it only next to a neighbour.
+        guard t != o, !key.isEmpty,
+              wordBody(key) < 3 || decideAutoTarget(key, cur: src, enabled: enabled, model: model) == nil
+        else { return nil }
+        return key
+    }
 }
 
 
@@ -319,15 +364,16 @@ public struct AutoRun {
     ///   - raw: the word plus its trail, as typed.
     ///   - out: their conversion.
     ///   - cyrillic: the script of the conversion.
+    ///   - trusted: the user's own verdict (a learned word): fixed alone whatever its length.
     /// - Returns: the correction, or nil when a short word waits for a neighbour.
-    public mutating func plan(raw: String, out: String, cyrillic: Bool) -> Fix? {
-        let fix = planFix(raw: raw, out: out, cyrillic: cyrillic)
+    public mutating func plan(raw: String, out: String, cyrillic: Bool, trusted: Bool = false) -> Fix? {
+        let fix = planFix(raw: raw, out: out, cyrillic: cyrillic, trusted: trusted)
         if fix != nil { dropSpacedWord() }   // converted: nothing left for the hotkey
         return fix
     }
 
-    private mutating func planFix(raw: String, out: String, cyrillic: Bool) -> Fix? {
-        if wordBody(raw) >= 3 {
+    private mutating func planFix(raw: String, out: String, cyrillic: Bool, trusted: Bool) -> Fix? {
+        if trusted || wordBody(raw) >= 3 {
             // Long enough to trust alone. A pending short word right before it (the
             // "d ljhjut" case) is folded into the same correction.
             let swallow = previous.flatMap { !$0.committed && $0.cyrillic == cyrillic ? $0 : nil }

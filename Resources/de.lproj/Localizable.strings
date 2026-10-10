@@ -20,7 +20,7 @@
 "menu.checkUpdates" = "Nach Updates suchen…";
 "settings.autoUpdate" = "Automatisch nach Updates suchen";
 "settings.autoCorrect" = "Layout automatisch korrigieren";
-"settings.autoCorrectEnter" = "Auch bei Enter korrigieren (nur neue Zeile)";
+"settings.autoCorrectEnter" = "Bei Enter korrigieren (nur neue Zeile)";
 "settings.autoCorrectUnavailable" = "Die automatische Korrektur braucht Tastaturlayouts verschiedener Schriften, z. B. Englisch und ein beliebiges kyrillisches. Layouts derselben Schrift (%@) lassen sich nicht zuverlässig unterscheiden – nutzen Sie das Tastenkürzel.";
 
 // auto-correct exceptions
@@ -32,6 +32,19 @@
 "settings.exc.done" = "Fertig";
 "settings.exc.info" = "Terminals, Code-Editoren, virtuelle Maschinen und Remotedesktops stehen von Anfang an in der Liste: Dort tippt man Befehle oder Code, oder ein anderes System mit eigenem Layout empfängt die Tasten – die Autokorrektur würde schaden. Entferne ein Programm, um sie dort einzuschalten.";
 "settings.exc.hint" = "In diesen Programmen ist die Autokorrektur aus:";
+
+// learned words
+"settings.learned" = "Gelernte Wörter: %@";
+"settings.learned.view" = "Anzeigen…";
+"settings.learned.reset" = "Zurücksetzen";
+"settings.learned.cancel" = "Abbrechen";
+"settings.learned.title" = "Gelernte Wörter";
+"settings.learned.hint" = "Wörter, die Sie per Hotkey umgewandelt haben, nachdem die Autokorrektur sie übergangen hatte, und Autokorrekturen, die Sie rückgängig gemacht haben. Die Autokorrektur folgt diesen Entscheidungen.";
+"settings.learned.keep" = "wie getippt lassen";
+"settings.learned.confirm" = "Alle %@ gelernten Wörter vergessen?";
+"settings.learned.confirmInfo" = "Die Autokorrektur beurteilt diese Wörter dann wieder selbst. Dies kann nicht rückgängig gemacht werden.";
+"settings.learned.col.typed" = "Getippt";
+"settings.learned.col.out" = "Wird zu";
 
 // Windows port
 "win.pressKey" = "Taste drücken oder Modifikator antippen…";

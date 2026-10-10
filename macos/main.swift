@@ -614,6 +614,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         let typed: String
         let srcSource: TISInputSource
         let time: Double
+        var learned: [String] = []   // hotkey misses recorded by this conversion: undo forgets them
+        var autoWords: [String] = [] // words an auto-correction fixed: undo learns them as `keep`
     }
     private var lastConversion: Conversion?
     private let undoWindow = 1.5
@@ -642,6 +644,11 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     private weak var autoCb: NSButton?
     private weak var autoExcBtn: NSButton?
     private weak var autoEnterCb: NSButton?
+    private weak var learnedLabel: NSTextField?
+    private weak var learnedViewBtn: NSButton?
+    private weak var learnedResetBtn: NSButton?
+    private var learnedWindow: NSWindow?
+    private weak var learnedTable: NSTableView?
     private weak var autoInfo: NSImageView?
     private weak var excTable: NSTableView?
     private var lastActiveBundleID: String?   // last non-self frontmost app ("exclude current")
@@ -751,6 +758,9 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         autoExcBtn?.isEnabled = ok
         autoEnterCb?.isEnabled = ok && autoMode
         autoEnterCb?.state = autoEnterNewline ? .on : .off
+        learnedLabel?.stringValue = String(format: L("settings.learned"), String(learnedConvert.count + learnedKeep.count))
+        learnedViewBtn?.isEnabled = ok && autoMode
+        learnedResetBtn?.isEnabled = ok && autoMode && !(learnedConvert.isEmpty && learnedKeep.isEmpty)
         autoInfo?.isHidden = ok
         autoInfo?.toolTip = String(format: L("settings.autoCorrectUnavailable"),
                                    enabled.map(\.name).joined(separator: ", "))
@@ -1113,12 +1123,25 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         autoInfoIcon.contentTintColor = .secondaryLabelColor
         let label = NSStackView(views: [autoCb, autoInfoIcon])
         label.orientation = .horizontal; label.spacing = 4; label.alignment = .centerY
-        let autoRow = NSStackView(views: [label, excBtn])
+        func spacer() -> NSView {
+            let v = NSView(); v.setContentHuggingPriority(.init(1), for: .horizontal); return v
+        }
+        let autoRow = NSStackView(views: [label, spacer(), excBtn])
         autoRow.orientation = .horizontal; autoRow.spacing = 12; autoRow.alignment = .centerY
         let enterCb = makeCheckbox(L("settings.autoCorrectEnter"), #selector(toggleAutoEnter(_:)), on: autoEnterNewline)
         let enterRow = NSStackView(views: [enterCb])
         enterRow.edgeInsets = NSEdgeInsets(top: 0, left: 20, bottom: 0, right: 0)   // sub-option of auto-correct
+        let learnedLbl = NSTextField(labelWithString: "")
+        let learnedView = NSButton(title: L("settings.learned.view"), target: self, action: #selector(openLearned))
+        let learnedReset = NSButton(title: L("settings.learned.reset"), target: self, action: #selector(resetLearned))
+        for b in [learnedView, learnedReset] { b.bezelStyle = .rounded; b.controlSize = .small }
+        let learnedRow = NSStackView(views: [learnedLbl, spacer(), learnedView, learnedReset])
+        learnedRow.orientation = .horizontal; learnedRow.spacing = 12; learnedRow.alignment = .centerY
+        learnedRow.setCustomSpacing(8, after: learnedView)
+        learnedRow.edgeInsets = NSEdgeInsets(top: 0, left: 20, bottom: 0, right: 0)
+
         self.autoCb = autoCb; autoExcBtn = excBtn; autoInfo = autoInfoIcon; autoEnterCb = enterCb
+        learnedLabel = learnedLbl; learnedViewBtn = learnedView; learnedResetBtn = learnedReset
         updateAutoAvailability()
 
         // ── header: logo + name ──
@@ -1150,7 +1173,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         // ── footer: version + link + copyright ──
         let info = Bundle.main.infoDictionary
         let verStr = (info?["RLVersionFull"] as? String) ?? (info?["CFBundleShortVersionString"] as? String) ?? ""
-        let version = makeSecondaryLabel(verStr.isEmpty ? "" : "Version \(verStr)")
+        let version = makeSecondaryLabel(verStr.isEmpty ? "" : String(format: L("win.version"), verStr).prefix(1).uppercased()
+                                         + String(format: L("win.version"), verStr).dropFirst())
         let url = "github.com/\(repoSlug)"
         let link = NSButton(title: url, target: self, action: #selector(openProjectURL))
         link.isBordered = false; link.bezelStyle = .inline; link.alignment = .center
@@ -1173,7 +1197,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
                                         on: updater?.updater.automaticallyChecksForUpdates ?? true)
         arranged.append(autoUpdateCb)
 #endif
-        arranged += [langGrid, sep2, hkGrid, sep3, autoRow, enterRow, version, link, copyright]
+        arranged += [langGrid, sep2, hkGrid, sep3, autoRow, enterRow, learnedRow, version, link, copyright]
 
         let stack = NSStackView(views: arranged)
         stack.orientation = .vertical
@@ -1186,7 +1210,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         stack.setCustomSpacing(14, after: sep2)
         stack.setCustomSpacing(14, after: hkGrid)     // before sep3
         stack.setCustomSpacing(14, after: sep3)
-        stack.setCustomSpacing(20, after: enterRow)   // footer
+        stack.setCustomSpacing(20, after: learnedRow)   // footer
         content.addSubview(stack)
         NSLayoutConstraint.activate([
             // No fixed width: the stack is pinned on both sides, so the content (and
@@ -1197,6 +1221,9 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             stack.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -20),
             sep1.widthAnchor.constraint(equalTo: stack.widthAnchor),
             sep2.widthAnchor.constraint(equalTo: stack.widthAnchor),
+            // Learned-words buttons flush with Exceptions…: the rows share a width,
+            // their spacers absorb it. Activated here: both rows are in the stack now.
+            learnedRow.widthAnchor.constraint(equalTo: autoRow.widthAnchor),
             sep3.widthAnchor.constraint(equalTo: stack.widthAnchor),
             hkRow.widthAnchor.constraint(equalTo: langPopup.widthAnchor),   // hotkey field == language popup width
             // span full width so their centered content stays centered while the
@@ -1213,6 +1240,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
 
         settingsWindow = w
         w.initialFirstResponder = nil
+        w.animationBehavior = .none   // no zoom-in on open
         activateApp()
         w.makeKeyAndOrderFront(nil)
         w.makeFirstResponder(nil)   // don't leave the first checkbox focused on open
@@ -1221,6 +1249,168 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     @objc private func openProjectURL() {
         guard !repoSlug.isEmpty, let u = URL(string: "https://github.com/\(repoSlug)") else { return }
         NSWorkspace.shared.open(u)
+    }
+
+    // MARK: - Learned words (the user's hotkey verdicts; see Core hotkeyMisses)
+
+    // Typed form -> its conversion (hotkey overruled a silent auto mode).
+    private var learnedConvert: [String: String] {
+        get { UserDefaults.standard.dictionary(forKey: "autoLearned") as? [String: String] ?? [:] }
+        set { UserDefaults.standard.set(newValue, forKey: "autoLearned") }
+    }
+    // Typed forms whose auto-correction the user undid.
+    private var learnedKeep: [String] {
+        get { UserDefaults.standard.stringArray(forKey: "autoKept") ?? [] }
+        set { UserDefaults.standard.set(newValue, forKey: "autoKept") }
+    }
+    private func learnedVerdict(_ key: String) -> LearnedVerdict? {
+        if learnedConvert[key] != nil { return .convert }
+        return learnedKeep.contains(key) ? .keep : nil
+    }
+    private func learn(convert misses: [String], to out: String) {
+        guard !misses.isEmpty else { return }
+        var c = learnedConvert
+        let outs = out.split(whereSeparator: { $0.isWhitespace }).map { learnedKey(String($0)) }
+        for (i, m) in misses.enumerated() { c[m] = i < outs.count ? outs[i] : "" }
+        learnedConvert = c
+        learnedKeep = learnedKeep.filter { !misses.contains($0) }
+        dbg("learned convert: \(misses)")
+        refreshLearnedUI()
+    }
+    private func refreshLearnedUI() {
+        DispatchQueue.main.async { self.updateAutoAvailability(); self.learnedTable?.reloadData() }
+    }
+    private func unlearn(_ last: Conversion) {
+        var c = learnedConvert
+        for w in last.learned { c[w] = nil }
+        for w in last.autoWords { c[w] = nil }
+        learnedConvert = c
+        if !last.autoWords.isEmpty {
+            learnedKeep = Array(Set(learnedKeep + last.autoWords)).sorted()
+            dbg("learned keep: \(last.autoWords)")
+        }
+        refreshLearnedUI()
+    }
+
+    private var learnedRows: [(typed: String, out: String)] {
+        learnedConvert.map { ($0.key, $0.value) }.sorted { $0.0 < $1.0 }
+            + learnedKeep.map { ($0, L("settings.learned.keep")) }
+    }
+
+    @objc private func openLearned() {
+        guard let parent = settingsWindow else { return }
+        let w = learnedWindow ?? buildLearnedWindow()
+        learnedTable?.reloadData()
+        if w.sheetParent == nil { parent.beginSheet(w) }
+    }
+
+    @objc private func learnedDone() {
+        if let w = learnedWindow { settingsWindow?.endSheet(w) }
+        updateAutoAvailability()
+    }
+
+    @objc private func learnedRemoveSelected() {
+        guard let t = learnedTable else { return }
+        let rows = learnedRows
+        for i in t.selectedRowIndexes {
+            let r = rows[i]
+            if learnedConvert[r.typed] != nil { learnedConvert[r.typed] = nil } else { learnedKeep.removeAll { $0 == r.typed } }
+        }
+        t.reloadData()
+    }
+
+    // Irreversible user data: confirmed first.
+    @objc private func resetLearned() {
+        let n = learnedConvert.count + learnedKeep.count
+        let a = NSAlert()
+        a.messageText = String(format: L("settings.learned.confirm"), String(n))
+        a.informativeText = L("settings.learned.confirmInfo")
+        a.addButton(withTitle: L("settings.learned.reset"))
+        a.addButton(withTitle: L("settings.learned.cancel"))
+        guard a.runModal() == .alertFirstButtonReturn else { return }
+        learnedConvert = [:]; learnedKeep = []
+        learnedTable?.reloadData()
+        updateAutoAvailability()
+    }
+
+    private func learnedCell(_ table: NSTableView, column: NSTableColumn?, row: Int) -> NSView? {
+        let r = learnedRows[row]
+        let text = column?.identifier.rawValue == "typed" ? r.typed : r.out
+        let id = NSUserInterfaceItemIdentifier("learned")
+        let cell = (table.makeView(withIdentifier: id, owner: self) as? NSTextField) ?? NSTextField(labelWithString: "")
+        cell.identifier = id
+        cell.stringValue = text
+        return cell
+    }
+
+    private func buildLearnedWindow() -> NSWindow {
+        let w = SettingsWindow(contentRect: NSRect(x: 0, y: 0, width: 380, height: 300),
+                               styleMask: [.titled], backing: .buffered, defer: false)
+        w.isReleasedWhenClosed = false
+        let content = NSView()
+        content.translatesAutoresizingMaskIntoConstraints = false
+        w.contentView = content
+
+        let title = NSTextField(labelWithString: L("settings.learned.title"))
+        title.font = .boldSystemFont(ofSize: 13)
+        title.translatesAutoresizingMaskIntoConstraints = false
+        let hint = NSTextField(wrappingLabelWithString: L("settings.learned.hint"))
+        hint.font = .systemFont(ofSize: 11)
+        hint.textColor = .secondaryLabelColor
+        hint.translatesAutoresizingMaskIntoConstraints = false
+
+        let table = NSTableView()
+        table.rowHeight = 22
+        table.usesAlternatingRowBackgroundColors = true
+        table.allowsMultipleSelection = true
+        for id in ["typed", "out"] {
+            let col = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(id))
+            col.title = L("settings.learned.col.\(id)")
+            col.width = 160
+            table.addTableColumn(col)
+        }
+        table.dataSource = self
+        table.delegate = self
+        learnedTable = table
+        let scroll = NSScrollView()
+        scroll.documentView = table
+        scroll.hasVerticalScroller = true
+        scroll.borderType = .bezelBorder
+        scroll.translatesAutoresizingMaskIntoConstraints = false
+
+        func btn(_ key: String, _ sel: Selector) -> NSButton {
+            let b = NSButton(title: L(key), target: self, action: sel)
+            b.bezelStyle = .rounded; b.controlSize = .small
+            b.translatesAutoresizingMaskIntoConstraints = false
+            return b
+        }
+        let spacer = NSView()
+        spacer.translatesAutoresizingMaskIntoConstraints = false
+        spacer.setContentHuggingPriority(.init(1), for: .horizontal)
+        let bar = NSStackView(views: [btn("settings.exc.remove", #selector(learnedRemoveSelected)), spacer,
+                                      btn("settings.exc.done", #selector(learnedDone))])
+        bar.orientation = .horizontal; bar.spacing = 8; bar.distribution = .fill
+        bar.translatesAutoresizingMaskIntoConstraints = false
+
+        content.addSubview(title); content.addSubview(hint); content.addSubview(scroll); content.addSubview(bar)
+        NSLayoutConstraint.activate([
+            content.widthAnchor.constraint(equalToConstant: 380),
+            title.topAnchor.constraint(equalTo: content.topAnchor, constant: 16),
+            title.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 16),
+            hint.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 4),
+            hint.leadingAnchor.constraint(equalTo: title.leadingAnchor),
+            hint.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -16),
+            scroll.topAnchor.constraint(equalTo: hint.bottomAnchor, constant: 8),
+            scroll.leadingAnchor.constraint(equalTo: title.leadingAnchor),
+            scroll.trailingAnchor.constraint(equalTo: hint.trailingAnchor),
+            scroll.heightAnchor.constraint(equalToConstant: 180),
+            bar.topAnchor.constraint(equalTo: scroll.bottomAnchor, constant: 12),
+            bar.leadingAnchor.constraint(equalTo: title.leadingAnchor),
+            bar.trailingAnchor.constraint(equalTo: hint.trailingAnchor),
+            bar.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -16),
+        ])
+        learnedWindow = w
+        return w
     }
 
     // MARK: - Auto-correct exceptions (per-app deny-list editor)
@@ -1352,9 +1542,12 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         return (bid, fallback)
     }
 
-    func numberOfRows(in tableView: NSTableView) -> Int { autoExcludedApps.count }
+    func numberOfRows(in tableView: NSTableView) -> Int {
+        tableView === learnedTable ? learnedRows.count : autoExcludedApps.count
+    }
 
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
+        if tableView === learnedTable { return learnedCell(tableView, column: tableColumn, row: row) }
         let bid = autoExcludedApps[row]
         let info = appInfo(bid)
         let id = NSUserInterfaceItemIdentifier("exc")
@@ -1384,6 +1577,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         Loc.apply(tag == 0 ? nil : Loc.languages[tag - 1].code)
         setupMenu()
         if let w = settingsWindow { settingsWindow = nil; w.close() }
+        excWindow = nil; learnedWindow = nil   // cached sheets carry the old language
         DispatchQueue.main.async { self.openReLayoutSettings() }
     }
 
@@ -1445,13 +1639,21 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
 
     // Which layouts the selection converts between is the engine's call
     // (planRetype in Core/Auto.swift), shared with the Windows port.
-    private func convert(_ text: String) -> (out: String, dst: Layout, src: Layout, replaced: String)? {
+    // With auto mode on, the words it would have left alone are learned (engine
+    // `hotkeyMisses`); `learned` lists them so the undo can forget them again.
+    private func convert(_ text: String) -> (out: String, dst: Layout, src: Layout, replaced: String, learned: [String])? {
         let enabled = Layout.enabledList()
         let curID = currentSourceID()
         guard let curIdx = enabled.firstIndex(where: { $0.id == curID }) else { return nil }
         let plan = planRetype(text, enabled: enabled, curIdx: curIdx, model: trigram)
         dbg("convert cur=\(curID) -> \(plan.map { "\($0.src.id) -> \($0.dst.id)" } ?? "nothing")")
-        return plan
+        guard let p = plan else { return nil }
+        var misses: [String] = []
+        if autoMode {
+            misses = hotkeyMisses(replaced: p.replaced, out: p.out, src: p.src, enabled: enabled, model: trigram)
+            learn(convert: misses, to: p.out)
+        }
+        return (p.out, p.dst, p.src, p.replaced, misses)
     }
 
     // MARK: - auto-mode (trigram detection)
@@ -1469,7 +1671,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     // Cross-script trigram decision lives in the engine (Core/Auto.swift); this
     // only feeds it the cached models.
     func autoDecide(_ w: String, cur: Layout, enabled: [Layout]) -> (target: Layout, out: String)? {
-        decideAutoTarget(w, cur: cur, enabled: enabled, model: trigram)
+        decideAutoTarget(w, cur: cur, enabled: enabled, model: trigram, learned: learnedVerdict)
     }
 
 
@@ -1686,7 +1888,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         usleep(10_000)
         DispatchQueue.main.sync { self.selectLayout(target) }
         lastConversion = Conversion(original: word + trail + "\r", typed: out + outTrail + "\r",
-                                    srcSource: srcSource, time: ProcessInfo.processInfo.systemUptime)
+                                    srcSource: srcSource, time: ProcessInfo.processInfo.systemUptime,
+                                    autoWords: [learnedKey(word)])
     }
 
     private func focusedTextElement() -> AXUIElement? {
@@ -1756,7 +1959,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         let srcSource = cur.source
         let outTrail = transliterate(trail, from: cur, to: d.target)
         // The short-word rule (engine): a 1-2 letter word waits for a neighbour.
-        guard let fix = autoRun.plan(raw: word + trail, out: d.out + outTrail, cyrillic: d.target.isCyrillic)
+        guard let fix = autoRun.plan(raw: word + trail, out: d.out + outTrail, cyrillic: d.target.isCyrillic,
+                                     trusted: learnedVerdict(learnedKey(word)) == .convert)
         else { dbg("auto: short word waits for a neighbour"); return false }
         beginCorrection {
             self.autoCorrect(fix, boundary: boundary, boundaryFlags: flags, target: d.target, srcSource: srcSource)
@@ -1820,7 +2024,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         usleep(10_000)
         DispatchQueue.main.sync { self.selectLayout(target) }
         lastConversion = Conversion(original: fix.original + boundary, typed: fix.text + boundary,
-                                    srcSource: srcSource, time: ProcessInfo.processInfo.systemUptime)
+                                    srcSource: srcSource, time: ProcessInfo.processInfo.systemUptime,
+                                    autoWords: fix.original.split(separator: " ").map { learnedKey(String($0)) })
     }
 
     private func isAutoExcluded() -> Bool {
@@ -1990,7 +2195,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         // remember it so a quick second hotkey can undo
         lastConversion = Conversion(original: typed == r.out ? r.replaced : text, typed: typed,
                                     srcSource: r.src.source,
-                                    time: ProcessInfo.processInfo.systemUptime)
+                                    time: ProcessInfo.processInfo.systemUptime, learned: r.learned)
     }
 
     // No selection: erase the word just typed (and the spaces after it), type its
@@ -2006,7 +2211,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         usleep(20_000)
         DispatchQueue.main.sync { self.autoRun.reset(); self.selectLayout(r.dst) }
         lastConversion = Conversion(original: r.replaced + spaces, typed: r.out + spaces, srcSource: r.src.source,
-                                    time: ProcessInfo.processInfo.systemUptime)
+                                    time: ProcessInfo.processInfo.systemUptime, learned: r.learned)
     }
 
     // Reverse the last conversion: reselect the text we just typed (Shift+Left
@@ -2015,6 +2220,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     private func performUndo(_ last: Conversion) {
         waitModifiersReleased()
         dbg("undo: restore \(last.original.debugDescription)")
+        if autoMode { unlearn(last) }
         for _ in 0..<last.typed.count {
             postKey(CGKeyCode(kVK_LeftArrow), .maskShift)
         }

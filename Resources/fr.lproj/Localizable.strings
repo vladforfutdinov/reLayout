@@ -20,7 +20,7 @@
 "menu.checkUpdates" = "Rechercher les mises à jour…";
 "settings.autoUpdate" = "Rechercher les mises à jour automatiquement";
 "settings.autoCorrect" = "Corriger la disposition automatiquement";
-"settings.autoCorrectEnter" = "Corriger aussi avec Entrée (nouvelle ligne seulement)";
+"settings.autoCorrectEnter" = "Corriger avec Entrée (nouvelle ligne seulement)";
 "settings.autoCorrectUnavailable" = "La correction automatique nécessite des dispositions d’alphabets différents, par ex. anglais et n’importe quelle cyrillique. Celles d’un même alphabet (%@) ne se distinguent pas de façon fiable : utilisez le raccourci.";
 
 // auto-correct exceptions
@@ -32,6 +32,19 @@
 "settings.exc.done" = "Terminé";
 "settings.exc.info" = "Les terminaux, éditeurs de code, machines virtuelles et bureaux à distance figurent d’emblée dans la liste : on y tape des commandes ou du code, ou un autre système avec sa propre disposition reçoit les touches, et la correction automatique y nuirait. Retirez-en un pour l’y activer.";
 "settings.exc.hint" = "La correction automatique est désactivée dans ces programmes :";
+
+// learned words
+"settings.learned" = "Mots appris : %@";
+"settings.learned.view" = "Afficher…";
+"settings.learned.reset" = "Réinitialiser";
+"settings.learned.cancel" = "Annuler";
+"settings.learned.title" = "Mots appris";
+"settings.learned.hint" = "Mots que vous avez convertis avec le raccourci après que la correction automatique les a laissés, et corrections automatiques que vous avez annulées. La correction automatique suit ces décisions.";
+"settings.learned.keep" = "laisser tel que saisi";
+"settings.learned.confirm" = "Oublier les %@ mots appris ?";
+"settings.learned.confirmInfo" = "La correction automatique reviendra à son propre jugement pour ces mots. Cette action est irréversible.";
+"settings.learned.col.typed" = "Saisi";
+"settings.learned.col.out" = "Devient";
 
 // Windows port
 "win.pressKey" = "Appuyez sur une touche ou un modificateur…";

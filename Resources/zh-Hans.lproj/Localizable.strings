@@ -20,7 +20,7 @@
 "menu.checkUpdates" = "检查更新…";
 "settings.autoUpdate" = "自动检查更新";
 "settings.autoCorrect" = "自动纠正键盘布局";
-"settings.autoCorrectEnter" = "按回车时也纠正（仅换行）";
+"settings.autoCorrectEnter" = "按回车时纠正（仅换行）";
 "settings.autoCorrectUnavailable" = "自动纠正需要不同文字的键盘布局，例如英语和任意西里尔文布局。同一文字的布局（%@）无法可靠区分，请使用快捷键。";
 
 // auto-correct exceptions
@@ -32,6 +32,19 @@
 "settings.exc.done" = "完成";
 "settings.exc.info" = "终端、代码编辑器、虚拟机和远程桌面默认就在列表中：在那里输入的是命令或代码，或者按键会交给使用自己键盘布局的另一个系统，自动更正只会添乱。将某项移除即可在其中启用自动更正。";
 "settings.exc.hint" = "在以下程序中不进行自动更正：";
+
+// learned words
+"settings.learned" = "已学习的词：%@";
+"settings.learned.view" = "查看…";
+"settings.learned.reset" = "重置";
+"settings.learned.cancel" = "取消";
+"settings.learned.title" = "已学习的词";
+"settings.learned.hint" = "自动纠正放过后你用快捷键转换的词，以及你撤销的自动纠正。自动纠正会遵循这些决定。";
+"settings.learned.keep" = "保持原样";
+"settings.learned.confirm" = "忘记全部 %@ 个已学习的词？";
+"settings.learned.confirmInfo" = "自动纠正将对这些词恢复自行判断。此操作无法撤销。";
+"settings.learned.col.typed" = "输入";
+"settings.learned.col.out" = "变为";
 
 // Windows port
 "win.pressKey" = "按下按键或轻点修饰键…";

@@ -20,7 +20,7 @@
 "menu.checkUpdates" = "업데이트 확인…";
 "settings.autoUpdate" = "자동으로 업데이트 확인";
 "settings.autoCorrect" = "잘못된 레이아웃 자동 교정";
-"settings.autoCorrectEnter" = "Enter에서도 교정 (줄 바꿈만)";
+"settings.autoCorrectEnter" = "Enter에서 교정 (줄 바꿈만)";
 "settings.autoCorrectUnavailable" = "자동 교정에는 문자 체계가 다른 레이아웃(예: 영어와 아무 키릴 문자)이 필요합니다. 같은 문자 체계의 레이아웃(%@)은 확실히 구분할 수 없으니 단축키를 사용하세요.";
 
 // auto-correct exceptions
@@ -32,6 +32,19 @@
 "settings.exc.done" = "완료";
 "settings.exc.info" = "터미널, 코드 편집기, 가상 머신, 원격 데스크톱은 처음부터 목록에 있습니다. 여기서는 명령이나 코드를 입력하거나 자체 자판을 가진 다른 시스템이 키를 받으므로 자동 수정이 오히려 해가 됩니다. 항목을 제거하면 해당 앱에서 자동 수정이 켜집니다.";
 "settings.exc.hint" = "다음 프로그램에서는 자동 수정을 하지 않습니다:";
+
+// learned words
+"settings.learned" = "학습한 단어: %@";
+"settings.learned.view" = "보기…";
+"settings.learned.reset" = "초기화";
+"settings.learned.cancel" = "취소";
+"settings.learned.title" = "학습한 단어";
+"settings.learned.hint" = "자동 수정이 건너뛴 뒤 단축키로 변환한 단어와 취소한 자동 수정입니다. 자동 수정은 이 결정을 따릅니다.";
+"settings.learned.keep" = "입력한 대로 유지";
+"settings.learned.confirm" = "학습한 단어 %@개를 모두 잊을까요?";
+"settings.learned.confirmInfo" = "이 단어들은 자동 수정이 다시 스스로 판단합니다. 이 작업은 되돌릴 수 없습니다.";
+"settings.learned.col.typed" = "입력";
+"settings.learned.col.out" = "변환";
 
 // Windows port
 "win.pressKey" = "키를 누르거나 보조 키를 탭하세요…";

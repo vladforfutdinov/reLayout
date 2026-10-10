@@ -20,7 +20,7 @@
 "menu.checkUpdates" = "Sprawdź aktualizacje…";
 "settings.autoUpdate" = "Automatycznie sprawdzaj aktualizacje";
 "settings.autoCorrect" = "Autokorekta układu";
-"settings.autoCorrectEnter" = "Poprawiaj też po Enter (tylko nowa linia)";
+"settings.autoCorrectEnter" = "Poprawiaj po Enter (tylko nowa linia)";
 "settings.autoCorrectUnavailable" = "Autokorekta wymaga układów o różnych alfabetach, np. angielskiego i dowolnego cyrylickiego. Układów jednego alfabetu (%@) nie da się wiarygodnie rozróżnić – użyj skrótu klawiszowego.";
 
 // auto-correct exceptions
@@ -32,6 +32,19 @@
 "settings.exc.done" = "Gotowe";
 "settings.exc.info" = "Terminale, edytory kodu, maszyny wirtualne i pulpity zdalne są na liście od początku: wpisuje się tam polecenia lub kod albo klawisze trafiają do innego systemu z własnym układem, więc autokorekta by szkodziła. Usuń program z listy, aby ją w nim włączyć.";
 "settings.exc.hint" = "W tych programach autokorekta jest wyłączona:";
+
+// learned words
+"settings.learned" = "Nauczone słowa: %@";
+"settings.learned.view" = "Pokaż…";
+"settings.learned.reset" = "Resetuj";
+"settings.learned.cancel" = "Anuluj";
+"settings.learned.title" = "Nauczone słowa";
+"settings.learned.hint" = "Słowa, które przekonwertowałeś skrótem po tym, jak autokorekta je pominęła, oraz autokorekty, które cofnąłeś. Autokorekta stosuje się do tych decyzji.";
+"settings.learned.keep" = "zostaw jak wpisano";
+"settings.learned.confirm" = "Zapomnieć wszystkie nauczone słowa (%@)?";
+"settings.learned.confirmInfo" = "Autokorekta wróci do własnej oceny tych słów. Tej operacji nie można cofnąć.";
+"settings.learned.col.typed" = "Wpisano";
+"settings.learned.col.out" = "Staje się";
 
 // Windows port
 "win.pressKey" = "Naciśnij klawisz lub modyfikator…";

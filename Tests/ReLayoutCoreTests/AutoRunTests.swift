@@ -132,6 +132,12 @@ final class AutoRunTests: XCTestCase {
                        AutoRun.Fix(erase: 3, text: "the", original: "еру"))
     }
 
+    func testTrustedShortWordIsFixedAlone() {
+        var run = AutoRun()
+        XCTAssertEqual(run.plan(raw: "jr?", out: "ок,", cyrillic: true, trusted: true),
+                       AutoRun.Fix(erase: 3, text: "ок,", original: "jr?"))
+    }
+
     func testShortWordOfTheOtherScriptIsNotSwallowed() {
         var run = AutoRun()
         XCTAssertNil(run.plan(raw: "d", out: "в", cyrillic: true))

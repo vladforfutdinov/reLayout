@@ -20,7 +20,7 @@
 "menu.checkUpdates" = "Check for Updates…";
 "settings.autoUpdate" = "Automatically check for updates";
 "settings.autoCorrect" = "Auto-correct wrong layout";
-"settings.autoCorrectEnter" = "Also fix on Enter (new line only)";
+"settings.autoCorrectEnter" = "Fix on Enter (new line only)";
 "settings.autoCorrectUnavailable" = "Auto-correct needs keyboard layouts of different scripts, e.g. English and any Cyrillic one. Layouts of one script (%@) can't be told apart reliably — use the hotkey.";
 
 // auto-correct exceptions
@@ -32,6 +32,19 @@
 "settings.exc.done" = "Done";
 "settings.exc.info" = "Terminals, code editors, virtual machines and remote desktops are listed from the start: there you type commands or code, or another system with its own layout takes the keys, so auto-correct would do harm. Remove one to turn auto-correct on in it.";
 "settings.exc.hint" = "Auto-correct stays off in these programs:";
+
+// learned words
+"settings.learned" = "Learned words: %@";
+"settings.learned.view" = "View…";
+"settings.learned.reset" = "Reset";
+"settings.learned.cancel" = "Cancel";
+"settings.learned.title" = "Learned words";
+"settings.learned.hint" = "Words you converted with the hotkey after auto-correct had left them, and auto-corrections you undid. Auto-correct follows these verdicts.";
+"settings.learned.keep" = "keep as typed";
+"settings.learned.confirm" = "Forget all %@ learned words?";
+"settings.learned.confirmInfo" = "Auto-correct goes back to its own judgement for them. This cannot be undone.";
+"settings.learned.col.typed" = "Typed";
+"settings.learned.col.out" = "Becomes";
 
 // Windows port
 "win.pressKey" = "Press a key or tap a modifier…";

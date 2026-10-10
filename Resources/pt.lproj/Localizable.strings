@@ -20,7 +20,7 @@
 "menu.checkUpdates" = "Procurar atualizações…";
 "settings.autoUpdate" = "Procurar atualizações automaticamente";
 "settings.autoCorrect" = "Corrigir layout automaticamente";
-"settings.autoCorrectEnter" = "Corrigir também com Enter (só nova linha)";
+"settings.autoCorrectEnter" = "Corrigir com Enter (só nova linha)";
 "settings.autoCorrectUnavailable" = "A correção automática precisa de layouts de alfabetos diferentes, por ex. inglês e qualquer cirílico. Layouts do mesmo alfabeto (%@) não se distinguem com fiabilidade — use o atalho.";
 
 // auto-correct exceptions
@@ -32,6 +32,19 @@
 "settings.exc.done" = "Concluído";
 "settings.exc.info" = "Terminais, editores de código, máquinas virtuais e áreas de trabalho remotas já vêm na lista: neles se digitam comandos ou código, ou outro sistema com o seu próprio layout recebe as teclas, e a correção automática atrapalharia. Remova um para ativá-la nele.";
 "settings.exc.hint" = "A correção automática fica desligada nestes programas:";
+
+// learned words
+"settings.learned" = "Palavras aprendidas: %@";
+"settings.learned.view" = "Ver…";
+"settings.learned.reset" = "Repor";
+"settings.learned.cancel" = "Cancelar";
+"settings.learned.title" = "Palavras aprendidas";
+"settings.learned.hint" = "Palavras que converteu com o atalho depois de a correção automática as ter deixado, e correções automáticas que anulou. A correção automática segue estas decisões.";
+"settings.learned.keep" = "manter como escrito";
+"settings.learned.confirm" = "Esquecer todas as %@ palavras aprendidas?";
+"settings.learned.confirmInfo" = "A correção automática voltará ao seu próprio critério para elas. Esta ação não pode ser anulada.";
+"settings.learned.col.typed" = "Escrito";
+"settings.learned.col.out" = "Torna-se";
 
 // Windows port
 "win.pressKey" = "Pressione uma tecla ou um modificador…";

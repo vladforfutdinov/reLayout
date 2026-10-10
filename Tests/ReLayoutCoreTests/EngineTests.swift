@@ -279,6 +279,39 @@ final class EngineTests: XCTestCase {
         XCTAssertNil(decideAutoTarget("ghbdtn", cur: latin, enabled: [latin, cyr], model: { _ in nil }))
     }
 
+    // MARK: - learned words (the user's own verdicts)
+
+    func testLearnedConvertOverridesThePlausibilityGates() {
+        let (latin, cyr) = makeLayouts()
+        // Junk both ways (no model knows it) — only the user's verdict converts it.
+        let models = ["en": model(knowing: []), "uk": model(knowing: [])]
+        let learned: (String) -> LearnedVerdict? = { $0 == "ghbdtn" ? .convert : nil }
+        XCTAssertEqual(decideAutoTarget("ghbdtn", cur: latin, enabled: [latin, cyr],
+                                        model: { models[$0] }, learned: learned)?.out, "привет")
+        XCTAssertEqual(decideAutoTarget("ghbdtn,", cur: latin, enabled: [latin, cyr],
+                                        model: { models[$0] }, learned: learned)?.out, "приветб")
+    }
+
+    func testLearnedKeepBlocksAConversion() {
+        let (latin, cyr) = makeLayouts()
+        let models = ["en": model(knowing: ["hello"]), "uk": model(knowing: ["привет"])]
+        XCTAssertNil(decideAutoTarget("ghbdtn", cur: latin, enabled: [latin, cyr],
+                                      model: { models[$0] }, learned: { _ in .keep }))
+    }
+
+    func testHotkeyMissesAreTheWordsAutoWouldLeave() {
+        let (latin, cyr) = makeLayouts()
+        // "ghbdtn" is a known miss-free word (auto fixes it); "rfr" nobody knows.
+        let models = ["en": model(knowing: []), "uk": model(knowing: ["привет"])]
+        let misses = hotkeyMisses(replaced: "Ghbdtn rfr?", out: "Привет как?", src: latin,
+                                  enabled: [latin, cyr], model: { models[$0] })
+        XCTAssertEqual(misses, ["rfr"])
+        // A short candidate auto would only fix next to a neighbour is a miss too.
+        XCTAssertEqual(hotkeyMisses(replaced: "jr?", out: "ок,", src: latin, enabled: [latin, cyr],
+                                    model: { ["en": self.model(knowing: []), "uk": self.model(knowing: ["ок"])][$0] }), ["jr"])
+        XCTAssertEqual(learnedKey("Учше,"), "учше")
+    }
+
     // MARK: - fixMixedWord (mid-word layout switch, hotkey path)
 
     private func fixMixed(_ w: String, cyrKnows: [String], latinKnows: [String],

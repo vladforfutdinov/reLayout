@@ -20,7 +20,7 @@
 "menu.checkUpdates" = "Buscar actualizaciones…";
 "settings.autoUpdate" = "Buscar actualizaciones automáticamente";
 "settings.autoCorrect" = "Autocorregir distribución";
-"settings.autoCorrectEnter" = "Corregir también con Intro (solo nueva línea)";
+"settings.autoCorrectEnter" = "Corregir con Intro (solo nueva línea)";
 "settings.autoCorrectUnavailable" = "La autocorrección necesita distribuciones de alfabetos distintos, p. ej., inglés y cualquier cirílica. Las de un mismo alfabeto (%@) no se distinguen con fiabilidad: usa el atajo de teclado.";
 
 // auto-correct exceptions
@@ -32,6 +32,19 @@
 "settings.exc.done" = "Listo";
 "settings.exc.info" = "Los terminales, editores de código, máquinas virtuales y escritorios remotos están en la lista desde el principio: allí se escriben comandos o código, u otro sistema con su propia distribución recibe las teclas, y la autocorrección haría daño. Quita uno para activarla en él.";
 "settings.exc.hint" = "La autocorrección no actúa en estos programas:";
+
+// learned words
+"settings.learned" = "Palabras aprendidas: %@";
+"settings.learned.view" = "Ver…";
+"settings.learned.reset" = "Restablecer";
+"settings.learned.cancel" = "Cancelar";
+"settings.learned.title" = "Palabras aprendidas";
+"settings.learned.hint" = "Palabras que convertiste con el atajo después de que la autocorrección las dejara, y autocorrecciones que deshiciste. La autocorrección sigue estas decisiones.";
+"settings.learned.keep" = "dejar como se escribió";
+"settings.learned.confirm" = "¿Olvidar las %@ palabras aprendidas?";
+"settings.learned.confirmInfo" = "La autocorrección volverá a su propio criterio para ellas. Esto no se puede deshacer.";
+"settings.learned.col.typed" = "Escrito";
+"settings.learned.col.out" = "Se convierte en";
 
 // Windows port
 "win.pressKey" = "Pulsa una tecla o un modificador…";

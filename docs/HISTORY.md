@@ -31,6 +31,14 @@ work (not per commit). Operational "where are we right now" lives in
   4/6000. Shipped: into ru 1.0, into uk 1.5. Hand-picked set: 46/78 converted
   ("кто-то", "как-то", "пожалуйста", "хорошо" now switch), 1/117 false ("сіно").
   Still plausible Ukrainian to the uk model: "привет", "почему", "нужно".
+- Tried and rejected: damping the word-frequency weight in `gen.py` (sqrt, log
+  instead of raw count) to stop "ты" (the pronoun) swamping the "ты" context,
+  which sinks "тыс" to −4.6 and "тысяча" to −3.0 in the ru model, so "тісяча"
+  typed on the uk layout misses the margin (0.50 of 1.0). Regenerated all six
+  models each way: ru/uk ↔ en unchanged, de/fr/es ↔ en recall down (0.61 →
+  0.46 → 0.40 for de), same-script recall down, and "тысяча" itself worse
+  (−3.25 sqrt, −3.54 log). The generator stays as it is; a larger Russian
+  corpus is the remaining lever for "ы" words.
 
 ---
 

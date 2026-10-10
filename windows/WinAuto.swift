@@ -98,6 +98,14 @@ func resetAutoBuffer() {
     run.reset()
 }
 
+/// After an undo or a retarget the text before the caret is ours again: replay it
+/// into the word buffer so the hotkey can act on it without a selection.
+func rememberTyped(_ s: String) {
+    run.reset()
+    guard let cur = WinLayout.current() else { return }
+    for ch in s { _ = run.feed(String(ch), mapsToCyrillic: { mapsToCyrillic($0, cur: cur) }) }
+}
+
 /// The word typed before the caret and the spaces after it, for the hotkey with
 /// nothing selected.
 func typedWord() -> (text: String, spaces: Int) {

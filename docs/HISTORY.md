@@ -6,6 +6,23 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
+## After v1.3.10 — the Globe double is counted once
+
+- The doubled first letter after a Globe switch (TextInputSwitcher re-posting
+  the key its HUD held; see "After v1.3.8") turned out to reach the app once but
+  the auto tap twice: "после гтвщ" buffered as "ггтвщ", the fix erased five
+  characters for four on screen and typed "uundo" — space gone, letter doubled.
+  Caught with three layouts enabled (Globe cycles ABC → Birman ru → uk, so the
+  first letter of the next word lands on a Cyrillic layout).
+- Fix in the auto tap: a keyDown with the same key code as the last fed one,
+  within 300 ms, whose `eventSourceUnixProcessID` belongs to
+  `com.apple.TextInputSwitcher`, passes through to the app untouched and is not
+  fed to the word buffer. Dropping it was rejected earlier for the case where the
+  physical press never reaches the app; counting it once is right either way.
+  Not unit-testable (CGEvent); verified by the trace pattern only.
+
+---
+
 ## After v1.3.10 — hotkey press-again cycles the layouts
 
 - With three or more layouts the hotkey's first pick can be the wrong one, and the
@@ -17,6 +34,10 @@ work (not per commit). Operational "where are we right now" lives in
   carries `learned`/`autoWords` so the final undo still unlearns. Two layouts:
   unchanged. Double-tap hotkeys: unchanged (no cycle, no undo). Auto-corrections:
   no alternatives, second press = undo.
+- After an undo (or a retarget) the hotkey did nothing without a selection: the
+  undo reset the word buffer, so `hotkeyTarget` was empty. Both apps now replay
+  the restored text into the buffer (`rememberTyped`), so the hotkey acts on it
+  again — "ть" → "nm" → undo → hotkey → "nm".
 
 ---
 

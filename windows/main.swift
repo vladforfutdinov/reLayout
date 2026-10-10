@@ -123,6 +123,7 @@ private func performRetarget(_ last: Conversion, to next: (out: String, dst: Win
     resetAutoBuffer()
     selectLeft(last.typed.count)
     guard typeText(next.out + last.suffix, in: next.dst) else { return }   // also leaves dst active
+    rememberTyped(next.out + last.suffix)
     var again = last
     again.typed = next.out + last.suffix
     again.alternatives = Array(last.alternatives.dropFirst())
@@ -145,6 +146,7 @@ private func performUndo(_ last: Conversion) {
     } else {
         guard typeText(last.original, in: last.src) else { return }
     }
+    rememberTyped(last.original)
 }
 
 /// Fallback for controls without UI Automation text (Electron, old apps): read the

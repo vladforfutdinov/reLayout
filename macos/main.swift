@@ -627,6 +627,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     // modifier-tap runtime state
     private var tapMonitors: [Any] = []
     fileprivate var keyTap: CFMachPort?       // CGEventTap that flags key presses during a hold
+    // The last physical keyDown the auto tap fed, for the Globe double (below).
+    private var lastFedKey: (code: Int64, time: Double) = (-1, 0)
     private var keyTapSource: CFRunLoopSource?
     fileprivate var tapArmed = false
     private var tapArmTime: Double = 0
@@ -1795,6 +1797,20 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
                 var buf = [UniChar](repeating: 0, count: 4)
                 event.keyboardGetUnicodeString(maxStringLength: 4, actualStringLength: &len, unicodeString: &buf)
                 let s = me.layoutChar(event) ?? String(utf16CodeUnits: buf, count: len)
+                // Right after a Globe switch, TextInputSwitcher re-posts the first key it
+                // held while its HUD had the keyboard (HISTORY, after v1.3.8). The tap
+                // sees that key twice; the app types it once. Counting it twice made the
+                // fix erase one character too many ("после гтвщ" -> "послеuundo", the
+                // space gone). The re-post carries the switcher's pid: let it through
+                // to the app, but do not feed it again.
+                let code = event.getIntegerValueField(.keyboardEventKeycode)
+                let now = ProcessInfo.processInfo.systemUptime
+                if code == me.lastFedKey.code, now - me.lastFedKey.time < 0.3,
+                   me.isInputSwitcherEvent(event) {
+                    dbg("globe double: \(s.debugDescription) from TextInputSwitcher, not fed")
+                    return Unmanaged.passUnretained(event)
+                }
+                me.lastFedKey = (code, now)
                 // Only text-producing keys are held back; modifiers, Globe, arrows
                 // and delete keep flowing so nothing the user does can be stalled
                 // by a correction that hangs.
@@ -2061,6 +2077,13 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
                                     autoWords: fix.original.split(separator: " ").map { learnedKey(String($0)) })
     }
 
+    /// True when the event was posted by macOS's TextInputSwitcher (the Globe HUD).
+    fileprivate func isInputSwitcherEvent(_ event: CGEvent) -> Bool {
+        let pid = pid_t(event.getIntegerValueField(.eventSourceUnixProcessID))
+        guard pid > 0 else { return false }
+        return NSRunningApplication(processIdentifier: pid)?.bundleIdentifier == "com.apple.TextInputSwitcher"
+    }
+
     private func isAutoExcluded() -> Bool {
         if let bid = NSWorkspace.shared.frontmostApplication?.bundleIdentifier,
            autoExcludedApps.contains(bid) { return true }   // user deny-list
@@ -2260,7 +2283,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         usleep(20_000)
         typeUnicode(next.out + last.suffix)
         usleep(20_000)
-        DispatchQueue.main.sync { self.autoRun.reset(); self.selectLayout(next.dst) }
+        DispatchQueue.main.sync { self.rememberTyped(next.out + last.suffix); self.selectLayout(next.dst) }
         var again = last
         again.typed = next.out + last.suffix
         again.alternatives = Array(last.alternatives.dropFirst())
@@ -2287,7 +2310,15 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             typeUnicode(last.original)
         }
         usleep(20_000)
-        DispatchQueue.main.sync { self.autoRun.reset(); _ = TISSelectInputSource(last.srcSource) }
+        DispatchQueue.main.sync { _ = TISSelectInputSource(last.srcSource); self.rememberTyped(last.original) }
+    }
+
+    // After an undo or a retarget the text before the caret is ours again: replay it
+    // into the word buffer so the hotkey can act on it without a selection
+    // ("ть" -> "nm" -> undo -> hotkey did nothing, the buffer had been reset).
+    private func rememberTyped(_ s: String) {
+        autoRun.reset()
+        for ch in s { _ = autoRun.feed(String(ch), mapsToCyrillic: { self.feedsAsCyr(String($0)) }) }
     }
 
     // Insert a string by synthesizing per-character Unicode key events. A line

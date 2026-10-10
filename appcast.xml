@@ -16,7 +16,7 @@
 <li>The Ukrainian language model was rebuilt from a cleaner word list: the old one contained a quarter Russian, which made Russian words typed on the Ukrainian layout look fine to it.</li>
 <li>Settings: a language change now applies to the Exceptions sheet too, the version line is localized, "Also fix on Enter" is now "Fix on Enter", and the window opens without the zoom animation.</li>
 </ul>]]></description>
-            <enclosure url="https://github.com/vladforfutdinov/reLayout/releases/download/v1.3.10/reLayout.zip" length="1724094" type="application/octet-stream"/>
+            <enclosure url="https://github.com/vladforfutdinov/reLayout/releases/download/v1.3.10/reLayout.zip" sparkle:edSignature="3uUjLRxpVTVmqPtHKdMif9ykEDb1Zz43PPe/NXdenmUtCV1fiTSIDm4xVHgW9lStEeo7dZFsXDUTEp2qpvo0DQ==" length="1724094" type="application/octet-stream"/>
         </item>
     </channel>
 </rss>

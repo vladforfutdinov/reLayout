@@ -122,6 +122,16 @@ final class AutoRunTests: XCTestCase {
         XCTAssertEqual(run.plan(raw: "yf", out: "на", cyrillic: true), AutoRun.Fix(erase: 2, text: "на", original: "yf"))
     }
 
+    func testTwoShortWordsInARowAreFixedTogether() {
+        var run = AutoRun()
+        XCTAssertNil(run.plan(raw: "пщ", out: "go", cyrillic: false))
+        XCTAssertEqual(run.plan(raw: "ещ", out: "to", cyrillic: false),
+                       AutoRun.Fix(erase: 5, text: "go to", original: "пщ ещ"))
+        // the chain continues: a third short word follows a committed one
+        XCTAssertEqual(run.plan(raw: "еру", out: "the", cyrillic: false),
+                       AutoRun.Fix(erase: 3, text: "the", original: "еру"))
+    }
+
     func testShortWordOfTheOtherScriptIsNotSwallowed() {
         var run = AutoRun()
         XCTAssertNil(run.plan(raw: "d", out: "в", cyrillic: true))

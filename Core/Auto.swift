@@ -337,13 +337,15 @@ public struct AutoRun {
                        text: (swallow.map { $0.out + " " } ?? "") + out,
                        original: rawPrefix + raw)
         }
-        if let p = previous, p.committed, p.cyrillic == cyrillic {
-            // A short word right after a committed conversion of the same script.
+        if let p = previous, p.cyrillic == cyrillic {
             previous = Previous(raw: raw, out: out, cyrillic: cyrillic, committed: true)
-            return Fix(erase: raw.count, text: out, original: raw)
+            // A short word right after a committed conversion of the same script.
+            if p.committed { return Fix(erase: raw.count, text: out, original: raw) }
+            // Two short candidates in a row ("пщ ещ"): one alone is a guess the
+            // trigram cannot back, two agreeing neighbours are trusted together.
+            return Fix(erase: p.raw.count + 1 + raw.count, text: p.out + " " + out,
+                       original: p.raw + " " + raw)
         }
-        // ponytail: one-neighbour lookback — a stack ("bp pf ghbdtn") fixes only the
-        // last preposition; widen to a pending list if that ever matters.
         previous = Previous(raw: raw, out: out, cyrillic: cyrillic, committed: false)
         return nil
     }

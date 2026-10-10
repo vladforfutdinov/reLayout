@@ -6,6 +6,19 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
+## After v1.3.8 — two short words in a row are fixed together
+
+- Auto mode trusted a 1–2 letter candidate only next to a long one, so a chain
+  of short words ("пщ ещ еру" for "go to the") was never fixed: each short word
+  replaced the previous pending one and a correct word after them dropped it.
+- `AutoRun.planFix`: a short candidate right after a pending one of the same
+  script commits both in one edit; the chain then continues under the existing
+  "short after committed" rule. Test `testTwoShortWordsInARowAreFixedTogether`.
+- By design: one pending short word followed by a correctly typed word after a
+  manual layout switch ("пщ to the") is left alone — the hotkey covers it.
+
+---
+
 ## After v1.3.8 — the doubled first letter is macOS, not reLayout
 
 - Closes "the doubled first letter" (below, after v1.3.5). Rebuilt the per-key

@@ -623,6 +623,9 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     }
     private var lastConversion: Conversion?
     private let undoWindow = 1.5
+    // When the Cmd+C probe last found nothing selected: a second synthetic Cmd+C
+    // within a second would be DeepL's Cmd+C-Cmd+C trigger.
+    private var lastEmptyProbe: Double = 0
 
     // modifier-tap runtime state
     private var tapMonitors: [Any] = []
@@ -2207,6 +2210,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         if let ax = axSelectedText() {
             // AX path — never touches the clipboard (DeepL stays quiet)
             if !ax.isEmpty { dbg("read via AX: \(ax.debugDescription)"); sel = ax }
+        } else if ProcessInfo.processInfo.systemUptime - lastEmptyProbe < 1.0 {
+            dbg("no Cmd+C probe: the last one found nothing a moment ago")
         } else {
             // AX unavailable -> read the selection with Cmd+C (copy keeps the
             // selection; typing replaces exactly it, so smart cut-and-paste in
@@ -2215,6 +2220,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             clipboardSaved = snapshotClipboard(pb)
             clipboardTouched = true
             sel = copySelection(pb)
+            if sel?.isEmpty ?? true { lastEmptyProbe = ProcessInfo.processInfo.systemUptime }
         }
 
         // convert() touches TIS APIs, which must run on the main thread (macOS 26

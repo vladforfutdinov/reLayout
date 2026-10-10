@@ -6,6 +6,15 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
+## After v1.3.10 — no second Cmd+C probe within a second
+
+- With nothing selected and an empty word buffer in an app without an
+  Accessibility selection, every hotkey press probed with a synthetic Cmd+C;
+  two presses in a row were DeepL's Cmd+C-Cmd+C trigger and opened it. The
+  probe is skipped for a second after one that found nothing.
+
+---
+
 ## After v1.3.10 — the Cmd+C fallback restores every clipboard flavor
 
 - The hotkey's Cmd+C fallback (apps without an Accessibility selection, e.g.

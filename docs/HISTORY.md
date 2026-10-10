@@ -6,6 +6,26 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
+## After v1.3.9 — the Ukrainian model cleaned of Russian
+
+- The uk FrequencyWords 50k list (OpenSubtitles) is 18 753 of 50 000 words
+  and 25.5% of the mass Russian ("что", "ты", "это", "как" are in its top 10).
+  That is why the uk model read Russian as plausible. `scripts/trigram/filter.py`
+  keeps only words dict_uk (brown-uk, 3.9 M word forms) knows; `gen.py` then
+  gives 31 095 words, 7 704 trigrams, 34 third-chars (was 49 420 / 15 379 / 74:
+  ы, э, ъ, ё and Latin letters are gone). File 221 KB → 115 KB.
+- Measured. Cross-script uk ↔ en at the shipped thresholds, 7 110 positives /
+  7 110 negatives from the list and en_50k: recall 0.993 → 0.994, false
+  positives 10 → 9 (a holdout-trained variant: 0.992 / 23). Same-script set
+  (70 wrong-layout, 85 right-language words): 33 → 36 converted, 0 → 0 false.
+  Russian words typed on the uk layout: "что-то" uk −1.42 → −5.56 (fires),
+  "как-то" −1.72 → −2.54 and "пожалуйста" −2.12 → −2.98 now count as garbage
+  but miss the 1.5 margin against the ru model; "двигатель" stays (ru −2.46).
+- The raw list reproduces the previously shipped model byte for byte, so the
+  generator is unchanged; only the input is.
+
+---
+
 ## After v1.3.9 — auto mode converts between Cyrillic languages
 
 - `decideAutoTarget` took only layouts of the other script. Now same-script

@@ -126,7 +126,9 @@ Diagnostics:
 
 The UI is localized to 12 languages. Auto-correct trigram models in `Resources/trigram/` are
 built offline from [FrequencyWords](https://github.com/hermitdave/FrequencyWords) by Hermit Dave
-(MIT, derived from OpenSubtitles); reLayout ships only the derived statistics. Updates use
+(MIT, derived from OpenSubtitles), the Ukrainian list filtered through the word forms of
+[dict_uk](https://github.com/brown-uk/dict_uk) (GPL-3.0/MIT dual; only the filter result is
+used); reLayout ships only the derived statistics. Updates use
 [Sparkle](https://sparkle-project.org).
 
 ## License

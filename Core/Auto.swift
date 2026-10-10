@@ -5,10 +5,13 @@
 // Calibrated for ~99% precision on cross-script pairs (see scripts/trigram).
 public let autoGarbage: Float = -2.5   // word looks like junk in its own language
 public let autoMargin:  Float = 0.5    // converted form must beat it by this much
-// Same-script pairs (ru<->uk) differ in a few letters only, and the Russian model
-// underrates "ы" words ("рыба" -3.26): a wider margin keeps those; true wrong-layout
-// words ("ъжа", "поъзд", "єкран") clear it by 2.5-8.
-public let autoSameScriptMargin: Float = 1.5
+// Same-script pairs (ru<->uk) differ in a few letters only, so the margin is per
+// target language, from a 6000+6000-word sweep (scripts/trigram, 2026-10-10):
+// into uk 1.5 — the Russian model underrates "ы" words ("рыба", "пыль"), at 1.0
+// they flip; into ru 1.0 — the dictionary-cleaned uk model is strict, 3/6000
+// false at 1.0, and "кто-то" (1.11), "как-то" (1.02) are lost at 1.5.
+public let autoSameScriptMargins: [String: Float] = ["uk": 1.5, "ru": 1.0]
+public let autoSameScriptMargin: Float = 1.5   // other same-script pairs
 // Words carrying mapped punctuation (',' is б …) get a stricter, absolute gate:
 // their typed-side score is floor-dominated, so the relative margin alone lets
 // junk conversions through ("e.g" -> "уюп"). Real converted words score >= -2.6
@@ -126,7 +129,7 @@ public func decideAutoTarget<L: AutoLayout>(_ w: String, cur: L, enabled: [L],
               let tLang = t.languageCode, let tModel = model(tLang) else { continue }
         let sAlt = tModel.score(out)
         guard forced || pureFor || sAlt > autoPunctPlausible else { continue }
-        let margin = t.isCyrillic == cur.isCyrillic ? autoSameScriptMargin : autoMargin
+        let margin = sameScript ? autoSameScriptMargins[tLang] ?? autoSameScriptMargin : autoMargin
         guard forced || sAlt - sTyped > margin else { continue }
         if best == nil || sAlt > best!.2 { best = (t, out, sAlt) }
     }

@@ -23,6 +23,14 @@ work (not per commit). Operational "where are we right now" lives in
   but miss the 1.5 margin against the ru model; "двигатель" stays (ru −2.46).
 - The raw list reproduces the previously shipped model byte for byte, so the
   generator is unchanged; only the input is.
+- Margin per target language (`autoSameScriptMargins`): the cleaned uk model is
+  strict, the ru model loose, so the directions differ. Sweep on 6 000 Russian +
+  6 000 Ukrainian words from the lists: typing Russian on the uk layout — margin
+  1.0 gives recall 0.345 at 3/6000 false (1.5: 0.293, 1/6000); typing Ukrainian
+  on the ru layout — 1.0 gives 11/6000 false ("пыль" among them), 1.5 gives
+  4/6000. Shipped: into ru 1.0, into uk 1.5. Hand-picked set: 46/78 converted
+  ("кто-то", "как-то", "пожалуйста", "хорошо" now switch), 1/117 false ("сіно").
+  Still plausible Ukrainian to the uk model: "привет", "почему", "нужно".
 
 ---
 

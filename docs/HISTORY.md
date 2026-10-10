@@ -14,8 +14,13 @@ work (not per commit). Operational "where are we right now" lives in
   picked Polish, same result. `planRetype` now falls back to the other-script
   target when the positional pick changes nothing. Test
   `testPlanFallsBackToTheOtherScriptPastASameScriptTwin`.
-- No trigram model for pl/be/pt yet (only en, ru, uk, de, fr, es): auto mode is
-  silent on those layouts, the hotkey works.
+- Polish and Portuguese trigram models added (`pl.txt`, `pt.txt` from the
+  FrequencyWords 50k lists, same `gen.py`): a Polish or Portuguese layout paired
+  with a Cyrillic one had no auto-correct at all (the engine needs the current
+  layout's model). Cross-script eval at the shipped thresholds, EN key rows as
+  the Latin map: pl ↔ ru recall 0.995 / fp 0.03%, pl ↔ uk 0.995 / 0.05%,
+  pt ↔ ru 0.996 / 0.07%, pt ↔ uk 0.996 / 0.05% — on par with en (0.994 / 0.1%).
+  Belarusian still missing: its subtitle list needs a dictionary filter like uk.
 
 ---
 

@@ -620,7 +620,6 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         // `original`, typed in turn; `suffix` (spaces after a typed word) is kept.
         var alternatives: [(out: String, dst: Layout)] = []
         var suffix = ""
-        var selected = false   // converted a selection: the undo reselects the original
     }
     private var lastConversion: Conversion?
     private let undoWindow = 1.5
@@ -2255,7 +2254,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         lastConversion = Conversion(original: typed == r.out ? r.replaced : text, typed: typed,
                                     srcSource: r.src.source,
                                     time: ProcessInfo.processInfo.systemUptime, learned: r.learned,
-                                    alternatives: typed == r.out ? r.alternatives : [], selected: true)
+                                    alternatives: typed == r.out ? r.alternatives : [])
     }
 
     // No selection: erase the word just typed (and the spaces after it), type its
@@ -2284,10 +2283,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         usleep(20_000)
         typeUnicode(next.out + last.suffix)
         usleep(20_000)
-        DispatchQueue.main.sync {
-            if last.selected { self.autoRun.remember(next.out) } else { self.rememberTyped(next.out + last.suffix) }
-            self.selectLayout(next.dst)
-        }
+        DispatchQueue.main.sync { self.autoRun.remember(next.out + last.suffix); self.selectLayout(next.dst) }
         var again = last
         again.typed = next.out + last.suffix
         again.alternatives = Array(last.alternatives.dropFirst())
@@ -2314,20 +2310,9 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             typeUnicode(last.original)
         }
         usleep(20_000)
-        // The user pointed at this text: it stays the hotkey's target as a whole,
-        // without a visible selection; a typed word goes back into the word buffer.
-        DispatchQueue.main.sync {
-            _ = TISSelectInputSource(last.srcSource)
-            if last.selected { self.autoRun.remember(last.original) } else { self.rememberTyped(last.original) }
-        }
-    }
-
-    // After an undo or a retarget the text before the caret is ours again: replay it
-    // into the word buffer so the hotkey can act on it without a selection
-    // ("ть" -> "nm" -> undo -> hotkey did nothing, the buffer had been reset).
-    private func rememberTyped(_ s: String) {
-        autoRun.reset()
-        for ch in s { _ = autoRun.feed(String(ch), mapsToCyrillic: { self.feedsAsCyr(String($0)) }) }
+        // The restored text stays the hotkey's target as a whole (engine `remember`:
+        // not fed through the word buffer, which would split it at punctuation).
+        DispatchQueue.main.sync { _ = TISSelectInputSource(last.srcSource); self.autoRun.remember(last.original) }
     }
 
     // Insert a string by synthesizing per-character Unicode key events. A line

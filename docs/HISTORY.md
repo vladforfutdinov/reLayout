@@ -45,12 +45,11 @@ work (not per commit). Operational "where are we right now" lives in
   unchanged. Double-tap hotkeys: unchanged (no cycle, no undo). Auto-corrections:
   no alternatives, second press = undo.
 - After an undo (or a retarget) the hotkey did nothing without a selection: the
-  undo reset the word buffer, so `hotkeyTarget` was empty. Both apps now replay
-  the restored text into the buffer (`rememberTyped`), so the hotkey acts on it
-  again — "ть" → "nm" → undo → hotkey → "nm". A converted *selection* is
-  not reselected: `AutoRun.remember` keeps the whole original (spaces included)
-  as the hotkey target until the next key, so the next hotkey works on all of
-  it rather than on the last word, with nothing visibly selected.
+  undo reset the word buffer, so `hotkeyTarget` was empty. Both apps now hand the
+  restored text to `AutoRun.remember`, which keeps it whole (spaces and
+  punctuation included) as the hotkey target until the next key, nothing
+  visibly selected. Replaying it through the word buffer was tried first and
+  split "б§kj" at the "§", shrinking the target to "kj".
 
 ---
 

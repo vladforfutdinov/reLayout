@@ -365,8 +365,8 @@ public struct AutoRun {
         word.isEmpty && trail.isEmpty ? (spacedWord + spacedTrail, spaces) : (word + trail, 0)
     }
 
-    /// Makes `text` (a converted-then-undone selection, spaces and all) the hotkey's
-    /// target: it sits right before the caret, unselected. Any key drops it.
+    /// Makes `text` (what an undo or a retarget just put before the caret, spaces
+    /// and punctuation included) the hotkey's target as a whole. Any key drops it.
     public mutating func remember(_ text: String) {
         reset()
         spacedWord = text

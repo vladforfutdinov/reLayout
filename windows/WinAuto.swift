@@ -98,17 +98,10 @@ func resetAutoBuffer() {
     run.reset()
 }
 
-/// A converted-then-undone selection stays the hotkey's target as a whole.
+/// What an undo or a retarget just put before the caret stays the hotkey's
+/// target as a whole (engine `remember`).
 func rememberSelection(_ s: String) {
     run.remember(s)
-}
-
-/// After an undo or a retarget the text before the caret is ours again: replay it
-/// into the word buffer so the hotkey can act on it without a selection.
-func rememberTyped(_ s: String) {
-    run.reset()
-    guard let cur = WinLayout.current() else { return }
-    for ch in s { _ = run.feed(String(ch), mapsToCyrillic: { mapsToCyrillic($0, cur: cur) }) }
 }
 
 /// The word typed before the caret and the spaces after it, for the hotkey with

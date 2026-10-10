@@ -16,19 +16,16 @@ struct Conversion {
     var learned: [String] = []   // hotkey misses this conversion learned: undo forgets them
     var autoWords: [String] = [] // words an auto-correction fixed: undo learns them as `keep`
     var alternatives: [(out: String, dst: WinLayout)] = []   // the other readings, next press first
-    var suffix = ""
-    var selected = false   // converted a selection: the undo reselects the original              // spaces after a typed word, kept on retarget
+    var suffix = ""              // spaces after a typed word, kept on retarget
 }
 private var lastConversion: Conversion?
 private let undoWindowMs: DWORD = 1500
 
 func recordConversion(original: String, typed: String, src: WinLayout,
                       learned: [String] = [], autoWords: [String] = [],
-                      alternatives: [(out: String, dst: WinLayout)] = [], suffix: String = "",
-                      selected: Bool = false) {
+                      alternatives: [(out: String, dst: WinLayout)] = [], suffix: String = "") {
     lastConversion = Conversion(original: original, typed: typed, src: src, time: GetTickCount(),
-                                learned: learned, autoWords: autoWords, alternatives: alternatives, suffix: suffix,
-                                selected: selected)
+                                learned: learned, autoWords: autoWords, alternatives: alternatives, suffix: suffix)
 }
 
 /// Any real keystroke or click moves on from the last conversion: the caret is no
@@ -107,8 +104,7 @@ private func retype(_ text: String, cur: WinLayout) {
     recordConversion(original: plan.replaced, typed: plan.out, src: plan.src,
                      learned: learnHotkeyMisses(replaced: plan.replaced, out: plan.out, src: plan.src),
                      alternatives: plan.replaced == text
-                        ? alternatives(plan.replaced, first: plan.out, src: plan.src, enabled: enabled) : [],
-                     selected: true)
+                        ? alternatives(plan.replaced, first: plan.out, src: plan.src, enabled: enabled) : [])
 }
 
 /// The other readings of a hotkey conversion for the press-again cycle (engine
@@ -127,7 +123,7 @@ private func performRetarget(_ last: Conversion, to next: (out: String, dst: Win
     resetAutoBuffer()
     selectLeft(last.typed.count)
     guard typeText(next.out + last.suffix, in: next.dst) else { return }   // also leaves dst active
-    if last.selected { rememberSelection(next.out) } else { rememberTyped(next.out + last.suffix) }
+    rememberSelection(next.out + last.suffix)
     var again = last
     again.typed = next.out + last.suffix
     again.alternatives = Array(last.alternatives.dropFirst())
@@ -150,9 +146,7 @@ private func performUndo(_ last: Conversion) {
     } else {
         guard typeText(last.original, in: last.src) else { return }
     }
-    // A converted selection comes back selected, so the next hotkey works on all of
-    // it; a typed word goes back into the word buffer instead.
-    if last.selected { rememberSelection(last.original) } else { rememberTyped(last.original) }
+    rememberSelection(last.original)
 }
 
 /// Fallback for controls without UI Automation text (Electron, old apps): read the

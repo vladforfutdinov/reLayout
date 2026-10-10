@@ -48,8 +48,9 @@ work (not per commit). Operational "where are we right now" lives in
   undo reset the word buffer, so `hotkeyTarget` was empty. Both apps now replay
   the restored text into the buffer (`rememberTyped`), so the hotkey acts on it
   again — "ть" → "nm" → undo → hotkey → "nm". A converted *selection* is
-  instead reselected by the undo (Shift+Left over the original), so the next
-  hotkey works on all of it rather than on the last word.
+  not reselected: `AutoRun.remember` keeps the whole original (spaces included)
+  as the hotkey target until the next key, so the next hotkey works on all of
+  it rather than on the last word, with nothing visibly selected.
 
 ---
 

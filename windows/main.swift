@@ -127,7 +127,7 @@ private func performRetarget(_ last: Conversion, to next: (out: String, dst: Win
     resetAutoBuffer()
     selectLeft(last.typed.count)
     guard typeText(next.out + last.suffix, in: next.dst) else { return }   // also leaves dst active
-    rememberTyped(next.out + last.suffix)
+    if last.selected { rememberSelection(next.out) } else { rememberTyped(next.out + last.suffix) }
     var again = last
     again.typed = next.out + last.suffix
     again.alternatives = Array(last.alternatives.dropFirst())
@@ -152,7 +152,7 @@ private func performUndo(_ last: Conversion) {
     }
     // A converted selection comes back selected, so the next hotkey works on all of
     // it; a typed word goes back into the word buffer instead.
-    if last.selected { resetAutoBuffer(); selectLeft(last.original.count) } else { rememberTyped(last.original) }
+    if last.selected { rememberSelection(last.original) } else { rememberTyped(last.original) }
 }
 
 /// Fallback for controls without UI Automation text (Electron, old apps): read the

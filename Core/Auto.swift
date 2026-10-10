@@ -365,6 +365,13 @@ public struct AutoRun {
         word.isEmpty && trail.isEmpty ? (spacedWord + spacedTrail, spaces) : (word + trail, 0)
     }
 
+    /// Makes `text` (a converted-then-undone selection, spaces and all) the hotkey's
+    /// target: it sits right before the caret, unselected. Any key drops it.
+    public mutating func remember(_ text: String) {
+        reset()
+        spacedWord = text
+    }
+
     /// Ends the run; the previous word can no longer join a correction.
     public mutating func reset() {
         word = ""; trail = ""; previous = nil
@@ -394,8 +401,8 @@ public struct AutoRun {
                 dropSpacedWord()   // Tab may move focus: nothing to erase across it
             } else if !word.isEmpty || !trail.isEmpty {
                 spacedWord = word; spacedTrail = trail; spaces = 1
-            } else if spaces > 0 {
-                spaces += 1
+            } else if spaces > 0 || !spacedWord.isEmpty {
+                spaces += 1   // a remembered text gets its spaces counted too
             }
             let ended = Event.boundary(word: word, trail: trail)
             word = ""; trail = ""   // the previous word stays for the short-word rule

@@ -103,6 +103,17 @@ final class AutoRunTests: XCTestCase {
         XCTAssertEqual(run.word, "")
     }
 
+    func testRememberedTextIsTheHotkeyTargetUntilAKey() {
+        var run = AutoRun()
+        run.remember("ghbdtn vbh")
+        XCTAssertEqual(run.hotkeyTarget.text, "ghbdtn vbh")
+        XCTAssertEqual(run.hotkeyTarget.spaces, 0)
+        _ = type(" ", into: &run)
+        XCTAssertEqual(run.hotkeyTarget.spaces, 1)
+        _ = type("a", into: &run)
+        XCTAssertEqual(run.hotkeyTarget.text, "a")
+    }
+
     func testLongWordIsFixedAlone() {
         var run = AutoRun()
         XCTAssertEqual(run.plan(raw: "ghbdtn", out: "привет", cyrillic: true),

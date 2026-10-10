@@ -2284,7 +2284,10 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         usleep(20_000)
         typeUnicode(next.out + last.suffix)
         usleep(20_000)
-        DispatchQueue.main.sync { self.rememberTyped(next.out + last.suffix); self.selectLayout(next.dst) }
+        DispatchQueue.main.sync {
+            if last.selected { self.autoRun.remember(next.out) } else { self.rememberTyped(next.out + last.suffix) }
+            self.selectLayout(next.dst)
+        }
         var again = last
         again.typed = next.out + last.suffix
         again.alternatives = Array(last.alternatives.dropFirst())
@@ -2311,13 +2314,11 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             typeUnicode(last.original)
         }
         usleep(20_000)
-        if last.selected {
-            // The user pointed at this text: give the selection back, so the next
-            // hotkey works on all of it, not on the word buffer.
-            for _ in 0..<last.original.count { postKey(CGKeyCode(kVK_LeftArrow), .maskShift) }
-            DispatchQueue.main.sync { _ = TISSelectInputSource(last.srcSource); self.autoRun.reset() }
-        } else {
-            DispatchQueue.main.sync { _ = TISSelectInputSource(last.srcSource); self.rememberTyped(last.original) }
+        // The user pointed at this text: it stays the hotkey's target as a whole,
+        // without a visible selection; a typed word goes back into the word buffer.
+        DispatchQueue.main.sync {
+            _ = TISSelectInputSource(last.srcSource)
+            if last.selected { self.autoRun.remember(last.original) } else { self.rememberTyped(last.original) }
         }
     }
 

@@ -98,6 +98,11 @@ func resetAutoBuffer() {
     run.reset()
 }
 
+/// A converted-then-undone selection stays the hotkey's target as a whole.
+func rememberSelection(_ s: String) {
+    run.remember(s)
+}
+
 /// After an undo or a retarget the text before the caret is ours again: replay it
 /// into the word buffer so the hotkey can act on it without a selection.
 func rememberTyped(_ s: String) {

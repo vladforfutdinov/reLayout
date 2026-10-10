@@ -3,17 +3,17 @@
     <channel>
         <title>ReLayout</title>
         <item>
-            <title>1.3.8</title>
-            <pubDate>Wed, 07 Oct 2026 22:39:50 +0000</pubDate>
-            <sparkle:version>289</sparkle:version>
-            <sparkle:shortVersionString>1.3.8</sparkle:shortVersionString>
+            <title>1.3.9</title>
+            <pubDate>Sat, 10 Oct 2026 17:22:18 +0000</pubDate>
+            <sparkle:version>294</sparkle:version>
+            <sparkle:shortVersionString>1.3.9</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
-            <description><![CDATA[<h2>What's new in v1.3.8 — macOS</h2>
+            <description><![CDATA[<h2>What's new in v1.3.9 — macOS</h2>
 <ul>
-<li>Maintenance release: reLayout is now signed with renewed security certificates and update keys. Nothing changes in how the app works.</li>
-<li>Please install this update — future updates will only be accepted by 1.3.8 and later.</li>
+<li>Auto-correct now fixes a run of short words typed in the wrong layout: "пщ ещ еру" becomes "go to the" as you type. Before, a 1–2 letter word was only corrected next to a longer one, so a chain of short words was left as is.</li>
+<li>A single short word followed by text you typed after switching the layout by hand ("пщ to the") is still left alone — select it and press the hotkey.</li>
 </ul>]]></description>
-            <enclosure url="https://github.com/vladforfutdinov/reLayout/releases/download/v1.3.8/reLayout.zip" sparkle:edSignature="kX1ZSAp53PjGWEflnd+ShVFiF66KsOVBQBbiuKGO5118xQopDGEC59h08yJ4REoXxNg0I87lqubxsn9IJOIbBQ==" length="1738386" type="application/octet-stream"/>
+            <enclosure url="https://github.com/vladforfutdinov/reLayout/releases/download/v1.3.9/reLayout.zip" length="1738569" type="application/octet-stream"/>
         </item>
     </channel>
 </rss>

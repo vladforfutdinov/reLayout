@@ -240,9 +240,17 @@ func unlearn(_ last: Conversion) {
     saveLearnedWords()
 }
 
-func forgetLearned() {
-    learnedConvert = [:]
-    learnedKeep = []
+func learnedWords() -> (convert: [String: String], keep: Set<String>) { (learnedConvert, learnedKeep) }
+
+/// Forgets `keys` from both stores, or every learned word when nil.
+func forgetLearned(_ keys: Set<String>? = nil) {
+    if let keys {
+        for k in keys { learnedConvert[k] = nil }
+        learnedKeep.subtract(keys)
+    } else {
+        learnedConvert = [:]
+        learnedKeep = []
+    }
     saveLearnedWords()
 }
 

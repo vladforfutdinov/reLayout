@@ -160,7 +160,7 @@ while GetMessageW(&msg, nil, 0, 0) {
         triggerHotkey()
     }
     // Tab / Shift+Tab / arrows / Space between the controls of our windows.
-    if [settingsWindow(), exceptionsWindow()].contains(where: { $0 != nil && IsDialogMessageW($0, &msg) }) {
+    if [settingsWindow(), exceptionsWindow(), learnedWindow()].contains(where: { $0 != nil && IsDialogMessageW($0, &msg) }) {
         continue
     }
     TranslateMessage(&msg)

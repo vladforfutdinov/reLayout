@@ -68,8 +68,9 @@ work (not per commit). Operational "where are we right now" lives in
 - Windows port (same day): learned words and the uk ↔ ru option wired —
   registry `AutoCorrectLearned` / `AutoCorrectKept` (REG_SZ) /
   `AutoCorrectSameScript` (REG_DWORD), hooks on both hotkey paths and both undo
-  paths, Settings checkbox plus "Learned words: N" with a confirmed Reset. No
-  "View…" list on Windows yet. Built in the UTM VM, hand-testing pending.
+  paths, Settings checkbox plus "Learned words: N" with a confirmed Reset. A
+  "View…" list window (`WinLearned.swift`, a copy of the exceptions editor with
+  a two-column list view) followed. Built in the UTM VM, hand-testing pending.
   The port also exposed a macOS bug: the view list paired a miss with the
   wrong output word when an earlier selected word was not a miss (fixed).
 - Rejected on the way: a typing-series history of judged words (the hotkey

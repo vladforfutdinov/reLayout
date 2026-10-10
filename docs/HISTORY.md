@@ -11,7 +11,8 @@ work (not per commit). Operational "where are we right now" lives in
 - With nothing selected and an empty word buffer in an app without an
   Accessibility selection, every hotkey press probed with a synthetic Cmd+C;
   two presses in a row were DeepL's Cmd+C-Cmd+C trigger and opened it. The
-  probe is skipped for a second after one that found nothing.
+  probe is skipped for a second after one that found nothing. Same guard on
+  Windows (`retypeViaClipboard`, Ctrl+C).
 
 ---
 

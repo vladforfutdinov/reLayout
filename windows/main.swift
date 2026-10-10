@@ -152,12 +152,17 @@ private func performUndo(_ last: Conversion) {
 /// Fallback for controls without UI Automation text (Electron, old apps): read the
 /// selection with Ctrl+C and put the user's clipboard back afterwards. Nothing is
 /// selected -> the word just typed.
+// When the Ctrl+C probe last found nothing selected: a second synthetic Ctrl+C
+// within a second would be DeepL's Ctrl+C-Ctrl+C trigger.
+private var lastEmptyProbe: DWORD = 0
+
 private func retypeViaClipboard(_ cur: WinLayout, typed: (text: String, spaces: Int)) {
+    if GetTickCount() &- lastEmptyProbe < 1000 { return retypeTyped(typed, cur: cur) }
     let saved = saveClipboard()
     let seq = GetClipboardSequenceNumber()
     let text = readSelection()
     if let saved, GetClipboardSequenceNumber() != seq { restoreClipboard(saved, owner: trayWindow()) }
-    guard let text else { return retypeTyped(typed, cur: cur) }
+    guard let text else { lastEmptyProbe = GetTickCount(); return retypeTyped(typed, cur: cur) }
     retype(text, cur: cur)
 }
 

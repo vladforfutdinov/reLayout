@@ -21,6 +21,8 @@
 "settings.autoUpdate" = "自动检查更新";
 "settings.autoCorrect" = "自动纠正键盘布局";
 "settings.autoCorrectEnter" = "按回车时纠正（仅换行）";
+"settings.autoCorrectSimilar" = "在相似布局之间（uk ↔ ru）— 实验性";
+"settings.autoCorrectSimilar.tip" = "转换在俄语布局上输入、但读起来像乌克兰语的词，反之亦然（“ъжа” → “їжа”）。两种语言仅靠各自特有的字母区分，共有的词不会被改动，部分错误会漏过。";
 "settings.autoCorrectUnavailable" = "自动纠正需要不同文字的键盘布局，例如英语和任意西里尔文布局。同一文字的布局（%@）无法可靠区分，请使用快捷键。";
 
 // auto-correct exceptions

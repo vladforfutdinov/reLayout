@@ -274,6 +274,22 @@ final class EngineTests: XCTestCase {
         XCTAssertNil(decideAutoTarget("ghbdtn", cur: latin, enabled: [latin], model: { models[$0] }))
     }
 
+    func testAutoDecideConvertsBetweenSameScriptLanguages() {
+        // A fake Russian layout: the "і" key types "ы". "привыт" on it is "привіт".
+        let (latin, uk) = makeLayouts()
+        var ru = uk; ru.languageCode = "ru"
+        let st = uk.charToStroke["і"]!
+        ru.charToStroke["і"] = nil; ru.charToStroke["ы"] = st; ru.strokeToChar[st] = "ы"
+        let models = ["ru": model(knowing: ["привет"]), "uk": model(knowing: ["привіт"]), "en": model(knowing: [])]
+        let r = decideAutoTarget("привыт", cur: ru, enabled: [latin, ru, uk], model: { models[$0] }, sameScript: true)
+        XCTAssertEqual(r?.out, "привіт")
+        XCTAssertEqual(r?.target.languageCode, "uk")
+        // A plausible Russian word stays, even though uk would read its conversion.
+        XCTAssertNil(decideAutoTarget("привет", cur: ru, enabled: [latin, ru, uk], model: { models[$0] }, sameScript: true))
+        // Off by default: same-script layouts are not candidates.
+        XCTAssertNil(decideAutoTarget("привыт", cur: ru, enabled: [latin, ru, uk], model: { models[$0] }))
+    }
+
     func testAutoDecideWithoutAModelDoesNothing() {
         let (latin, cyr) = makeLayouts()
         XCTAssertNil(decideAutoTarget("ghbdtn", cur: latin, enabled: [latin, cyr], model: { _ in nil }))
@@ -363,6 +379,17 @@ final class EngineTests: XCTestCase {
     func testPlanNeedsTwoLayouts() {
         let (latin, _) = makeLayouts()
         XCTAssertNil(plan("ghbdtn", enabled: [latin], curIdx: 0))
+    }
+
+    func testPlanPicksTheSameScriptLayoutWhoseModelReadsTheResult() {
+        let (latin, uk) = makeLayouts()
+        var ru = uk; ru.languageCode = "ru"
+        let models = ["uk": model(knowing: ["привіт"]), "ru": model(knowing: ["привет"]), "en": model(knowing: [])]
+        let plan = { (t: String) in planRetype(t, enabled: [latin, uk, ru], curIdx: 0, model: { models[$0] }) }
+        XCTAssertEqual(plan("ghbdtn")?.dst.languageCode, "ru")
+        XCTAssertEqual(plan("ghbdsn")?.dst.languageCode, "uk")
+        // No models -> the positional rule (the second layout).
+        XCTAssertEqual(planRetype("ghbdtn", enabled: [latin, uk, ru], curIdx: 0, model: { _ in nil })?.dst.languageCode, "uk")
     }
 
     func testPickTargetWithTwoLayoutsIsTheOther() {

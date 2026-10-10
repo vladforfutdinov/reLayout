@@ -21,6 +21,8 @@
 "settings.autoUpdate" = "Automatically check for updates";
 "settings.autoCorrect" = "Auto-correct wrong layout";
 "settings.autoCorrectEnter" = "Fix on Enter (new line only)";
+"settings.autoCorrectSimilar" = "Between similar layouts (uk ↔ ru) — experimental";
+"settings.autoCorrectSimilar.tip" = "Converts a word typed on the Russian layout that reads as Ukrainian, and the other way round (“ъжа” → “їжа”). The two languages are told apart only by their distinctive letters, so words common to both are left alone and some wrong ones slip through.";
 "settings.autoCorrectUnavailable" = "Auto-correct needs keyboard layouts of different scripts, e.g. English and any Cyrillic one. Layouts of one script (%@) can't be told apart reliably — use the hotkey.";
 
 // auto-correct exceptions

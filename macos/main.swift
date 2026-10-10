@@ -644,6 +644,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     private weak var autoCb: NSButton?
     private weak var autoExcBtn: NSButton?
     private weak var autoEnterCb: NSButton?
+    private weak var autoSimilarCb: NSButton?
     private weak var learnedLabel: NSTextField?
     private weak var learnedViewBtn: NSButton?
     private weak var learnedResetBtn: NSButton?
@@ -758,6 +759,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         autoExcBtn?.isEnabled = ok
         autoEnterCb?.isEnabled = ok && autoMode
         autoEnterCb?.state = autoEnterNewline ? .on : .off
+        autoSimilarCb?.isEnabled = ok && autoMode
+        autoSimilarCb?.state = autoSameScript ? .on : .off
         learnedLabel?.stringValue = String(format: L("settings.learned"), String(learnedConvert.count + learnedKeep.count))
         learnedViewBtn?.isEnabled = ok && autoMode
         learnedResetBtn?.isEnabled = ok && autoMode && !(learnedConvert.isEmpty && learnedKeep.isEmpty)
@@ -1131,6 +1134,10 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         let enterCb = makeCheckbox(L("settings.autoCorrectEnter"), #selector(toggleAutoEnter(_:)), on: autoEnterNewline)
         let enterRow = NSStackView(views: [enterCb])
         enterRow.edgeInsets = NSEdgeInsets(top: 0, left: 20, bottom: 0, right: 0)   // sub-option of auto-correct
+        let similarCb = makeCheckbox(L("settings.autoCorrectSimilar"), #selector(toggleAutoSimilar(_:)), on: autoSameScript)
+        similarCb.toolTip = L("settings.autoCorrectSimilar.tip")
+        let similarRow = NSStackView(views: [similarCb])
+        similarRow.edgeInsets = NSEdgeInsets(top: 0, left: 20, bottom: 0, right: 0)
         let learnedLbl = NSTextField(labelWithString: "")
         let learnedView = NSButton(title: L("settings.learned.view"), target: self, action: #selector(openLearned))
         let learnedReset = NSButton(title: L("settings.learned.reset"), target: self, action: #selector(resetLearned))
@@ -1140,7 +1147,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         learnedRow.setCustomSpacing(8, after: learnedView)
         learnedRow.edgeInsets = NSEdgeInsets(top: 0, left: 20, bottom: 0, right: 0)
 
-        self.autoCb = autoCb; autoExcBtn = excBtn; autoInfo = autoInfoIcon; autoEnterCb = enterCb
+        self.autoCb = autoCb; autoExcBtn = excBtn; autoInfo = autoInfoIcon; autoEnterCb = enterCb; autoSimilarCb = similarCb
         learnedLabel = learnedLbl; learnedViewBtn = learnedView; learnedResetBtn = learnedReset
         updateAutoAvailability()
 
@@ -1197,7 +1204,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
                                         on: updater?.updater.automaticallyChecksForUpdates ?? true)
         arranged.append(autoUpdateCb)
 #endif
-        arranged += [langGrid, sep2, hkGrid, sep3, autoRow, enterRow, learnedRow, version, link, copyright]
+        arranged += [langGrid, sep2, hkGrid, sep3, autoRow, enterRow, similarRow, learnedRow, version, link, copyright]
 
         let stack = NSStackView(views: arranged)
         stack.orientation = .vertical
@@ -1673,7 +1680,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     // Cross-script trigram decision lives in the engine (Core/Auto.swift); this
     // only feeds it the cached models.
     func autoDecide(_ w: String, cur: Layout, enabled: [Layout]) -> (target: Layout, out: String)? {
-        decideAutoTarget(w, cur: cur, enabled: enabled, model: trigram, learned: learnedVerdict)
+        decideAutoTarget(w, cur: cur, enabled: enabled, model: trigram, learned: learnedVerdict,
+                         sameScript: autoSameScript)
     }
 
 
@@ -1852,6 +1860,11 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     }
 
     private var autoEnterNewline: Bool { UserDefaults.standard.object(forKey: "autoEnterNewline") as? Bool ?? true }
+    // Experimental: ru <-> uk conversion (see decideAutoTarget sameScript). Default off.
+    private var autoSameScript: Bool { UserDefaults.standard.bool(forKey: "autoSameScript") }
+    @objc private func toggleAutoSimilar(_ sender: NSButton) {
+        UserDefaults.standard.set(sender.state == .on, forKey: "autoSameScript")
+    }
 
     // Main thread, from the tap, before the Return reaches the app. Only a long word
     // (no preposition adjacency across a line) in a field whose caret and text are

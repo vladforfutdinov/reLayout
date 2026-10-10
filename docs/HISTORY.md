@@ -6,6 +6,38 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
+## After v1.3.9 — auto mode converts between Cyrillic languages
+
+- `decideAutoTarget` took only layouts of the other script. Now same-script
+  layouts of another language are candidates too (ru ↔ uk: "ъжа" → "їжа",
+  "єкран" → "экран"), under the usual gates plus `autoSameScriptMargin` 1.5
+  instead of 0.5: with 0.5 the Russian model's low scores for "ы" words sent
+  "рыба", "дым", "пыль" to Ukrainian.
+- Eval (scratch, real models, the four-letter ru/uk key difference): 30/54
+  wrong-layout words converted, 0/68 right-language words touched. Misses are
+  words plausible in both languages ("місто"/"мысто", "дім"/"дым") and the
+  uk → ru direction, where the Ukrainian model accepts most "і" words.
+- Same-language pairs (ru / ru-PC) are never candidates: the text would not change.
+- Shipped as an opt-in marked experimental (Settings → "Between similar layouts
+  (uk ↔ ru)", `autoSameScript`, engine `sameScript:` default off): the
+  miss rate above is too high to call it a feature. Custom layouts count by
+  their declared languages (Ilya Birman's Russian Typography reports "ru").
+
+---
+
+## After v1.3.9 — the hotkey picks the layout by trigram score
+
+- With several layouts of the other script enabled (ru + uk, en + de) the
+  hotkey chose by position (`pickTarget`: the first, or the second). Now
+  `planRetype` converts into every candidate and keeps the one whose language
+  model reads the result best (`bestConversion`, length-weighted mean word
+  score); the "switched after typing" path chooses its source layout the same
+  way under the current layout's model. Only installed layouts' models are
+  consulted; `pickTarget` stays as the fallback without models. Auto mode
+  already chose its target this way.
+
+---
+
 ## After v1.3.9 — learned words: the hotkey teaches auto mode
 
 - Trigram-only detection has a known ceiling: a short word of rare letters loses

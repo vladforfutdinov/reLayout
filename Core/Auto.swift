@@ -5,6 +5,10 @@
 // Calibrated for ~99% precision on cross-script pairs (see scripts/trigram).
 public let autoGarbage: Float = -2.5   // word looks like junk in its own language
 public let autoMargin:  Float = 0.5    // converted form must beat it by this much
+// Same-script pairs (ru<->uk) differ in a few letters only, and the Russian model
+// underrates "ы" words ("рыба" -3.26): a wider margin keeps those; true wrong-layout
+// words ("ъжа", "поъзд", "єкран") clear it by 2.5-8.
+public let autoSameScriptMargin: Float = 1.5
 // Words carrying mapped punctuation (',' is б …) get a stricter, absolute gate:
 // their typed-side score is floor-dominated, so the relative margin alone lets
 // junk conversions through ("e.g" -> "уюп"). Real converted words score >= -2.6
@@ -17,8 +21,10 @@ public protocol AutoLayout: LayoutMaps {
     var languageCode: String? { get }
 }
 
-// Auto fires ONLY between layouts of different scripts (Cyrillic<->Latin), where
-// detection is reliable; same-script pairs always return nil.
+// Auto fires between layouts of different scripts (Cyrillic<->Latin) and between
+// same-script layouts of different languages (ru<->uk: "ъжа" is "їжа" typed on
+// the Russian layout), under the same gates. Same-language pairs (ru / ru-PC)
+// never: the text would not change.
 //
 // Length is NOT gated here — the trigram model pads `^^w$`, so 1-2 char words
 // (prepositions: d->в, yf->на) still score. autoEvaluate applies the extra
@@ -42,12 +48,17 @@ public func learnedKey(_ w: String) -> String {
 ///   - model: trigram model for a language code, cached by the caller.
 ///   - learned: the user's verdict on a `learnedKey`; `.keep` leaves the word,
 ///     `.convert` converts it past the plausibility gates.
+///   - sameScript: also consider same-script layouts of another language (ru ↔ uk).
+///     Experimental: the models tell the two apart only on their distinctive letters.
 /// - Returns: the target layout and the converted word, or nil to leave the word alone.
 public func decideAutoTarget<L: AutoLayout>(_ w: String, cur: L, enabled: [L],
                                             model: (String) -> TrigramModel?,
-                                            learned: (String) -> LearnedVerdict? = { _ in nil }) -> (target: L, out: String)? {
+                                            learned: (String) -> LearnedVerdict? = { _ in nil },
+                                            sameScript: Bool = false) -> (target: L, out: String)? {
     guard let curLang = cur.languageCode, let curModel = model(curLang) else { return nil }
-    let targets = enabled.filter { $0.isCyrillic != cur.isCyrillic }   // cross-script only
+    let targets = enabled.filter {
+        $0.isCyrillic != cur.isCyrillic || (sameScript && $0.languageCode != curLang)
+    }
     guard !targets.isEmpty else { return nil }
 
     let forced: Bool
@@ -110,7 +121,8 @@ public func decideAutoTarget<L: AutoLayout>(_ w: String, cur: L, enabled: [L],
               let tLang = t.languageCode, let tModel = model(tLang) else { continue }
         let sAlt = tModel.score(out)
         guard forced || pureFor || sAlt > autoPunctPlausible else { continue }
-        guard forced || sAlt - sTyped > autoMargin else { continue }
+        let margin = t.isCyrillic == cur.isCyrillic ? autoSameScriptMargin : autoMargin
+        guard forced || sAlt - sTyped > margin else { continue }
         if best == nil || sAlt > best!.2 { best = (t, out, sAlt) }
     }
     guard let b = best else {
@@ -199,15 +211,39 @@ public func planRetype<L: AutoLayout>(_ text: String, enabled: [L], curIdx: Int,
 
     // Switched after typing: the wrong layout is the text's, the target the current.
     if !textHasScript(text, cyrillic: cur.isCyrillic),
-       let wrongCyr = dominantScript(text), wrongCyr != cur.isCyrillic,
-       let src = enabled.first(where: { $0.isCyrillic == wrongCyr }),
-       let out = convertWrong(text, src: src, dst: cur) {
-        return (out, cur, src, text)
+       let wrongCyr = dominantScript(text), wrongCyr != cur.isCyrillic {
+        let srcs = enabled.filter { $0.isCyrillic == wrongCyr }
+        let src = bestConversion(text, pairs: srcs.map { ($0, cur) }, model: model)?.src ?? srcs.first
+        if let src, let out = convertWrong(text, src: src, dst: cur) {
+            return (out, cur, src, text)
+        }
     }
 
-    let target = pickTarget(text, enabled: enabled, curIdx: curIdx)
+    let targets = enabled.filter { $0.isCyrillic != cur.isCyrillic }
+    let target = bestConversion(text, pairs: targets.map { (cur, $0) }, model: model)?.dst
+        ?? pickTarget(text, enabled: enabled, curIdx: curIdx)
     guard let out = convertWrong(text, src: cur, dst: target) else { return nil }
     return (out, target, cur, text)
+}
+
+/// Among several layouts of one script (ru + uk, en + de): the pair whose
+/// conversion the destination's language model reads best. Nil with fewer than
+/// two pairs, no models, or nothing converting — the caller's positional rule
+/// then decides.
+func bestConversion<L: AutoLayout>(_ text: String, pairs: [(src: L, dst: L)],
+                                  model: (String) -> TrigramModel?) -> (src: L, dst: L)? {
+    guard pairs.count > 1 else { return nil }
+    var best: (pair: (src: L, dst: L), score: Float)?
+    for p in pairs {
+        guard let lang = p.dst.languageCode, let m = model(lang),
+              let out = convertWrong(text, src: p.src, dst: p.dst) else { continue }
+        let words = out.split(whereSeparator: { $0.isWhitespace })
+        let n = words.reduce(0) { $0 + $1.count }
+        guard n > 0 else { continue }
+        let s = words.reduce(Float(0)) { $0 + m.score(String($1)) * Float($1.count) } / Float(n)
+        if best == nil || s > best!.score { best = (p, s) }
+    }
+    return best?.pair
 }
 
 /// Target layout when the current one is the wrong one: with two layouts, the

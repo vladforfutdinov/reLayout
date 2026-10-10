@@ -70,9 +70,10 @@ Enter is never delayed: the word is fixed afterwards only if Enter made a new li
 exposes its text to Accessibility (TextEdit, Notes, Telegram's Shift+Enter …) — a submitted
 launcher query or chat message stays as typed, and browsers/Electron apps and terminals keep plain Enter
 (*Settings → Fix on Enter*, on by default). A
-click or a Cmd/Ctrl shortcut drops the unfinished word. **Cross-script
-only** (ru/uk ↔ en), tuned for ≥99% precision — with only same-script layouts enabled
-(e.g. ABC + German) the checkbox is disabled, with the reason behind its ⓘ hint — with a
+click or a Cmd/Ctrl shortcut drops the unfinished word. **Between scripts**
+(ru/uk ↔ en), tuned for ≥99% precision, and, as an experimental opt-in (*Settings → Between similar layouts (uk ↔ ru)*), between Cyrillic
+layouts of different languages (ru ↔ uk: "ъжа" typed on the Russian layout becomes "їжа") — with only
+same-script layouts enabled (e.g. ABC + German) the checkbox is disabled, with the reason behind its ⓘ hint — with a
 per-app deny-list (*Settings → Auto-correct → Exceptions…*): terminals, code editors, virtual
 machines and remote desktops are on it from the start — remove one to turn auto-correct on
 there. Secure fields are always skipped.

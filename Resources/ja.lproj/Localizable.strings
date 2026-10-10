@@ -21,6 +21,8 @@
 "settings.autoUpdate" = "自動的にアップデートを確認";
 "settings.autoCorrect" = "レイアウトを自動修正";
 "settings.autoCorrectEnter" = "Enter で修正（改行のみ）";
+"settings.autoCorrectSimilar" = "似た配列間で（uk ↔ ru）— 実験的";
+"settings.autoCorrectSimilar.tip" = "ロシア語配列で入力されたウクライナ語の単語（およびその逆）を変換します（「ъжа」→「їжа」）。両言語は固有の文字でしか区別できないため、共通の単語は変換されず、一部の誤りは見逃されます。";
 "settings.autoCorrectUnavailable" = "自動修正には異なる文字体系のレイアウト（例：英語と任意のキリル文字）が必要です。同じ文字体系のレイアウト（%@）は確実に区別できないため、ホットキーを使ってください。";
 
 // auto-correct exceptions

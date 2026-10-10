@@ -21,6 +21,8 @@
 "settings.autoUpdate" = "Automatycznie sprawdzaj aktualizacje";
 "settings.autoCorrect" = "Autokorekta układu";
 "settings.autoCorrectEnter" = "Poprawiaj po Enter (tylko nowa linia)";
+"settings.autoCorrectSimilar" = "Między podobnymi układami (uk ↔ ru) — eksperymentalne";
+"settings.autoCorrectSimilar.tip" = "Poprawia słowo wpisane w układzie rosyjskim, które czyta się jak ukraińskie, i odwrotnie („ъжа” → „їжа”). Języki różnią się tylko charakterystycznymi literami: wspólne słowa pozostają nietknięte, a część błędów się prześlizguje.";
 "settings.autoCorrectUnavailable" = "Autokorekta wymaga układów o różnych alfabetach, np. angielskiego i dowolnego cyrylickiego. Układów jednego alfabetu (%@) nie da się wiarygodnie rozróżnić – użyj skrótu klawiszowego.";
 
 // auto-correct exceptions

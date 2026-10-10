@@ -22,6 +22,12 @@ work (not per commit). Operational "where are we right now" lives in
   Russian layout) converts to itself: the engine returns it unchanged and both
   apps switch the layout only, no retype, no undo record. Needs the same 1.5
   margin, so "якась халепа" (uk −2.58 vs ru −3.26, and a tie) stays.
+- Known ceiling, uk → ru: the Ukrainian model reads common Russian words as
+  plausible ("что-то" −1.42, "двигатель" −2.59, "пожалуйста" −2.12), gaps of
+  0.1–0.3, so typing Russian on the Ukrainian layout never switches back. A
+  threshold cannot fix it; the uk model needs a cleaner corpus or a
+  discriminative weight against ru trigrams in `scripts/trigram/gen.py`.
+- Windows Settings: the learned-words buttons sit flush right like Exceptions….
 - Shipped as an opt-in marked experimental (Settings → "Between similar layouts
   (uk ↔ ru)", `autoSameScript`, engine `sameScript:` default off): the
   miss rate above is too high to call it a feature. Custom layouts count by

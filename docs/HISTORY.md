@@ -29,6 +29,10 @@ work (not per commit). Operational "where are we right now" lives in
   old language (now dropped); the version footer was hardcoded English; "Also
   fix on Enter" lost its "also" in all languages; the Settings window opens
   without the zoom animation.
+- Security review after the push: learned words are persisted plaintext, and
+  the hotkey path had no secure-field check, so a password converted in a
+  password field would have been stored. Learning now runs under the same
+  `isAutoExcluded` gate as auto mode (password fields, deny-listed apps).
 - Windows: compiles via the closure's default; learning not wired yet.
 - Rejected on the way: a typing-series history of judged words (the hotkey
   itself is the signal) and a pause-based series boundary (a pause is thinking,

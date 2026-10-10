@@ -6,6 +6,18 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
+## v1.3.10 — learned words, trigram layout choice, uk ↔ ru opt-in (2026-10-10)
+
+- Tagged `b738f35`; notes `docs/release-notes/v1.3.10.md` + `-windows.md`.
+  Still signed with the old Sparkle key (rotation due ~2026-10-22), appcast
+  item re-signed by `resign-appcast` and verified on `gh-pages`.
+- Contents: the "After v1.3.9" blocks below — learned words (`b420bf1`,
+  `adca40f`), Windows port (`d74e8ef`, `50ec676`, `da58159`, `e41b174`),
+  trigram layout choice and the experimental uk ↔ ru option (`39018b2`,
+  `f166c86`, `75c5c78`), the dict_uk-cleaned uk model (`8960ec5`).
+
+---
+
 ## After v1.3.9 — the Ukrainian model cleaned of Russian
 
 - The uk FrequencyWords 50k list (OpenSubtitles) is 18 753 of 50 000 words

@@ -13,7 +13,7 @@
 <li>Auto-correct now fixes a run of short words typed in the wrong layout: "пщ ещ еру" becomes "go to the" as you type. Before, a 1–2 letter word was only corrected next to a longer one, so a chain of short words was left as is.</li>
 <li>A single short word followed by text you typed after switching the layout by hand ("пщ to the") is still left alone — select it and press the hotkey.</li>
 </ul>]]></description>
-            <enclosure url="https://github.com/vladforfutdinov/reLayout/releases/download/v1.3.9/reLayout.zip" length="1738569" type="application/octet-stream"/>
+            <enclosure url="https://github.com/vladforfutdinov/reLayout/releases/download/v1.3.9/reLayout.zip" sparkle:edSignature="KpiWywrW7PoZwm3h77vN1cLJWQW58KQcCUtnZ2RVMHF3cRv3TQFX5TaM5YDhvVUio4p/bHEl+8383ztU/KfWAg==" length="1738569" type="application/octet-stream"/>
         </item>
     </channel>
 </rss>

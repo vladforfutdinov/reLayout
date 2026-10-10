@@ -12,12 +12,16 @@ struct Conversion {
     let typed: String
     let src: WinLayout
     let time: DWORD
+    var learned: [String] = []   // hotkey misses this conversion learned: undo forgets them
+    var autoWords: [String] = [] // words an auto-correction fixed: undo learns them as `keep`
 }
 private var lastConversion: Conversion?
 private let undoWindowMs: DWORD = 1500
 
-func recordConversion(original: String, typed: String, src: WinLayout) {
-    lastConversion = Conversion(original: original, typed: typed, src: src, time: GetTickCount())
+func recordConversion(original: String, typed: String, src: WinLayout,
+                      learned: [String] = [], autoWords: [String] = []) {
+    lastConversion = Conversion(original: original, typed: typed, src: src, time: GetTickCount(),
+                                learned: learned, autoWords: autoWords)
 }
 
 /// Any real keystroke or click moves on from the last conversion: the caret is no
@@ -76,7 +80,8 @@ private func retypeTyped(_ typed: (text: String, spaces: Int), cur: WinLayout) {
     sendBackspaces(plan.replaced.count + typed.spaces)
     guard typeText(plan.out + spaces, in: plan.dst) else { return }
     resetAutoBuffer()
-    recordConversion(original: plan.replaced + spaces, typed: plan.out + spaces, src: plan.src)
+    recordConversion(original: plan.replaced + spaces, typed: plan.out + spaces, src: plan.src,
+                     learned: learnHotkeyMisses(replaced: plan.replaced, out: plan.out, src: plan.src))
 }
 
 /// Converts the selected `text` and types the result over it. Which layouts it
@@ -88,13 +93,15 @@ private func retype(_ text: String, cur: WinLayout) {
           let plan = planRetype(text, enabled: enabled, curIdx: curIdx, model: trigram) else { return }
     guard typeText(plan.out, in: plan.dst) else { return }   // also leaves dst active
     resetAutoBuffer()
-    recordConversion(original: plan.replaced, typed: plan.out, src: plan.src)
+    recordConversion(original: plan.replaced, typed: plan.out, src: plan.src,
+                     learned: learnHotkeyMisses(replaced: plan.replaced, out: plan.out, src: plan.src))
 }
 
 /// Reselects what the conversion typed (the caret sits right after it), types the
 /// original back and returns to the source layout.
 private func performUndo(_ last: Conversion) {
     guard waitModifiersReleased() else { return }
+    unlearn(last)
     resetAutoBuffer()
     selectLeft(last.typed.count)
     // The original goes back in its own layout, which also stays active. A Tab

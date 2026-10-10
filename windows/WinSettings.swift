@@ -16,6 +16,8 @@ private let idBtnExceptions: Int = 111
 private let idCmbLanguage:   Int = 112
 private let idAutoInfo:      Int = 113
 private let idName:          Int = 114
+private let idChkAutoSimilar: Int = 115
+private let idBtnLearnedReset: Int = 116
 // Secondary (gray) text: the caption column and the footer.
 private let idCapLanguage:   Int = 120
 private let idCapHotkey:     Int = 121
@@ -229,15 +231,21 @@ private func buildControls(_ hwnd: HWND?) {
     L("settings.title").withCString(encodedAs: UTF16.self) { _ = SetWindowTextW(hwnd, $0) }
     applyTitleBarTheme(hwnd, dark: colors.dark)
     // Widest row decides the width: auto-correct + ⓘ + Exceptions…, the indented
-    // Enter option, the caption column + a usable field, the footer link.
+    // options and learned words, the caption column + a usable field, the footer link.
     let captionW = max(textWidth(L("settings.language"), hwnd), textWidth(L("settings.hotkey"), hwnd)) + 4
     let autoTitle = L("settings.autoCorrect")
     let autoW = textWidth(autoTitle, hwnd) + 24   // + the check box itself
     let excTitle = L("settings.exceptions")
     let excW = textWidth(excTitle, hwnd) + 24
+    let similarTitle = L("settings.autoCorrectSimilar")
+    let learnedW = textWidth(L("settings.learned", "0000"), hwnd) + 4   // room for the count to grow
+    let learnedResetTitle = L("settings.learned.reset")
+    let learnedResetW = textWidth(learnedResetTitle, hwnd) + 24
     let rows: [Int32] = [
         autoW + 24 + 16 + excW,
         20 + textWidth(L("settings.autoCorrectEnter"), hwnd) + 24,
+        20 + textWidth(similarTitle, hwnd) + 24,
+        20 + learnedW + 8 + learnedResetW,
         textWidth(L("settings.openAtLogin"), hwnd) + 24,
         captionW + 10 + 200,
         textWidth("github.com/\(repoSlug)", hwnd) + 8,
@@ -316,6 +324,19 @@ private func buildControls(_ hwnd: HWND?) {
     y += 28
     makeCheck(L("settings.autoCorrectEnter"), margin + 20, y, content - 20, hwnd, idChkAutoEnter,
               on: loadAutoEnter(), enabled: available && loadAutoMode())
+    y += 28
+    let similarTip = L("settings.autoCorrectSimilar.tip")
+    let similar = makeCheck(similarTitle, margin + 20, y, content - 20, hwnd, idChkAutoSimilar,
+                            on: loadAutoSameScript(), enabled: available && loadAutoMode())
+    addTooltip(&tooltip, hwnd, similar, similarTip)
+    addTooltip(&tooltip, hwnd, GetDlgItem(hwnd, Int32(idChkAutoSimilar + labelOffset)), similarTip)
+    y += 30
+    // The count takes the Reset button's id + labelOffset, so it grays with the button.
+    makeControl("STATIC", L("settings.learned", "\(learnedCount())"), 0,
+                margin + 20, y + 4, learnedW, 20, hwnd, idBtnLearnedReset + labelOffset)
+    let learnedReset = makeControl("BUTTON", learnedResetTitle, Int32(WS_TABSTOP),
+                                   margin + 20 + learnedW + 8, y - 2, learnedResetW, 26, hwnd, idBtnLearnedReset)
+    EnableWindow(learnedReset, available && loadAutoMode() && learnedCount() > 0)
     y += 42
 
     // ── footer: version, link, copyright — centered, secondary ──
@@ -466,9 +487,23 @@ private func settingsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lPa
             saveAutoMode(on)
             reloadAutoMode()
             enableCheck(hwnd, idChkAutoEnter, on)
+            enableCheck(hwnd, idChkAutoSimilar, on)
+            refreshSettingsLearned()
         case idChkAutoEnter:
             saveAutoEnter(isChecked(hwnd, idChkAutoEnter))
             reloadAutoMode()
+        case idChkAutoSimilar:
+            saveAutoSameScript(isChecked(hwnd, idChkAutoSimilar))
+            reloadAutoMode()
+        case idBtnLearnedReset:
+            // Irreversible user data: confirmed first.
+            let text = L("settings.learned.confirm", "\(learnedCount())") + "\n\n" + L("settings.learned.confirmInfo")
+            let answer = text.withCString(encodedAs: UTF16.self) { t in
+                "reLayout".withCString(encodedAs: UTF16.self) { c in
+                    MessageBoxW(hwnd, t, c, UINT(MB_OKCANCEL) | UINT(MB_ICONWARNING))
+                }
+            }
+            if answer == IDOK { forgetLearned() }
         case idBtnExceptions: openExceptions(owner: hwnd)
         case idBtnReset:
             cancelHotkeyCapture()
@@ -505,6 +540,13 @@ func settingsWindow() -> HWND? { settingsHwnd }
 func refreshSettingsStartup() {
     guard let hwnd = settingsHwnd else { return }
     check(GetDlgItem(hwnd, Int32(idChkStartup)), startupEnabled())
+}
+
+/// Syncs the open Settings window's learned-words count and its Reset button.
+func refreshSettingsLearned() {
+    guard let hwnd = settingsHwnd else { return }
+    setFieldText(hwnd, idBtnLearnedReset + labelOffset, L("settings.learned", "\(learnedCount())"))
+    enableCheck(hwnd, idBtnLearnedReset, WinLayout.crossScriptAvailable() && loadAutoMode() && learnedCount() > 0)
 }
 
 func openSettings() {

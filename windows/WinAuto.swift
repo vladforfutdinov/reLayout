@@ -16,6 +16,9 @@ let WM_AUTOENTER = UINT(WM_APP) + 12
 
 private var autoEnabled = false  // mirrors the preference; the hook reads it per key
 private var autoEnterEnabled = true
+private var autoSameScript = false
+private var learnedConvert: [String: String] = [:]   // the user's verdicts, cached from the registry
+private var learnedKeep: Set<String> = []
 private var excludedApps: [String] = []
 private var passwordField = false
 private var run = AutoRun()     // the typed-word state machine, shared with macOS (engine)
@@ -99,6 +102,9 @@ func typedWord() -> (text: String, spaces: Int) {
 func reloadAutoMode() {
     autoEnabled = loadAutoMode()
     autoEnterEnabled = loadAutoEnter()
+    autoSameScript = loadAutoSameScript()
+    learnedConvert = loadLearned()
+    learnedKeep = Set(loadKept())
     excludedApps = loadExcludedApps()
     run.reset()
 }
@@ -183,17 +189,67 @@ func autoFeed(vk: UINT, scan: WORD, shortcut: Bool, shift: Bool) -> Bool {
 ///   fix retypes it after the correction.
 private func evaluate(word: String, trail: String, boundary: Int32, shift: Bool, cur: WinLayout) -> Bool {
     guard !word.isEmpty, !autoExcluded(),
-          let decided = decideAutoTarget(word, cur: cur, enabled: WinLayout.installedList(), model: trigram)
+          let decided = decideAutoTarget(word, cur: cur, enabled: WinLayout.installedList(), model: trigram,
+                                         learned: learnedVerdict, sameScript: autoSameScript)
     else { run.noCandidate(); return false }
     let outTrail = trail.isEmpty ? "" : transliterate(trail, from: cur, to: decided.target)
     // The short-word rule (engine): a 1-2 letter word waits for a neighbour.
-    guard let fix = run.plan(raw: word + trail, out: decided.out + outTrail,
-                             cyrillic: decided.target.isCyrillic) else { return false }
+    guard let fix = run.plan(raw: word + trail, out: decided.out + outTrail, cyrillic: decided.target.isCyrillic,
+                             trusted: learnedVerdict(learnedKey(word)) == .convert) else { return false }
     queued = QueuedFix(fix: fix, boundary: boundary, shift: shift, target: decided.target, src: cur)
     correcting = true
     gateSince = GetTickCount()
     PostMessageW(trayWindow(), WM_AUTOFIX, 0, 0)
     return true
+}
+
+// MARK: - learned words (the user's verdicts; see the engine's hotkeyMisses)
+
+func learnedVerdict(_ key: String) -> LearnedVerdict? {
+    if learnedConvert[key] != nil { return .convert }
+    return learnedKeep.contains(key) ? .keep : nil
+}
+
+func learnedCount() -> Int { learnedConvert.count + learnedKeep.count }
+
+/// Learns, as `.convert`, the words of a hotkey conversion that auto-correct would
+/// have left alone. Only with auto-correct on, never in a password field or an
+/// excluded app: nothing typed there is persisted.
+/// - Returns: the learned keys, so the press-again undo can forget them.
+func learnHotkeyMisses(replaced: String, out: String, src: WinLayout) -> [String] {
+    guard autoEnabled, !focusIsPasswordField(), !autoExcluded() else { return [] }
+    let misses = hotkeyMisses(replaced: replaced, out: out, src: src, enabled: WinLayout.installedList(),
+                              model: trigram)
+    guard !misses.isEmpty else { return [] }
+    let outWords = out.split(whereSeparator: { $0.isWhitespace })
+    for (t, o) in zip(replaced.split(whereSeparator: { $0.isWhitespace }), outWords) {
+        let key = learnedKey(String(t))
+        if misses.contains(key) { learnedConvert[key] = learnedKey(String(o)) }
+    }
+    learnedKeep.subtract(misses)
+    saveLearnedWords()
+    return misses
+}
+
+/// Undo takes back what the conversion taught: its hotkey misses are forgotten, the
+/// words of an undone auto-correction are learned as `.keep`.
+func unlearn(_ last: Conversion) {
+    guard autoEnabled, !(last.learned.isEmpty && last.autoWords.isEmpty) else { return }
+    for w in last.learned + last.autoWords { learnedConvert[w] = nil }
+    learnedKeep.formUnion(last.autoWords.filter { !$0.isEmpty })
+    saveLearnedWords()
+}
+
+func forgetLearned() {
+    learnedConvert = [:]
+    learnedKeep = []
+    saveLearnedWords()
+}
+
+private func saveLearnedWords() {
+    saveLearned(learnedConvert)
+    saveKept(learnedKeep.sorted())
+    refreshSettingsLearned()
 }
 
 // MARK: - Enter follow-up
@@ -212,7 +268,8 @@ private var enterJob: EnterJob?
 /// there to fix, a submitted field means it is gone.
 private func enterFollowUp(word: String, trail: String, cur: WinLayout) {
     guard autoEnterEnabled, !correcting, wordBody(word) >= 3, !autoExcluded(), !foregroundIsConsole(),
-          let decided = decideAutoTarget(word, cur: cur, enabled: WinLayout.installedList(), model: trigram),
+          let decided = decideAutoTarget(word, cur: cur, enabled: WinLayout.installedList(), model: trigram,
+                                         learned: learnedVerdict, sameScript: autoSameScript),
           let before = readFieldSnapshot(), before.tail.hasSuffix(word + trail)
     else { return }
     let outTrail = trail.isEmpty ? "" : transliterate(trail, from: cur, to: decided.target)
@@ -235,7 +292,8 @@ func runAutoEnter() {
     sendBackspaces(job.word.count + 1)   // the word and the line break
     guard typeText(job.text, in: job.target) else { return }   // also leaves target active
     sendKeyTap(Int32(vkReturn))
-    recordConversion(original: job.word + "\r", typed: job.text + "\r", src: job.src)
+    recordConversion(original: job.word + "\r", typed: job.text + "\r", src: job.src,
+                     autoWords: [learnedKey(job.word)])
 }
 
 // MARK: - the fix (runs on the UI thread, off the hook)
@@ -249,7 +307,8 @@ func runAutoFix() {
     guard typeText(job.fix.text, in: job.target) else { return }   // also leaves target active
     sendKeyTap(job.boundary, shift: job.shift)
     let boundary = job.boundary == Int32(vkTab) ? "\t" : " "
-    recordConversion(original: job.fix.original + boundary, typed: job.fix.text + boundary, src: job.src)
+    recordConversion(original: job.fix.original + boundary, typed: job.fix.text + boundary, src: job.src,
+                     autoWords: job.fix.original.split(separator: " ").map { learnedKey(String($0)) })
 }
 
 /// Replays what was typed during the fix, feeding each key through the run first

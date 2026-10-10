@@ -1274,11 +1274,14 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         if learnedConvert[key] != nil { return .convert }
         return learnedKeep.contains(key) ? .keep : nil
     }
-    private func learn(convert misses: [String], to out: String) {
+    private func learn(convert misses: [String], replaced: String, out: String) {
         guard !misses.isEmpty else { return }
         var c = learnedConvert
+        // Pair every typed word with its own output word; misses are a subset.
+        let typed = replaced.split(whereSeparator: { $0.isWhitespace }).map { learnedKey(String($0)) }
         let outs = out.split(whereSeparator: { $0.isWhitespace }).map { learnedKey(String($0)) }
-        for (i, m) in misses.enumerated() { c[m] = i < outs.count ? outs[i] : "" }
+        let byTyped = Dictionary(zip(typed, outs), uniquingKeysWith: { a, _ in a })
+        for m in misses { c[m] = byTyped[m] ?? "" }
         learnedConvert = c
         learnedKeep = learnedKeep.filter { !misses.contains($0) }
         dbg("learned convert: \(misses)")
@@ -1660,7 +1663,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         // excluded app is ever persisted.
         if autoMode, !isAutoExcluded() {
             misses = hotkeyMisses(replaced: p.replaced, out: p.out, src: p.src, enabled: enabled, model: trigram)
-            learn(convert: misses, to: p.out)
+            learn(convert: misses, replaced: p.replaced, out: p.out)
         }
         return (p.out, p.dst, p.src, p.replaced, misses)
     }

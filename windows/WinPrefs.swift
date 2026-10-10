@@ -12,6 +12,9 @@ private let keyHotkeyVK   = "HotkeyVK"
 private let keyDoubleTap  = "DoubleTap"
 private let keyAutoMode   = "AutoCorrect"
 private let keyAutoEnter  = "AutoCorrectOnEnter"
+private let keyAutoSameScript = "AutoCorrectSameScript"
+private let keyLearned    = "AutoCorrectLearned"
+private let keyKept       = "AutoCorrectKept"
 private let keyExcluded   = "AutoCorrectExcluded"
 private let keyExcludedSeen = "AutoCorrectExcludedDefaultsSeen"
 private let keyLanguage   = "Language"
@@ -78,14 +81,18 @@ func saveHotkey(mods: UINT, vk: UINT) {
 // "Trigger on double-tap": fire only when the hotkey is pressed twice quickly.
 private func readString(_ key: HKEY, _ name: String) -> String? {
     var buf = [WCHAR](repeating: 0, count: 4096)
-    var cb = DWORD(buf.count * MemoryLayout<WCHAR>.size)
-    let r = name.withCString(encodedAs: UTF16.self) { np in
-        buf.withUnsafeMutableBytes {
-            RegQueryValueExW(key, np, nil, nil, $0.bindMemory(to: BYTE.self).baseAddress, &cb)
+    while true {
+        var cb = DWORD(buf.count * MemoryLayout<WCHAR>.size)
+        let r = name.withCString(encodedAs: UTF16.self) { np in
+            buf.withUnsafeMutableBytes {
+                RegQueryValueExW(key, np, nil, nil, $0.bindMemory(to: BYTE.self).baseAddress, &cb)
+            }
         }
+        // ERROR_MORE_DATA (the learned words outgrow the buffer): cb holds the size needed.
+        if r == 234 { buf = [WCHAR](repeating: 0, count: Int(cb) / 2 + 1); continue }
+        guard r == 0 else { return nil }
+        return String(decoding: buf.prefix(while: { $0 != 0 }), as: UTF16.self)
     }
-    guard r == 0 else { return nil }
-    return String(decoding: buf.prefix(while: { $0 != 0 }), as: UTF16.self)
 }
 
 private func writeString(_ key: HKEY, _ name: String, _ value: String) {
@@ -179,6 +186,45 @@ func loadAutoEnter() -> Bool {
 func saveAutoEnter(_ on: Bool) {
     _ = withPrefsKey(write: true) { key -> Bool in
         writeDword(key, keyAutoEnter, on ? 1 : 0); return true
+    }
+}
+
+/// Experimental same-script correction (ru <-> uk); default off.
+func loadAutoSameScript() -> Bool {
+    (withPrefsKey(write: false) { readDword($0, keyAutoSameScript) } ?? 0) != 0
+}
+
+func saveAutoSameScript(_ on: Bool) {
+    _ = withPrefsKey(write: true) { key -> Bool in
+        writeDword(key, keyAutoSameScript, on ? 1 : 0); return true
+    }
+}
+
+/// The user's hotkey verdicts: typed form -> its conversion, one `typed\tout` per line.
+func loadLearned() -> [String: String] {
+    var map: [String: String] = [:]
+    for line in (withPrefsKey(write: false, { readString($0, keyLearned) }) ?? "").split(separator: "\n") {
+        let p = line.split(separator: "\t", maxSplits: 1, omittingEmptySubsequences: false)
+        map[String(p[0])] = p.count > 1 ? String(p[1]) : ""
+    }
+    return map
+}
+
+func saveLearned(_ map: [String: String]) {
+    _ = withPrefsKey(write: true) { key -> Bool in
+        writeString(key, keyLearned, map.map { "\($0.key)\t\($0.value)" }.sorted().joined(separator: "\n"))
+        return true
+    }
+}
+
+/// Typed forms whose auto-correction the user undid, one per line.
+func loadKept() -> [String] {
+    (withPrefsKey(write: false, { readString($0, keyKept) }) ?? "").split(separator: "\n").map(String.init)
+}
+
+func saveKept(_ words: [String]) {
+    _ = withPrefsKey(write: true) { key -> Bool in
+        writeString(key, keyKept, words.joined(separator: "\n")); return true
     }
 }
 

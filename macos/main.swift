@@ -1649,7 +1649,9 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         dbg("convert cur=\(curID) -> \(plan.map { "\($0.src.id) -> \($0.dst.id)" } ?? "nothing")")
         guard let p = plan else { return nil }
         var misses: [String] = []
-        if autoMode {
+        // Same gate as auto mode: nothing typed into a password field or an
+        // excluded app is ever persisted.
+        if autoMode, !isAutoExcluded() {
             misses = hotkeyMisses(replaced: p.replaced, out: p.out, src: p.src, enabled: enabled, model: trigram)
             learn(convert: misses, to: p.out)
         }

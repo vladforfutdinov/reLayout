@@ -28,6 +28,10 @@ work (not per commit). Operational "where are we right now" lives in
   threshold cannot fix it; the uk model needs a cleaner corpus or a
   discriminative weight against ru trigrams in `scripts/trigram/gen.py`.
 - Windows Settings: the learned-words buttons sit flush right like Exceptions….
+- Windows: "Ybrmt" buffered as "ybrmt" and converted to "никте". The low-level
+  hook translated keys with `GetKeyboardState`, which reflects the hook thread's
+  own input queue, where Shift is never down. The live Shift/Ctrl/Alt state from
+  `GetAsyncKeyState` (and the CapsLock toggle) is now overlaid before `ToUnicodeEx`.
 - Shipped as an opt-in marked experimental (Settings → "Between similar layouts
   (uk ↔ ru)", `autoSameScript`, engine `sameScript:` default off): the
   miss rate above is too high to call it a feature. Custom layouts count by

@@ -77,6 +77,12 @@ func trigram(_ lang: String) -> TrigramModel? {
 private func character(_ vk: UINT, _ scan: WORD, _ layout: WinLayout) -> String {
     var state = [BYTE](repeating: 0, count: 256)
     GetKeyboardState(&state)
+    // GetKeyboardState is the hook thread's own queue state, not the user's: Shift
+    // showed up as released and "Ybrmt" buffered as "ybrmt". Overlay the live keys.
+    for vk in [VK_SHIFT, VK_LSHIFT, VK_RSHIFT, VK_CONTROL, VK_LCONTROL, VK_RCONTROL, VK_MENU, VK_LMENU, VK_RMENU] {
+        state[Int(vk)] = (Int(GetAsyncKeyState(vk)) & 0x8000) != 0 ? 0x80 : 0
+    }
+    state[Int(VK_CAPITAL)] = BYTE(Int(GetKeyState(VK_CAPITAL)) & 1)
     var buf = [WCHAR](repeating: 0, count: 8)
     // 0x4 = do not disturb the live dead-key state.
     let n = ToUnicodeEx(vk, UINT(scan), state, &buf, 8, 0x4, layout.hkl)

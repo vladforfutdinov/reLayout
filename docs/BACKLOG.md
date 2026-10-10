@@ -4,6 +4,33 @@ Committed, repo-travelling backlog of planned-but-not-started work. Operational
 day-to-day state lives in the gitignored `docs/SNAPSHOT.md`; durable history in
 `docs/HISTORY.md`. Move an item out of here once it's in progress.
 
+## Remember the key layouts per app and per session (3+ layouts)
+
+With three or more layouts enabled (ABC + Russian + Ukrainian) every switch is a
+cycle, and both the hotkey's press-again cycle and auto-correct's target choice
+guess from the text alone. Think through remembering which two layouts the user
+actually works with in a given app (and lately), so the first guess is right and
+the user is not walked through every layout.
+
+**Why:** typing in Telegram is ru ↔ en, in a Ukrainian document uk ↔ en; the
+trigram models cannot separate ru from uk on common words, but the app and the
+recent history can. A remembered pair also means the hotkey converts straight
+into the usual layout and the cycle rarely goes past one press.
+
+**Open questions:** what to key on (bundle id / exe, plus the layout the user
+left the app in, plus the last N manual switches); how a session decays (idle
+time? focus change? app restart?); whether a remembered pair is a strong prior
+(ranks the candidates) or a hard filter (hides the third layout); how it meets
+the learned-words store (both are "the user's own verdicts"); how it shows in
+Settings, if at all. Not a dictionary of languages, consistent with the no-
+dictionary rule. Measure before shipping: count how often the cycle goes past
+the first alternative today (a debug counter in the trace would do).
+
+**Steps:** instrument first (per-app layout switches and cycle depth in the
+trace), look at a week of data, then design the prior; engine side stays in
+`Core/Auto.swift` as an input to `bestConversion`/`decideAutoTarget`, storage
+per platform like the learned words.
+
 ## Windows default hotkey
 
 Replace the Windows default `Ctrl+Alt+R` (`defaultHotkey`, `windows/WinPrefs.swift`)

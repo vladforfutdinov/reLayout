@@ -6,6 +6,16 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
+## After v1.3.10 — the Cmd+C fallback restores every clipboard flavor
+
+- The hotkey's Cmd+C fallback (apps without an Accessibility selection, e.g.
+  Electron) saved only the pasteboard's string flavor and put that back: a copied
+  image or file was wiped, rich text came back plain, and an old text copy
+  (Universal Clipboard from a phone included) resurfaced as the only content.
+  Now every pasteboard item with every flavor is snapshotted and restored.
+
+---
+
 ## After v1.3.10 — the Globe double is counted once
 
 - The doubled first letter after a Globe switch (TextInputSwitcher re-posting

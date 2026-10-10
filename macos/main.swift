@@ -2200,7 +2200,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         // would wipe any non-string clipboard content (images, files) on every
         // retype. clipboardSaved is set iff we actually dirtied the pasteboard.
         let pb = NSPasteboard.general
-        var clipboardSaved: String?
+        var clipboardSaved: [[NSPasteboard.PasteboardType: Data]] = []
         var clipboardTouched = false
 
         var sel: String?
@@ -2212,7 +2212,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             // selection; typing replaces exactly it, so smart cut-and-paste in
             // Word-like apps can't swallow an adjacent space). Save the prior
             // clipboard to restore it.
-            clipboardSaved = pb.string(forType: .string)
+            clipboardSaved = snapshotClipboard(pb)
             clipboardTouched = true
             sel = copySelection(pb)
         }
@@ -2349,10 +2349,23 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         }
     }
 
-    private func restoreClipboard(_ saved: String?) {
+    // Every item with every flavor: restoring only the string flavor dropped a
+    // copied image or file and left rich text as plain text.
+    private func snapshotClipboard(_ pb: NSPasteboard) -> [[NSPasteboard.PasteboardType: Data]] {
+        (pb.pasteboardItems ?? []).map { item in
+            Dictionary(uniqueKeysWithValues: item.types.compactMap { t in item.data(forType: t).map { (t, $0) } })
+        }
+    }
+
+    private func restoreClipboard(_ saved: [[NSPasteboard.PasteboardType: Data]]) {
         let pb = NSPasteboard.general
         pb.clearContents()
-        if let saved { pb.setString(saved, forType: .string) }
+        let items = saved.map { flavors -> NSPasteboardItem in
+            let item = NSPasteboardItem()
+            for (t, d) in flavors { item.setData(d, forType: t) }
+            return item
+        }
+        if !items.isEmpty { pb.writeObjects(items) }
     }
 }
 

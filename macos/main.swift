@@ -1974,6 +1974,13 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             autoRun.noCandidate(); return false
         }
         dbg("auto: \(word.debugDescription) -> \(d.out.debugDescription) [\(d.target.id)] cur=\(cur.id)")
+        if d.out == word {
+            // Right text, wrong layout (uk word on the ru layout): switch only, no retype.
+            guard wordBody(word) >= 3 else { return false }
+            autoRun.noCandidate()
+            selectLayout(d.target)
+            return false
+        }
         let srcSource = cur.source
         let outTrail = transliterate(trail, from: cur, to: d.target)
         // The short-word rule (engine): a 1-2 letter word waits for a neighbour.

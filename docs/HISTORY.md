@@ -18,6 +18,10 @@ work (not per commit). Operational "where are we right now" lives in
   words plausible in both languages ("місто"/"мысто", "дім"/"дым") and the
   uk → ru direction, where the Ukrainian model accepts most "і" words.
 - Same-language pairs (ru / ru-PC) are never candidates: the text would not change.
+- A word without the layouts' distinctive letters ("мабуть", "дякую" on the
+  Russian layout) converts to itself: the engine returns it unchanged and both
+  apps switch the layout only, no retype, no undo record. Needs the same 1.5
+  margin, so "якась халепа" (uk −2.58 vs ru −3.26, and a tie) stays.
 - Shipped as an opt-in marked experimental (Settings → "Between similar layouts
   (uk ↔ ru)", `autoSameScript`, engine `sameScript:` default off): the
   miss rate above is too high to call it a feature. Custom layouts count by

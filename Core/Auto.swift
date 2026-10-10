@@ -51,6 +51,7 @@ public func learnedKey(_ w: String) -> String {
 ///   - sameScript: also consider same-script layouts of another language (ru ↔ uk).
 ///     Experimental: the models tell the two apart only on their distinctive letters.
 /// - Returns: the target layout and the converted word, or nil to leave the word alone.
+///   With `sameScript`, `out == w` means: the text is right, only the layout is wrong.
 public func decideAutoTarget<L: AutoLayout>(_ w: String, cur: L, enabled: [L],
                                             model: (String) -> TrigramModel?,
                                             learned: (String) -> LearnedVerdict? = { _ in nil },
@@ -117,7 +118,11 @@ public func decideAutoTarget<L: AutoLayout>(_ w: String, cur: L, enabled: [L],
                   forced || core.count == w.count || curModel.score(String(core)) < autoGarbage
             else { continue }
         }
-        guard let out = convertWrong(w, src: cur, dst: t), out != w,
+        // Same script: a word without the layouts' distinctive letters converts to
+        // itself ("мабуть" on the Russian layout); the caller then only switches
+        // the layout. Across scripts an unchanged word is no conversion.
+        let sameScript = t.isCyrillic == cur.isCyrillic
+        guard let out = convertWrong(w, src: cur, dst: t) ?? (sameScript ? w : nil), sameScript || out != w,
               let tLang = t.languageCode, let tModel = model(tLang) else { continue }
         let sAlt = tModel.score(out)
         guard forced || pureFor || sAlt > autoPunctPlausible else { continue }

@@ -286,6 +286,12 @@ final class EngineTests: XCTestCase {
         XCTAssertEqual(r?.target.languageCode, "uk")
         // A plausible Russian word stays, even though uk would read its conversion.
         XCTAssertNil(decideAutoTarget("привет", cur: ru, enabled: [latin, ru, uk], model: { models[$0] }, sameScript: true))
+        // No distinctive letter: the word converts to itself, only the layout is wrong.
+        let same = decideAutoTarget("мабуть", cur: ru, enabled: [latin, ru, uk],
+                                    model: { ["ru": self.model(knowing: []), "uk": self.model(knowing: ["мабуть"]), "en": self.model(knowing: [])][$0] },
+                                    sameScript: true)
+        XCTAssertEqual(same?.out, "мабуть")
+        XCTAssertEqual(same?.target.languageCode, "uk")
         // Off by default: same-script layouts are not candidates.
         XCTAssertNil(decideAutoTarget("привыт", cur: ru, enabled: [latin, ru, uk], model: { models[$0] }))
     }

@@ -192,6 +192,13 @@ private func evaluate(word: String, trail: String, boundary: Int32, shift: Bool,
           let decided = decideAutoTarget(word, cur: cur, enabled: WinLayout.installedList(), model: trigram,
                                          learned: learnedVerdict, sameScript: autoSameScript)
     else { run.noCandidate(); return false }
+    if decided.out == word {
+        // Right text, wrong layout (uk word on the ru layout): switch only, no retype.
+        guard wordBody(word) >= 3 else { return false }
+        run.noCandidate()
+        switchLayout(to: decided.target)
+        return false
+    }
     let outTrail = trail.isEmpty ? "" : transliterate(trail, from: cur, to: decided.target)
     // The short-word rule (engine): a 1-2 letter word waits for a neighbour.
     guard let fix = run.plan(raw: word + trail, out: decided.out + outTrail, cyrillic: decided.target.isCyrillic,

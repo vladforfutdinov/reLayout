@@ -338,11 +338,13 @@ private func buildControls(_ hwnd: HWND?) {
     makeControl("STATIC", L("settings.learned", "\(learnedCount())"), 0,
                 margin + 20, y + 4, learnedW, 20, hwnd, idBtnLearnedReset + labelOffset)
     let learnedOn = available && loadAutoMode() && learnedCount() > 0
+    // Flush right, like Exceptions… above.
+    let learnedResetX = clientWidth - margin - learnedResetW
     let learnedView = makeControl("BUTTON", learnedViewTitle, Int32(WS_TABSTOP),
-                                  margin + 20 + learnedW + 8, y - 2, learnedViewW, 26, hwnd, idBtnLearnedView)
+                                  learnedResetX - 8 - learnedViewW, y - 2, learnedViewW, 26, hwnd, idBtnLearnedView)
     EnableWindow(learnedView, learnedOn)
     let learnedReset = makeControl("BUTTON", learnedResetTitle, Int32(WS_TABSTOP),
-                                   margin + 20 + learnedW + 8 + learnedViewW + 8, y - 2, learnedResetW, 26,
+                                   learnedResetX, y - 2, learnedResetW, 26,
                                    hwnd, idBtnLearnedReset)
     EnableWindow(learnedReset, learnedOn)
     y += 42

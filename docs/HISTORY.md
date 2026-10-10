@@ -65,7 +65,13 @@ work (not per commit). Operational "where are we right now" lives in
   the hotkey path had no secure-field check, so a password converted in a
   password field would have been stored. Learning now runs under the same
   `isAutoExcluded` gate as auto mode (password fields, deny-listed apps).
-- Windows: compiles via the closure's default; learning not wired yet.
+- Windows port (same day): learned words and the uk ↔ ru option wired —
+  registry `AutoCorrectLearned` / `AutoCorrectKept` (REG_SZ) /
+  `AutoCorrectSameScript` (REG_DWORD), hooks on both hotkey paths and both undo
+  paths, Settings checkbox plus "Learned words: N" with a confirmed Reset. No
+  "View…" list on Windows yet. Built in the UTM VM, hand-testing pending.
+  The port also exposed a macOS bug: the view list paired a miss with the
+  wrong output word when an earlier selected word was not a miss (fixed).
 - Rejected on the way: a typing-series history of judged words (the hotkey
   itself is the signal) and a pause-based series boundary (a pause is thinking,
   not proofreading).

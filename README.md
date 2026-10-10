@@ -7,7 +7,7 @@
 Punto/Caramba-style "retype the selection in the correct keyboard layout" for macOS — a
 tiny menu-bar app (a Windows port is in preview, see [below](#windows-preview)). Select
 wrong-layout text, hit the hotkey, and it's retyped in the right layout; the system input
-source flips so you can keep going. Press the hotkey again within ~1.5 s to undo.
+source flips so you can keep going. Press the hotkey again within ~1.5 s to try the next layout, or to undo when there is none left.
 
 Works with **any** enabled keyboard layouts — not hard-coded to a specific pair. An optional
 **auto-correct** mode (default off) fixes wrong-layout words as you type, no hotkey needed.
@@ -31,8 +31,10 @@ First launch asks for **Accessibility** (to read the selection / send keystrokes
    fine): the hotkey then converts the word you just typed. It never guesses at other unselected text.
    This works in terminals too (on Windows consoles only the just-typed word is converted).
 2. Press the hotkey (default: **tap left Option**).
-3. Press it again within ~1.5 s to **undo** (restores the text and the previous input source).
-   A click or any other key in between ends the undo window.
+3. Press it again within ~1.5 s to **try the next layout** (with three or more enabled: the
+   original text retyped into each remaining layout in turn), and once there is none left, to
+   **undo** (restores the text and the previous input source). With two layouts the second press
+   is the undo. A click or any other key in between ends the window.
 
 Conversion is **per word**: only words typed in the layout active when you press the hotkey are
 converted; the rest is left alone. `я сказал ghbdtn` (US active) → `я сказал привет`.

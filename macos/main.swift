@@ -611,11 +611,15 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     // (serial), so no lock. systemUptime is monotonic.
     private struct Conversion {
         let original: String
-        let typed: String
+        var typed: String
         let srcSource: TISInputSource
-        let time: Double
+        var time: Double
         var learned: [String] = []   // hotkey misses recorded by this conversion: undo forgets them
         var autoWords: [String] = [] // words an auto-correction fixed: undo learns them as `keep`
+        // Press-again cycle (engine retypeAlternatives): the next readings of
+        // `original`, typed in turn; `suffix` (spaces after a typed word) is kept.
+        var alternatives: [(out: String, dst: Layout)] = []
+        var suffix = ""
     }
     private var lastConversion: Conversion?
     private let undoWindow = 1.5
@@ -1651,7 +1655,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     // (planRetype in Core/Auto.swift), shared with the Windows port.
     // With auto mode on, the words it would have left alone are learned (engine
     // `hotkeyMisses`); `learned` lists them so the undo can forget them again.
-    private func convert(_ text: String) -> (out: String, dst: Layout, src: Layout, replaced: String, learned: [String])? {
+    private func convert(_ text: String) -> (out: String, dst: Layout, src: Layout, replaced: String, learned: [String],
+                                             alternatives: [(out: String, dst: Layout)])? {
         let enabled = Layout.enabledList()
         let curID = currentSourceID()
         guard let curIdx = enabled.firstIndex(where: { $0.id == curID }) else { return nil }
@@ -1665,7 +1670,10 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             misses = hotkeyMisses(replaced: p.replaced, out: p.out, src: p.src, enabled: enabled, model: trigram)
             learn(convert: misses, replaced: p.replaced, out: p.out)
         }
-        return (p.out, p.dst, p.src, p.replaced, misses)
+        let alts = enabled.firstIndex(where: { $0.id == p.src.id }).map {
+            retypeAlternatives(p.replaced, enabled: enabled, srcIdx: $0, first: p.out, model: trigram)
+        } ?? []
+        return (p.out, p.dst, p.src, p.replaced, misses, alts)
     }
 
     // MARK: - auto-mode (trigram detection)
@@ -2150,13 +2158,15 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             return
         }
 
-        // Press-again undo: a second hotkey within undoWindow of a conversion
-        // reverses it. Disabled when "Trigger on double-tap" is on — a second
-        // double-tap would be ambiguous with the trigger itself.
+        // Press-again: within undoWindow of a conversion, the next press retypes the
+        // original into the next layout (three or more enabled), and once the
+        // readings are exhausted it reverses the conversion. Disabled when
+        // "Trigger on double-tap" is on — a second double-tap would be ambiguous
+        // with the trigger itself.
         if hotKeyTaps == 1, let last = lastConversion,
            ProcessInfo.processInfo.systemUptime - last.time < undoWindow {
             lastConversion = nil
-            performUndo(last)
+            if let next = last.alternatives.first { performRetarget(last, to: next) } else { performUndo(last) }
             return
         }
 
@@ -2220,7 +2230,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         // remember it so a quick second hotkey can undo
         lastConversion = Conversion(original: typed == r.out ? r.replaced : text, typed: typed,
                                     srcSource: r.src.source,
-                                    time: ProcessInfo.processInfo.systemUptime, learned: r.learned)
+                                    time: ProcessInfo.processInfo.systemUptime, learned: r.learned,
+                                    alternatives: typed == r.out ? r.alternatives : [])
     }
 
     // No selection: erase the word just typed (and the spaces after it), type its
@@ -2236,7 +2247,25 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         usleep(20_000)
         DispatchQueue.main.sync { self.autoRun.reset(); self.selectLayout(r.dst) }
         lastConversion = Conversion(original: r.replaced + spaces, typed: r.out + spaces, srcSource: r.src.source,
-                                    time: ProcessInfo.processInfo.systemUptime, learned: r.learned)
+                                    time: ProcessInfo.processInfo.systemUptime, learned: r.learned,
+                                    alternatives: r.alternatives, suffix: spaces)
+    }
+
+    // The next reading of the original: reselect what was just typed, type the
+    // alternative, switch to its layout; the remaining readings stay in the record.
+    private func performRetarget(_ last: Conversion, to next: (out: String, dst: Layout)) {
+        waitModifiersReleased()
+        dbg("retarget: \(next.out.debugDescription) -> \(next.dst.id)")
+        for _ in 0..<last.typed.count { postKey(CGKeyCode(kVK_LeftArrow), .maskShift) }
+        usleep(20_000)
+        typeUnicode(next.out + last.suffix)
+        usleep(20_000)
+        DispatchQueue.main.sync { self.autoRun.reset(); self.selectLayout(next.dst) }
+        var again = last
+        again.typed = next.out + last.suffix
+        again.alternatives = Array(last.alternatives.dropFirst())
+        again.time = ProcessInfo.processInfo.systemUptime
+        lastConversion = again
     }
 
     // Reverse the last conversion: reselect the text we just typed (Shift+Left

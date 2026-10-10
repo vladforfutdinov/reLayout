@@ -247,14 +247,47 @@ func bestConversion<L: AutoLayout>(_ text: String, pairs: [(src: L, dst: L)],
     var best: (pair: (src: L, dst: L), score: Float)?
     for p in pairs {
         guard let lang = p.dst.languageCode, let m = model(lang),
-              let out = convertWrong(text, src: p.src, dst: p.dst) else { continue }
-        let words = out.split(whereSeparator: { $0.isWhitespace })
-        let n = words.reduce(0) { $0 + $1.count }
-        guard n > 0 else { continue }
-        let s = words.reduce(Float(0)) { $0 + m.score(String($1)) * Float($1.count) } / Float(n)
+              let out = convertWrong(text, src: p.src, dst: p.dst),
+              let s = textScore(out, m) else { continue }
         if best == nil || s > best!.score { best = (p, s) }
     }
     return best?.pair
+}
+
+/// Length-weighted mean word score of a text; nil when it has no words.
+private func textScore(_ text: String, _ m: TrigramModel) -> Float? {
+    let words = text.split(whereSeparator: { $0.isWhitespace })
+    let n = words.reduce(0) { $0 + $1.count }
+    guard n > 0 else { return nil }
+    return words.reduce(Float(0)) { $0 + m.score(String($1)) * Float($1.count) } / Float(n)
+}
+
+/// The other readings of a hotkey conversion, for the press-again cycle: `text`
+/// converted from the layout it was typed on into every other enabled layout,
+/// best-reading first (layouts without a model last, in list order). Distinct
+/// results only; `first` (what the hotkey already typed) and the text itself are
+/// left out. Empty with two layouts, so the second press stays the undo.
+/// - Parameter srcIdx: index in `enabled` of the layout the text was typed on.
+public func retypeAlternatives<L: AutoLayout>(_ text: String, enabled: [L], srcIdx: Int, first: String,
+                                              model: (String) -> TrigramModel?) -> [(out: String, dst: L)] {
+    guard enabled.indices.contains(srcIdx) else { return [] }
+    let src = enabled[srcIdx]
+    var seen: Set<String> = [first, text]
+    var scored: [(out: String, dst: L, score: Float?)] = []
+    for (i, d) in enabled.enumerated() where i != srcIdx {
+        guard let out = convertWrong(text, src: src, dst: d), !seen.contains(out) else { continue }
+        seen.insert(out)
+        scored.append((out, d, d.languageCode.flatMap(model).flatMap { textScore(out, $0) }))
+    }
+    let ranked = scored.enumerated().sorted { a, b in
+        switch (a.element.score, b.element.score) {
+        case let (x?, y?): return x > y
+        case (nil, nil): return a.offset < b.offset
+        case (nil, _): return false
+        case (_, nil): return true
+        }
+    }
+    return ranked.map { ($0.element.out, $0.element.dst) }
 }
 
 /// Target layout when the current one is the wrong one: with two layouts, the

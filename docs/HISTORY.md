@@ -6,6 +6,20 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
+## After v1.3.10 — hotkey press-again cycles the layouts
+
+- With three or more layouts the hotkey's first pick can be the wrong one, and the
+  only recourse was undo + switch + hotkey. Now a repeat press within the undo
+  window retypes the original into the next layout, and the press after the last
+  reading is the undo. Engine `retypeAlternatives` (distinct conversions of the
+  typed text into every other enabled layout, ranked by the destination model,
+  modelless layouts last); macOS `performRetarget` reuses the undo's reselect and
+  carries `learned`/`autoWords` so the final undo still unlearns. Two layouts:
+  unchanged. Double-tap hotkeys: unchanged (no cycle, no undo). Auto-corrections:
+  no alternatives, second press = undo.
+
+---
+
 ## After v1.3.10 — hotkey past a same-script twin layout
 
 - With three layouts where two share the script and the keys (US + Polish

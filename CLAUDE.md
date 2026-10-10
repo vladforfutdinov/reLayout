@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-reLayout is a tiny menu-bar macOS app (with a Windows port in preview) that retypes selected text in the correct keyboard layout — Punto/Caramba style. Hotkey → read selection → convert via the active OS keyboard layouts → type back → switch system input source. Press the hotkey again within ~1.5 s to undo.
+reLayout is a tiny menu-bar macOS app (with a Windows port in preview) that retypes selected text in the correct keyboard layout — Punto/Caramba style. Hotkey → read selection → convert via the active OS keyboard layouts → type back → switch system input source. Press the hotkey again within ~1.5 s to cycle the remaining layouts, then to undo.
 
 ## Session handoff (context across sessions)
 

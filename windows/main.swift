@@ -3,25 +3,29 @@ import ReLayoutCore
 
 // reLayout — Windows. Hotkey -> read the selection (UI Automation, else the
 // clipboard) -> convert with the shared engine -> type the result -> switch layout.
-// Pressing the hotkey again right after a conversion undoes it.
+// Pressing the hotkey again right after a conversion retypes the original into the
+// next layout (three or more enabled), and once those readings run out undoes it.
 
 /// The last conversion (hotkey or auto mode), kept briefly so a second hotkey
-/// press can put the original back.
+/// press can retarget it or put the original back.
 struct Conversion {
     let original: String
-    let typed: String
+    var typed: String
     let src: WinLayout
-    let time: DWORD
+    var time: DWORD
     var learned: [String] = []   // hotkey misses this conversion learned: undo forgets them
     var autoWords: [String] = [] // words an auto-correction fixed: undo learns them as `keep`
+    var alternatives: [(out: String, dst: WinLayout)] = []   // the other readings, next press first
+    var suffix = ""              // spaces after a typed word, kept on retarget
 }
 private var lastConversion: Conversion?
 private let undoWindowMs: DWORD = 1500
 
 func recordConversion(original: String, typed: String, src: WinLayout,
-                      learned: [String] = [], autoWords: [String] = []) {
+                      learned: [String] = [], autoWords: [String] = [],
+                      alternatives: [(out: String, dst: WinLayout)] = [], suffix: String = "") {
     lastConversion = Conversion(original: original, typed: typed, src: src, time: GetTickCount(),
-                                learned: learned, autoWords: autoWords)
+                                learned: learned, autoWords: autoWords, alternatives: alternatives, suffix: suffix)
 }
 
 /// Any real keystroke or click moves on from the last conversion: the caret is no
@@ -49,9 +53,11 @@ func triggerHotkey() {
 
 func performRetype() {
     dwatch("hotkey")
-    // Press-again undo. Off in double-tap mode, where a second press is the trigger.
+    // Press-again: the next reading, then undo. Off in double-tap mode, where a
+    // second press is the trigger.
     if !loadDoubleTap(), let last = lastConversion, GetTickCount() &- last.time < undoWindowMs {
         lastConversion = nil
+        if let next = last.alternatives.first { return performRetarget(last, to: next) }
         return performUndo(last)
     }
     guard let cur = WinLayout.current() else { return }
@@ -81,7 +87,9 @@ private func retypeTyped(_ typed: (text: String, spaces: Int), cur: WinLayout) {
     guard typeText(plan.out + spaces, in: plan.dst) else { return }
     resetAutoBuffer()
     recordConversion(original: plan.replaced + spaces, typed: plan.out + spaces, src: plan.src,
-                     learned: learnHotkeyMisses(replaced: plan.replaced, out: plan.out, src: plan.src))
+                     learned: learnHotkeyMisses(replaced: plan.replaced, out: plan.out, src: plan.src),
+                     alternatives: alternatives(plan.replaced, first: plan.out, src: plan.src, enabled: enabled),
+                     suffix: spaces)
 }
 
 /// Converts the selected `text` and types the result over it. Which layouts it
@@ -94,7 +102,32 @@ private func retype(_ text: String, cur: WinLayout) {
     guard typeText(plan.out, in: plan.dst) else { return }   // also leaves dst active
     resetAutoBuffer()
     recordConversion(original: plan.replaced, typed: plan.out, src: plan.src,
-                     learned: learnHotkeyMisses(replaced: plan.replaced, out: plan.out, src: plan.src))
+                     learned: learnHotkeyMisses(replaced: plan.replaced, out: plan.out, src: plan.src),
+                     alternatives: plan.replaced == text
+                        ? alternatives(plan.replaced, first: plan.out, src: plan.src, enabled: enabled) : [])
+}
+
+/// The other readings of a hotkey conversion for the press-again cycle (engine
+/// `retypeAlternatives`); empty with two layouts.
+private func alternatives(_ replaced: String, first: String, src: WinLayout,
+                          enabled: [WinLayout]) -> [(out: String, dst: WinLayout)] {
+    enabled.firstIndex(where: { $0.id == src.id }).map {
+        retypeAlternatives(replaced, enabled: enabled, srcIdx: $0, first: first, model: trigram)
+    } ?? []
+}
+
+/// Reselects what the conversion typed and types the next reading of the original
+/// in its layout; the remaining readings stay in the record.
+private func performRetarget(_ last: Conversion, to next: (out: String, dst: WinLayout)) {
+    guard waitModifiersReleased() else { return }
+    resetAutoBuffer()
+    selectLeft(last.typed.count)
+    guard typeText(next.out + last.suffix, in: next.dst) else { return }   // also leaves dst active
+    var again = last
+    again.typed = next.out + last.suffix
+    again.alternatives = Array(last.alternatives.dropFirst())
+    again.time = GetTickCount()
+    lastConversion = again
 }
 
 /// Reselects what the conversion typed (the caret sits right after it), types the

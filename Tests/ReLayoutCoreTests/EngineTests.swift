@@ -408,6 +408,23 @@ final class EngineTests: XCTestCase {
         XCTAssertTrue(p?.dst.isCyrillic ?? false)
     }
 
+    func testRetypeAlternativesCycleTheOtherLayouts() {
+        let (latin, uk) = makeLayouts()
+        var ru = uk; ru.languageCode = "ru"
+        let st = uk.charToStroke["і"]!
+        ru.charToStroke["і"] = nil; ru.charToStroke["ы"] = st; ru.strokeToChar[st] = "ы"
+        let models = ["uk": model(knowing: ["привіт"]), "ru": model(knowing: ["привет"]), "en": model(knowing: [])]
+        // Typed "ghbdsn" on Latin; the hotkey chose uk ("привіт"): ru is the one alternative.
+        let alts = retypeAlternatives("ghbdsn", enabled: [latin, uk, ru], srcIdx: 0, first: "привіт", model: { models[$0] })
+        XCTAssertEqual(alts.map(\.out), ["привыт"])
+        XCTAssertEqual(alts.first?.dst.languageCode, "ru")
+        // Two layouts: nothing to cycle.
+        XCTAssertTrue(retypeAlternatives("ghbdsn", enabled: [latin, uk], srcIdx: 0, first: "привіт", model: { models[$0] }).isEmpty)
+        // Same keys (US vs Polish Programmers) give the same text: not an alternative.
+        var pl = latin; pl.languageCode = "pl"
+        XCTAssertEqual(retypeAlternatives("привіт", enabled: [latin, pl, uk], srcIdx: 2, first: "ghbdsn", model: { models[$0] }).count, 0)
+    }
+
     func testPickTargetWithTwoLayoutsIsTheOther() {
         let (latin, cyr) = makeLayouts()
         XCTAssertTrue(pickTarget("x", enabled: [latin, cyr], curIdx: 0).isCyrillic)

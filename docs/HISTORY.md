@@ -16,6 +16,22 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
+## v1.3.11 — hotkey cycle, target after undo, pl/pt models (2026-10-11)
+
+- Tagged `d3e331e`; notes `docs/release-notes/v1.3.11.md` + `-windows.md`.
+  Contents: the "After v1.3.10" blocks below.
+- Key-rotation mistake, found by the owner on 1.3.8 → 1.3.11: "The update is
+  improperly signed". 1.3.8 (the transition release) already embeds the new
+  SUPublicEDKey, so every later item must be signed with the NEW private key;
+  1.3.9, 1.3.10 and 1.3.11 had been re-signed with the OLD one (the transition
+  recipe applied once too often). Fixed: `resign-appcast` takes `key=next`
+  and replaces an existing signature; `build.yml` now signs with
+  `SPARKLE_ED_PRIVATE_KEY_NEXT`; 1.3.11's item re-signed with the new key.
+  Cost: users still on ≤1.3.7 see the same error on 1.3.11 and need a manual
+  install of 1.3.8 or later; the appcast cannot carry two signatures per item.
+
+---
+
 ## After v1.3.10 — the Cmd+C fallback restores every clipboard flavor
 
 - The hotkey's Cmd+C fallback (apps without an Accessibility selection, e.g.

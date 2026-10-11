@@ -86,8 +86,14 @@ they embed, so rotation takes two releases:
    transition release. `generate_appcast` leaves its item **unsigned** (the app's
    key ≠ signing key) — run `gh workflow run resign-appcast -f version=vX.Y.Z` to
    sign it with the old key.
-2. Once users are on it, point `build.yml` at `SPARKLE_ED_PRIVATE_KEY_NEXT`, tag the
-   next release, and delete the old secret.
+2. **Every release after the transition one** is signed with the new key: point
+   `build.yml` at `SPARKLE_ED_PRIVATE_KEY_NEXT` before tagging it. The transition
+   release already embeds the new public key, so its users reject old-key items
+   ("The update is improperly signed", seen 1.3.8 → 1.3.11 when 1.3.9–1.3.11 had
+   been re-signed with the old key). Users still on a pre-transition version get the
+   same error on the newest item and must install the transition release by hand.
+   A wrongly signed item is fixed in place: `gh workflow run resign-appcast
+   -f version=vX.Y.Z -f key=next`. Delete the old secret once no one needs it.
 
 ### Release notes in the update window
 

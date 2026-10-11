@@ -1,14 +1,21 @@
 name: resign-appcast
 
-# Adds the missing sparkle:edSignature to an existing appcast item. generate_appcast
+# Signs (or re-signs) an existing appcast item with the chosen key. generate_appcast
 # leaves an item unsigned when the archive's SUPublicEDKey differs from the signing
-# key — exactly the case for a key-rotation transition release (see RELEASING.md).
+# key — the key-rotation transition release — and an item signed with the wrong key
+# of the pair is fixed the same way (see RELEASING.md).
 on:
   workflow_dispatch:
     inputs:
       version:
         description: 'Release tag to re-sign, e.g. v1.3.8'
         required: true
+      key:
+        description: 'Which private key signs: current (SPARKLE_ED_PRIVATE_KEY) or next (SPARKLE_ED_PRIVATE_KEY_NEXT)'
+        required: true
+        default: current
+        type: choice
+        options: [current, next]
 
 permissions:
   contents: write
@@ -20,7 +27,7 @@ jobs:
       - name: Sign the release zip and patch appcast.xml
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+          SPARKLE_ED_PRIVATE_KEY: ${{ inputs.key == 'next' && secrets.SPARKLE_ED_PRIVATE_KEY_NEXT || secrets.SPARKLE_ED_PRIVATE_KEY }}
           TAG: ${{ inputs.version }}
         run: |
           set -euo pipefail
@@ -39,10 +46,15 @@ jobs:
           import os, re
           p = "pages/appcast.xml"; x = open(p).read()
           url, sig = os.environ["URL"], os.environ["SIG"]
-          pat = re.compile(r'(<enclosure url="' + re.escape(url) + r'")(?![^>]*edSignature)')
-          x, n = pat.subn(r'\1 sparkle:edSignature="' + sig + '"', x)
-          if n != 1:
-              raise SystemExit(f"expected one unsigned enclosure for {url}, patched {n}")
+          # Replace an existing signature too: a release signed with the wrong key of
+          # a rotation pair is fixed by re-signing, not by rebuilding.
+          enc = re.compile(r'<enclosure url="' + re.escape(url) + r'"[^>]*>')
+          m = enc.search(x)
+          if not m:
+              raise SystemExit(f"no enclosure for {url}")
+          tag = re.sub(r'\s*sparkle:edSignature="[^"]*"', '', m.group(0))
+          tag = tag.replace('<enclosure url="' + url + '"', '<enclosure url="' + url + '" sparkle:edSignature="' + sig + '"', 1)
+          x = x[:m.start()] + tag + x[m.end():]
           open(p, "w").write(x)
           EOF
           cd pages

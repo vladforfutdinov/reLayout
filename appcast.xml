@@ -3,20 +3,21 @@
     <channel>
         <title>ReLayout</title>
         <item>
-            <title>1.3.10</title>
-            <pubDate>Sat, 10 Oct 2026 21:47:12 +0000</pubDate>
-            <sparkle:version>309</sparkle:version>
-            <sparkle:shortVersionString>1.3.10</sparkle:shortVersionString>
+            <title>1.3.11</title>
+            <pubDate>Sun, 11 Oct 2026 07:29:58 +0000</pubDate>
+            <sparkle:version>321</sparkle:version>
+            <sparkle:shortVersionString>1.3.11</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
-            <description><![CDATA[<h2>What's new in v1.3.10 — macOS</h2>
+            <description><![CDATA[<h2>What's new in v1.3.11 — macOS</h2>
 <ul>
-<li>Auto-correct learns from you. When it leaves a word alone and you convert it with the hotkey, it remembers that word and fixes it next time ("учше" → "exit" is the classic case no statistics can catch). Undo an auto-correction and it remembers to leave that word as typed. Settings → Learned words: view the list, remove entries, or reset it. Nothing is learned from password fields or excluded apps.</li>
-<li>With several layouts of the same script enabled (say Russian and Ukrainian), the hotkey now picks the target layout by how well the result reads, instead of by list order.</li>
-<li>Experimental, off by default: Settings → "Between similar layouts (uk ↔ ru)". Auto-correct then also fixes a Ukrainian word typed on the Russian layout and the other way round ("ъжа" → "їжа", "єкран" → "экран"), or just switches the layout when the letters happen to be the same ("мабуть"). It only acts on words the two languages clearly tell apart, so many common words stay as they are — use the hotkey for those, and it will learn them.</li>
-<li>The Ukrainian language model was rebuilt from a cleaner word list: the old one contained a quarter Russian, which made Russian words typed on the Ukrainian layout look fine to it.</li>
-<li>Settings: a language change now applies to the Exceptions sheet too, the version line is localized, "Also fix on Enter" is now "Fix on Enter", and the window opens without the zoom animation.</li>
+<li>Three or more layouts: press the hotkey again within ~1.5 s to retype the original text into the next layout, and once every layout has had its turn, to undo. With two layouts the second press is still the undo.</li>
+<li>After an undo, the hotkey keeps working on the same text — before, it had nothing to act on until you typed or selected again.</li>
+<li>With US and Polish (or another pair of layouts that share every key) plus a Cyrillic one, the hotkey converted nothing from the Latin layouts; it now goes to the Cyrillic one.</li>
+<li>Polish and Portuguese language models: auto-correct now works on those layouts next to a Cyrillic one.</li>
+<li>The doubled first letter after a Globe switch (a macOS quirk) no longer makes auto-correct eat the space before the word.</li>
+<li>In apps without an Accessibility selection (Electron, Claude), a copied image or file survives the hotkey's clipboard round-trip, and two quick presses with nothing selected no longer trigger DeepL.</li>
 </ul>]]></description>
-            <enclosure url="https://github.com/vladforfutdinov/reLayout/releases/download/v1.3.10/reLayout.zip" sparkle:edSignature="3uUjLRxpVTVmqPtHKdMif9ykEDb1Zz43PPe/NXdenmUtCV1fiTSIDm4xVHgW9lStEeo7dZFsXDUTEp2qpvo0DQ==" length="1724094" type="application/octet-stream"/>
+            <enclosure url="https://github.com/vladforfutdinov/reLayout/releases/download/v1.3.11/reLayout.zip" length="1838528" type="application/octet-stream"/>
         </item>
     </channel>
 </rss>

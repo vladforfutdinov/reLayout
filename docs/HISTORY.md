@@ -16,6 +16,34 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
+## After v1.3.11 — Leipzig corpora tried for all eight models, not shipped
+
+- Hypothesis: the subtitle-only lists (50k words) starve the models of normal
+  prose, which is why the ru model underrates "ы" words ("тысяча" −3.00). Built
+  every model from a 1 : 1 : 1 mass-normalized mix of the subtitle list, Leipzig
+  News 2024 (1M sentences) and the most recent Leipzig Web crawl for the
+  language (`scripts/trigram/merge.py`; uk re-filtered through dict_uk), then
+  measured against the shipped models with the same scripts.
+- Result: nothing to ship. Cross-script pairs with ru/uk: recall equal or 0.001–
+  0.002 lower, false positives equal or slightly higher, for all six Latin
+  languages. ru ↔ uk same-script recall down (0.345 → 0.305 into ru, 0.253 →
+  0.200 into uk). "тысяча" −3.00 → −2.83, still garbage; "рыба" unchanged; "ё"
+  words down ("всё" −1.53 → −1.75, "ещё" −1.75 → −1.97) because the press
+  writes "е"; weighting subtitles 2 : 1 : 1 softens but does not reverse it.
+  de ↔ en within Latin 0.971 → 0.960, fr/es unchanged.
+- Weights on the shared trigrams (100 % of the old ones survive): mean |Δ| 0.6,
+  a fifth of them move by more than 1 (the size of a margin), no systematic
+  shift. The first build also taught the Cyrillic models Latin trigrams from
+  the web crawl (88 third-letters in ru instead of 69); `merge.py --script`
+  now drops words outside the language's script. The "ы" weakness is
+  structural (the pronoun "ты" owns the "ты" context under frequency
+  weighting), not a corpus-size problem.
+- Kept: `merge.py` (with `--script`, `--weight`) for the next attempt; the
+  shipped models are unchanged. Data: Leipzig 1M archives are CC BY, ~200 MB
+  each, public downloads cap at 1M sentences.
+
+---
+
 ## v1.3.11 — hotkey cycle, target after undo, pl/pt models (2026-10-11)
 
 - Tagged `d3e331e`; notes `docs/release-notes/v1.3.11.md` + `-windows.md`.

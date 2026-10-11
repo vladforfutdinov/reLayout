@@ -178,6 +178,8 @@ jobs:
               ( cd "$OUT" && git checkout --orphan gh-pages && git rm -rf . >/dev/null 2>&1 || true )
             }
           cp "$SRC/appcast.xml" "$OUT/appcast.xml"
+          # Pre-1.3.8 installs embed the old Sparkle key: informational for them.
+          python3 scripts/appcast-informational.py "$OUT/appcast.xml" 1.3.8
           ( cd "$OUT"
             git add appcast.xml
             git -c user.name='github-actions[bot]' \

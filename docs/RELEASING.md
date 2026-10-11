@@ -94,6 +94,10 @@ they embed, so rotation takes two releases:
    same error on the newest item and must install the transition release by hand.
    A wrongly signed item is fixed in place: `gh workflow run resign-appcast
    -f version=vX.Y.Z -f key=next`. Delete the old secret once no one needs it.
+3. Pre-transition installs: `build.yml` runs `scripts/appcast-informational.py`
+   after `generate_appcast`, marking every item informational for installs below
+   1.3.8 (`<sparkle:informationalUpdate><sparkle:belowVersion>`), so they see the
+   release page instead of a signature error. Remove the step when they are gone.
 
 ### Release notes in the update window
 

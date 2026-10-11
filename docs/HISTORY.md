@@ -27,8 +27,11 @@ work (not per commit). Operational "where are we right now" lives in
   recipe applied once too often). Fixed: `resign-appcast` takes `key=next`
   and replaces an existing signature; `build.yml` now signs with
   `SPARKLE_ED_PRIVATE_KEY_NEXT`; 1.3.11's item re-signed with the new key.
-  Cost: users still on ≤1.3.7 see the same error on 1.3.11 and need a manual
-  install of 1.3.8 or later; the appcast cannot carry two signatures per item.
+  Users still on ≤1.3.7 would see the same error on 1.3.11 (one signature per
+  item): every item is now marked informational for installs below 1.3.8
+  (`scripts/appcast-informational.py` in `build.yml`, applied by hand to the
+  live 1.3.11 item), so they get "a new version is available" with the release
+  page as the link instead.
 
 ---
 

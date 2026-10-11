@@ -17,7 +17,7 @@
 <li>The doubled first letter after a Globe switch (a macOS quirk) no longer makes auto-correct eat the space before the word.</li>
 <li>In apps without an Accessibility selection (Electron, Claude), a copied image or file survives the hotkey's clipboard round-trip, and two quick presses with nothing selected no longer trigger DeepL.</li>
 </ul>]]></description>
-            <enclosure url="https://github.com/vladforfutdinov/reLayout/releases/download/v1.3.11/reLayout.zip" sparkle:edSignature="gXP6N0UV8iLSLQ1w/AxAz4CkciysM8yqUxUxMSkMe3J3JfIDEnNTuyqXrEsROfAnVNsvN3Hllfq0e1irzAD6Aw==" length="1838528" type="application/octet-stream"/>
+            <enclosure url="https://github.com/vladforfutdinov/reLayout/releases/download/v1.3.11/reLayout.zip" sparkle:edSignature="wHgdlIB0FInQsCDfXKN8/mR2mQxt2kEGzo5lX6zDfUfKreURZWpdJsYmmEBOUNhFTz6Q8ewZEAU7zOpD91ziDw==" length="1838528" type="application/octet-stream"/>
         </item>
     </channel>
 </rss>

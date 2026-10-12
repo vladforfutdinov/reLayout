@@ -21,6 +21,9 @@ work (not per commit). Operational "where are we right now" lives in
 - Settings: the similar-layouts hint moved from the checkbox to an ⓘ, placed
   before the dash: "Between similar layouts (uk ↔ ru) ⓘ — experimental" (the
   string is split at the dash at runtime, no new keys). Both platforms.
+- macOS: the Exceptions and Learned-words windows were sheets, which have no
+  close button; they are titled windows now (`.closable`, centered over
+  Settings, the name in the title bar instead of a bold label), like Windows.
 - Tried and reverted the same day (`088d784`, `1fb2fee`): moving the
   Exceptions ⓘ out of the sheet to the Exceptions… button and dropping the
   sheet's sub-heading. The owner preferred the sheet as it was.

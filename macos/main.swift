@@ -1333,11 +1333,11 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         guard let parent = settingsWindow else { return }
         let w = learnedWindow ?? buildLearnedWindow()
         learnedTable?.reloadData()
-        if w.sheetParent == nil { parent.beginSheet(w) }
+        present(w, over: parent)
     }
 
     @objc private func learnedDone() {
-        if let w = learnedWindow { settingsWindow?.endSheet(w) }
+        learnedWindow?.close()
         updateAutoAvailability()
     }
 
@@ -1377,15 +1377,13 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
 
     private func buildLearnedWindow() -> NSWindow {
         let w = SettingsWindow(contentRect: NSRect(x: 0, y: 0, width: 380, height: 300),
-                               styleMask: [.titled], backing: .buffered, defer: false)
+                               styleMask: [.titled, .closable], backing: .buffered, defer: false)
+        w.title = L("settings.learned.title")
         w.isReleasedWhenClosed = false
         let content = NSView()
         content.translatesAutoresizingMaskIntoConstraints = false
         w.contentView = content
 
-        let title = NSTextField(labelWithString: L("settings.learned.title"))
-        title.font = .boldSystemFont(ofSize: 13)
-        title.translatesAutoresizingMaskIntoConstraints = false
         let hint = NSTextField(wrappingLabelWithString: L("settings.learned.hint"))
         hint.font = .systemFont(ofSize: 11)
         hint.textColor = .secondaryLabelColor
@@ -1424,20 +1422,18 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         bar.orientation = .horizontal; bar.spacing = 8; bar.distribution = .fill
         bar.translatesAutoresizingMaskIntoConstraints = false
 
-        content.addSubview(title); content.addSubview(hint); content.addSubview(scroll); content.addSubview(bar)
+        content.addSubview(hint); content.addSubview(scroll); content.addSubview(bar)
         NSLayoutConstraint.activate([
             content.widthAnchor.constraint(equalToConstant: 380),
-            title.topAnchor.constraint(equalTo: content.topAnchor, constant: 16),
-            title.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 16),
-            hint.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 4),
-            hint.leadingAnchor.constraint(equalTo: title.leadingAnchor),
+            hint.topAnchor.constraint(equalTo: content.topAnchor, constant: 16),
+            hint.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 16),
             hint.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -16),
             scroll.topAnchor.constraint(equalTo: hint.bottomAnchor, constant: 8),
-            scroll.leadingAnchor.constraint(equalTo: title.leadingAnchor),
+            scroll.leadingAnchor.constraint(equalTo: hint.leadingAnchor),
             scroll.trailingAnchor.constraint(equalTo: hint.trailingAnchor),
             scroll.heightAnchor.constraint(equalToConstant: 180),
             bar.topAnchor.constraint(equalTo: scroll.bottomAnchor, constant: 12),
-            bar.leadingAnchor.constraint(equalTo: title.leadingAnchor),
+            bar.leadingAnchor.constraint(equalTo: hint.leadingAnchor),
             bar.trailingAnchor.constraint(equalTo: hint.trailingAnchor),
             bar.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -16),
         ])
@@ -1453,24 +1449,31 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         guard let parent = settingsWindow else { return }
         let w = excWindow ?? buildExceptionsWindow()
         excTable?.reloadData()
-        if w.sheetParent == nil { parent.beginSheet(w) }
+        present(w, over: parent)
+    }
+
+    // A window of its own, centered over Settings: a sheet has no close button.
+    private func present(_ w: NSWindow, over parent: NSWindow) {
+        if !w.isVisible {
+            let p = parent.frame, f = w.frame
+            w.setFrameOrigin(NSPoint(x: p.midX - f.width / 2, y: p.midY - f.height / 2))
+        }
+        w.makeKeyAndOrderFront(nil)
     }
 
     @objc private func excDone() {
-        if let w = excWindow { settingsWindow?.endSheet(w) }
+        excWindow?.close()
     }
 
     private func buildExceptionsWindow() -> NSWindow {
         let w = SettingsWindow(contentRect: NSRect(x: 0, y: 0, width: 380, height: 300),
-                               styleMask: [.titled], backing: .buffered, defer: false)
+                               styleMask: [.titled, .closable], backing: .buffered, defer: false)
+        w.title = L("settings.exc.title")
         w.isReleasedWhenClosed = false
         let content = NSView()
         content.translatesAutoresizingMaskIntoConstraints = false
         w.contentView = content
 
-        let title = NSTextField(labelWithString: L("settings.exc.title"))
-        title.font = .boldSystemFont(ofSize: 13)
-        title.translatesAutoresizingMaskIntoConstraints = false
         // Why a fresh install already lists apps (terminals, editors, VMs).
         let info = NSImageView(image: NSImage(systemSymbolName: "info.circle", accessibilityDescription: nil) ?? NSImage())
         info.contentTintColor = .secondaryLabelColor
@@ -1515,16 +1518,14 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         bar.orientation = .horizontal; bar.spacing = 8; bar.distribution = .fill
         bar.translatesAutoresizingMaskIntoConstraints = false
 
-        content.addSubview(title); content.addSubview(info); content.addSubview(hint)
+        content.addSubview(info); content.addSubview(hint)
         content.addSubview(scroll); content.addSubview(bar)
         NSLayoutConstraint.activate([
             content.widthAnchor.constraint(equalToConstant: 380),
-            title.topAnchor.constraint(equalTo: content.topAnchor, constant: 16),
-            title.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 16),
-            info.leadingAnchor.constraint(equalTo: title.trailingAnchor, constant: 4),
-            info.centerYAnchor.constraint(equalTo: title.centerYAnchor),
-            hint.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 2),
+            hint.topAnchor.constraint(equalTo: content.topAnchor, constant: 16),
             hint.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 16),
+            info.leadingAnchor.constraint(equalTo: hint.trailingAnchor, constant: 4),
+            info.centerYAnchor.constraint(equalTo: hint.centerYAnchor),
             hint.trailingAnchor.constraint(lessThanOrEqualTo: content.trailingAnchor, constant: -16),
             scroll.topAnchor.constraint(equalTo: hint.bottomAnchor, constant: 10),
             scroll.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 16),

@@ -1150,8 +1150,11 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         let enterRow = NSStackView(views: [enterCb])
         enterRow.edgeInsets = NSEdgeInsets(top: 0, left: 20, bottom: 0, right: 0)   // sub-option of auto-correct
         let similarCb = makeCheckbox(L("settings.autoCorrectSimilar"), #selector(toggleAutoSimilar(_:)), on: autoSameScript)
-        similarCb.toolTip = L("settings.autoCorrectSimilar.tip")
-        let similarRow = NSStackView(views: [similarCb])
+        let similarInfo = NSImageView(image: NSImage(systemSymbolName: "info.circle", accessibilityDescription: nil) ?? NSImage())
+        similarInfo.contentTintColor = .secondaryLabelColor
+        similarInfo.toolTip = L("settings.autoCorrectSimilar.tip")   // hints live on ⓘ, like the auto-correct row
+        let similarRow = NSStackView(views: [similarCb, similarInfo])
+        similarRow.orientation = .horizontal; similarRow.spacing = 4; similarRow.alignment = .centerY
         similarRow.edgeInsets = NSEdgeInsets(top: 0, left: 20, bottom: 0, right: 0)
         let learnedLbl = NSTextField(labelWithString: "")
         let learnedView = NSButton(title: L("settings.learned.view"), target: self, action: #selector(openLearned))

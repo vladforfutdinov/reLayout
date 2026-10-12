@@ -15,6 +15,7 @@ private let idChkAutoEnter:  Int = 110
 private let idBtnExceptions: Int = 111
 private let idCmbLanguage:   Int = 112
 private let idAutoInfo:      Int = 113
+private let idSimilarInfo:   Int = 118
 private let idName:          Int = 114
 private let idChkAutoSimilar: Int = 115
 private let idBtnLearnedReset: Int = 116
@@ -247,7 +248,7 @@ private func buildControls(_ hwnd: HWND?) {
     let rows: [Int32] = [
         autoW + 24 + 16 + excW,
         20 + textWidth(L("settings.autoCorrectEnter"), hwnd) + 24,
-        20 + textWidth(similarTitle, hwnd) + 24,
+        20 + textWidth(similarTitle, hwnd) + 24 + 22,
         20 + learnedW + 8 + learnedViewW + 8 + learnedResetW,
         textWidth(L("settings.openAtLogin"), hwnd) + 24,
         captionW + 10 + 200,
@@ -328,11 +329,14 @@ private func buildControls(_ hwnd: HWND?) {
     makeCheck(L("settings.autoCorrectEnter"), margin + 20, y, content - 20, hwnd, idChkAutoEnter,
               on: loadAutoEnter(), enabled: available && loadAutoMode())
     y += 28
-    let similarTip = L("settings.autoCorrectSimilar.tip")
-    let similar = makeCheck(similarTitle, margin + 20, y, content - 20, hwnd, idChkAutoSimilar,
-                            on: loadAutoSameScript(), enabled: available && loadAutoMode())
-    addTooltip(&tooltip, hwnd, similar, similarTip)
-    addTooltip(&tooltip, hwnd, GetDlgItem(hwnd, Int32(idChkAutoSimilar + labelOffset)), similarTip)
+    let similarW = textWidth(similarTitle, hwnd) + 24
+    makeCheck(similarTitle, margin + 20, y, similarW, hwnd, idChkAutoSimilar,
+              on: loadAutoSameScript(), enabled: available && loadAutoMode())
+    // The hint lives on an ⓘ next to the box, like the auto-correct row's.
+    let similarInfo = makeControl("STATIC", "\u{E946}" /* Info glyph */, 0,
+                                  margin + 20 + similarW + 2, y + 2, 20, 20, hwnd, idSimilarInfo)
+    setFont(similarInfo, glyphFont)
+    addTooltip(&tooltip, hwnd, similarInfo, L("settings.autoCorrectSimilar.tip"), overWindow: true)
     y += 30
     // The count takes the Reset button's id + labelOffset, so it grays with the button.
     makeControl("STATIC", L("settings.learned", "\(learnedCount())"), 0,

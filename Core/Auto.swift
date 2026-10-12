@@ -366,6 +366,10 @@ public struct AutoRun {
     public private(set) var word = ""
     public private(set) var trail = ""
     public private(set) var previous: Previous?
+    // Short words without a candidate typed after `previous` ("ot" in "nf ot
+    // [fktgf": "ot" reads as English): they ride along when the chain commits on
+    // a long candidate, rather than breaking it.
+    private var bridged: [(raw: String, out: String)] = []
     // The last word (+ trail) and the spaces typed after it: still the hotkey's
     // target until any other key.
     private var spacedWord = "", spacedTrail = "", spaces = 0
@@ -387,7 +391,7 @@ public struct AutoRun {
 
     /// Ends the run; the previous word can no longer join a correction.
     public mutating func reset() {
-        word = ""; trail = ""; previous = nil
+        word = ""; trail = ""; previous = nil; bridged = []
         dropSpacedWord()
     }
 
@@ -456,7 +460,15 @@ public struct AutoRun {
 
     /// The boundary word had no candidate: it breaks the chain of short words.
     public mutating func noCandidate() {
-        previous = nil
+        previous = nil; bridged = []
+    }
+
+    /// A short word with no candidate right after a chain word: it neither breaks
+    /// the chain nor converts alone. `out` is its reading in the chain's layout, typed
+    /// with the rest when a long candidate commits the chain. Ignored without a chain.
+    public mutating func bridge(raw: String, out: String) {
+        guard previous != nil else { return }
+        bridged.append((raw, out))
     }
 
     /// Decides whether a candidate at a boundary is fixed now.
@@ -473,24 +485,27 @@ public struct AutoRun {
     }
 
     private mutating func planFix(raw: String, out: String, cyrillic: Bool, trusted: Bool) -> Fix? {
-        if trusted || wordBody(raw) >= 3 {
-            // Long enough to trust alone. A pending short word right before it (the
-            // "d ljhjut" case) is folded into the same correction.
-            let swallow = previous.flatMap { !$0.committed && $0.cyrillic == cyrillic ? $0 : nil }
-            previous = Previous(raw: raw, out: out, cyrillic: cyrillic, committed: true)
-            let rawPrefix = swallow.map { $0.raw + " " } ?? ""   // "<raw> " before it
-            return Fix(erase: rawPrefix.count + raw.count,
-                       text: (swallow.map { $0.out + " " } ?? "") + out,
-                       original: rawPrefix + raw)
+        let chain = previous.flatMap { $0.cyrillic == cyrillic ? $0 : nil }
+        let bridge = chain == nil ? [] : bridged
+        bridged = []
+        // Everything retyped before this word: a pending short candidate (the
+        // "d ljhjut" case) and the bridged short words after the last chain word.
+        func fix(_ before: [(raw: String, out: String)]) -> Fix {
+            let raws = before.map(\.raw) + [raw], outs = before.map(\.out) + [out]
+            let original = raws.joined(separator: " ")
+            return Fix(erase: original.count, text: outs.joined(separator: " "), original: original)
         }
-        if let p = previous, p.cyrillic == cyrillic {
+        if trusted || wordBody(raw) >= 3 {
+            let swallow = chain.flatMap { $0.committed ? nil : ($0.raw, $0.out) }.map { [$0] } ?? []
             previous = Previous(raw: raw, out: out, cyrillic: cyrillic, committed: true)
-            // A short word right after a committed conversion of the same script.
-            if p.committed { return Fix(erase: raw.count, text: out, original: raw) }
-            // Two short candidates in a row ("пщ ещ"): one alone is a guess the
+            return fix(swallow + bridge)
+        }
+        if let p = chain {
+            previous = Previous(raw: raw, out: out, cyrillic: cyrillic, committed: true)
+            // A short word right after a committed conversion of the same script, or
+            // two short candidates in a row ("пщ ещ"): one alone is a guess the
             // trigram cannot back, two agreeing neighbours are trusted together.
-            return Fix(erase: p.raw.count + 1 + raw.count, text: p.out + " " + out,
-                       original: p.raw + " " + raw)
+            return fix((p.committed ? [] : [(p.raw, p.out)]) + bridge)
         }
         previous = Previous(raw: raw, out: out, cyrillic: cyrillic, committed: false)
         return nil

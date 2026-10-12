@@ -626,6 +626,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     // When the Cmd+C probe last found nothing selected: a second synthetic Cmd+C
     // within a second would be DeepL's Cmd+C-Cmd+C trigger.
     private var lastEmptyProbe: Double = 0
+    private var autoChainTarget: Layout?   // layout of the last auto candidate, for bridged words
 
     // modifier-tap runtime state
     private var tapMonitors: [Any] = []
@@ -1997,9 +1998,19 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         let enabled = Layout.enabledList()
         guard let cur = enabled.first(where: { $0.id == currentSourceID() }),
               let d = autoDecide(word, cur: cur, enabled: enabled) else {
-            dbg("auto: no candidate for \(word.debugDescription) cur=\(currentSourceID())")
-            autoRun.noCandidate(); return false
+            // A short word the model reads as fine right after a chain word ("ot"
+            // in "nf ot [fktgf") rides along with its reading in the chain's layout.
+            if wordBody(word) <= 2, autoRun.previous != nil, let t = autoChainTarget,
+               let cur = enabled.first(where: { $0.id == currentSourceID() }) {
+                dbg("auto: no candidate for \(word.debugDescription), bridged")
+                autoRun.bridge(raw: word + trail, out: transliterate(word + trail, from: cur, to: t))
+            } else {
+                dbg("auto: no candidate for \(word.debugDescription) cur=\(currentSourceID())")
+                autoRun.noCandidate()
+            }
+            return false
         }
+        autoChainTarget = d.target
         dbg("auto: \(word.debugDescription) -> \(d.out.debugDescription) [\(d.target.id)] cur=\(cur.id)")
         if d.out == word {
             // Right text, wrong layout (uk word on the ru layout): switch only, no retype.

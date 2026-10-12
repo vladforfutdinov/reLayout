@@ -16,6 +16,20 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
+## After v1.3.11 — a short no-candidate word bridges the chain
+
+- "nf ot [fktgf" (та ще халепа) converted only "халепа": "nf" waited as a
+  short candidate, "ot" reads as English (−2.45, above the garbage line, and
+  under the margin even at −2.2), and a word without a candidate broke the
+  chain. Rule added: a 1–2 letter word with no candidate right after a chain
+  word is bridged (`AutoRun.bridge`, its reading in the chain's layout via
+  `transliterate`), and is retyped with the chain when a long candidate or a
+  second short candidate commits it; alone it never converts, a long
+  no-candidate word still breaks the chain. Both apps remember the last
+  candidate's layout for the bridge. Tests in `AutoRunTests`.
+
+---
+
 ## After v1.3.11 — punctuation gate relaxed to −3.6
 
 - "та же халепа" typed on ABC: "[fktgf" stayed. Not the trigrams: "халепа"

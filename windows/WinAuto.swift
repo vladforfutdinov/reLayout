@@ -199,11 +199,22 @@ func autoFeed(vk: UINT, scan: WORD, shortcut: Bool, shift: Bool) -> Bool {
 /// Word boundary: decide, and queue the fix for the UI thread.
 /// - Returns: true when a fix was queued, so the boundary key is swallowed — the
 ///   fix retypes it after the correction.
+private var chainTarget: WinLayout?   // layout of the last auto candidate, for bridged words
+
 private func evaluate(word: String, trail: String, boundary: Int32, shift: Bool, cur: WinLayout) -> Bool {
-    guard !word.isEmpty, !autoExcluded(),
-          let decided = decideAutoTarget(word, cur: cur, enabled: WinLayout.installedList(), model: trigram,
-                                         learned: learnedVerdict, sameScript: autoSameScript)
-    else { run.noCandidate(); return false }
+    guard !word.isEmpty, !autoExcluded() else { run.noCandidate(); return false }
+    guard let decided = decideAutoTarget(word, cur: cur, enabled: WinLayout.installedList(), model: trigram,
+                                         learned: learnedVerdict, sameScript: autoSameScript) else {
+        // A short word the model reads as fine right after a chain word ("ot" in
+        // "nf ot [fktgf") rides along with its reading in the chain's layout.
+        if wordBody(word) <= 2, run.previous != nil, let t = chainTarget {
+            run.bridge(raw: word + trail, out: transliterate(word + trail, from: cur, to: t))
+        } else {
+            run.noCandidate()
+        }
+        return false
+    }
+    chainTarget = decided.target
     if decided.out == word {
         // Right text, wrong layout (uk word on the ru layout): switch only, no retype.
         guard wordBody(word) >= 3 else { return false }

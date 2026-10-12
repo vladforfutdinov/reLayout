@@ -149,6 +149,29 @@ final class AutoRunTests: XCTestCase {
                        AutoRun.Fix(erase: 3, text: "ок,", original: "jr?"))
     }
 
+    func testShortNonCandidateBridgesTheChain() {
+        // "nf ot [fktgf": "ot" reads as English, but sits between two chain words.
+        var run = AutoRun()
+        XCTAssertNil(run.plan(raw: "nf", out: "та", cyrillic: true))
+        run.bridge(raw: "ot", out: "ще")
+        XCTAssertEqual(run.plan(raw: "[fktgf", out: "халепа", cyrillic: true),
+                       AutoRun.Fix(erase: 12, text: "та ще халепа", original: "nf ot [fktgf"))
+        // After a committed word the bridge rides with the next long candidate.
+        run.bridge(raw: "ok", out: "щл")
+        XCTAssertEqual(run.plan(raw: "ljhjut", out: "дороге", cyrillic: true),
+                       AutoRun.Fix(erase: 9, text: "щл дороге", original: "ok ljhjut"))
+        // A long word without a candidate still breaks the chain, bridge included.
+        run.bridge(raw: "ot", out: "ще")
+        run.noCandidate()
+        XCTAssertEqual(run.plan(raw: "ljhjut", out: "дороге", cyrillic: true),
+                       AutoRun.Fix(erase: 6, text: "дороге", original: "ljhjut"))
+        // No chain, no bridge.
+        var fresh = AutoRun()
+        fresh.bridge(raw: "ot", out: "ще")
+        XCTAssertEqual(fresh.plan(raw: "ljhjut", out: "дороге", cyrillic: true),
+                       AutoRun.Fix(erase: 6, text: "дороге", original: "ljhjut"))
+    }
+
     func testShortWordOfTheOtherScriptIsNotSwallowed() {
         var run = AutoRun()
         XCTAssertNil(run.plan(raw: "d", out: "в", cyrillic: true))

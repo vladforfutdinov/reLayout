@@ -16,6 +16,7 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
+<<<<<<< HEAD
 ## After v1.3.11 — hints live on ⓘ only
 
 - Settings: the similar-layouts hint moved from the checkbox to an ⓘ next to
@@ -29,6 +30,8 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
+=======
+>>>>>>> parent of 088d784 (fix(settings): Exceptions ⓘ by the button, no sub-heading in the sheet)
 ## After v1.3.11 — a short no-candidate word bridges the chain
 
 - "nf ot [fktgf" (та ще халепа) converted only "халепа": "nf" waited as a

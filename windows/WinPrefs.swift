@@ -15,6 +15,7 @@ private let keyAutoEnter  = "AutoCorrectOnEnter"
 private let keyAutoSameScript = "AutoCorrectSameScript"
 private let keyLearned    = "AutoCorrectLearned"
 private let keyKept       = "AutoCorrectKept"
+private let keyLearnCounts = "AutoCorrectLearnCounts"
 private let keyExcluded   = "AutoCorrectExcluded"
 private let keyExcludedSeen = "AutoCorrectExcludedDefaultsSeen"
 private let keyLanguage   = "Language"
@@ -213,6 +214,23 @@ func loadLearned() -> [String: String] {
 func saveLearned(_ map: [String: String]) {
     _ = withPrefsKey(write: true) { key -> Bool in
         writeString(key, keyLearned, map.map { "\($0.key)\t\($0.value)" }.sorted().joined(separator: "\n"))
+        return true
+    }
+}
+
+/// Hotkey corrections counted toward a `convert` verdict: "typed<TAB>n" per line.
+func loadLearnCounts() -> [String: Int] {
+    var map: [String: Int] = [:]
+    for line in (withPrefsKey(write: false, { readString($0, keyLearnCounts) }) ?? "").split(separator: "\n") {
+        let p = line.split(separator: "\t", maxSplits: 1)
+        if p.count == 2, let n = Int(p[1]) { map[String(p[0])] = n }
+    }
+    return map
+}
+
+func saveLearnCounts(_ map: [String: Int]) {
+    _ = withPrefsKey(write: true) { key -> Bool in
+        writeString(key, keyLearnCounts, map.map { "\($0.key)\t\($0.value)" }.sorted().joined(separator: "\n"))
         return true
     }
 }

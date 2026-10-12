@@ -41,7 +41,7 @@
 "settings.learned.reset" = "초기화";
 "settings.learned.cancel" = "취소";
 "settings.learned.title" = "학습한 단어";
-"settings.learned.hint" = "자동 수정이 건너뛴 뒤 단축키로 변환한 단어와 취소한 자동 수정입니다. 자동 수정은 이 결정을 따릅니다.";
+"settings.learned.hint" = "자동 수정이 건너뛴 뒤 단축키로 세 번 수정한 단어와 취소한 자동 수정입니다. 자동 수정은 이 결정을 따릅니다.";
 "settings.learned.keep" = "입력한 대로 유지";
 "settings.learned.confirm" = "학습한 단어 %@개를 모두 잊을까요?";
 "settings.learned.confirmInfo" = "이 단어들은 자동 수정이 다시 스스로 판단합니다. 이 작업은 되돌릴 수 없습니다.";

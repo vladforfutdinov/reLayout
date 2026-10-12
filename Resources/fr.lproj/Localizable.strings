@@ -41,7 +41,7 @@
 "settings.learned.reset" = "Réinitialiser";
 "settings.learned.cancel" = "Annuler";
 "settings.learned.title" = "Mots appris";
-"settings.learned.hint" = "Mots que vous avez convertis avec le raccourci après que la correction automatique les a laissés, et corrections automatiques que vous avez annulées. La correction automatique suit ces décisions.";
+"settings.learned.hint" = "Mots que vous avez corrigés trois fois avec le raccourci après que la correction automatique les a laissés, et corrections automatiques que vous avez annulées. La correction automatique suit ces décisions.";
 "settings.learned.keep" = "laisser tel que saisi";
 "settings.learned.confirm" = "Oublier les %@ mots appris ?";
 "settings.learned.confirmInfo" = "La correction automatique reviendra à son propre jugement pour ces mots. Cette action est irréversible.";

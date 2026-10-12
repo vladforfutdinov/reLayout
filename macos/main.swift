@@ -1292,6 +1292,11 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         get { UserDefaults.standard.stringArray(forKey: "autoKept") ?? [] }
         set { UserDefaults.standard.set(newValue, forKey: "autoKept") }
     }
+    // Hotkey corrections seen so far for typed forms not yet promoted to `convert`.
+    private var learnedCounts: [String: Int] {
+        get { UserDefaults.standard.dictionary(forKey: "autoLearnCounts") as? [String: Int] ?? [:] }
+        set { UserDefaults.standard.set(newValue, forKey: "autoLearnCounts") }
+    }
     private func learnedVerdict(_ key: String) -> LearnedVerdict? {
         if learnedConvert[key] != nil { return .convert }
         return learnedKeep.contains(key) ? .keep : nil
@@ -1303,20 +1308,28 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         let typed = replaced.split(whereSeparator: { $0.isWhitespace }).map { learnedKey(String($0)) }
         let outs = out.split(whereSeparator: { $0.isWhitespace }).map { learnedKey(String($0)) }
         let byTyped = Dictionary(zip(typed, outs), uniquingKeysWith: { a, _ in a })
-        for m in misses { c[m] = byTyped[m] ?? "" }
-        learnedConvert = c
+        var counts = learnedCounts
+        var promoted: [String] = []
+        for m in misses where c[m] == nil {
+            counts[m, default: 0] += 1
+            if counts[m]! >= autoLearnRepeats { c[m] = byTyped[m] ?? ""; counts[m] = nil; promoted.append(m) }
+        }
+        learnedConvert = c; learnedCounts = counts
         learnedKeep = learnedKeep.filter { !misses.contains($0) }
-        dbg("learned convert: \(misses)")
+        dbg("learned: counted \(misses), promoted \(promoted)")
         refreshLearnedUI()
     }
     private func refreshLearnedUI() {
         DispatchQueue.main.async { self.updateAutoAvailability(); self.learnedTable?.reloadData() }
     }
     private func unlearn(_ last: Conversion) {
-        var c = learnedConvert
-        for w in last.learned { c[w] = nil }
+        var c = learnedConvert, counts = learnedCounts
+        for w in last.learned {
+            // The press being undone either promoted the word or counted toward it.
+            if c[w] != nil { c[w] = nil } else if let n = counts[w] { counts[w] = n > 1 ? n - 1 : nil }
+        }
         for w in last.autoWords { c[w] = nil }
-        learnedConvert = c
+        learnedConvert = c; learnedCounts = counts
         if !last.autoWords.isEmpty {
             learnedKeep = Array(Set(learnedKeep + last.autoWords)).sorted()
             dbg("learned keep: \(last.autoWords)")
@@ -1360,7 +1373,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         a.addButton(withTitle: L("settings.learned.reset"))
         a.addButton(withTitle: L("settings.learned.cancel"))
         guard a.runModal() == .alertFirstButtonReturn else { return }
-        learnedConvert = [:]; learnedKeep = []
+        learnedConvert = [:]; learnedKeep = []; learnedCounts = [:]
         learnedTable?.reloadData()
         updateAutoAvailability()
     }

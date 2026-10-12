@@ -41,7 +41,7 @@
 "settings.learned.reset" = "重置";
 "settings.learned.cancel" = "取消";
 "settings.learned.title" = "已学习的词";
-"settings.learned.hint" = "自动纠正放过后你用快捷键转换的词，以及你撤销的自动纠正。自动纠正会遵循这些决定。";
+"settings.learned.hint" = "自动纠正放过后你用快捷键纠正了三次的词，以及你撤销的自动纠正。自动纠正会遵循这些决定。";
 "settings.learned.keep" = "保持原样";
 "settings.learned.confirm" = "忘记全部 %@ 个已学习的词？";
 "settings.learned.confirmInfo" = "自动纠正将对这些词恢复自行判断。此操作无法撤销。";

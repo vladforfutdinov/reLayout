@@ -41,7 +41,7 @@
 "settings.learned.reset" = "Zurücksetzen";
 "settings.learned.cancel" = "Abbrechen";
 "settings.learned.title" = "Gelernte Wörter";
-"settings.learned.hint" = "Wörter, die Sie per Hotkey umgewandelt haben, nachdem die Autokorrektur sie übergangen hatte, und Autokorrekturen, die Sie rückgängig gemacht haben. Die Autokorrektur folgt diesen Entscheidungen.";
+"settings.learned.hint" = "Wörter, die Sie dreimal per Hotkey korrigiert haben, nachdem die Autokorrektur sie übergangen hatte, und Autokorrekturen, die Sie rückgängig gemacht haben. Die Autokorrektur folgt diesen Entscheidungen.";
 "settings.learned.keep" = "wie getippt lassen";
 "settings.learned.confirm" = "Alle %@ gelernten Wörter vergessen?";
 "settings.learned.confirmInfo" = "Die Autokorrektur beurteilt diese Wörter dann wieder selbst. Dies kann nicht rückgängig gemacht werden.";

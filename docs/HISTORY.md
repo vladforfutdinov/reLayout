@@ -28,6 +28,12 @@ work (not per commit). Operational "where are we right now" lives in
   ("exit" −2.41, "ок" −2.78, "сброс" −3.41), transliterated correct text does
   not (−10…−18), a single letter has no trigram and sits at the floor.
   `hotkeyMisses` takes `dst`; both apps pass the plan's destination.
+- Repeat threshold (owner's call): one hotkey press may be a one-off, the same
+  correction three times is the model being wrong. A miss is counted
+  (`autoLearnCounts` in UserDefaults, `AutoCorrectLearnCounts` in the registry)
+  and promoted to `convert` on the third press (`autoLearnRepeats`); undo takes
+  back the count or the verdict of that press. `keep` from an undone
+  auto-correction stays immediate. Hint strings and README updated.
 
 ---
 

@@ -41,7 +41,7 @@
 "settings.learned.reset" = "Restablecer";
 "settings.learned.cancel" = "Cancelar";
 "settings.learned.title" = "Palabras aprendidas";
-"settings.learned.hint" = "Palabras que convertiste con el atajo después de que la autocorrección las dejara, y autocorrecciones que deshiciste. La autocorrección sigue estas decisiones.";
+"settings.learned.hint" = "Palabras que corregiste tres veces con el atajo después de que la autocorrección las dejara, y autocorrecciones que deshiciste. La autocorrección sigue estas decisiones.";
 "settings.learned.keep" = "dejar como se escribió";
 "settings.learned.confirm" = "¿Olvidar las %@ palabras aprendidas?";
 "settings.learned.confirmInfo" = "La autocorrección volverá a su propio criterio para ellas. Esto no se puede deshacer.";

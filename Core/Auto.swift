@@ -158,6 +158,9 @@ public func decideAutoTarget<L: AutoLayout>(_ w: String, cur: L, enabled: [L],
 // and a single letter has no trigram at all (floor). Without this, every word of
 // a transliterated selection became a `convert` verdict.
 public let autoLearnPlausible: Float = -4.5
+// One hotkey press on a word may be a one-off; the same correction three times
+// is the model being wrong about it. `convert` verdicts need this many.
+public let autoLearnRepeats = 3
 
 /// The words of a hotkey conversion that auto mode would have left alone: the
 /// user just overruled it, so they are learned as `.convert`.

@@ -94,9 +94,9 @@ expander asks for. Everything below is verifiable in the source (MIT):
 - **The clipboard is left untouched** on the Accessibility path; the rare ⌘C fallback only reads.
   So watchers like DeepL's `Ctrl+C+C` don't fire.
 - **Password fields are skipped**, and only your settings are persisted — never text. The one
-  exception is the auto-correct's learned words: a word you convert with the hotkey after
-  auto-correct left it alone (and a correction you undo) is stored locally so auto-correct
-  follows your verdict next time. Settings → Learned words shows the list and resets it.
+  exception is the auto-correct's learned words: a word you correct with the hotkey three
+  times after auto-correct left it alone (and a correction you undo, once) is stored locally so
+  auto-correct follows your verdict next time. Settings → Learned words shows the list and resets it.
 
 ## Build from source
 

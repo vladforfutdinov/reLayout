@@ -19,6 +19,7 @@ private var autoEnterEnabled = true
 private var autoSameScript = false
 private var learnedConvert: [String: String] = [:]   // the user's verdicts, cached from the registry
 private var learnedKeep: Set<String> = []
+private var learnedCounts: [String: Int] = [:]
 private var excludedApps: [String] = []
 private var passwordField = false
 private var run = AutoRun()     // the typed-word state machine, shared with macOS (engine)
@@ -117,6 +118,7 @@ func reloadAutoMode() {
     autoSameScript = loadAutoSameScript()
     learnedConvert = loadLearned()
     learnedKeep = Set(loadKept())
+    learnedCounts = loadLearnCounts()
     excludedApps = loadExcludedApps()
     run.reset()
 }
@@ -254,7 +256,11 @@ func learnHotkeyMisses(replaced: String, out: String, src: WinLayout, dst: WinLa
     let outWords = out.split(whereSeparator: { $0.isWhitespace })
     for (t, o) in zip(replaced.split(whereSeparator: { $0.isWhitespace }), outWords) {
         let key = learnedKey(String(t))
-        if misses.contains(key) { learnedConvert[key] = learnedKey(String(o)) }
+        guard misses.contains(key), learnedConvert[key] == nil else { continue }
+        learnedCounts[key, default: 0] += 1
+        if learnedCounts[key]! >= autoLearnRepeats {
+            learnedConvert[key] = learnedKey(String(o)); learnedCounts[key] = nil
+        }
     }
     learnedKeep.subtract(misses)
     saveLearnedWords()
@@ -265,7 +271,12 @@ func learnHotkeyMisses(replaced: String, out: String, src: WinLayout, dst: WinLa
 /// words of an undone auto-correction are learned as `.keep`.
 func unlearn(_ last: Conversion) {
     guard autoEnabled, !(last.learned.isEmpty && last.autoWords.isEmpty) else { return }
-    for w in last.learned + last.autoWords { learnedConvert[w] = nil }
+    for w in last.learned {
+        // The press being undone either promoted the word or counted toward it.
+        if learnedConvert[w] != nil { learnedConvert[w] = nil }
+        else if let n = learnedCounts[w] { learnedCounts[w] = n > 1 ? n - 1 : nil }
+    }
+    for w in last.autoWords { learnedConvert[w] = nil }
     learnedKeep.formUnion(last.autoWords.filter { !$0.isEmpty })
     saveLearnedWords()
 }
@@ -280,6 +291,7 @@ func forgetLearned(_ keys: Set<String>? = nil) {
     } else {
         learnedConvert = [:]
         learnedKeep = []
+        learnedCounts = [:]
     }
     saveLearnedWords()
 }
@@ -287,6 +299,7 @@ func forgetLearned(_ keys: Set<String>? = nil) {
 private func saveLearnedWords() {
     saveLearned(learnedConvert)
     saveKept(learnedKeep.sorted())
+    saveLearnCounts(learnedCounts)
     refreshSettingsLearned()
 }
 

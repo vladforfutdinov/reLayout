@@ -48,6 +48,8 @@
 "settings.learned.col.typed" = "Saisi";
 "settings.learned.col.out" = "Devient";
 "settings.learned.clean" = "Effacer les candidats";
+"settings.learned.cleanConfirm" = "Supprimer les %@ candidats ?";
+"settings.learned.cleanInfo" = "Ils seront recomptés à partir de la prochaine correction par raccourci.";
 
 // Windows port
 "win.pressKey" = "Appuyez sur une touche ou un modificateur…";

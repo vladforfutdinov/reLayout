@@ -27,9 +27,11 @@ work (not per commit). Operational "where are we right now" lives in
   a ⊕/⊖ footer in one bordered box, ⊖ only with a selection, multi-select with
   Cmd/Shift. ⊕ in Learned words opens an empty editable row (Typed → Becomes,
   lower-cased through `learnedKey`, an empty Typed drops it); in Exceptions it
-  is the old Choose…. Buttons: Clean candidates (no confirmation), Reset
-  (confirmed), Done; Remove and Choose… are gone. Columns share the width, no
-  horizontal scrolling.
+  is the old Choose…. Buttons on the left: Clean candidates and Reset, both
+  confirmed; Done on the right; Remove, Choose… and the exceptions rows'
+  hover ⊖ are gone (the footer ⊖ does it). The two text columns are sized to
+  the clip by hand (`fitLearnedColumns`): autoresizing left the table wider
+  than the box and scrolled sideways.
 - Windows: `WinLearned.swift` rewritten by the agent with `LVS_EX_CHECKBOXES`
   (the list view draws the box only in the first column, before Typed), "+"/"−"
   square buttons, label editing for Typed and an EDIT overlay for Becomes.

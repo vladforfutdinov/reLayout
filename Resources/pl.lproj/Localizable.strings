@@ -48,6 +48,8 @@
 "settings.learned.col.typed" = "Wpisano";
 "settings.learned.col.out" = "Staje się";
 "settings.learned.clean" = "Wyczyść kandydatów";
+"settings.learned.cleanConfirm" = "Odrzucić wszystkich kandydatów (%@)?";
+"settings.learned.cleanInfo" = "Będą liczeni od nowa od następnej poprawki skrótem.";
 
 // Windows port
 "win.pressKey" = "Naciśnij klawisz lub modyfikator…";

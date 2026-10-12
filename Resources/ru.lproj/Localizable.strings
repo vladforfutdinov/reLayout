@@ -48,6 +48,8 @@
 "settings.learned.col.typed" = "Набрано";
 "settings.learned.col.out" = "Становится";
 "settings.learned.clean" = "Очистить кандидатов";
+"settings.learned.cleanConfirm" = "Удалить всех кандидатов (%@)?";
+"settings.learned.cleanInfo" = "Счёт начнётся заново со следующего исправления хоткеем.";
 
 // Windows port
 "win.pressKey" = "Нажмите клавишу или модификатор…";

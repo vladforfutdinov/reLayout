@@ -48,6 +48,8 @@
 "settings.learned.col.typed" = "Escrito";
 "settings.learned.col.out" = "Torna-se";
 "settings.learned.clean" = "Limpar candidatos";
+"settings.learned.cleanConfirm" = "Descartar os %@ candidatos?";
+"settings.learned.cleanInfo" = "Voltam a ser contados a partir da próxima correção com o atalho.";
 
 // Windows port
 "win.pressKey" = "Pressione uma tecla ou um modificador…";

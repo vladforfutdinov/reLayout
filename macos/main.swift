@@ -517,28 +517,16 @@ final class SettingsWindow: NSWindow {
     }
 }
 
-// One row of the auto-correct exceptions table: app icon + name, plus a remove
-// button that only appears while the pointer is over the row.
+// One row of the auto-correct exceptions table: app icon + name. Removal is the
+// list's ⊖, like Login Items.
 final class ExcRowView: NSTableCellView {
-    private var bid = ""
-    var onDelete: ((String) -> Void)?
     private let icon = NSImageView()
     private let label = NSTextField(labelWithString: "")
-    private let delBtn = NSButton()
-    private var track: NSTrackingArea?
 
     override init(frame: NSRect) {
         super.init(frame: frame)
-        for v in [icon, label, delBtn] { v.translatesAutoresizingMaskIntoConstraints = false; addSubview(v) }
+        for v in [icon, label] { v.translatesAutoresizingMaskIntoConstraints = false; addSubview(v) }
         label.lineBreakMode = .byTruncatingTail
-        delBtn.isBordered = false
-        delBtn.bezelStyle = .accessoryBar
-        delBtn.image = NSImage(systemSymbolName: "minus.circle.fill", accessibilityDescription: nil)
-        delBtn.imageScaling = .scaleProportionallyDown
-        delBtn.contentTintColor = .secondaryLabelColor
-        delBtn.target = self
-        delBtn.action = #selector(del)
-        delBtn.isHidden = true
         NSLayoutConstraint.activate([
             icon.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 2),
             icon.centerYAnchor.constraint(equalTo: centerYAnchor),
@@ -546,35 +534,15 @@ final class ExcRowView: NSTableCellView {
             icon.heightAnchor.constraint(equalToConstant: 16),
             label.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 6),
             label.centerYAnchor.constraint(equalTo: centerYAnchor),
-            label.trailingAnchor.constraint(lessThanOrEqualTo: delBtn.leadingAnchor, constant: -6),
-            delBtn.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),
-            delBtn.centerYAnchor.constraint(equalTo: centerYAnchor),
-            delBtn.widthAnchor.constraint(equalToConstant: 16),
-            delBtn.heightAnchor.constraint(equalToConstant: 16),
+            label.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -6),
         ])
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    func configure(name: String, icon img: NSImage, bid: String, tip: String, onDelete: @escaping (String) -> Void) {
-        self.bid = bid
+    func configure(name: String, icon img: NSImage) {
         label.stringValue = name
         icon.image = img
-        delBtn.toolTip = tip
-        delBtn.isHidden = true
-        self.onDelete = onDelete
     }
-
-    @objc private func del() { onDelete?(bid) }
-
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let t = track { removeTrackingArea(t) }
-        let t = NSTrackingArea(rect: bounds, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect],
-                               owner: self, userInfo: nil)
-        addTrackingArea(t); track = t
-    }
-    override func mouseEntered(with event: NSEvent) { delBtn.isHidden = false }
-    override func mouseExited(with event: NSEvent) { delBtn.isHidden = true }
 }
 
 // MARK: - App controller
@@ -1352,6 +1320,17 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     private var learnedNewPending = false
     private weak var learnedMinus: NSSegmentedControl?
     private weak var excMinus: NSSegmentedControl?
+    private weak var learnedScroll: NSScrollView?
+
+    // Two text columns share the clip width around the fixed checkbox column, and
+    // the clip sits at x = 0: autoresizing left the table wider than the box and
+    // scrolled sideways.
+    private func fitLearnedColumns() {
+        guard let t = learnedTable, let s = learnedScroll else { return }
+        let text = (s.contentView.bounds.width - 24 - t.intercellSpacing.width * 3) / 2
+        for c in t.tableColumns where c.identifier.rawValue != "ok" { c.width = max(text, 40) }
+        s.contentView.scroll(to: .zero)
+    }
 
     // A list the way Login Items draws one: the table and a footer with ⊕ / ⊖ in
     // one rounded, bordered box.
@@ -1392,6 +1371,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             + learnedCandidates.map { LearnedRow(typed: $0.key, out: $0.value, kind: .candidate) }.sorted { $0.typed < $1.typed }
         if learnedNewPending { learnedRows.append(LearnedRow(typed: "", out: "", kind: .new)) }
         learnedTable?.reloadData()
+        fitLearnedColumns()
         learnedMinus?.setEnabled(!(learnedTable?.selectedRowIndexes.isEmpty ?? true), forSegment: 1)
     }
 
@@ -1453,9 +1433,14 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         updateAutoAvailability()
     }
 
-    // Candidates only: counts and their conversions. No confirmation, nothing
-    // the user decided is lost.
+    // Candidates only: counts and their conversions. Confirmed like the reset.
     @objc private func cleanLearnedCandidates() {
+        let a = NSAlert()
+        a.messageText = String(format: L("settings.learned.cleanConfirm"), String(learnedCandidates.count))
+        a.informativeText = L("settings.learned.cleanInfo")
+        a.addButton(withTitle: L("settings.learned.clean"))
+        a.addButton(withTitle: L("settings.learned.cancel"))
+        guard a.runModal() == .alertFirstButtonReturn else { return }
         learnedCandidates = [:]; learnedCounts = [:]
         reloadLearnedRows()
     }
@@ -1549,7 +1534,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         table.allowsMultipleSelection = true   // Cmd / Shift / Option as everywhere on macOS
         // The two text columns share the width, the checkbox column is fixed: the
         // table never outgrows the box, so no horizontal scrolling.
-        table.columnAutoresizingStyle = .uniformColumnAutoresizingStyle
+        table.columnAutoresizingStyle = .noColumnAutoresizing   // fitLearnedColumns sizes them
         for (id, width) in [("typed", 160), ("out", 160), ("ok", 24)] {
             let col = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(id))
             col.title = id == "ok" ? "" : L("settings.learned.col.\(id)")
@@ -1566,6 +1551,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         scroll.hasVerticalScroller = true
         scroll.borderType = .bezelBorder
         scroll.translatesAutoresizingMaskIntoConstraints = false
+        learnedScroll = scroll
 
         let (box, plusMinus) = listBox(scroll, #selector(learnedPlusMinus(_:)))
         learnedMinus = plusMinus
@@ -1579,9 +1565,9 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         let spacer = NSView()
         spacer.translatesAutoresizingMaskIntoConstraints = false
         spacer.setContentHuggingPriority(.init(1), for: .horizontal)
-        let bar = NSStackView(views: [spacer,
-                                      btn("settings.learned.clean", #selector(cleanLearnedCandidates)),
+        let bar = NSStackView(views: [btn("settings.learned.clean", #selector(cleanLearnedCandidates)),
                                       btn("settings.learned.reset", #selector(resetLearned)),
+                                      spacer,
                                       btn("settings.exc.done", #selector(learnedDone))])
         bar.orientation = .horizontal; bar.spacing = 8; bar.distribution = .fill
         bar.translatesAutoresizingMaskIntoConstraints = false
@@ -1764,15 +1750,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         let id = NSUserInterfaceItemIdentifier("exc")
         let cell = (tableView.makeView(withIdentifier: id, owner: self) as? ExcRowView) ?? ExcRowView(frame: .zero)
         cell.identifier = id
-        cell.configure(name: info.name, icon: info.icon, bid: bid, tip: L("settings.exc.remove")) { [weak self] b in
-            self?.removeExcluded(b)
-        }
+        cell.configure(name: info.name, icon: info.icon)
         return cell
-    }
-
-    private func removeExcluded(_ bid: String) {
-        autoExcludedApps = autoExcludedApps.filter { $0 != bid }
-        excTable?.reloadData()
     }
 
     @objc private func toggleLogin() {

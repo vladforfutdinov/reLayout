@@ -48,6 +48,8 @@
 "settings.learned.col.typed" = "入力";
 "settings.learned.col.out" = "変換後";
 "settings.learned.clean" = "候補を消去";
+"settings.learned.cleanConfirm" = "候補 %@ 件をすべて破棄しますか？";
+"settings.learned.cleanInfo" = "次回のホットキー修正から再び数え直します。";
 
 // Windows port
 "win.pressKey" = "キーを押すか修飾キーをタップ…";

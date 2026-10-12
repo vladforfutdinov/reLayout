@@ -48,6 +48,8 @@
 "settings.learned.col.typed" = "输入";
 "settings.learned.col.out" = "变为";
 "settings.learned.clean" = "清除候选";
+"settings.learned.cleanConfirm" = "清除全部 %@ 个候选？";
+"settings.learned.cleanInfo" = "从下一次快捷键纠正起重新计数。";
 
 // Windows port
 "win.pressKey" = "按下按键或轻点修饰键…";

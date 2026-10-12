@@ -48,6 +48,8 @@
 "settings.learned.col.typed" = "입력";
 "settings.learned.col.out" = "변환";
 "settings.learned.clean" = "후보 지우기";
+"settings.learned.cleanConfirm" = "후보 %@개를 모두 지울까요?";
+"settings.learned.cleanInfo" = "다음 단축키 수정부터 다시 셉니다.";
 
 // Windows port
 "win.pressKey" = "키를 누르거나 보조 키를 탭하세요…";

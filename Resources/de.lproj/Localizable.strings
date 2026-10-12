@@ -48,6 +48,8 @@
 "settings.learned.col.typed" = "Getippt";
 "settings.learned.col.out" = "Wird zu";
 "settings.learned.clean" = "Kandidaten löschen";
+"settings.learned.cleanConfirm" = "Alle %@ Kandidaten verwerfen?";
+"settings.learned.cleanInfo" = "Sie werden ab der nächsten Hotkey-Korrektur neu gezählt.";
 
 // Windows port
 "win.pressKey" = "Taste drücken oder Modifikator antippen…";

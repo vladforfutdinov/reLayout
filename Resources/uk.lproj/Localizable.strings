@@ -48,6 +48,8 @@
 "settings.learned.col.typed" = "Набрано";
 "settings.learned.col.out" = "Стає";
 "settings.learned.clean" = "Очистити кандидатів";
+"settings.learned.cleanConfirm" = "Видалити всіх кандидатів (%@)?";
+"settings.learned.cleanInfo" = "Відлік почнеться знову з наступного виправлення гарячою клавішею.";
 
 // Windows port
 "win.pressKey" = "Натисніть клавішу або модифікатор…";

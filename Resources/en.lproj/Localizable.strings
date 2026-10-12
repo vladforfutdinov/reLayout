@@ -48,6 +48,8 @@
 "settings.learned.col.typed" = "Typed";
 "settings.learned.col.out" = "Becomes";
 "settings.learned.clean" = "Clean candidates";
+"settings.learned.cleanConfirm" = "Drop all %@ candidates?";
+"settings.learned.cleanInfo" = "They are counted again from the next hotkey correction.";
 
 // Windows port
 "win.pressKey" = "Press a key or tap a modifier…";

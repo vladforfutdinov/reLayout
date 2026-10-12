@@ -48,6 +48,8 @@
 "settings.learned.col.typed" = "Набрана";
 "settings.learned.col.out" = "Становіцца";
 "settings.learned.clean" = "Ачысціць кандыдатаў";
+"settings.learned.cleanConfirm" = "Выдаліць усіх кандыдатаў (%@)?";
+"settings.learned.cleanInfo" = "Падлік пачнецца нанова з наступнага выпраўлення гарачай клавішай.";
 
 // Windows port
 "win.pressKey" = "Націсніце клавішу або мадыфікатар…";

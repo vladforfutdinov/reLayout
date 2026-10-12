@@ -73,10 +73,15 @@ func L(_ key: String) -> String { Loc.bundle.localizedString(forKey: key, value:
 // disk in a release build. The empty release body is inlined away under -O.
 // @autoclosure: in a release build the message is never built, so a trace whose
 // argument costs something (a TIS call, an AX read) is free there.
+#if DEBUG
+private let dbgTime: DateFormatter = {
+    let f = DateFormatter(); f.dateFormat = "MM-dd HH:mm:ss.SSS"; return f
+}()
+#endif
 func dbg(_ s: @autoclosure () -> String) {
 #if DEBUG
     let dbgPath = "/tmp/relayout.log"
-    let data = Data((s() + "\n").utf8)
+    let data = Data((dbgTime.string(from: Date()) + " " + s() + "\n").utf8)
     if let h = FileHandle(forWritingAtPath: dbgPath) {
         h.seekToEndOfFile(); h.write(data); h.closeFile()
     } else {

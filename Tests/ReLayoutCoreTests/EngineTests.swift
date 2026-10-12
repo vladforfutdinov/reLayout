@@ -296,6 +296,16 @@ final class EngineTests: XCTestCase {
         XCTAssertNil(decideAutoTarget("привыт", cur: ru, enabled: [latin, ru, uk], model: { models[$0] }))
     }
 
+    func testAutoDecideSparesAWordAnotherLayoutOfTheScriptReads() {
+        // "еще" on the Ukrainian layout: junk to uk, a word to ru, and its Latin
+        // reading "tot" is English. With ru enabled it stays; without, it converts.
+        let (latin, uk) = makeLayouts()
+        var ru = uk; ru.languageCode = "ru"
+        let models = ["uk": model(knowing: ["їжа"]), "ru": model(knowing: ["еще"]), "en": model(knowing: ["tot"])]
+        XCTAssertNil(decideAutoTarget("еще", cur: uk, enabled: [latin, uk, ru], model: { models[$0] }))
+        XCTAssertEqual(decideAutoTarget("еще", cur: uk, enabled: [latin, uk], model: { models[$0] })?.out, "tot")
+    }
+
     func testAutoDecideWithoutAModelDoesNothing() {
         let (latin, cyr) = makeLayouts()
         XCTAssertNil(decideAutoTarget("ghbdtn", cur: latin, enabled: [latin, cyr], model: { _ in nil }))

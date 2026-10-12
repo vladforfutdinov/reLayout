@@ -75,6 +75,16 @@ public func decideAutoTarget<L: AutoLayout>(_ w: String, cur: L, enabled: [L],
     guard forced || sTyped < autoGarbage else {
         return nil   // already plausible -> leave it
     }
+    // Cross-script gate: the word is junk only if NO enabled layout of its script
+    // reads it. Russian typed on the Ukrainian layout ("еще") is not Ukrainian,
+    // but it is not a wrong-layout word either, and its Latin reading "tot" is a
+    // real English word: judged by the uk model alone it converted. Measured on
+    // 3933 Russian words typed on uk: 1.17% converted to Latin junk with the
+    // current-layout gate, 0.15% with this one, recall en<->uk 0.994 -> 0.992.
+    var sScript = sTyped
+    for l in enabled where l.isCyrillic == cur.isCyrillic {
+        if let lang = l.languageCode, let m = model(lang) { sScript = max(sScript, m.score(w)) }
+    }
 
     // A hyphen is not punctuation here — it is part of the word ("rfrjuj-nj" is
     // "какого-то"), and carries no layout ambiguity, so such a word is gated
@@ -130,7 +140,8 @@ public func decideAutoTarget<L: AutoLayout>(_ w: String, cur: L, enabled: [L],
         let sAlt = tModel.score(out)
         guard forced || pureFor || sAlt > autoPunctPlausible else { continue }
         let margin = sameScript ? autoSameScriptMargins[tLang] ?? autoSameScriptMargin : autoMargin
-        guard forced || sAlt - sTyped > margin else { continue }
+        let sGate = sameScript ? sTyped : sScript   // same-script: the target's own model is the alternative
+        guard forced || (sGate < autoGarbage && sAlt - sGate > margin) else { continue }
         if best == nil || sAlt > best!.2 { best = (t, out, sAlt) }
     }
     guard let b = best else {

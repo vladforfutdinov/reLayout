@@ -16,6 +16,30 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
+## After v1.3.11 — cross-script gate over every enabled model of the script
+
+- Regression from the dict_uk cleaning, caught by the owner: "погоняем ещё
+  недельку" typed on the Ukrainian layout came out "погоняем tot недельку".
+  "еще"/"ещё" are not Ukrainian, so the clean uk model scores them −5.75 /
+  −11.56 (the dirty one: −1.9), and their Latin reading "tot" is a real English
+  word (−2.34): auto-correct converted. Measured on 3 933 Russian words typed on
+  the uk layout: 1.17% converted to Latin junk with the current-layout gate
+  (dirty model: 0.25%).
+- Fix in `decideAutoTarget`: for a cross-script target the typed word is junk
+  only if no enabled layout of its script reads it (max score over the ru and
+  uk models when both layouts are enabled). Result 0.15%; en ↔ uk recall 0.994
+  → 0.992, pl ↔ uk 0.995 → 0.993. Gating the Latin side on all six Latin
+  models was measured too (recall 0.989) and rejected; the gate uses enabled
+  layouts only, so a uk-only install typing Russian is not shielded — the
+  hotkey teaches those words. Same-script (ru ↔ uk) decisions keep the
+  current layout's score: there the other model is the alternative.
+- Also looked at the garbage threshold for "tot"-class words (real English
+  words that read as Russian): −2.2 instead of −2.5 costs +0.02–0.04% false
+  positives on en/de ↔ ru and gains nothing measurable on the lists; left at
+  −2.5, the learned words cover "tot" after one hotkey.
+
+---
+
 ## After v1.3.11 — Leipzig corpora tried for all eight models, not shipped
 
 - Hypothesis: the subtitle-only lists (50k words) starve the models of normal

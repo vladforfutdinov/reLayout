@@ -333,14 +333,19 @@ final class EngineTests: XCTestCase {
 
     func testHotkeyMissesAreTheWordsAutoWouldLeave() {
         let (latin, cyr) = makeLayouts()
-        // "ghbdtn" is a known miss-free word (auto fixes it); "rfr" nobody knows.
-        let models = ["en": model(knowing: []), "uk": model(knowing: ["привет"])]
-        let misses = hotkeyMisses(replaced: "Ghbdtn rfr?", out: "Привет как?", src: latin,
+        // "ghbdtn" auto fixes itself; "rfr" the en model reads as a word, so auto
+        // leaves it, but uk reads "как": a miss.
+        let models = ["en": model(knowing: ["rfr"]), "uk": model(knowing: ["привет", "как"])]
+        let misses = hotkeyMisses(replaced: "Ghbdtn rfr?", out: "Привет как?", src: latin, dst: cyr,
                                   enabled: [latin, cyr], model: { models[$0] })
         XCTAssertEqual(misses, ["rfr"])
         // A short candidate auto would only fix next to a neighbour is a miss too.
-        XCTAssertEqual(hotkeyMisses(replaced: "jr?", out: "ок,", src: latin, enabled: [latin, cyr],
+        XCTAssertEqual(hotkeyMisses(replaced: "jr?", out: "ок,", src: latin, dst: cyr, enabled: [latin, cyr],
                                     model: { ["en": self.model(knowing: []), "uk": self.model(knowing: ["ок"])][$0] }), ["jr"])
+        // A deliberate transliteration of correct text reads as junk: not learned;
+        // nor is a single letter (no trigram to read).
+        XCTAssertEqual(hotkeyMisses(replaced: "привет f", out: "ghbdtn а", src: cyr, dst: latin, enabled: [latin, cyr],
+                                    model: { ["en": self.model(knowing: ["hello"]), "uk": self.model(knowing: ["привет"])][$0] }), [])
         XCTAssertEqual(learnedKey("Учше,"), "учше")
     }
 

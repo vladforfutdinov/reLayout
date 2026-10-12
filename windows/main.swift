@@ -87,7 +87,7 @@ private func retypeTyped(_ typed: (text: String, spaces: Int), cur: WinLayout) {
     guard typeText(plan.out + spaces, in: plan.dst) else { return }
     resetAutoBuffer()
     recordConversion(original: plan.replaced + spaces, typed: plan.out + spaces, src: plan.src,
-                     learned: learnHotkeyMisses(replaced: plan.replaced, out: plan.out, src: plan.src),
+                     learned: learnHotkeyMisses(replaced: plan.replaced, out: plan.out, src: plan.src, dst: plan.dst),
                      alternatives: alternatives(plan.replaced, first: plan.out, src: plan.src, enabled: enabled),
                      suffix: spaces)
 }
@@ -102,7 +102,7 @@ private func retype(_ text: String, cur: WinLayout) {
     guard typeText(plan.out, in: plan.dst) else { return }   // also leaves dst active
     resetAutoBuffer()
     recordConversion(original: plan.replaced, typed: plan.out, src: plan.src,
-                     learned: learnHotkeyMisses(replaced: plan.replaced, out: plan.out, src: plan.src),
+                     learned: learnHotkeyMisses(replaced: plan.replaced, out: plan.out, src: plan.src, dst: plan.dst),
                      alternatives: plan.replaced == text
                         ? alternatives(plan.replaced, first: plan.out, src: plan.src, enabled: enabled) : [])
 }

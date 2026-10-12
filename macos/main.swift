@@ -1689,7 +1689,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         // Same gate as auto mode: nothing typed into a password field or an
         // excluded app is ever persisted.
         if autoMode, !isAutoExcluded() {
-            misses = hotkeyMisses(replaced: p.replaced, out: p.out, src: p.src, enabled: enabled, model: trigram)
+            misses = hotkeyMisses(replaced: p.replaced, out: p.out, src: p.src, dst: p.dst, enabled: enabled, model: trigram)
             learn(convert: misses, replaced: p.replaced, out: p.out)
         }
         let alts = enabled.firstIndex(where: { $0.id == p.src.id }).map {

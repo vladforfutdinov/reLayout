@@ -152,22 +152,30 @@ public func decideAutoTarget<L: AutoLayout>(_ w: String, cur: L, enabled: [L],
     return (b.0, b.1)
 }
 
+// A hotkey miss is learned only when its conversion reads in the target
+// language: a real miss does ("exit" -2.41, "ок" -2.78, "сброс" -3.41), a
+// deliberate transliteration of correct text does not ("nf ot [fktgf" -10..-18),
+// and a single letter has no trigram at all (floor). Without this, every word of
+// a transliterated selection became a `convert` verdict.
+public let autoLearnPlausible: Float = -4.5
+
 /// The words of a hotkey conversion that auto mode would have left alone: the
 /// user just overruled it, so they are learned as `.convert`.
 /// - Parameters:
 ///   - replaced: the text the hotkey converted, as typed.
 ///   - out: its conversion (same whitespace, word for word).
 ///   - src: the layout the text was typed in.
+///   - dst: the layout it was converted into; its model vets each result.
 /// - Returns: `learnedKey`s of the misses.
-public func hotkeyMisses<L: AutoLayout>(replaced: String, out: String, src: L, enabled: [L],
+public func hotkeyMisses<L: AutoLayout>(replaced: String, out: String, src: L, dst: L, enabled: [L],
                                         model: (String) -> TrigramModel?) -> [String] {
     let typedWords = replaced.split(whereSeparator: { $0.isWhitespace })
     let outWords = out.split(whereSeparator: { $0.isWhitespace })
-    guard typedWords.count == outWords.count else { return [] }
+    guard typedWords.count == outWords.count, let dstModel = dst.languageCode.flatMap(model) else { return [] }
     return zip(typedWords, outWords).compactMap { t, o in
         let key = learnedKey(String(t))
         // A short candidate is a miss too: auto trusts it only next to a neighbour.
-        guard t != o, !key.isEmpty,
+        guard t != o, !key.isEmpty, dstModel.score(learnedKey(String(o))) > autoLearnPlausible,
               wordBody(key) < 3 || decideAutoTarget(key, cur: src, enabled: enabled, model: model) == nil
         else { return nil }
         return key

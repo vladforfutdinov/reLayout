@@ -246,9 +246,9 @@ func learnedCount() -> Int { learnedConvert.count + learnedKeep.count }
 /// have left alone. Only with auto-correct on, never in a password field or an
 /// excluded app: nothing typed there is persisted.
 /// - Returns: the learned keys, so the press-again undo can forget them.
-func learnHotkeyMisses(replaced: String, out: String, src: WinLayout) -> [String] {
+func learnHotkeyMisses(replaced: String, out: String, src: WinLayout, dst: WinLayout) -> [String] {
     guard autoEnabled, !focusIsPasswordField(), !autoExcluded() else { return [] }
-    let misses = hotkeyMisses(replaced: replaced, out: out, src: src, enabled: WinLayout.installedList(),
+    let misses = hotkeyMisses(replaced: replaced, out: out, src: src, dst: dst, enabled: WinLayout.installedList(),
                               model: trigram)
     guard !misses.isEmpty else { return [] }
     let outWords = out.split(whereSeparator: { $0.isWhitespace })

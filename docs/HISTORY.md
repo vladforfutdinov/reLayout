@@ -16,6 +16,21 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
+## After v1.3.11 — learned words vetted by the target model
+
+- Every word of a hotkey conversion landed in the learned list, single letters
+  included. Two causes in `hotkeyMisses`: a 1–2 letter word counted as a miss
+  unconditionally (added for "jr?" → "ок"), and a deliberate transliteration
+  of correct text (select "та ще халепа", hotkey) made every word a `convert`
+  verdict — then typing that word normally would auto-convert it to junk.
+- Fix: a miss is learned only when its conversion reads in the target language
+  (`autoLearnPlausible` −4.5 under the destination model): real misses do
+  ("exit" −2.41, "ок" −2.78, "сброс" −3.41), transliterated correct text does
+  not (−10…−18), a single letter has no trigram and sits at the floor.
+  `hotkeyMisses` takes `dst`; both apps pass the plan's destination.
+
+---
+
 ## After v1.3.11 — hints live on ⓘ only
 
 - Settings: the similar-layouts hint moved from the checkbox to an ⓘ, placed

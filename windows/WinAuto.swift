@@ -287,22 +287,25 @@ func learnedWords() -> (convert: [String: String], keep: Set<String>, candidates
     (learnedConvert, learnedKeep, learnedCandidates)
 }
 
-private func promote(_ key: String, to out: String) {
+private func promote(_ key: String, to out: String?) {
     learnedConvert[key] = out
     learnedCounts[key] = nil
     learnedCandidates[key] = nil
 }
 
-/// Makes `key` a `.convert` verdict (a checked candidate, a word added by hand).
+/// Makes `key` a verdict (a checked candidate, a word added by hand): `.convert`
+/// to `out`, or `.keep` when `out` is empty (a keep candidate's conversion).
 func promoteLearned(_ key: String, to out: String) {
-    promote(key, to: out)
+    promote(key, to: out.isEmpty ? nil : out)
+    if out.isEmpty { learnedKeep.insert(key) } else { learnedKeep.remove(key) }
     saveLearnedWords()
 }
 
-/// Turns a `.convert` verdict back into a candidate counted once.
+/// Turns a verdict back into a candidate counted once; a `.keep` becomes one with
+/// an empty conversion.
 func demoteLearned(_ key: String) {
-    guard let out = learnedConvert.removeValue(forKey: key) else { return }
-    learnedCandidates[key] = out
+    learnedCandidates[key] = learnedConvert.removeValue(forKey: key) ?? ""
+    learnedKeep.remove(key)
     learnedCounts[key] = 1
     saveLearnedWords()
 }

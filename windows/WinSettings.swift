@@ -18,7 +18,6 @@ private let idAutoInfo:      Int = 113
 private let idSimilarInfo:   Int = 118
 private let idName:          Int = 114
 private let idChkAutoSimilar: Int = 115
-private let idBtnLearnedReset: Int = 116
 private let idBtnLearnedView: Int = 117
 // Secondary (gray) text: the caption column and the footer.
 private let idCapLanguage:   Int = 120
@@ -243,13 +242,11 @@ private func buildControls(_ hwnd: HWND?) {
     let learnedW = textWidth(L("settings.learned", "0000"), hwnd) + 4   // room for the count to grow
     let learnedViewTitle = L("settings.learned.view")
     let learnedViewW = textWidth(learnedViewTitle, hwnd) + 24
-    let learnedResetTitle = L("settings.learned.reset")
-    let learnedResetW = textWidth(learnedResetTitle, hwnd) + 24
     let rows: [Int32] = [
         autoW + 24 + 16 + excW,
         20 + textWidth(L("settings.autoCorrectEnter"), hwnd) + 24,
         20 + textWidth(similarTitle, hwnd) + 24 + 22,
-        20 + learnedW + 8 + learnedViewW + 8 + learnedResetW,
+        20 + learnedW + 8 + learnedViewW,
         textWidth(L("settings.openAtLogin"), hwnd) + 24,
         captionW + 10 + 200,
         textWidth("github.com/\(repoSlug)", hwnd) + 8,
@@ -343,19 +340,13 @@ private func buildControls(_ hwnd: HWND?) {
                     textWidth("— " + similarParts[1], hwnd) + 4, 20, hwnd, idSimilarInfo + labelOffset)
     }
     y += 30
-    // The count takes the Reset button's id + labelOffset, so it grays with the button.
+    // The count takes the View button's id + labelOffset, so it grays with the button.
     makeControl("STATIC", L("settings.learned", "\(learnedCount())"), 0,
-                margin + 20, y + 4, learnedW, 20, hwnd, idBtnLearnedReset + labelOffset)
-    let learnedOn = available && loadAutoMode()
+                margin + 20, y + 4, learnedW, 20, hwnd, idBtnLearnedView + labelOffset)
     // Flush right, like Exceptions… above.
-    let learnedResetX = clientWidth - margin - learnedResetW
     let learnedView = makeControl("BUTTON", learnedViewTitle, Int32(WS_TABSTOP),
-                                  learnedResetX - 8 - learnedViewW, y - 2, learnedViewW, 26, hwnd, idBtnLearnedView)
-    EnableWindow(learnedView, learnedOn)
-    let learnedReset = makeControl("BUTTON", learnedResetTitle, Int32(WS_TABSTOP),
-                                   learnedResetX, y - 2, learnedResetW, 26,
-                                   hwnd, idBtnLearnedReset)
-    EnableWindow(learnedReset, learnedOn && learnedCount() > 0)
+                                  clientWidth - margin - learnedViewW, y - 2, learnedViewW, 26, hwnd, idBtnLearnedView)
+    EnableWindow(learnedView, available && loadAutoMode())
     y += 42
 
     // ── footer: version, link, copyright — centered, secondary ──
@@ -515,7 +506,6 @@ private func settingsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lPa
             saveAutoSameScript(isChecked(hwnd, idChkAutoSimilar))
             reloadAutoMode()
         case idBtnLearnedView: openLearned(owner: hwnd)
-        case idBtnLearnedReset: confirmResetLearned(owner: hwnd)
         case idBtnExceptions: openExceptions(owner: hwnd)
         case idBtnReset:
             cancelHotkeyCapture()
@@ -554,26 +544,13 @@ func refreshSettingsStartup() {
     check(GetDlgItem(hwnd, Int32(idChkStartup)), startupEnabled())
 }
 
-/// Syncs the open Settings window's learned-words count, its View and Reset
-/// buttons, and the Learned words window's list.
+/// Syncs the open Settings window's learned-words count and View button, and the
+/// Learned words window's list.
 func refreshSettingsLearned() {
     refreshLearnedWindow()
     guard let hwnd = settingsHwnd else { return }
-    setFieldText(hwnd, idBtnLearnedReset + labelOffset, L("settings.learned", "\(learnedCount())"))
-    let on = WinLayout.crossScriptAvailable() && loadAutoMode()
-    EnableWindow(GetDlgItem(hwnd, Int32(idBtnLearnedView)), on)   // candidates and "+" live there even at 0
-    enableCheck(hwnd, idBtnLearnedReset, on && learnedCount() > 0)
-}
-
-/// Forgets every learned word once the user confirms: irreversible user data.
-func confirmResetLearned(owner: HWND?) {
-    let text = L("settings.learned.confirm", "\(learnedCount())") + "\n\n" + L("settings.learned.confirmInfo")
-    let answer = text.withCString(encodedAs: UTF16.self) { t in
-        "reLayout".withCString(encodedAs: UTF16.self) { c in
-            MessageBoxW(owner, t, c, UINT(MB_OKCANCEL) | UINT(MB_ICONWARNING))
-        }
-    }
-    if answer == IDOK { forgetLearned() }
+    setFieldText(hwnd, idBtnLearnedView + labelOffset, L("settings.learned", "\(learnedCount())"))
+    enableCheck(hwnd, idBtnLearnedView, WinLayout.crossScriptAvailable() && loadAutoMode())
 }
 
 func openSettings() {

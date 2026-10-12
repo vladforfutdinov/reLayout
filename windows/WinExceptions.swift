@@ -275,14 +275,12 @@ private func buildExceptions(_ hwnd: HWND?) {
         SendMessageW(list, UINT(0x1061 /* LVM_INSERTCOLUMNW */), 0, LPARAM(Int(bitPattern: $0)))
     }
 
-    // Buttons: the three actions on the left, Done on the right, as on macOS.
-    var x: Int32 = 16
-    for (id, key) in [(idExcCurrent, "settings.exc.addCurrent"), (idExcChoose, "settings.exc.choose"),
-                      (idExcRemove, "settings.exc.remove")] {
-        let w = textWidth(L(key), hwnd) + 24
-        makeExcControl("BUTTON", L(key), Int32(WS_TABSTOP), x, 276, w, 28, hwnd, id)
-        x += w + 8
-    }
+    // "+" (Choose…) / "−" (remove the selection), then "Exclude current app"; Done
+    // on the right, as on macOS.
+    makeExcControl("BUTTON", "+", Int32(WS_TABSTOP), 16, 276, 28, 28, hwnd, idExcChoose)
+    makeExcControl("BUTTON", "\u{2212}", Int32(WS_TABSTOP), 16 + 28 + 4, 276, 28, 28, hwnd, idExcRemove)
+    makeExcControl("BUTTON", L("settings.exc.addCurrent"), Int32(WS_TABSTOP), 16 + 28 + 4 + 28 + 16, 276,
+                   textWidth(L("settings.exc.addCurrent"), hwnd) + 24, 28, hwnd, idExcCurrent)
     let doneW = max(textWidth(L("settings.exc.done"), hwnd) + 24, 80)
     makeExcControl("BUTTON", L("settings.exc.done"), Int32(WS_TABSTOP) | Int32(BS_DEFPUSHBUTTON),
                    clientW - 16 - doneW, 276, doneW, 28, hwnd, idExcDone)

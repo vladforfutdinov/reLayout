@@ -76,13 +76,14 @@ private func fillList(_ hwnd: HWND?) {
     SendMessageW(list, UINT(0x1009 /* LVM_DELETEALLITEMS */), 0, 0)
     let words = learnedWords()
     var rows = words.convert.sorted { $0.key < $1.key }.map { (typed: $0.key, out: $0.value, kind: RowKind.convert) }
-    rows += words.keep.sorted().map { (typed: $0, out: L("settings.learned.keep"), kind: RowKind.keep) }
+    rows += words.keep.sorted().map { (typed: $0, out: "", kind: RowKind.keep) }
     rows += words.candidates.sorted { $0.key < $1.key }.map { (typed: $0.key, out: $0.value, kind: RowKind.candidate) }
     if newPending { rows.append((typed: "", out: "", kind: .new)) }
     shownRows = rows
     for (i, row) in shownRows.enumerated() {
         setItemText(list, i, 0, row.typed)
-        setItemText(list, i, 1, row.out)
+        // An empty conversion is a keep (or a keep candidate's).
+        setItemText(list, i, 1, row.out.isEmpty && row.kind != .new ? L("settings.learned.keep") : row.out)
         setCheckImage(list, i, row.kind == .new ? 0 : row.kind == .candidate ? 1 : 2)
     }
     updateMinusButton(hwnd)
@@ -112,17 +113,25 @@ private func removeSelected(_ hwnd: HWND?) {
     if keys.isEmpty { fillList(hwnd) } else { forgetLearned(keys) }   // saves, and reloads this list
 }
 
-/// The check box was clicked: a candidate becomes a convert verdict, a convert goes
-/// back to a candidate, a keep is dropped.
+/// The check box was clicked: a candidate becomes a verdict (a keep when its
+/// conversion is empty), a verdict goes back to a candidate.
 private func toggle(_ row: Int) {
     guard shownRows.indices.contains(row) else { return }
     let r = shownRows[row]
     switch r.kind {
     case .candidate: promoteLearned(r.typed, to: r.out)
-    case .convert: demoteLearned(r.typed)
-    case .keep: forgetLearned([r.typed])
+    case .convert, .keep: demoteLearned(r.typed)
     case .new: break
     }
+}
+
+/// An OK/Cancel warning over the window; true on OK.
+private func confirmed(_ hwnd: HWND?, _ text: String) -> Bool {
+    text.withCString(encodedAs: UTF16.self) { t in
+        "reLayout".withCString(encodedAs: UTF16.self) { c in
+            MessageBoxW(hwnd, t, c, UINT(MB_OKCANCEL) | UINT(MB_ICONWARNING))
+        }
+    } == IDOK
 }
 
 private func setCue(_ edit: HWND?, _ text: String) {
@@ -160,11 +169,12 @@ private func beginOutEdit(_ hwnd: HWND?) {
     guard let edit = outEdit else { newPending = false; fillList(hwnd); return }
     SetWindowPos(edit, nil /* HWND_TOP: over the list */, 0, 0, 0, 0, UINT(SWP_NOMOVE) | UINT(SWP_NOSIZE))
     SendMessageW(edit, UINT(WM_SETFONT), unsafeBitCast(settingsFont(), to: WPARAM.self), LPARAM(1))
-    setCue(edit, L("settings.learned.col.out"))
+    setCue(edit, L("settings.learned.keep"))   // left empty, the word is kept as typed
     SetFocus(edit)
 }
 
-/// Ends the new row: both cells filled commits a convert verdict, anything else drops it.
+/// Ends the new row: committed, a convert verdict, or a keep with "Becomes" empty;
+/// Esc drops it.
 private func endOutEdit(_ hwnd: HWND?, commit: Bool) {
     guard let edit = outEdit else { return }
     outEdit = nil   // destroying it sends EN_KILLFOCUS back here
@@ -174,7 +184,7 @@ private func endOutEdit(_ hwnd: HWND?, commit: Bool) {
     DestroyWindow(edit)
     newPending = false
     SetFocus(listView(hwnd))
-    if commit, !out.isEmpty { promoteLearned(newTyped, to: out) } else { fillList(hwnd) }
+    if commit { promoteLearned(newTyped, to: out) } else { fillList(hwnd) }
 }
 
 // MARK: - window
@@ -220,7 +230,7 @@ private func buildLearned(_ hwnd: HWND?) {
     let cleanW = textSize(L("settings.learned.clean"), width: 1000, hwnd).w + 24
     let resetW = textSize(L("settings.learned.reset"), width: 1000, hwnd).w + 24
     let doneW = max(textSize(L("settings.exc.done"), width: 1000, hwnd).w + 24, 80)
-    lrnClientW = max(424, 16 + 28 + 4 + 28 + 24 + cleanW + 8 + resetW + 8 + doneW + 16)
+    lrnClientW = max(424, 16 + 28 + 4 + 28 + 16 + cleanW + 8 + resetW + 24 + doneW + 16)
     let width = lrnClientW - 32
     let hint = L("settings.learned.hint")
     let hintH = textSize(hint, width: width, hwnd).h + 4
@@ -257,16 +267,15 @@ private func buildLearned(_ hwnd: HWND?) {
     }
     y += 212
 
-    // "+" / "−" bottom-left (the macOS segmented pair); Clean, Reset, Done bottom-right.
+    // "+" / "−" (the macOS segmented pair), then Clean and Reset bottom-left; Done bottom-right.
     makeLrnControl("BUTTON", "+", Int32(WS_TABSTOP), 16, y, 28, 28, hwnd, idLrnPlus)
     makeLrnControl("BUTTON", "\u{2212}", Int32(WS_TABSTOP), 16 + 28 + 4, y, 28, 28, hwnd, idLrnMinus)
-    var x = lrnClientW - 16 - doneW
+    let cleanX: Int32 = 16 + 28 + 4 + 28 + 16
+    makeLrnControl("BUTTON", L("settings.learned.clean"), Int32(WS_TABSTOP), cleanX, y, cleanW, 28, hwnd, idLrnClean)
+    makeLrnControl("BUTTON", L("settings.learned.reset"), Int32(WS_TABSTOP),
+                   cleanX + cleanW + 8, y, resetW, 28, hwnd, idLrnReset)
     makeLrnControl("BUTTON", L("settings.exc.done"), Int32(WS_TABSTOP) | Int32(BS_DEFPUSHBUTTON),
-                   x, y, doneW, 28, hwnd, idLrnDone)
-    x -= 8 + resetW
-    makeLrnControl("BUTTON", L("settings.learned.reset"), Int32(WS_TABSTOP), x, y, resetW, 28, hwnd, idLrnReset)
-    x -= 8 + cleanW
-    makeLrnControl("BUTTON", L("settings.learned.clean"), Int32(WS_TABSTOP), x, y, cleanW, 28, hwnd, idLrnClean)
+                   lrnClientW - 16 - doneW, y, doneW, 28, hwnd, idLrnDone)
     lrnClientH = y + 28 + 16
     fillList(hwnd)
 }
@@ -278,8 +287,13 @@ private func learnedWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lPar
         switch Int(UInt(truncatingIfNeeded: wParam) & 0xFFFF) {
         case idLrnPlus: addRow(hwnd)
         case idLrnMinus: removeSelected(hwnd)
-        case idLrnClean: cleanLearnCandidates()
-        case idLrnReset: confirmResetLearned(owner: hwnd)
+        case idLrnClean:
+            if confirmed(hwnd, L("settings.learned.cleanConfirm", "\(learnedWords().candidates.count)")
+                         + "\n\n" + L("settings.learned.cleanInfo")) { cleanLearnCandidates() }
+        case idLrnReset:
+            // Irreversible user data: confirmed first.
+            if confirmed(hwnd, L("settings.learned.confirm", "\(learnedCount())")
+                         + "\n\n" + L("settings.learned.confirmInfo")) { forgetLearned() }
         case idLrnEdit where notification == 0x0200 /* EN_KILLFOCUS */: PostMessageW(hwnd, WM_LRN_COMMIT, 0, 0)
         case 1 /* IDOK: Enter */: endOutEdit(hwnd, commit: true)
         case 2 /* IDCANCEL: Esc */ where outEdit != nil: endOutEdit(hwnd, commit: false)

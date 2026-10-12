@@ -1454,6 +1454,9 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
 
     // A window of its own, centered over Settings: a sheet has no close button.
     private func present(_ w: NSWindow, over parent: NSWindow) {
+        // Only the close button: the other two are drawn disabled otherwise.
+        w.standardWindowButton(.miniaturizeButton)?.isHidden = true
+        w.standardWindowButton(.zoomButton)?.isHidden = true
         if !w.isVisible {
             let p = parent.frame, f = w.frame
             w.setFrameOrigin(NSPoint(x: p.midX - f.width / 2, y: p.midY - f.height / 2))

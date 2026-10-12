@@ -23,7 +23,9 @@ work (not per commit). Operational "where are we right now" lives in
   VMs) moved out of the Exceptions sheet to sit by the Exceptions… button, and
   the sheet lost its sub-heading ("Auto-correct stays off in these programs",
   key `settings.exc.hint` removed from all 12 languages). Both platforms; the
-  Windows sheet is 28 px shorter.
+  Windows sheet is 28 px shorter. The similar-layouts row reads "Between
+  similar layouts (uk ↔ ru) ⓘ — experimental": the string is split at the dash
+  at runtime, no new keys.
 
 ---
 

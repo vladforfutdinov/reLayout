@@ -16,6 +16,7 @@ private let idBtnExceptions: Int = 111
 private let idCmbLanguage:   Int = 112
 private let idAutoInfo:      Int = 113
 private let idSimilarInfo:   Int = 118
+private let idExcInfoBtn:    Int = 119
 private let idName:          Int = 114
 private let idChkAutoSimilar: Int = 115
 private let idBtnLearnedReset: Int = 116
@@ -246,7 +247,7 @@ private func buildControls(_ hwnd: HWND?) {
     let learnedResetTitle = L("settings.learned.reset")
     let learnedResetW = textWidth(learnedResetTitle, hwnd) + 24
     let rows: [Int32] = [
-        autoW + 24 + 16 + excW,
+        autoW + 24 + 16 + 22 + excW,
         20 + textWidth(L("settings.autoCorrectEnter"), hwnd) + 24,
         20 + textWidth(similarTitle, hwnd) + 24 + 22,
         20 + learnedW + 8 + learnedViewW + 8 + learnedResetW,
@@ -325,6 +326,11 @@ private func buildControls(_ hwnd: HWND?) {
     let exceptions = makeControl("BUTTON", excTitle, Int32(WS_TABSTOP),
                                  clientWidth - margin - excW, y - 2, excW, 26, hwnd, idBtnExceptions)
     EnableWindow(exceptions, available)
+    // Why a fresh install already lists programs: the ⓘ sits by the button.
+    let excInfo = makeControl("STATIC", "\u{E946}" /* Info glyph */, 0,
+                              clientWidth - margin - excW - 22, y + 2, 20, 20, hwnd, idExcInfoBtn)
+    setFont(excInfo, glyphFont)
+    addTooltip(&tooltip, hwnd, excInfo, L("settings.exc.info"), overWindow: true)
     y += 28
     makeCheck(L("settings.autoCorrectEnter"), margin + 20, y, content - 20, hwnd, idChkAutoEnter,
               on: loadAutoEnter(), enabled: available && loadAutoMode())

@@ -1144,7 +1144,11 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         func spacer() -> NSView {
             let v = NSView(); v.setContentHuggingPriority(.init(1), for: .horizontal); return v
         }
-        let autoRow = NSStackView(views: [label, spacer(), excBtn])
+        let excInfo = NSImageView(image: NSImage(systemSymbolName: "info.circle", accessibilityDescription: nil) ?? NSImage())
+        excInfo.contentTintColor = .secondaryLabelColor
+        excInfo.toolTip = L("settings.exc.info")   // why a fresh install already lists apps
+        let autoRow = NSStackView(views: [label, spacer(), excInfo, excBtn])
+        autoRow.setCustomSpacing(4, after: excInfo)
         autoRow.orientation = .horizontal; autoRow.spacing = 12; autoRow.alignment = .centerY
         let enterCb = makeCheckbox(L("settings.autoCorrectEnter"), #selector(toggleAutoEnter(_:)), on: autoEnterNewline)
         let enterRow = NSStackView(views: [enterCb])
@@ -1467,16 +1471,6 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         let title = NSTextField(labelWithString: L("settings.exc.title"))
         title.font = .boldSystemFont(ofSize: 13)
         title.translatesAutoresizingMaskIntoConstraints = false
-        // Why a fresh install already lists apps (terminals, editors, VMs).
-        let info = NSImageView(image: NSImage(systemSymbolName: "info.circle", accessibilityDescription: nil) ?? NSImage())
-        info.contentTintColor = .secondaryLabelColor
-        info.toolTip = L("settings.exc.info")
-        info.translatesAutoresizingMaskIntoConstraints = false
-        // What the list does, under its name.
-        let hint = NSTextField(labelWithString: L("settings.exc.hint"))
-        hint.font = .systemFont(ofSize: 11)
-        hint.textColor = .secondaryLabelColor
-        hint.translatesAutoresizingMaskIntoConstraints = false
 
         let table = NSTableView()
         table.headerView = nil
@@ -1511,18 +1505,12 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         bar.orientation = .horizontal; bar.spacing = 8; bar.distribution = .fill
         bar.translatesAutoresizingMaskIntoConstraints = false
 
-        content.addSubview(title); content.addSubview(info); content.addSubview(hint)
-        content.addSubview(scroll); content.addSubview(bar)
+        content.addSubview(title); content.addSubview(scroll); content.addSubview(bar)
         NSLayoutConstraint.activate([
             content.widthAnchor.constraint(equalToConstant: 380),
             title.topAnchor.constraint(equalTo: content.topAnchor, constant: 16),
             title.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 16),
-            info.leadingAnchor.constraint(equalTo: title.trailingAnchor, constant: 4),
-            info.centerYAnchor.constraint(equalTo: title.centerYAnchor),
-            hint.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 2),
-            hint.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 16),
-            hint.trailingAnchor.constraint(lessThanOrEqualTo: content.trailingAnchor, constant: -16),
-            scroll.topAnchor.constraint(equalTo: hint.bottomAnchor, constant: 10),
+            scroll.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 10),
             scroll.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 16),
             scroll.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -16),
             scroll.heightAnchor.constraint(equalToConstant: 200),

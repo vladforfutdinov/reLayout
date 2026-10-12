@@ -10,15 +10,12 @@ private let idExcList:   Int = 201
 private let idExcCurrent: Int = 202
 private let idExcChoose: Int = 203
 private let idExcRemove: Int = 204
-private let idExcInfo:   Int = 205
 private let idExcDone:   Int = 206
-private let idExcTitle:  Int = 207
 
 private var exceptionsHwnd: HWND?
 private var exceptionsClassW = Array("ReLayoutExceptionsWnd".utf16) + [0]
 private var exceptionsClassRegistered = false
 private var excDpi: Int32 = 96
-private var excTooltip: HWND?
 private var excGlyphFont: HFONT?
 private var shownApps: [String] = []   // row i shows shownApps[i]
 private var excColors = ThemeColors.current()
@@ -237,29 +234,21 @@ private func excFont(_ face: String, points: Int32) -> HFONT? {
 }
 
 private let clientW: Int32 = 424
-private let clientH: Int32 = 322
+private let clientH: Int32 = 294
 
 private func buildExceptions(_ hwnd: HWND?) {
     excColors = ThemeColors.current()
     if let b = excBrush { DeleteObject(UnsafeMutableRawPointer(b)) }
     excBrush = CreateSolidBrush(excColors.background)
     applyTitleBarTheme(hwnd, dark: excColors.dark)
-    // The window caption already names it; this line says what the list does.
-    let title = L("settings.exc.hint")
-    makeExcControl("STATIC", title, 0, 16, 16, 360, 20, hwnd, idExcTitle)
-
-    // Why a fresh install already lists programs (terminals, editors, VMs).
-    let titleW = min(textWidth(title, hwnd) + 6, 340)
-    let info = makeExcControl("STATIC", "\u{E946}" /* Info glyph */, 0, 16 + titleW, 16, 20, 20, hwnd, idExcInfo)
+    // The window caption names it; the ⓘ explaining the preset list sits by the
+    // Exceptions… button in Settings.
     excGlyphFont = excFont("Segoe MDL2 Assets", points: 10)
-    SendMessageW(info, UINT(WM_SETFONT), unsafeBitCast(excGlyphFont, to: WPARAM.self), LPARAM(1))
-    excTooltip = nil
-    addTooltip(&excTooltip, hwnd, info, L("settings.exc.info"), overWindow: true)
 
     let list = makeExcControl("SysListView32", "",
                               Int32(0x1 /* LVS_REPORT */) | Int32(0x4000 /* LVS_NOCOLUMNHEADER */)
                               | Int32(0x8 /* LVS_SHOWSELALWAYS */) | Int32(WS_TABSTOP),
-                              16, 44, clientW - 32, 220, hwnd, idExcList, exStyle: DWORD(WS_EX_CLIENTEDGE))
+                              16, 16, clientW - 32, 220, hwnd, idExcList, exStyle: DWORD(WS_EX_CLIENTEDGE))
     SendMessageW(list, UINT(0x1036 /* LVM_SETEXTENDEDLISTVIEWSTYLE */), 0,
                  LPARAM(0x20 /* LVS_EX_FULLROWSELECT */ | 0x10000 /* LVS_EX_DOUBLEBUFFER */))
     if excColors.dark {
@@ -280,12 +269,12 @@ private func buildExceptions(_ hwnd: HWND?) {
     for (id, key) in [(idExcCurrent, "settings.exc.addCurrent"), (idExcChoose, "settings.exc.choose"),
                       (idExcRemove, "settings.exc.remove")] {
         let w = textWidth(L(key), hwnd) + 24
-        makeExcControl("BUTTON", L(key), Int32(WS_TABSTOP), x, 276, w, 28, hwnd, id)
+        makeExcControl("BUTTON", L(key), Int32(WS_TABSTOP), x, 248, w, 28, hwnd, id)
         x += w + 8
     }
     let doneW = max(textWidth(L("settings.exc.done"), hwnd) + 24, 80)
     makeExcControl("BUTTON", L("settings.exc.done"), Int32(WS_TABSTOP) | Int32(BS_DEFPUSHBUTTON),
-                   clientW - 16 - doneW, 276, doneW, 28, hwnd, idExcDone)
+                   clientW - 16 - doneW, 248, doneW, 28, hwnd, idExcDone)
     fillList(hwnd)
 }
 
@@ -332,7 +321,6 @@ private func exceptionsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ l
         rebuildWithoutFlicker(hwnd) {
             var child = GetWindow(hwnd, UINT(GW_CHILD))
             while let c = child { child = GetWindow(c, UINT(GW_HWNDNEXT)); DestroyWindow(c) }
-            if let tip = excTooltip { DestroyWindow(tip) }
             if let f = excGlyphFont { DeleteObject(UnsafeMutableRawPointer(f)); excGlyphFont = nil }
             buildExceptions(hwnd)
         }
@@ -340,7 +328,6 @@ private func exceptionsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ l
     case UINT(WM_DESTROY):
         exceptionsHwnd = nil
         if let b = excBrush { DeleteObject(UnsafeMutableRawPointer(b)); excBrush = nil }
-        excTooltip = nil   // owned by the window: destroyed with it
         if let f = excGlyphFont { DeleteObject(UnsafeMutableRawPointer(f)); excGlyphFont = nil }
     default:
         break

@@ -16,6 +16,17 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
+## After v1.3.11 — hints live on ⓘ only
+
+- Settings: the similar-layouts hint moved from the checkbox to an ⓘ next to
+  it; the Exceptions ⓘ (why a fresh install already lists terminals, editors,
+  VMs) moved out of the Exceptions sheet to sit by the Exceptions… button, and
+  the sheet lost its sub-heading ("Auto-correct stays off in these programs",
+  key `settings.exc.hint` removed from all 12 languages). Both platforms; the
+  Windows sheet is 28 px shorter.
+
+---
+
 ## After v1.3.11 — a short no-candidate word bridges the chain
 
 - "nf ot [fktgf" (та ще халепа) converted only "халепа": "nf" waited as a

@@ -175,13 +175,17 @@ public func hotkeyMisses<L: AutoLayout>(replaced: String, out: String, src: L, d
     let typedWords = replaced.split(whereSeparator: { $0.isWhitespace })
     let outWords = out.split(whereSeparator: { $0.isWhitespace })
     guard typedWords.count == outWords.count, let dstModel = dst.languageCode.flatMap(model) else { return [] }
+    // A whole phrase still in the wrong layout: every long word of it escaped auto
+    // mode, whatever the engine thinks of it now; the short ones were held on
+    // purpose. A single word is a miss when auto would leave it, or is short
+    // (trusted only next to a neighbour).
+    let phrase = typedWords.count > 1
     return zip(typedWords, outWords).compactMap { t, o in
         let key = learnedKey(String(t))
-        // A short candidate is a miss too: auto trusts it only next to a neighbour.
-        guard t != o, !key.isEmpty, dstModel.score(learnedKey(String(o))) > autoLearnPlausible,
-              wordBody(key) < 3 || decideAutoTarget(key, cur: src, enabled: enabled, model: model) == nil
-        else { return nil }
-        return key
+        guard t != o, !key.isEmpty, dstModel.score(learnedKey(String(o))) > autoLearnPlausible else { return nil }
+        let miss = phrase ? wordBody(key) >= 3
+            : wordBody(key) < 3 || decideAutoTarget(key, cur: src, enabled: enabled, model: model) == nil
+        return miss ? key : nil
     }
 }
 

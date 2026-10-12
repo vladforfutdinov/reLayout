@@ -34,6 +34,10 @@ work (not per commit). Operational "where are we right now" lives in
   and promoted to `convert` on the third press (`autoLearnRepeats`); undo takes
   back the count or the verdict of that press. `keep` from an undone
   auto-correction stays immediate. Hint strings and README updated.
+- Phrase rule (owner's call): when a whole phrase is still in the wrong layout
+  with auto mode on, every word of 3+ letters evidently escaped it and is
+  counted, whatever `decideAutoTarget` says now; short words are held on
+  purpose and are not. A single word keeps the old rule.
 
 ---
 

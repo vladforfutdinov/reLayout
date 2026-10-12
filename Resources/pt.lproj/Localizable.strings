@@ -41,7 +41,7 @@
 "settings.learned.reset" = "Repor";
 "settings.learned.cancel" = "Cancelar";
 "settings.learned.title" = "Palavras aprendidas";
-"settings.learned.hint" = "Palavras que corrigiu três vezes com o atalho depois de a correção automática as ter deixado, e correções automáticas que anulou. A correção automática segue estas decisões.";
+"settings.learned.hint" = "Palavras que corrigiu com o atalho depois de a correção automática as ter deixado, e correções automáticas que anulou. Na primeira correção a palavra é candidata, na terceira fica confirmada; uma caixa marcada é uma decisão que a correção automática segue, uma vazia, uma candidata. Marque, desmarque, adicione (+) ou remova (−); um «Torna-se» vazio mantém a palavra como escrita.";
 "settings.learned.keep" = "manter como escrito";
 "settings.learned.confirm" = "Esquecer todas as %@ palavras aprendidas?";
 "settings.learned.confirmInfo" = "A correção automática voltará ao seu próprio critério para elas. Esta ação não pode ser anulada.";

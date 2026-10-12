@@ -41,7 +41,7 @@
 "settings.learned.reset" = "Restablecer";
 "settings.learned.cancel" = "Cancelar";
 "settings.learned.title" = "Palabras aprendidas";
-"settings.learned.hint" = "Palabras que corregiste tres veces con el atajo después de que la autocorrección las dejara, y autocorrecciones que deshiciste. La autocorrección sigue estas decisiones.";
+"settings.learned.hint" = "Palabras que corregiste con el atajo después de que la autocorrección las dejara, y autocorrecciones que deshiciste. Con la primera corrección la palabra es candidata, con la tercera queda confirmada; una casilla marcada es una decisión que sigue la autocorrección, una vacía, una candidata. Marca, desmarca, añade (+) o elimina (−); un «Se convierte en» vacío deja la palabra como se escribió.";
 "settings.learned.keep" = "dejar como se escribió";
 "settings.learned.confirm" = "¿Olvidar las %@ palabras aprendidas?";
 "settings.learned.confirmInfo" = "La autocorrección volverá a su propio criterio para ellas. Esto no se puede deshacer.";

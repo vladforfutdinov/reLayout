@@ -31,7 +31,13 @@ work (not per commit). Operational "where are we right now" lives in
   confirmed; Done on the right; Remove, Choose… and the exceptions rows'
   hover ⊖ are gone (the footer ⊖ does it). The two text columns are sized to
   the clip by hand (`fitLearnedColumns`): autoresizing left the table wider
-  than the box and scrolled sideways.
+  than the box and scrolled sideways. Later the same day: rows full-width
+  (`style = .plain`), ⊕/⊖ as plain "+"/"−" text glyphs of one size with a
+  divider, columns refitted on every clip resize, the scroll position kept on a
+  checkbox toggle, Esc drops the new row, an empty "Becomes" committed with
+  Enter means keep (its placeholder says so), unchecking a keep demotes it to a
+  candidate (stored with an empty conversion), Reset gone from the Settings
+  window, the window description explains candidates vs confirmed verdicts.
 - Windows: `WinLearned.swift` rewritten by the agent with `LVS_EX_CHECKBOXES`
   (the list view draws the box only in the first column, before Typed), "+"/"−"
   square buttons, label editing for Typed and an EDIT overlay for Becomes.

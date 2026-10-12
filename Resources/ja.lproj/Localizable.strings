@@ -41,7 +41,7 @@
 "settings.learned.reset" = "リセット";
 "settings.learned.cancel" = "キャンセル";
 "settings.learned.title" = "学習した単語";
-"settings.learned.hint" = "自動修正が見送った後にホットキーで3回修正した単語と、取り消した自動修正です。自動修正はこれらの判断に従います。";
+"settings.learned.hint" = "自動修正が見送った後にホットキーで修正した単語と、取り消した自動修正です。1回目の修正で候補になり、3回目で確定します。チェックが付いていれば自動修正が従う判断、空なら候補です。チェックの付け外し、追加（+）、削除（−）ができます。「変換後」を空にすると入力のまま保持します。";
 "settings.learned.keep" = "入力のまま";
 "settings.learned.confirm" = "学習した %@ 個の単語をすべて忘れますか？";
 "settings.learned.confirmInfo" = "これらの単語は自動修正が自身で判断するようになります。この操作は取り消せません。";

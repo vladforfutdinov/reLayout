@@ -41,7 +41,7 @@
 "settings.learned.reset" = "Reset";
 "settings.learned.cancel" = "Cancel";
 "settings.learned.title" = "Learned words";
-"settings.learned.hint" = "Words you corrected with the hotkey three times after auto-correct had left them, and auto-corrections you undid. Auto-correct follows these verdicts.";
+"settings.learned.hint" = "Words you corrected with the hotkey after auto-correct had left them, and auto-corrections you undid. A word becomes a candidate on the first correction and is confirmed on the third; a checked box is a verdict auto-correct follows, an empty one a candidate. Tick, untick, add (+) or remove (−) as you like; an empty “Becomes” keeps the word as typed.";
 "settings.learned.keep" = "keep as typed";
 "settings.learned.confirm" = "Forget all %@ learned words?";
 "settings.learned.confirmInfo" = "Auto-correct goes back to its own judgement for them. This cannot be undone.";

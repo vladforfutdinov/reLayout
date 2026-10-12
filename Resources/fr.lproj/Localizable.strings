@@ -41,7 +41,7 @@
 "settings.learned.reset" = "Réinitialiser";
 "settings.learned.cancel" = "Annuler";
 "settings.learned.title" = "Mots appris";
-"settings.learned.hint" = "Mots que vous avez corrigés trois fois avec le raccourci après que la correction automatique les a laissés, et corrections automatiques que vous avez annulées. La correction automatique suit ces décisions.";
+"settings.learned.hint" = "Mots que vous avez corrigés avec le raccourci après que la correction automatique les a laissés, et corrections automatiques que vous avez annulées. À la première correction le mot est candidat, à la troisième il est confirmé ; une case cochée est une décision que suit la correction automatique, une case vide un candidat. Cochez, décochez, ajoutez (+) ou retirez (−) ; un « Devient » vide laisse le mot tel que saisi.";
 "settings.learned.keep" = "laisser tel que saisi";
 "settings.learned.confirm" = "Oublier les %@ mots appris ?";
 "settings.learned.confirmInfo" = "La correction automatique reviendra à son propre jugement pour ces mots. Cette action est irréversible.";

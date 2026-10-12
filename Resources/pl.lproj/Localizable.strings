@@ -41,7 +41,7 @@
 "settings.learned.reset" = "Resetuj";
 "settings.learned.cancel" = "Anuluj";
 "settings.learned.title" = "Nauczone słowa";
-"settings.learned.hint" = "Słowa, które trzykrotnie poprawiłeś skrótem po tym, jak autokorekta je pominęła, oraz autokorekty, które cofnąłeś. Autokorekta stosuje się do tych decyzji.";
+"settings.learned.hint" = "Słowa, które poprawiłeś skrótem po tym, jak autokorekta je pominęła, oraz autokorekty, które cofnąłeś. Po pierwszej poprawce słowo jest kandydatem, po trzeciej jest potwierdzone; zaznaczone pole to decyzja, której autokorekta się trzyma, puste — kandydat. Zaznaczaj, odznaczaj, dodawaj (+) i usuwaj (−); puste „Staje się” zostawia słowo jak wpisano.";
 "settings.learned.keep" = "zostaw jak wpisano";
 "settings.learned.confirm" = "Zapomnieć wszystkie nauczone słowa (%@)?";
 "settings.learned.confirmInfo" = "Autokorekta wróci do własnej oceny tych słów. Tej operacji nie można cofnąć.";

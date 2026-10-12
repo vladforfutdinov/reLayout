@@ -16,6 +16,22 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
+## After v1.3.11 — punctuation gate relaxed to −3.6
+
+- "та же халепа" typed on ABC: "[fktgf" stayed. Not the trigrams: "халепа"
+  reads −3.15 under uk and the junk is at the floor, but "[" is х, so the word
+  takes the absolute `autoPunctPlausible` gate, −3.0, and failed it. The gate's
+  comment said real words score ≥ −2.6; measured on 20k-word lists, a third of
+  real uk/ru words carry a punctuation-key letter (х ж э є ї б ю), and the gate
+  at −3.0 rejected 14% of them (uk 0.864 / ru 0.862 pass), −3.2 → 0.92, −3.4 →
+  0.955, −3.6 → 0.978. On 39 English abbreviations only "vs"/"vs." fire at any
+  setting (and they are held by the short-core rule). Set to −3.6, still above
+  the ≤ −3.8 the original junk scored.
+- "ot" (uk "ще") is a different, known case: "ot" reads −2.45 in English, above
+  the garbage line, and even at −2.2 its margin is 0.45 < 0.5.
+
+---
+
 ## After v1.3.11 — cross-script gate over every enabled model of the script
 
 - Regression from the dict_uk cleaning, caught by the owner: "погоняем ещё

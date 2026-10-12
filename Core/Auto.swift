@@ -12,11 +12,13 @@ public let autoMargin:  Float = 0.5    // converted form must beat it by this mu
 // false at 1.0, and "кто-то" (1.11), "как-то" (1.02) are lost at 1.5.
 public let autoSameScriptMargins: [String: Float] = ["uk": 1.5, "ru": 1.0]
 public let autoSameScriptMargin: Float = 1.5   // other same-script pairs
-// Words carrying mapped punctuation (',' is б …) get a stricter, absolute gate:
-// their typed-side score is floor-dominated, so the relative margin alone lets
-// junk conversions through ("e.g" -> "уюп"). Real converted words score >= -2.6
-// on the shipped models; the fired junk scored <= -3.8.
-public let autoPunctPlausible: Float = -3.0
+// Words carrying mapped punctuation (',' is б, '[' is х …) get an absolute gate
+// too: their typed-side score is floor-dominated, so the relative margin alone
+// lets junk through ("e.g" -> "уюп", which scored <= -3.8). Measured 2026-10-12
+// on 20k-word lists: a third of real Cyrillic words carry such a letter, and at
+// -3.0 the gate rejected 14% of them ("халепа" -3.15); -3.6 passes 97.8% and
+// fires nothing new on 39 English abbreviations ("e.g", "i.e", "don't" …).
+public let autoPunctPlausible: Float = -3.6
 
 /// A layout that also knows its language, so the right trigram model can be picked.
 public protocol AutoLayout: LayoutMaps {

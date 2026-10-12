@@ -3,21 +3,20 @@
     <channel>
         <title>ReLayout</title>
         <item>
-            <title>1.3.11</title>
-            <pubDate>Sun, 11 Oct 2026 07:29:58 +0000</pubDate>
-            <sparkle:version>321</sparkle:version>
-            <sparkle:shortVersionString>1.3.11</sparkle:shortVersionString>
+            <title>1.3.12</title>
+            <pubDate>Mon, 12 Oct 2026 15:37:22 +0000</pubDate>
+            <sparkle:version>344</sparkle:version>
+            <sparkle:shortVersionString>1.3.12</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
-            <description><![CDATA[<h2>What's new in v1.3.11 — macOS</h2>
+            <description><![CDATA[<h2>What's new in v1.3.12 — macOS</h2>
 <ul>
-<li>Three or more layouts: press the hotkey again within ~1.5 s to retype the original text into the next layout, and once every layout has had its turn, to undo. With two layouts the second press is still the undo.</li>
-<li>After an undo, the hotkey keeps working on the same text — before, it had nothing to act on until you typed or selected again.</li>
-<li>With US and Polish (or another pair of layouts that share every key) plus a Cyrillic one, the hotkey converted nothing from the Latin layouts; it now goes to the Cyrillic one.</li>
-<li>Polish and Portuguese language models: auto-correct now works on those layouts next to a Cyrillic one.</li>
-<li>The doubled first letter after a Globe switch (a macOS quirk) no longer makes auto-correct eat the space before the word.</li>
-<li>In apps without an Accessibility selection (Electron, Claude), a copied image or file survives the hotkey's clipboard round-trip, and two quick presses with nothing selected no longer trigger DeepL.</li>
+<li>Russian typed on the Ukrainian layout is safe again. After the 1.3.10 Ukrainian model rebuild, a Russian word like "ещё" looked like junk to it, and its English reading "tot" is a real word, so auto-correct turned "ещё" into "tot". Now a word counts as junk only if none of your Cyrillic layouts reads it.</li>
+<li>Auto-correct catches more: words with letters that sit on punctuation keys (х, ж, э, є, ї, б, ю) were held to a stricter bar that rejected one in seven real words ("халепа"); and a short word auto-correct cannot judge ("ot" in "nf ot [fktgf") no longer breaks a chain of wrong-layout words — it is fixed along with them.</li>
+<li>Learned words got a proper editor. A word becomes a candidate on the first hotkey correction and a confirmed verdict on the third; the window lists both, with a checkbox to confirm or demote. Add your own with "+" (leave "Becomes" empty to keep a word as typed), remove with "−", clear candidates or reset everything — both ask first. Single letters and deliberate transliterations of correct text are no longer learned.</li>
+<li>The Exceptions and Learned words windows are real windows with a close button and the Login Items look; Exceptions has "+" / "−" instead of Choose… and the hover remove button.</li>
+<li>Updating from 1.3.8 and later works again (the update feed was signed with the old key); installs older than 1.3.8 are shown the download page instead of an error.</li>
 </ul>]]></description>
-            <link>https://github.com/vladforfutdinov/reLayout/releases/tag/v1.3.11</link><sparkle:informationalUpdate><sparkle:belowVersion>1.3.8</sparkle:belowVersion></sparkle:informationalUpdate><enclosure url="https://github.com/vladforfutdinov/reLayout/releases/download/v1.3.11/reLayout.zip" sparkle:edSignature="wHgdlIB0FInQsCDfXKN8/mR2mQxt2kEGzo5lX6zDfUfKreURZWpdJsYmmEBOUNhFTz6Q8ewZEAU7zOpD91ziDw==" length="1838528" type="application/octet-stream"/>
+            <link>https://github.com/vladforfutdinov/reLayout/releases/tag/v1.3.12</link><sparkle:informationalUpdate><sparkle:belowVersion>1.3.8</sparkle:belowVersion></sparkle:informationalUpdate><enclosure url="https://github.com/vladforfutdinov/reLayout/releases/download/v1.3.12/reLayout.zip" length="1857043" type="application/octet-stream" sparkle:edSignature="pC8Lph4d1By01BqXQhljnY5wSCH/koOpJDbPBZY/3hlRBJ57gk4MRBrrYjD+hD81tmJ2+NmStnghhah4bRG3Aw=="/>
         </item>
     </channel>
 </rss>

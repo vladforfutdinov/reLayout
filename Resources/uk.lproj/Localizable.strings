@@ -47,6 +47,7 @@
 "settings.learned.confirmInfo" = "Авто-виправлення повернеться до власної оцінки цих слів. Дію не можна скасувати.";
 "settings.learned.col.typed" = "Набрано";
 "settings.learned.col.out" = "Стає";
+"settings.learned.clean" = "Очистити кандидатів";
 
 // Windows port
 "win.pressKey" = "Натисніть клавішу або модифікатор…";

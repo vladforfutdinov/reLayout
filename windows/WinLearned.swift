@@ -1,25 +1,42 @@
 import WinSDK
+import ReLayoutCore
 
-// "Learned words" window, like the macOS sheet: the words the user converted with
-// the hotkey after auto-correct had left them (typed -> conversion) and the
-// auto-corrections they undid (kept as typed), with "Remove" and "Done". Opened
-// from Settings; every change is saved at once.
+// "Learned words" window, like the macOS sheet: the user's convert verdicts
+// (typed -> conversion), the auto-corrections they undid (kept as typed) and the
+// candidates still being counted. A row's check box says whether its verdict is in
+// force; "+" adds a word by hand, "−" drops the selected rows. Opened from
+// Settings; every change is saved at once.
 
 private let idLrnList:     Int = 301
 private let idLrnHint:     Int = 302
-private let idLrnRemove:   Int = 303
+private let idLrnMinus:    Int = 303
 private let idLrnDone:     Int = 304
 private let idLrnColTyped: Int = 305
 private let idLrnColOut:   Int = 306
+private let idLrnPlus:     Int = 307
+private let idLrnClean:    Int = 308
+private let idLrnReset:    Int = 309
+private let idLrnEdit:     Int = 310
+
+// Posted to the window: the list view must not lose items inside its own notification.
+private let WM_LRN_TOGGLE = UINT(WM_APP) + 30
+private let WM_LRN_TYPED  = UINT(WM_APP) + 31
+private let WM_LRN_COMMIT = UINT(WM_APP) + 32
 
 private var learnedHwnd: HWND?
 private var learnedClassW = Array("ReLayoutLearnedWnd".utf16) + [0]
 private var learnedClassRegistered = false
 private var lrnDpi: Int32 = 96
-private var shownKeys: [String] = []   // row i shows shownKeys[i]
 private var lrnColors = ThemeColors.current()
 private var lrnBrush: HBRUSH?
 private let lrnThemeTimer: UINT_PTR = 1
+
+private enum RowKind { case convert, keep, candidate, new }
+private var shownRows: [(typed: String, out: String, kind: RowKind)] = []   // row i shows shownRows[i]
+private var filling = false      // check boxes set by fillList are not the user's clicks
+private var newPending = false   // the "+" row, until committed or dropped
+private var newTyped = ""
+private var outEdit: HWND?       // the "Becomes" editor over the new row
 
 private func lsc(_ v: Int32) -> Int32 { v * lrnDpi / 96 }   // scale a 96-dpi coord
 
@@ -42,18 +59,33 @@ private func setItemText(_ list: HWND?, _ row: Int, _ column: Int32, _ text: Str
     }
 }
 
+/// The row's check box: state image 2 = checked, 1 = clear, 0 = none.
+private func setCheckImage(_ list: HWND?, _ row: Int, _ image: UINT) {
+    var item = LVITEMW()
+    item.stateMask = UINT(0xF000 /* LVIS_STATEIMAGEMASK */)
+    item.state = image << 12
+    _ = withUnsafeMutablePointer(to: &item) {
+        SendMessageW(list, UINT(0x102B /* LVM_SETITEMSTATE */), WPARAM(row), LPARAM(Int(bitPattern: $0)))
+    }
+}
+
 private func fillList(_ hwnd: HWND?) {
+    filling = true
+    defer { filling = false }
     let list = listView(hwnd)
     SendMessageW(list, UINT(0x1009 /* LVM_DELETEALLITEMS */), 0, 0)
     let words = learnedWords()
-    let rows: [(String, String)] = words.convert.sorted { $0.key < $1.key }.map { ($0.key, $0.value) }
-        + words.keep.sorted().map { ($0, L("settings.learned.keep")) }
-    shownKeys = rows.map(\.0)
-    for (i, row) in rows.enumerated() {
-        setItemText(list, i, 0, row.0)
-        setItemText(list, i, 1, row.1)
+    var rows = words.convert.sorted { $0.key < $1.key }.map { (typed: $0.key, out: $0.value, kind: RowKind.convert) }
+    rows += words.keep.sorted().map { (typed: $0, out: L("settings.learned.keep"), kind: RowKind.keep) }
+    rows += words.candidates.sorted { $0.key < $1.key }.map { (typed: $0.key, out: $0.value, kind: RowKind.candidate) }
+    if newPending { rows.append((typed: "", out: "", kind: .new)) }
+    shownRows = rows
+    for (i, row) in shownRows.enumerated() {
+        setItemText(list, i, 0, row.typed)
+        setItemText(list, i, 1, row.out)
+        setCheckImage(list, i, row.kind == .new ? 0 : row.kind == .candidate ? 1 : 2)
     }
-    updateRemoveButton(hwnd)
+    updateMinusButton(hwnd)
 }
 
 private func selectedRows(_ hwnd: HWND?) -> [Int] {
@@ -68,14 +100,81 @@ private func selectedRows(_ hwnd: HWND?) -> [Int] {
     }
 }
 
-private func updateRemoveButton(_ hwnd: HWND?) {
-    EnableWindow(GetDlgItem(hwnd, Int32(idLrnRemove)), !selectedRows(hwnd).isEmpty)
+private func updateMinusButton(_ hwnd: HWND?) {
+    EnableWindow(GetDlgItem(hwnd, Int32(idLrnMinus)), !selectedRows(hwnd).isEmpty)
 }
 
 private func removeSelected(_ hwnd: HWND?) {
-    let gone = Set(selectedRows(hwnd).compactMap { shownKeys.indices.contains($0) ? shownKeys[$0] : nil })
-    guard !gone.isEmpty else { return }
-    forgetLearned(gone)   // saves, and reloads this list through refreshSettingsLearned
+    let rows = selectedRows(hwnd).compactMap { shownRows.indices.contains($0) ? shownRows[$0] : nil }
+    guard !rows.isEmpty else { return }
+    if rows.contains(where: { $0.kind == .new }) { newPending = false }
+    let keys = Set(rows.filter { $0.kind != .new }.map(\.typed))
+    if keys.isEmpty { fillList(hwnd) } else { forgetLearned(keys) }   // saves, and reloads this list
+}
+
+/// The check box was clicked: a candidate becomes a convert verdict, a convert goes
+/// back to a candidate, a keep is dropped.
+private func toggle(_ row: Int) {
+    guard shownRows.indices.contains(row) else { return }
+    let r = shownRows[row]
+    switch r.kind {
+    case .candidate: promoteLearned(r.typed, to: r.out)
+    case .convert: demoteLearned(r.typed)
+    case .keep: forgetLearned([r.typed])
+    case .new: break
+    }
+}
+
+private func setCue(_ edit: HWND?, _ text: String) {
+    text.withCString(encodedAs: UTF16.self) {
+        _ = SendMessageW(edit, UINT(0x1501 /* EM_SETCUEBANNER */), 1, LPARAM(Int(bitPattern: $0)))
+    }
+}
+
+/// "+": an empty row at the end, its "Typed" cell in edit.
+private func addRow(_ hwnd: HWND?) {
+    guard !newPending else { return }
+    newPending = true
+    fillList(hwnd)
+    let list = listView(hwnd), row = shownRows.count - 1
+    SetFocus(list)
+    SendMessageW(list, UINT(0x1013 /* LVM_ENSUREVISIBLE */), WPARAM(row), 0)
+    SendMessageW(list, UINT(0x1076 /* LVM_EDITLABELW */), WPARAM(row), 0)
+}
+
+/// The list view edits only the first column: "Becomes" gets an edit box over its cell.
+private func beginOutEdit(_ hwnd: HWND?) {
+    let list = listView(hwnd), row = shownRows.count - 1
+    var r = RECT(left: 0 /* LVIR_BOUNDS */, top: 1 /* the sub-item */, right: 0, bottom: 0)
+    _ = withUnsafeMutablePointer(to: &r) {
+        SendMessageW(list, UINT(0x1038 /* LVM_GETSUBITEMRECT */), WPARAM(row), LPARAM(Int(bitPattern: $0)))
+    }
+    withUnsafeMutablePointer(to: &r) {
+        $0.withMemoryRebound(to: POINT.self, capacity: 2) { _ = MapWindowPoints(list, hwnd, $0, 2) }
+    }
+    outEdit = "EDIT".withCString(encodedAs: UTF16.self) { cls in
+        CreateWindowExW(0, cls, nil, DWORD(WS_CHILD) | DWORD(WS_VISIBLE) | DWORD(WS_BORDER) | DWORD(0x80 /* ES_AUTOHSCROLL */),
+                        r.left, r.top, r.right - r.left, r.bottom - r.top,
+                        hwnd, HMENU(bitPattern: idLrnEdit), GetModuleHandleW(nil), nil)
+    }
+    guard let edit = outEdit else { newPending = false; fillList(hwnd); return }
+    SetWindowPos(edit, nil /* HWND_TOP: over the list */, 0, 0, 0, 0, UINT(SWP_NOMOVE) | UINT(SWP_NOSIZE))
+    SendMessageW(edit, UINT(WM_SETFONT), unsafeBitCast(settingsFont(), to: WPARAM.self), LPARAM(1))
+    setCue(edit, L("settings.learned.col.out"))
+    SetFocus(edit)
+}
+
+/// Ends the new row: both cells filled commits a convert verdict, anything else drops it.
+private func endOutEdit(_ hwnd: HWND?, commit: Bool) {
+    guard let edit = outEdit else { return }
+    outEdit = nil   // destroying it sends EN_KILLFOCUS back here
+    var buf = [WCHAR](repeating: 0, count: 256)
+    let n = Int(GetWindowTextW(edit, &buf, Int32(buf.count)))
+    let out = learnedKey(String(decoding: buf.prefix(n), as: UTF16.self))
+    DestroyWindow(edit)
+    newPending = false
+    SetFocus(listView(hwnd))
+    if commit, !out.isEmpty { promoteLearned(newTyped, to: out) } else { fillList(hwnd) }
 }
 
 // MARK: - window
@@ -110,7 +209,7 @@ private func makeLrnControl(_ cls: String, _ text: String, _ style: Int32,
     }
 }
 
-private let lrnClientW: Int32 = 424
+private var lrnClientW: Int32 = 424   // widened when the bottom buttons need it
 private var lrnClientH: Int32 = 340   // follows the hint's wrapped height
 
 private func buildLearned(_ hwnd: HWND?) {
@@ -118,6 +217,10 @@ private func buildLearned(_ hwnd: HWND?) {
     if let b = lrnBrush { DeleteObject(UnsafeMutableRawPointer(b)) }
     lrnBrush = CreateSolidBrush(lrnColors.background)
     applyTitleBarTheme(hwnd, dark: lrnColors.dark)
+    let cleanW = textSize(L("settings.learned.clean"), width: 1000, hwnd).w + 24
+    let resetW = textSize(L("settings.learned.reset"), width: 1000, hwnd).w + 24
+    let doneW = max(textSize(L("settings.exc.done"), width: 1000, hwnd).w + 24, 80)
+    lrnClientW = max(424, 16 + 28 + 4 + 28 + 24 + cleanW + 8 + resetW + 8 + doneW + 16)
     let width = lrnClientW - 32
     let hint = L("settings.learned.hint")
     let hintH = textSize(hint, width: width, hwnd).h + 4
@@ -125,17 +228,19 @@ private func buildLearned(_ hwnd: HWND?) {
     var y = 16 + hintH + 12
 
     // Column titles as labels over a header-less list, as the exceptions list has
-    // none: a list view's header does not follow the dark theme.
+    // none: a list view's header does not follow the dark theme. "Typed" clears
+    // the rows' check boxes.
     let colW = width / 2
-    makeLrnControl("STATIC", L("settings.learned.col.typed"), 0, 20, y, colW - 4, 18, hwnd, idLrnColTyped)
+    makeLrnControl("STATIC", L("settings.learned.col.typed"), 0, 38, y, colW - 22, 18, hwnd, idLrnColTyped)
     makeLrnControl("STATIC", L("settings.learned.col.out"), 0, 16 + colW + 4, y, width - colW - 4, 18, hwnd, idLrnColOut)
     y += 20
     let list = makeLrnControl("SysListView32", "",
                               Int32(0x1 /* LVS_REPORT */) | Int32(0x4000 /* LVS_NOCOLUMNHEADER */)
-                              | Int32(0x8 /* LVS_SHOWSELALWAYS */) | Int32(WS_TABSTOP),
+                              | Int32(0x8 /* LVS_SHOWSELALWAYS */) | Int32(0x200 /* LVS_EDITLABELS */)
+                              | Int32(WS_TABSTOP) | Int32(WS_CLIPSIBLINGS),
                               16, y, width, 200, hwnd, idLrnList, exStyle: DWORD(WS_EX_CLIENTEDGE))
     SendMessageW(list, UINT(0x1036 /* LVM_SETEXTENDEDLISTVIEWSTYLE */), 0,
-                 LPARAM(0x20 /* LVS_EX_FULLROWSELECT */ | 0x10000 /* LVS_EX_DOUBLEBUFFER */))
+                 LPARAM(0x20 /* LVS_EX_FULLROWSELECT */ | 0x10000 /* LVS_EX_DOUBLEBUFFER */ | 0x4 /* LVS_EX_CHECKBOXES */))
     if lrnColors.dark {
         let bg = LPARAM(Int(lrnColors.background)), fg = LPARAM(Int(lrnColors.text))
         SendMessageW(list, UINT(0x1001 /* LVM_SETBKCOLOR */), 0, bg)
@@ -152,11 +257,16 @@ private func buildLearned(_ hwnd: HWND?) {
     }
     y += 212
 
-    let removeW = textSize(L("settings.exc.remove"), width: 1000, hwnd).w + 24
-    makeLrnControl("BUTTON", L("settings.exc.remove"), Int32(WS_TABSTOP), 16, y, removeW, 28, hwnd, idLrnRemove)
-    let doneW = max(textSize(L("settings.exc.done"), width: 1000, hwnd).w + 24, 80)
+    // "+" / "−" bottom-left (the macOS segmented pair); Clean, Reset, Done bottom-right.
+    makeLrnControl("BUTTON", "+", Int32(WS_TABSTOP), 16, y, 28, 28, hwnd, idLrnPlus)
+    makeLrnControl("BUTTON", "\u{2212}", Int32(WS_TABSTOP), 16 + 28 + 4, y, 28, 28, hwnd, idLrnMinus)
+    var x = lrnClientW - 16 - doneW
     makeLrnControl("BUTTON", L("settings.exc.done"), Int32(WS_TABSTOP) | Int32(BS_DEFPUSHBUTTON),
-                   lrnClientW - 16 - doneW, y, doneW, 28, hwnd, idLrnDone)
+                   x, y, doneW, 28, hwnd, idLrnDone)
+    x -= 8 + resetW
+    makeLrnControl("BUTTON", L("settings.learned.reset"), Int32(WS_TABSTOP), x, y, resetW, 28, hwnd, idLrnReset)
+    x -= 8 + cleanW
+    makeLrnControl("BUTTON", L("settings.learned.clean"), Int32(WS_TABSTOP), x, y, cleanW, 28, hwnd, idLrnClean)
     lrnClientH = y + 28 + 16
     fillList(hwnd)
 }
@@ -164,20 +274,55 @@ private func buildLearned(_ hwnd: HWND?) {
 private func learnedWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lParam: LPARAM) -> LRESULT {
     switch msg {
     case UINT(WM_COMMAND):
+        let notification = (UInt(truncatingIfNeeded: wParam) >> 16) & 0xFFFF
         switch Int(UInt(truncatingIfNeeded: wParam) & 0xFFFF) {
-        case idLrnRemove: removeSelected(hwnd)
+        case idLrnPlus: addRow(hwnd)
+        case idLrnMinus: removeSelected(hwnd)
+        case idLrnClean: cleanLearnCandidates()
+        case idLrnReset: confirmResetLearned(owner: hwnd)
+        case idLrnEdit where notification == 0x0200 /* EN_KILLFOCUS */: PostMessageW(hwnd, WM_LRN_COMMIT, 0, 0)
+        case 1 /* IDOK: Enter */: endOutEdit(hwnd, commit: true)
+        case 2 /* IDCANCEL: Esc */ where outEdit != nil: endOutEdit(hwnd, commit: false)
         case idLrnDone, 2 /* IDCANCEL: Esc */: DestroyWindow(hwnd)
         default: break
         }
+    case WM_LRN_TOGGLE:
+        toggle(Int(wParam))
+        return 0
+    case WM_LRN_TYPED:
+        if newPending, !newTyped.isEmpty { beginOutEdit(hwnd) } else { newPending = false; fillList(hwnd) }
+        return 0
+    case WM_LRN_COMMIT:
+        endOutEdit(hwnd, commit: true)
+        return 0
     case UINT(WM_NOTIFY):
-        if let raw = UnsafeRawPointer(bitPattern: Int(lParam)) {
-            let hdr = raw.assumingMemoryBound(to: NMHDR.self).pointee
-            guard hdr.idFrom == UINT_PTR(idLrnList) else { break }
-            if hdr.code == UINT(bitPattern: -101) /* LVN_ITEMCHANGED */ { updateRemoveButton(hwnd) }
-            if hdr.code == UINT(bitPattern: -155) /* LVN_KEYDOWN */ {
-                let key = raw.assumingMemoryBound(to: NMLVKEYDOWN.self).pointee.wVKey
-                if key == WORD(VK_DELETE) { removeSelected(hwnd) }
+        guard let raw = UnsafeRawPointer(bitPattern: Int(lParam)) else { break }
+        let hdr = raw.assumingMemoryBound(to: NMHDR.self).pointee
+        guard hdr.idFrom == UINT_PTR(idLrnList) else { break }
+        switch hdr.code {
+        case UINT(bitPattern: -101) /* LVN_ITEMCHANGED */:
+            let nm = raw.assumingMemoryBound(to: NMLISTVIEW.self).pointee
+            let image = UINT(0xF000 /* LVIS_STATEIMAGEMASK */)
+            if !filling, nm.iItem >= 0, nm.uChanged & UINT(0x8 /* LVIF_STATE */) != 0,
+               (nm.uNewState ^ nm.uOldState) & image != 0, nm.uOldState & image != 0 {
+                PostMessageW(hwnd, WM_LRN_TOGGLE, WPARAM(nm.iItem), 0)
             }
+            updateMinusButton(hwnd)
+        case UINT(bitPattern: -155) /* LVN_KEYDOWN */:
+            let key = raw.assumingMemoryBound(to: NMLVKEYDOWN.self).pointee.wVKey
+            if key == WORD(VK_DELETE) { removeSelected(hwnd) }
+        case UINT(bitPattern: -175) /* LVN_BEGINLABELEDITW */:
+            let row = Int(raw.assumingMemoryBound(to: NMLVDISPINFOW.self).pointee.item.iItem)
+            guard shownRows.indices.contains(row), shownRows[row].kind == .new else { return 1 }   // only the new row
+            setCue(HWND(bitPattern: Int(SendMessageW(listView(hwnd), UINT(0x1018 /* LVM_GETEDITCONTROL */), 0, 0))),
+                   L("settings.learned.col.typed"))
+            return 0
+        case UINT(bitPattern: -176) /* LVN_ENDLABELEDITW */:
+            let text = raw.assumingMemoryBound(to: NMLVDISPINFOW.self).pointee.item.pszText
+            newTyped = learnedKey(text.map { String(decodingCString: UnsafePointer($0), as: UTF16.self) } ?? "")
+            PostMessageW(hwnd, WM_LRN_TYPED, 0, 0)   // the label editor is still up
+            return newTyped.isEmpty ? 0 : 1
+        default: break
         }
     case UINT(WM_CTLCOLORSTATIC), UINT(WM_CTLCOLORBTN):
         let ctl = HWND(bitPattern: Int(lParam))
@@ -186,6 +331,11 @@ private func learnedWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lPar
         SetTextColor(dc, id == idLrnColTyped || id == idLrnColOut ? lrnColors.secondary : lrnColors.text)
         SetBkColor(dc, lrnColors.background)
         SetBkMode(dc, TRANSPARENT)
+        return LRESULT(Int(bitPattern: lrnBrush))
+    case UINT(WM_CTLCOLOREDIT) where lrnColors.dark:   // the "Becomes" editor
+        let dc = HDC(bitPattern: UInt(wParam))
+        SetTextColor(dc, lrnColors.text)
+        SetBkColor(dc, lrnColors.background)
         return LRESULT(Int(bitPattern: lrnBrush))
     case UINT(WM_ERASEBKGND):
         var r = RECT()
@@ -199,6 +349,8 @@ private func learnedWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lPar
         KillTimer(hwnd, lrnThemeTimer)
         guard appsUseDarkTheme() != lrnColors.dark else { return 0 }
         rebuildWithoutFlicker(hwnd) {
+            outEdit = nil
+            newPending = false
             var child = GetWindow(hwnd, UINT(GW_CHILD))
             while let c = child { child = GetWindow(c, UINT(GW_HWNDNEXT)); DestroyWindow(c) }
             buildLearned(hwnd)
@@ -206,6 +358,8 @@ private func learnedWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lPar
         return 0
     case UINT(WM_DESTROY):
         learnedHwnd = nil
+        outEdit = nil
+        newPending = false
         if let b = lrnBrush { DeleteObject(UnsafeMutableRawPointer(b)); lrnBrush = nil }
     default:
         break

@@ -47,6 +47,7 @@
 "settings.learned.confirmInfo" = "Аўтавыпраўленне вернецца да ўласнай ацэнкі гэтых слоў. Дзеянне незваротнае.";
 "settings.learned.col.typed" = "Набрана";
 "settings.learned.col.out" = "Становіцца";
+"settings.learned.clean" = "Ачысціць кандыдатаў";
 
 // Windows port
 "win.pressKey" = "Націсніце клавішу або мадыфікатар…";

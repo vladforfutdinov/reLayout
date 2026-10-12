@@ -47,6 +47,7 @@
 "settings.learned.confirmInfo" = "これらの単語は自動修正が自身で判断するようになります。この操作は取り消せません。";
 "settings.learned.col.typed" = "入力";
 "settings.learned.col.out" = "変換後";
+"settings.learned.clean" = "候補を消去";
 
 // Windows port
 "win.pressKey" = "キーを押すか修飾キーをタップ…";

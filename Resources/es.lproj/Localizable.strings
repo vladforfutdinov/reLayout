@@ -47,6 +47,7 @@
 "settings.learned.confirmInfo" = "La autocorrección volverá a su propio criterio para ellas. Esto no se puede deshacer.";
 "settings.learned.col.typed" = "Escrito";
 "settings.learned.col.out" = "Se convierte en";
+"settings.learned.clean" = "Limpiar candidatos";
 
 // Windows port
 "win.pressKey" = "Pulsa una tecla o un modificador…";

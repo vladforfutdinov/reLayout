@@ -16,6 +16,27 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
+## After v1.3.11 — the Learned-words window as an editor
+
+- Shows all three kinds: confirmed `convert` verdicts, `keep` words and the
+  candidates still being counted (their conversion is stored now:
+  `autoLearnCandidates` / `AutoCorrectLearnCandidates`). A checkbox column
+  (green on macOS) is on for convert and keep, off for a candidate; clicking it
+  promotes a candidate, demotes a convert to a candidate (count 1), or drops a
+  keep. Both lists (Learned words, Exceptions) draw like Login Items: table and
+  a ⊕/⊖ footer in one bordered box, ⊖ only with a selection, multi-select with
+  Cmd/Shift. ⊕ in Learned words opens an empty editable row (Typed → Becomes,
+  lower-cased through `learnedKey`, an empty Typed drops it); in Exceptions it
+  is the old Choose…. Buttons: Clean candidates (no confirmation), Reset
+  (confirmed), Done; Remove and Choose… are gone. Columns share the width, no
+  horizontal scrolling.
+- Windows: `WinLearned.swift` rewritten by the agent with `LVS_EX_CHECKBOXES`
+  (the list view draws the box only in the first column, before Typed), "+"/"−"
+  square buttons, label editing for Typed and an EDIT overlay for Becomes.
+  Compiled in the VM; not hand-tested.
+
+---
+
 ## After v1.3.11 — learned words vetted by the target model
 
 - Every word of a hotkey conversion landed in the learned list, single letters

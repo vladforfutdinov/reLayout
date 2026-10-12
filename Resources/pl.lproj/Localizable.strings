@@ -47,6 +47,7 @@
 "settings.learned.confirmInfo" = "Autokorekta wróci do własnej oceny tych słów. Tej operacji nie można cofnąć.";
 "settings.learned.col.typed" = "Wpisano";
 "settings.learned.col.out" = "Staje się";
+"settings.learned.clean" = "Wyczyść kandydatów";
 
 // Windows port
 "win.pressKey" = "Naciśnij klawisz lub modyfikator…";

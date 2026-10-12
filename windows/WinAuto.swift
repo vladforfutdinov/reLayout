@@ -20,6 +20,7 @@ private var autoSameScript = false
 private var learnedConvert: [String: String] = [:]   // the user's verdicts, cached from the registry
 private var learnedKeep: Set<String> = []
 private var learnedCounts: [String: Int] = [:]
+private var learnedCandidates: [String: String] = [:]   // counted words and their conversions
 private var excludedApps: [String] = []
 private var passwordField = false
 private var run = AutoRun()     // the typed-word state machine, shared with macOS (engine)
@@ -119,6 +120,7 @@ func reloadAutoMode() {
     learnedConvert = loadLearned()
     learnedKeep = Set(loadKept())
     learnedCounts = loadLearnCounts()
+    learnedCandidates = loadLearnCandidates()
     excludedApps = loadExcludedApps()
     run.reset()
 }
@@ -258,9 +260,8 @@ func learnHotkeyMisses(replaced: String, out: String, src: WinLayout, dst: WinLa
         let key = learnedKey(String(t))
         guard misses.contains(key), learnedConvert[key] == nil else { continue }
         learnedCounts[key, default: 0] += 1
-        if learnedCounts[key]! >= autoLearnRepeats {
-            learnedConvert[key] = learnedKey(String(o)); learnedCounts[key] = nil
-        }
+        learnedCandidates[key] = learnedKey(String(o))
+        if learnedCounts[key]! >= autoLearnRepeats { promote(key, to: learnedKey(String(o))) }
     }
     learnedKeep.subtract(misses)
     saveLearnedWords()
@@ -275,23 +276,54 @@ func unlearn(_ last: Conversion) {
         // The press being undone either promoted the word or counted toward it.
         if learnedConvert[w] != nil { learnedConvert[w] = nil }
         else if let n = learnedCounts[w] { learnedCounts[w] = n > 1 ? n - 1 : nil }
+        if learnedCounts[w] == nil { learnedCandidates[w] = nil }
     }
     for w in last.autoWords { learnedConvert[w] = nil }
     learnedKeep.formUnion(last.autoWords.filter { !$0.isEmpty })
     saveLearnedWords()
 }
 
-func learnedWords() -> (convert: [String: String], keep: Set<String>) { (learnedConvert, learnedKeep) }
+func learnedWords() -> (convert: [String: String], keep: Set<String>, candidates: [String: String]) {
+    (learnedConvert, learnedKeep, learnedCandidates)
+}
 
-/// Forgets `keys` from both stores, or every learned word when nil.
+private func promote(_ key: String, to out: String) {
+    learnedConvert[key] = out
+    learnedCounts[key] = nil
+    learnedCandidates[key] = nil
+}
+
+/// Makes `key` a `.convert` verdict (a checked candidate, a word added by hand).
+func promoteLearned(_ key: String, to out: String) {
+    promote(key, to: out)
+    saveLearnedWords()
+}
+
+/// Turns a `.convert` verdict back into a candidate counted once.
+func demoteLearned(_ key: String) {
+    guard let out = learnedConvert.removeValue(forKey: key) else { return }
+    learnedCandidates[key] = out
+    learnedCounts[key] = 1
+    saveLearnedWords()
+}
+
+/// Drops the candidates and their counts; no verdict is touched.
+func cleanLearnCandidates() {
+    learnedCandidates = [:]
+    learnedCounts = [:]
+    saveLearnedWords()
+}
+
+/// Forgets `keys` from every store, or everything learned when nil.
 func forgetLearned(_ keys: Set<String>? = nil) {
     if let keys {
-        for k in keys { learnedConvert[k] = nil }
+        for k in keys { learnedConvert[k] = nil; learnedCounts[k] = nil; learnedCandidates[k] = nil }
         learnedKeep.subtract(keys)
     } else {
         learnedConvert = [:]
         learnedKeep = []
         learnedCounts = [:]
+        learnedCandidates = [:]
     }
     saveLearnedWords()
 }
@@ -300,6 +332,7 @@ private func saveLearnedWords() {
     saveLearned(learnedConvert)
     saveKept(learnedKeep.sorted())
     saveLearnCounts(learnedCounts)
+    saveLearnCandidates(learnedCandidates)
     refreshSettingsLearned()
 }
 

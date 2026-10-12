@@ -579,7 +579,7 @@ final class ExcRowView: NSTableCellView {
 
 // MARK: - App controller
 
-final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSource, NSTableViewDelegate {
+final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSource, NSTableViewDelegate, NSTextFieldDelegate {
     static let shared = AppController()
 
     private var statusItem: NSStatusItem!
@@ -1308,28 +1308,30 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         let typed = replaced.split(whereSeparator: { $0.isWhitespace }).map { learnedKey(String($0)) }
         let outs = out.split(whereSeparator: { $0.isWhitespace }).map { learnedKey(String($0)) }
         let byTyped = Dictionary(zip(typed, outs), uniquingKeysWith: { a, _ in a })
-        var counts = learnedCounts
+        var counts = learnedCounts, cand = learnedCandidates
         var promoted: [String] = []
         for m in misses where c[m] == nil {
             counts[m, default: 0] += 1
-            if counts[m]! >= autoLearnRepeats { c[m] = byTyped[m] ?? ""; counts[m] = nil; promoted.append(m) }
+            cand[m] = byTyped[m] ?? ""
+            if counts[m]! >= autoLearnRepeats { c[m] = cand[m]; counts[m] = nil; cand[m] = nil; promoted.append(m) }
         }
-        learnedConvert = c; learnedCounts = counts
+        learnedConvert = c; learnedCounts = counts; learnedCandidates = cand
         learnedKeep = learnedKeep.filter { !misses.contains($0) }
         dbg("learned: counted \(misses), promoted \(promoted)")
         refreshLearnedUI()
     }
     private func refreshLearnedUI() {
-        DispatchQueue.main.async { self.updateAutoAvailability(); self.learnedTable?.reloadData() }
+        DispatchQueue.main.async { self.updateAutoAvailability(); if self.learnedWindow?.isVisible == true { self.reloadLearnedRows() } }
     }
     private func unlearn(_ last: Conversion) {
-        var c = learnedConvert, counts = learnedCounts
+        var c = learnedConvert, counts = learnedCounts, cand = learnedCandidates
         for w in last.learned {
             // The press being undone either promoted the word or counted toward it.
             if c[w] != nil { c[w] = nil } else if let n = counts[w] { counts[w] = n > 1 ? n - 1 : nil }
+            if counts[w] == nil { cand[w] = nil }
         }
         for w in last.autoWords { c[w] = nil }
-        learnedConvert = c; learnedCounts = counts
+        learnedConvert = c; learnedCounts = counts; learnedCandidates = cand
         if !last.autoWords.isEmpty {
             learnedKeep = Array(Set(learnedKeep + last.autoWords)).sorted()
             dbg("learned keep: \(last.autoWords)")
@@ -1337,15 +1339,66 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         refreshLearnedUI()
     }
 
-    private var learnedRows: [(typed: String, out: String)] {
-        learnedConvert.map { ($0.key, $0.value) }.sorted { $0.0 < $1.0 }
-            + learnedKeep.map { ($0, L("settings.learned.keep")) }
+    // Candidates (counted, not yet promoted) keep their conversion for the list.
+    private var learnedCandidates: [String: String] {
+        get { UserDefaults.standard.dictionary(forKey: "autoLearnCandidates") as? [String: String] ?? [:] }
+        set { UserDefaults.standard.set(newValue, forKey: "autoLearnCandidates") }
+    }
+
+    enum LearnedKind { case convert, keep, candidate, new }
+    struct LearnedRow { var typed: String; var out: String; let kind: LearnedKind }
+    // Rebuilt on reload; the pending "new" row lives only here until committed.
+    private var learnedRows: [LearnedRow] = []
+    private var learnedNewPending = false
+    private weak var learnedMinus: NSSegmentedControl?
+    private weak var excMinus: NSSegmentedControl?
+
+    // A list the way Login Items draws one: the table and a footer with ⊕ / ⊖ in
+    // one rounded, bordered box.
+    private func listBox(_ scroll: NSScrollView, _ sel: Selector) -> (box: NSBox, plusMinus: NSSegmentedControl) {
+        scroll.borderType = .noBorder
+        scroll.hasHorizontalScroller = false
+        scroll.horizontalScrollElasticity = .none
+        let plusMinus = NSSegmentedControl(images: [NSImage(named: NSImage.addTemplateName)!, NSImage(named: NSImage.removeTemplateName)!],
+                                           trackingMode: .momentary, target: self, action: sel)
+        plusMinus.segmentStyle = .smallSquare
+        plusMinus.setEnabled(false, forSegment: 1)
+        plusMinus.translatesAutoresizingMaskIntoConstraints = false
+        let line = NSBox(); line.boxType = .separator; line.translatesAutoresizingMaskIntoConstraints = false
+        let box = NSBox()
+        box.boxType = .custom; box.titlePosition = .noTitle
+        box.borderColor = .separatorColor; box.borderWidth = 1; box.cornerRadius = 5
+        box.contentViewMargins = .zero
+        box.translatesAutoresizingMaskIntoConstraints = false
+        guard let c = box.contentView else { return (box, plusMinus) }
+        c.addSubview(scroll); c.addSubview(line); c.addSubview(plusMinus)
+        NSLayoutConstraint.activate([
+            scroll.topAnchor.constraint(equalTo: c.topAnchor),
+            scroll.leadingAnchor.constraint(equalTo: c.leadingAnchor),
+            scroll.trailingAnchor.constraint(equalTo: c.trailingAnchor),
+            line.topAnchor.constraint(equalTo: scroll.bottomAnchor),
+            line.leadingAnchor.constraint(equalTo: c.leadingAnchor),
+            line.trailingAnchor.constraint(equalTo: c.trailingAnchor),
+            plusMinus.topAnchor.constraint(equalTo: line.bottomAnchor, constant: 2),
+            plusMinus.leadingAnchor.constraint(equalTo: c.leadingAnchor, constant: 4),
+            plusMinus.bottomAnchor.constraint(equalTo: c.bottomAnchor, constant: -2),
+        ])
+        return (box, plusMinus)
+    }
+
+    private func reloadLearnedRows() {
+        learnedRows = learnedConvert.map { LearnedRow(typed: $0.key, out: $0.value, kind: .convert) }.sorted { $0.typed < $1.typed }
+            + learnedKeep.map { LearnedRow(typed: $0, out: L("settings.learned.keep"), kind: .keep) }
+            + learnedCandidates.map { LearnedRow(typed: $0.key, out: $0.value, kind: .candidate) }.sorted { $0.typed < $1.typed }
+        if learnedNewPending { learnedRows.append(LearnedRow(typed: "", out: "", kind: .new)) }
+        learnedTable?.reloadData()
+        learnedMinus?.setEnabled(!(learnedTable?.selectedRowIndexes.isEmpty ?? true), forSegment: 1)
     }
 
     @objc private func openLearned() {
         guard let parent = settingsWindow else { return }
         let w = learnedWindow ?? buildLearnedWindow()
-        learnedTable?.reloadData()
+        reloadLearnedRows()
         present(w, over: parent)
     }
 
@@ -1354,14 +1407,57 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         updateAutoAvailability()
     }
 
-    @objc private func learnedRemoveSelected() {
+    // The ⊕ / ⊖ pair, like Login Items: ⊕ opens an empty editable row, ⊖ drops
+    // the selected rows (any kind).
+    @objc private func learnedPlusMinus(_ sender: NSSegmentedControl) {
         guard let t = learnedTable else { return }
-        let rows = learnedRows
-        for i in t.selectedRowIndexes {
-            let r = rows[i]
-            if learnedConvert[r.typed] != nil { learnedConvert[r.typed] = nil } else { learnedKeep.removeAll { $0 == r.typed } }
+        if sender.selectedSegment == 0 {
+            guard !learnedNewPending else { return }
+            learnedNewPending = true
+            reloadLearnedRows()
+            let row = learnedRows.count - 1
+            t.scrollRowToVisible(row)
+            t.editColumn(0, row: row, with: nil, select: true)
+        } else {
+            var c = learnedConvert, cand = learnedCandidates, counts = learnedCounts, keep = learnedKeep
+            for i in t.selectedRowIndexes {
+                let r = learnedRows[i]
+                switch r.kind {
+                case .convert: c[r.typed] = nil
+                case .keep: keep.removeAll { $0 == r.typed }
+                case .candidate: cand[r.typed] = nil; counts[r.typed] = nil
+                case .new: learnedNewPending = false
+                }
+            }
+            learnedConvert = c; learnedCandidates = cand; learnedCounts = counts; learnedKeep = keep
+            reloadLearnedRows()
+            updateAutoAvailability()
         }
-        t.reloadData()
+    }
+
+    // The checkbox column: checked = the verdict is in force. Checking a
+    // candidate promotes it; unchecking a convert demotes it to a candidate;
+    // unchecking a keep drops it.
+    @objc private func learnedToggle(_ sender: NSButton) {
+        guard learnedRows.indices.contains(sender.tag) else { return }
+        let r = learnedRows[sender.tag]
+        var c = learnedConvert, cand = learnedCandidates, counts = learnedCounts
+        switch r.kind {
+        case .candidate: c[r.typed] = r.out; cand[r.typed] = nil; counts[r.typed] = nil
+        case .convert: c[r.typed] = nil; cand[r.typed] = r.out; counts[r.typed] = 1
+        case .keep: learnedKeep.removeAll { $0 == r.typed }
+        case .new: break
+        }
+        learnedConvert = c; learnedCandidates = cand; learnedCounts = counts
+        reloadLearnedRows()
+        updateAutoAvailability()
+    }
+
+    // Candidates only: counts and their conversions. No confirmation, nothing
+    // the user decided is lost.
+    @objc private func cleanLearnedCandidates() {
+        learnedCandidates = [:]; learnedCounts = [:]
+        reloadLearnedRows()
     }
 
     // Irreversible user data: confirmed first.
@@ -1373,23 +1469,68 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         a.addButton(withTitle: L("settings.learned.reset"))
         a.addButton(withTitle: L("settings.learned.cancel"))
         guard a.runModal() == .alertFirstButtonReturn else { return }
-        learnedConvert = [:]; learnedKeep = []; learnedCounts = [:]
-        learnedTable?.reloadData()
+        learnedConvert = [:]; learnedKeep = []; learnedCounts = [:]; learnedCandidates = [:]
+        learnedNewPending = false
+        reloadLearnedRows()
         updateAutoAvailability()
     }
 
     private func learnedCell(_ table: NSTableView, column: NSTableColumn?, row: Int) -> NSView? {
+        guard learnedRows.indices.contains(row) else { return nil }
         let r = learnedRows[row]
-        let text = column?.identifier.rawValue == "typed" ? r.typed : r.out
-        let id = NSUserInterfaceItemIdentifier("learned")
+        if column?.identifier.rawValue == "ok" {
+            let id = NSUserInterfaceItemIdentifier("learned-ok")
+            let box = (table.makeView(withIdentifier: id, owner: self) as? NSButton)
+                ?? NSButton(checkboxWithTitle: "", target: self, action: #selector(learnedToggle(_:)))
+            box.identifier = id
+            box.contentTintColor = .systemGreen
+            box.tag = row
+            box.state = (r.kind == .convert || r.kind == .keep) ? .on : .off
+            box.isHidden = r.kind == .new
+            return box
+        }
+        let isTyped = column?.identifier.rawValue == "typed"
+        let id = NSUserInterfaceItemIdentifier("learned-text")
         let cell = (table.makeView(withIdentifier: id, owner: self) as? NSTextField) ?? NSTextField(labelWithString: "")
         cell.identifier = id
-        cell.stringValue = text
+        cell.stringValue = isTyped ? r.typed : r.out
+        cell.isEditable = r.kind == .new
+        cell.isBordered = false
+        cell.drawsBackground = false
+        cell.placeholderString = r.kind == .new ? L("settings.learned.col.\(isTyped ? "typed" : "out")") : nil
+        cell.delegate = self
+        cell.tag = isTyped ? 0 : 1
         return cell
     }
 
+    // The new row: typing in "Typed" then "Becomes" and leaving the field commits
+    // it as a convert verdict; an empty "Typed" when editing ends drops the row.
+    func controlTextDidEndEditing(_ note: Notification) {
+        guard learnedNewPending, let field = note.object as? NSTextField, let t = learnedTable,
+              let row = learnedRows.firstIndex(where: { $0.kind == .new }) else { return }
+        if field.tag == 0 { learnedRows[row].typed = learnedKey(field.stringValue) }
+        else { learnedRows[row].out = learnedKey(field.stringValue) }
+        let r = learnedRows[row]
+        let moved = (note.userInfo?["NSTextMovement"] as? Int) == NSTextMovement.tab.rawValue
+        if field.tag == 0, !r.typed.isEmpty, r.out.isEmpty, moved { t.editColumn(1, row: row, with: nil, select: true); return }
+        if r.typed.isEmpty, field.tag == 0 { learnedNewPending = false; reloadLearnedRows(); return }
+        if !r.typed.isEmpty, !r.out.isEmpty {
+            learnedConvert[r.typed] = r.out
+            learnedCandidates[r.typed] = nil; learnedCounts[r.typed] = nil
+            learnedNewPending = false
+            reloadLearnedRows()
+            updateAutoAvailability()
+        }
+    }
+
+    func tableViewSelectionDidChange(_ note: Notification) {
+        guard let t = note.object as? NSTableView else { return }
+        let minus = t === learnedTable ? learnedMinus : t === excTable ? excMinus : nil
+        minus?.setEnabled(!t.selectedRowIndexes.isEmpty, forSegment: 1)
+    }
+
     private func buildLearnedWindow() -> NSWindow {
-        let w = SettingsWindow(contentRect: NSRect(x: 0, y: 0, width: 380, height: 300),
+        let w = SettingsWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 320),
                                styleMask: [.titled, .closable], backing: .buffered, defer: false)
         w.title = L("settings.learned.title")
         w.isReleasedWhenClosed = false
@@ -1405,11 +1546,16 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         let table = NSTableView()
         table.rowHeight = 22
         table.usesAlternatingRowBackgroundColors = true
-        table.allowsMultipleSelection = true
-        for id in ["typed", "out"] {
+        table.allowsMultipleSelection = true   // Cmd / Shift / Option as everywhere on macOS
+        // The two text columns share the width, the checkbox column is fixed: the
+        // table never outgrows the box, so no horizontal scrolling.
+        table.columnAutoresizingStyle = .uniformColumnAutoresizingStyle
+        for (id, width) in [("typed", 160), ("out", 160), ("ok", 24)] {
             let col = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(id))
-            col.title = L("settings.learned.col.\(id)")
-            col.width = 160
+            col.title = id == "ok" ? "" : L("settings.learned.col.\(id)")
+            col.width = CGFloat(width)
+            col.resizingMask = id == "ok" ? [] : .autoresizingMask
+            if id == "ok" { col.minWidth = 24; col.maxWidth = 24 }
             table.addTableColumn(col)
         }
         table.dataSource = self
@@ -1421,6 +1567,9 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         scroll.borderType = .bezelBorder
         scroll.translatesAutoresizingMaskIntoConstraints = false
 
+        let (box, plusMinus) = listBox(scroll, #selector(learnedPlusMinus(_:)))
+        learnedMinus = plusMinus
+
         func btn(_ key: String, _ sel: Selector) -> NSButton {
             let b = NSButton(title: L(key), target: self, action: sel)
             b.bezelStyle = .rounded; b.controlSize = .small
@@ -1430,22 +1579,24 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         let spacer = NSView()
         spacer.translatesAutoresizingMaskIntoConstraints = false
         spacer.setContentHuggingPriority(.init(1), for: .horizontal)
-        let bar = NSStackView(views: [btn("settings.exc.remove", #selector(learnedRemoveSelected)), spacer,
+        let bar = NSStackView(views: [spacer,
+                                      btn("settings.learned.clean", #selector(cleanLearnedCandidates)),
+                                      btn("settings.learned.reset", #selector(resetLearned)),
                                       btn("settings.exc.done", #selector(learnedDone))])
         bar.orientation = .horizontal; bar.spacing = 8; bar.distribution = .fill
         bar.translatesAutoresizingMaskIntoConstraints = false
 
-        content.addSubview(hint); content.addSubview(scroll); content.addSubview(bar)
+        content.addSubview(hint); content.addSubview(box); content.addSubview(bar)
         NSLayoutConstraint.activate([
-            content.widthAnchor.constraint(equalToConstant: 380),
+            content.widthAnchor.constraint(equalToConstant: 400),
             hint.topAnchor.constraint(equalTo: content.topAnchor, constant: 16),
             hint.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 16),
             hint.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -16),
-            scroll.topAnchor.constraint(equalTo: hint.bottomAnchor, constant: 8),
-            scroll.leadingAnchor.constraint(equalTo: hint.leadingAnchor),
-            scroll.trailingAnchor.constraint(equalTo: hint.trailingAnchor),
-            scroll.heightAnchor.constraint(equalToConstant: 180),
-            bar.topAnchor.constraint(equalTo: scroll.bottomAnchor, constant: 12),
+            box.topAnchor.constraint(equalTo: hint.bottomAnchor, constant: 8),
+            box.leadingAnchor.constraint(equalTo: hint.leadingAnchor),
+            box.trailingAnchor.constraint(equalTo: hint.trailingAnchor),
+            box.heightAnchor.constraint(equalToConstant: 224),
+            bar.topAnchor.constraint(equalTo: box.bottomAnchor, constant: 10),
             bar.leadingAnchor.constraint(equalTo: hint.leadingAnchor),
             bar.trailingAnchor.constraint(equalTo: hint.trailingAnchor),
             bar.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -16),
@@ -1527,15 +1678,17 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         let spacer = NSView()
         spacer.translatesAutoresizingMaskIntoConstraints = false
         spacer.setContentHuggingPriority(.init(1), for: .horizontal)
+        // ⊕ is "Choose…", ⊖ removes the selection; "Exclude current app" stays a button.
+        let (box, plusMinus) = listBox(scroll, #selector(excPlusMinus(_:)))
+        excMinus = plusMinus
         let bar = NSStackView(views: [btn("settings.exc.addCurrent", #selector(excAddCurrent)),
-                                      btn("settings.exc.choose", #selector(excChoose)),
                                       spacer,
                                       btn("settings.exc.done", #selector(excDone))])
         bar.orientation = .horizontal; bar.spacing = 8; bar.distribution = .fill
         bar.translatesAutoresizingMaskIntoConstraints = false
 
         content.addSubview(info); content.addSubview(hint)
-        content.addSubview(scroll); content.addSubview(bar)
+        content.addSubview(box); content.addSubview(bar)
         NSLayoutConstraint.activate([
             content.widthAnchor.constraint(equalToConstant: 380),
             hint.topAnchor.constraint(equalTo: content.topAnchor, constant: 16),
@@ -1543,11 +1696,11 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             info.leadingAnchor.constraint(equalTo: hint.trailingAnchor, constant: 4),
             info.centerYAnchor.constraint(equalTo: hint.centerYAnchor),
             hint.trailingAnchor.constraint(lessThanOrEqualTo: content.trailingAnchor, constant: -16),
-            scroll.topAnchor.constraint(equalTo: hint.bottomAnchor, constant: 10),
-            scroll.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 16),
-            scroll.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -16),
-            scroll.heightAnchor.constraint(equalToConstant: 200),
-            bar.topAnchor.constraint(equalTo: scroll.bottomAnchor, constant: 10),
+            box.topAnchor.constraint(equalTo: hint.bottomAnchor, constant: 10),
+            box.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 16),
+            box.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -16),
+            box.heightAnchor.constraint(equalToConstant: 224),
+            bar.topAnchor.constraint(equalTo: box.bottomAnchor, constant: 10),
             bar.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 16),
             bar.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -16),
             bar.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -16),
@@ -1559,6 +1712,15 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     @objc private func excAddCurrent() {
         guard let b = lastActiveBundleID else { NSSound.beep(); return }
         addExcluded(b)
+    }
+
+    @objc private func excPlusMinus(_ sender: NSSegmentedControl) {
+        guard let t = excTable else { return }
+        if sender.selectedSegment == 0 { excChoose(); return }
+        let gone = t.selectedRowIndexes.map { autoExcludedApps[$0] }
+        autoExcludedApps = autoExcludedApps.filter { !gone.contains($0) }
+        t.reloadData()
+        excMinus?.setEnabled(false, forSegment: 1)
     }
 
     @objc private func excChoose() {

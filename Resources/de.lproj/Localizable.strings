@@ -47,6 +47,7 @@
 "settings.learned.confirmInfo" = "Die Autokorrektur beurteilt diese Wörter dann wieder selbst. Dies kann nicht rückgängig gemacht werden.";
 "settings.learned.col.typed" = "Getippt";
 "settings.learned.col.out" = "Wird zu";
+"settings.learned.clean" = "Kandidaten löschen";
 
 // Windows port
 "win.pressKey" = "Taste drücken oder Modifikator antippen…";

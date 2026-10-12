@@ -47,6 +47,7 @@
 "settings.learned.confirmInfo" = "Авто-исправление вернётся к собственной оценке этих слов. Действие необратимо.";
 "settings.learned.col.typed" = "Набрано";
 "settings.learned.col.out" = "Становится";
+"settings.learned.clean" = "Очистить кандидатов";
 
 // Windows port
 "win.pressKey" = "Нажмите клавишу или модификатор…";

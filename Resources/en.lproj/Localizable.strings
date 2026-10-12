@@ -47,6 +47,7 @@
 "settings.learned.confirmInfo" = "Auto-correct goes back to its own judgement for them. This cannot be undone.";
 "settings.learned.col.typed" = "Typed";
 "settings.learned.col.out" = "Becomes";
+"settings.learned.clean" = "Clean candidates";
 
 // Windows port
 "win.pressKey" = "Press a key or tap a modifier…";

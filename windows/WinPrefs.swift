@@ -16,6 +16,7 @@ private let keyAutoSameScript = "AutoCorrectSameScript"
 private let keyLearned    = "AutoCorrectLearned"
 private let keyKept       = "AutoCorrectKept"
 private let keyLearnCounts = "AutoCorrectLearnCounts"
+private let keyLearnCandidates = "AutoCorrectLearnCandidates"
 private let keyExcluded   = "AutoCorrectExcluded"
 private let keyExcludedSeen = "AutoCorrectExcludedDefaultsSeen"
 private let keyLanguage   = "Language"
@@ -201,22 +202,30 @@ func saveAutoSameScript(_ on: Bool) {
     }
 }
 
-/// The user's hotkey verdicts: typed form -> its conversion, one `typed\tout` per line.
-func loadLearned() -> [String: String] {
+/// A typed form -> conversion map, one `typed\tout` per line.
+private func loadPairs(_ name: String) -> [String: String] {
     var map: [String: String] = [:]
-    for line in (withPrefsKey(write: false, { readString($0, keyLearned) }) ?? "").split(separator: "\n") {
+    for line in (withPrefsKey(write: false, { readString($0, name) }) ?? "").split(separator: "\n") {
         let p = line.split(separator: "\t", maxSplits: 1, omittingEmptySubsequences: false)
         map[String(p[0])] = p.count > 1 ? String(p[1]) : ""
     }
     return map
 }
 
-func saveLearned(_ map: [String: String]) {
+private func savePairs(_ name: String, _ map: [String: String]) {
     _ = withPrefsKey(write: true) { key -> Bool in
-        writeString(key, keyLearned, map.map { "\($0.key)\t\($0.value)" }.sorted().joined(separator: "\n"))
+        writeString(key, name, map.map { "\($0.key)\t\($0.value)" }.sorted().joined(separator: "\n"))
         return true
     }
 }
+
+/// The user's hotkey verdicts: typed form -> its conversion.
+func loadLearned() -> [String: String] { loadPairs(keyLearned) }
+func saveLearned(_ map: [String: String]) { savePairs(keyLearned, map) }
+
+/// Counted, not yet promoted hotkey corrections: typed form -> its conversion.
+func loadLearnCandidates() -> [String: String] { loadPairs(keyLearnCandidates) }
+func saveLearnCandidates(_ map: [String: String]) { savePairs(keyLearnCandidates, map) }
 
 /// Hotkey corrections counted toward a `convert` verdict: "typed<TAB>n" per line.
 func loadLearnCounts() -> [String: Int] {

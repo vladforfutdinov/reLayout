@@ -346,7 +346,7 @@ private func buildControls(_ hwnd: HWND?) {
     // The count takes the Reset button's id + labelOffset, so it grays with the button.
     makeControl("STATIC", L("settings.learned", "\(learnedCount())"), 0,
                 margin + 20, y + 4, learnedW, 20, hwnd, idBtnLearnedReset + labelOffset)
-    let learnedOn = available && loadAutoMode() && learnedCount() > 0
+    let learnedOn = available && loadAutoMode()
     // Flush right, like Exceptions… above.
     let learnedResetX = clientWidth - margin - learnedResetW
     let learnedView = makeControl("BUTTON", learnedViewTitle, Int32(WS_TABSTOP),
@@ -355,7 +355,7 @@ private func buildControls(_ hwnd: HWND?) {
     let learnedReset = makeControl("BUTTON", learnedResetTitle, Int32(WS_TABSTOP),
                                    learnedResetX, y - 2, learnedResetW, 26,
                                    hwnd, idBtnLearnedReset)
-    EnableWindow(learnedReset, learnedOn)
+    EnableWindow(learnedReset, learnedOn && learnedCount() > 0)
     y += 42
 
     // ── footer: version, link, copyright — centered, secondary ──
@@ -515,15 +515,7 @@ private func settingsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lPa
             saveAutoSameScript(isChecked(hwnd, idChkAutoSimilar))
             reloadAutoMode()
         case idBtnLearnedView: openLearned(owner: hwnd)
-        case idBtnLearnedReset:
-            // Irreversible user data: confirmed first.
-            let text = L("settings.learned.confirm", "\(learnedCount())") + "\n\n" + L("settings.learned.confirmInfo")
-            let answer = text.withCString(encodedAs: UTF16.self) { t in
-                "reLayout".withCString(encodedAs: UTF16.self) { c in
-                    MessageBoxW(hwnd, t, c, UINT(MB_OKCANCEL) | UINT(MB_ICONWARNING))
-                }
-            }
-            if answer == IDOK { forgetLearned() }
+        case idBtnLearnedReset: confirmResetLearned(owner: hwnd)
         case idBtnExceptions: openExceptions(owner: hwnd)
         case idBtnReset:
             cancelHotkeyCapture()
@@ -568,9 +560,20 @@ func refreshSettingsLearned() {
     refreshLearnedWindow()
     guard let hwnd = settingsHwnd else { return }
     setFieldText(hwnd, idBtnLearnedReset + labelOffset, L("settings.learned", "\(learnedCount())"))
-    let on = WinLayout.crossScriptAvailable() && loadAutoMode() && learnedCount() > 0
-    EnableWindow(GetDlgItem(hwnd, Int32(idBtnLearnedView)), on)
-    enableCheck(hwnd, idBtnLearnedReset, on)
+    let on = WinLayout.crossScriptAvailable() && loadAutoMode()
+    EnableWindow(GetDlgItem(hwnd, Int32(idBtnLearnedView)), on)   // candidates and "+" live there even at 0
+    enableCheck(hwnd, idBtnLearnedReset, on && learnedCount() > 0)
+}
+
+/// Forgets every learned word once the user confirms: irreversible user data.
+func confirmResetLearned(owner: HWND?) {
+    let text = L("settings.learned.confirm", "\(learnedCount())") + "\n\n" + L("settings.learned.confirmInfo")
+    let answer = text.withCString(encodedAs: UTF16.self) { t in
+        "reLayout".withCString(encodedAs: UTF16.self) { c in
+            MessageBoxW(owner, t, c, UINT(MB_OKCANCEL) | UINT(MB_ICONWARNING))
+        }
+    }
+    if answer == IDOK { forgetLearned() }
 }
 
 func openSettings() {

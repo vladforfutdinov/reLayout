@@ -47,6 +47,7 @@
 "settings.learned.confirmInfo" = "A correção automática voltará ao seu próprio critério para elas. Esta ação não pode ser anulada.";
 "settings.learned.col.typed" = "Escrito";
 "settings.learned.col.out" = "Torna-se";
+"settings.learned.clean" = "Limpar candidatos";
 
 // Windows port
 "win.pressKey" = "Pressione uma tecla ou um modificador…";

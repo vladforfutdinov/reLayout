@@ -47,6 +47,7 @@
 "settings.learned.confirmInfo" = "自动纠正将对这些词恢复自行判断。此操作无法撤销。";
 "settings.learned.col.typed" = "输入";
 "settings.learned.col.out" = "变为";
+"settings.learned.clean" = "清除候选";
 
 // Windows port
 "win.pressKey" = "按下按键或轻点修饰键…";

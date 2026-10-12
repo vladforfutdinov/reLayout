@@ -47,6 +47,7 @@
 "settings.learned.confirmInfo" = "이 단어들은 자동 수정이 다시 스스로 판단합니다. 이 작업은 되돌릴 수 없습니다.";
 "settings.learned.col.typed" = "입력";
 "settings.learned.col.out" = "변환";
+"settings.learned.clean" = "후보 지우기";
 
 // Windows port
 "win.pressKey" = "키를 누르거나 보조 키를 탭하세요…";

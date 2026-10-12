@@ -47,6 +47,7 @@
 "settings.learned.confirmInfo" = "La correction automatique reviendra à son propre jugement pour ces mots. Cette action est irréversible.";
 "settings.learned.col.typed" = "Saisi";
 "settings.learned.col.out" = "Devient";
+"settings.learned.clean" = "Effacer les candidats";
 
 // Windows port
 "win.pressKey" = "Appuyez sur une touche ou un modificateur…";

@@ -16,6 +16,19 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
+## v1.3.12 — Cyrillic junk gate, chain bridge, learned-words editor (2026-10-12)
+
+- Tagged `dfa4a49`; notes `docs/release-notes/v1.3.12.md` + `-windows.md`.
+  First release signed by CI with the rotated key (no manual re-sign); the
+  appcast item carries the informational marker for installs below 1.3.8.
+- Contents: the "After v1.3.11" blocks below — junk gate over every enabled
+  model of the script (`d5ca6d2`), punctuation gate −3.6 (`5b4c634`), chain
+  bridge (`f9fc48e`), learned words vetted / three corrections / phrase rule
+  (`d3322fb`, `fa9a9c3`, `2036347`), the editor on both platforms (`91fbd75`
+  … `7f4dbfa`), closable windows and hint placement (`ec1c21f`, `84eca95`).
+
+---
+
 ## After v1.3.11 — the Learned-words window as an editor
 
 - Shows all three kinds: confirmed `convert` verdicts, `keep` words and the

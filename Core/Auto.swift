@@ -120,7 +120,9 @@ public func decideAutoTarget<L: AutoLayout>(_ w: String, cur: L, enabled: [L],
         }
         guard let out = convertWrong(w, src: cur, dst: t), out != w,
               let tLang = t.languageCode, let tModel = model(tLang) else { continue }
-        let sAlt = tModel.score(out)
+        // Read like the gate above: the script's common language counts on any of
+        // its layouts ("c,jhrf" is Russian "сборка" typed for a Ukrainian layout).
+        let sAlt = max(tModel.score(out), model(t.isCyrillic ? "ru" : "en")?.score(out) ?? -.infinity)
         guard forced || pureFor || sAlt > autoPunctPlausible else { continue }
         guard forced || (sScript < autoGarbage && sAlt - sScript > autoMargin) else { continue }
         if best == nil || sAlt > best!.2 { best = (t, out, sAlt) }

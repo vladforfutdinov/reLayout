@@ -295,6 +295,18 @@ final class EngineTests: XCTestCase {
                                         model: { ["de": models["de"]!, "uk": model(knowing: ["при"])][$0] })?.out, "при")
     }
 
+    func testAutoDecideReadsAPunctuatedWordInTheScriptsCommonLanguage() {
+        // Russian typed for a Ukrainian layout: "," is "б", the uk model does not
+        // read the result, ru does. The common language of the target script counts.
+        let (latin, uk) = makeLayouts()
+        let models = ["en": model(knowing: ["hello"]), "uk": model(knowing: ["їжа"]), "ru": model(knowing: ["пбрит"])]
+        let r = decideAutoTarget("g,hbn", cur: latin, enabled: [latin, uk], model: { models[$0] })
+        XCTAssertEqual(r?.out, "пбрит")
+        XCTAssertTrue(r?.target.isCyrillic ?? false)
+        XCTAssertNil(decideAutoTarget("g,hbn", cur: latin, enabled: [latin, uk],
+                                      model: { ["en": models["en"]!, "uk": models["uk"]!][$0] }))
+    }
+
     func testAutoDecideWithoutAModelDoesNothing() {
         let (latin, cyr) = makeLayouts()
         XCTAssertNil(decideAutoTarget("ghbdtn", cur: latin, enabled: [latin, cyr], model: { _ in nil }))

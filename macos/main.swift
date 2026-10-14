@@ -2011,6 +2011,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
                 if me.autoPending > 0, !s.isEmpty,
                    ProcessInfo.processInfo.systemUptime - me.gateSince < me.gateMaxHold {
                     me.autoHeld.append((s, event.flags.intersection([.maskShift, .maskAlternate])))
+                    dbg("hold \(s.debugDescription) held=\(me.autoHeld.count)")
                     return nil
                 }
                 // The boundary key that starts a correction is swallowed too: it
@@ -2044,6 +2045,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     // Returns true when the keystroke was consumed (it un-typed a held character
     // instead of reaching the app).
     fileprivate func autoBackspace(wide: Bool) -> Bool {
+        dbg("bksp wide=\(wide) held=\(autoHeld.count) buf=\(autoRun.word.debugDescription)")
         if !autoHeld.isEmpty, !wide { autoHeld.removeLast(); return true }
         if wide { autoHeld = [] }
         autoRun.backspace(wide: wide)
@@ -2227,12 +2229,18 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     // after it go back on hold until it lands — typing them first would put them
     // on screen past the word the correction deletes from the end.
     private func finishCorrection() {
+#if DEBUG
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            dbg("field tail: \(self.focusedTextElement().flatMap { self.fieldSnapshot($0) }?.tail.debugDescription ?? "unreadable")")
+        }
+#endif
         autoPending -= 1
         guard autoPending == 0, !autoHeld.isEmpty else { return }
         var rest = autoHeld[...]
         autoHeld = []
         autoPending += 1
         while let k = rest.popFirst() {
+            dbg("replay \(k.s.debugDescription)")
             if k.s == "\r" || k.s == "\n" {
                 // No Return follow-up here: its "before" read would race this very key.
                 autoRun.reset()

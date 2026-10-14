@@ -6,7 +6,7 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
-## After v1.3.12 — uk always gated by the ru model too
+## After v1.3.12 — uk always gated by the ru model too (`0be61af`)
 
 - The owner still got "еще" -> "tot" with only ABC + Ukrainian-PC enabled: the
   cross-script gate (`d5ca6d2`) consulted enabled layouts only. Shipping the

@@ -6,6 +6,21 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
+## After v1.3.12 — "Between similar layouts" back, offered only when it can fire
+
+- Revert of `b797c71`: the opt-in `autoSameScript` (`decideAutoTarget(sameScript:)`,
+  margins `autoSameScriptMargins`, the switch-only path for `out == w`, Settings
+  checkbox + ⓘ on macOS and Windows, strings in every lproj) is back unchanged.
+- New: the checkbox is enabled only when `hasSimilarLayouts` (Core) finds two
+  enabled layouts of one script and different languages, both with a model
+  (uk + ru; also e.g. en + de, which the engine always allowed under the same
+  option). The stored preference is kept while the checkbox is disabled; the
+  engine needs no extra gate, a same-script target exists only in that setup.
+- Same-script decisions still gate on the current layout's own model; the
+  always-ru / always-en cross-script gate does not apply to them.
+
+---
+
 ## After v1.3.12 — punctuated word read in the script's common language (`aeec8da`)
 
 - "c,jhrf" (Russian "сборка", ABC + Ukrainian-PC) was not fixed: a word with

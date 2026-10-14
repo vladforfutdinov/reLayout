@@ -21,6 +21,8 @@
 "settings.autoUpdate" = "Rechercher les mises à jour automatiquement";
 "settings.autoCorrect" = "Corriger la disposition automatiquement";
 "settings.autoCorrectEnter" = "Corriger avec Entrée (nouvelle ligne seulement)";
+"settings.autoCorrectSimilar" = "Entre dispositions proches (uk ↔ ru) — expérimental";
+"settings.autoCorrectSimilar.tip" = "Convertit un mot saisi sur la disposition russe qui se lit comme de l’ukrainien, et inversement (« ъжа » → « їжа »). Les deux langues ne se distinguent que par leurs lettres propres : les mots communs restent intacts et certaines erreurs passent.";
 "settings.autoCorrectUnavailable" = "La correction automatique nécessite des dispositions d’alphabets différents, par ex. anglais et n’importe quelle cyrillique. Celles d’un même alphabet (%@) ne se distinguent pas de façon fiable : utilisez le raccourci.";
 
 // auto-correct exceptions

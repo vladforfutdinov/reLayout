@@ -21,6 +21,8 @@
 "settings.autoUpdate" = "Automatisch nach Updates suchen";
 "settings.autoCorrect" = "Layout automatisch korrigieren";
 "settings.autoCorrectEnter" = "Bei Enter korrigieren (nur neue Zeile)";
+"settings.autoCorrectSimilar" = "Zwischen ähnlichen Layouts (uk ↔ ru) — experimentell";
+"settings.autoCorrectSimilar.tip" = "Wandelt ein auf dem russischen Layout getipptes Wort um, das sich als Ukrainisch liest, und umgekehrt („ъжа“ → „їжа“). Die Sprachen sind nur an ihren typischen Buchstaben zu unterscheiden: gemeinsame Wörter bleiben unberührt, manche Fehler rutschen durch.";
 "settings.autoCorrectUnavailable" = "Die automatische Korrektur braucht Tastaturlayouts verschiedener Schriften, z. B. Englisch und ein beliebiges kyrillisches. Layouts derselben Schrift (%@) lassen sich nicht zuverlässig unterscheiden – nutzen Sie das Tastenkürzel.";
 
 // auto-correct exceptions

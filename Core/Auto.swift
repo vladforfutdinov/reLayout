@@ -5,6 +5,13 @@
 // Calibrated for ~99% precision on cross-script pairs (see scripts/trigram).
 public let autoGarbage: Float = -2.5   // word looks like junk in its own language
 public let autoMargin:  Float = 0.5    // converted form must beat it by this much
+// Same-script pairs (ru<->uk) differ in a few letters only, so the margin is per
+// target language, from a 6000+6000-word sweep (scripts/trigram, 2026-10-10):
+// into uk 1.5 — the Russian model underrates "ы" words ("рыба", "пыль"), at 1.0
+// they flip; into ru 1.0 — the dictionary-cleaned uk model is strict, 3/6000
+// false at 1.0, and "кто-то" (1.11), "как-то" (1.02) are lost at 1.5.
+public let autoSameScriptMargins: [String: Float] = ["uk": 1.5, "ru": 1.0]
+public let autoSameScriptMargin: Float = 1.5   // other same-script pairs
 // Words carrying mapped punctuation (',' is б, '[' is х …) get an absolute gate
 // too: their typed-side score is floor-dominated, so the relative margin alone
 // lets junk through ("e.g" -> "уюп", which scored <= -3.8). Measured 2026-10-12
@@ -19,8 +26,10 @@ public protocol AutoLayout: LayoutMaps {
     var languageCode: String? { get }
 }
 
-// Auto fires ONLY between layouts of different scripts (Cyrillic<->Latin), where
-// detection is reliable; same-script pairs always return nil.
+// Auto fires between layouts of different scripts (Cyrillic<->Latin) and between
+// same-script layouts of different languages (ru<->uk: "ъжа" is "їжа" typed on
+// the Russian layout), under the same gates. Same-language pairs (ru / ru-PC)
+// never: the text would not change.
 //
 // Length is NOT gated here — the trigram model pads `^^w$`, so 1-2 char words
 // (prepositions: d->в, yf->на) still score. autoEvaluate applies the extra
@@ -33,6 +42,13 @@ public enum LearnedVerdict: String { case convert, keep }
 
 /// The dictionary key of a typed form: lowercased, trailing non-letters dropped
 /// (the hotkey sees "учше," where the auto path judged "учше").
+/// Whether two enabled layouts share a script but not a language, both with a model:
+/// the only setup where `decideAutoTarget(sameScript: true)` can fire.
+public func hasSimilarLayouts<L: AutoLayout>(_ enabled: [L], model: (String) -> TrigramModel?) -> Bool {
+    let langs = enabled.compactMap { l in l.languageCode.flatMap { model($0) != nil ? ($0, l.isCyrillic) : nil } }
+    return langs.contains { a in langs.contains { $0.1 == a.1 && $0.0 != a.0 } }
+}
+
 public func learnedKey(_ w: String) -> String {
     var s = Substring(w.lowercased())
     while let l = s.last, !l.isLetter { s = s.dropLast() }
@@ -44,12 +60,18 @@ public func learnedKey(_ w: String) -> String {
 ///   - model: trigram model for a language code, cached by the caller.
 ///   - learned: the user's verdict on a `learnedKey`; `.keep` leaves the word,
 ///     `.convert` converts it past the plausibility gates.
+///   - sameScript: also consider same-script layouts of another language (ru ↔ uk).
+///     Experimental: the models tell the two apart only on their distinctive letters.
 /// - Returns: the target layout and the converted word, or nil to leave the word alone.
+///   With `sameScript`, `out == w` means: the text is right, only the layout is wrong.
 public func decideAutoTarget<L: AutoLayout>(_ w: String, cur: L, enabled: [L],
                                             model: (String) -> TrigramModel?,
-                                            learned: (String) -> LearnedVerdict? = { _ in nil }) -> (target: L, out: String)? {
+                                            learned: (String) -> LearnedVerdict? = { _ in nil },
+                                            sameScript: Bool = false) -> (target: L, out: String)? {
     guard let curLang = cur.languageCode, let curModel = model(curLang) else { return nil }
-    let targets = enabled.filter { $0.isCyrillic != cur.isCyrillic }
+    let targets = enabled.filter {
+        $0.isCyrillic != cur.isCyrillic || (sameScript && $0.languageCode != curLang)
+    }
     guard !targets.isEmpty else { return nil }
 
     let forced: Bool
@@ -118,13 +140,19 @@ public func decideAutoTarget<L: AutoLayout>(_ w: String, cur: L, enabled: [L],
                   forced || core.count == w.count || curModel.score(String(core)) < autoGarbage
             else { continue }
         }
-        guard let out = convertWrong(w, src: cur, dst: t), out != w,
+        // Same script: a word without the layouts' distinctive letters converts to
+        // itself ("мабуть" on the Russian layout); the caller then only switches
+        // the layout. Across scripts an unchanged word is no conversion.
+        let sameScript = t.isCyrillic == cur.isCyrillic
+        guard let out = convertWrong(w, src: cur, dst: t) ?? (sameScript ? w : nil), sameScript || out != w,
               let tLang = t.languageCode, let tModel = model(tLang) else { continue }
         // Read like the gate above: the script's common language counts on any of
         // its layouts ("c,jhrf" is Russian "сборка" typed for a Ukrainian layout).
         let sAlt = max(tModel.score(out), model(t.isCyrillic ? "ru" : "en")?.score(out) ?? -.infinity)
         guard forced || pureFor || sAlt > autoPunctPlausible else { continue }
-        guard forced || (sScript < autoGarbage && sAlt - sScript > autoMargin) else { continue }
+        let margin = sameScript ? autoSameScriptMargins[tLang] ?? autoSameScriptMargin : autoMargin
+        let sGate = sameScript ? sTyped : sScript   // same-script: the target's own model is the alternative
+        guard forced || (sGate < autoGarbage && sAlt - sGate > margin) else { continue }
         if best == nil || sAlt > best!.2 { best = (t, out, sAlt) }
     }
     guard let b = best else {

@@ -385,6 +385,21 @@ final class EngineTests: XCTestCase {
         XCTAssertFalse(hasSimilarLayouts([latin, uk, ru], model: { $0 == "ru" ? nil : models[$0] }))
     }
 
+    func testAutoDecideKeepsJunkFromBecomingLesserJunk() {
+        // "ghb" is junk to en (-5.0). "при" reads -4.0 when uk knows only "^^п",
+        // -3.0 when it knows "^пр" too: only the latter clears autoPlausible.
+        let (latin, uk) = makeLayouts()
+        let en = model(knowing: [])
+        XCTAssertNil(decideAutoTarget("ghb", cur: latin, enabled: [latin, uk],
+                                      model: { ["en": en, "uk": self.model(knowing: ["пюю"])][$0] }))
+        XCTAssertEqual(decideAutoTarget("ghb", cur: latin, enabled: [latin, uk],
+                                        model: { ["en": en, "uk": self.model(knowing: ["пра"])][$0] })?.out, "при")
+        // A learned verdict still converts past it.
+        XCTAssertEqual(decideAutoTarget("ghb", cur: latin, enabled: [latin, uk],
+                                        model: { ["en": en, "uk": self.model(knowing: ["пюю"])][$0] },
+                                        learned: { _ in .convert })?.out, "при")
+    }
+
     func testAutoDecideWithoutAModelDoesNothing() {
         let (latin, cyr) = makeLayouts()
         XCTAssertNil(decideAutoTarget("ghbdtn", cur: latin, enabled: [latin, cyr], model: { _ in nil }))

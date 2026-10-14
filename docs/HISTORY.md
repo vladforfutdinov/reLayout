@@ -6,6 +6,26 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
+## After v1.3.12 — absolute plausibility gate for pure-letter words (−4.0)
+
+- Junk converted into lesser junk ("всы" -> "dcs", "якщо" -> "zroj" before the
+  ru+uk gate): pure-letter words had only the relative margin. New
+  `autoPlausible` = −4.0 on the converted reading (`autoPunctPlausible` −3.6
+  stays for punctuated words); a learned `.convert` bypasses it.
+- Sweep, 12 pairs (one Latin + one Cyrillic), same lists/tables as the gate
+  work above. Frequency-weighted: recall −0.06 points at most, uk/ru leaks
+  0.54% -> 0.14%, English on de/fr/es/pl/pt 3.05% -> 0.13%; unweighted recall
+  −0.3 (worst en-uk L>C 99.13 -> 98.07). −4.5 / −5.0 cut leaks less; −2.5 /
+  −3.0 / −3.6 cost 1.5–37% recall (36–48% of real words score below −2.5:
+  the garbage line is the median, not a word/junk border). Lost: rare words
+  just under −4 (aye, zero, tokyo, oak, sofa) — left to the hotkey.
+- Lowering the typed-side garbage line was measured and rejected: −3.0 costs
+  0.8 weighted points of L>C recall (the → еру, when → црут read −2.6…−3.8),
+  −4.0 costs 5. Short ambiguous pairs (рук/her, цру/whe, yen/нут) cannot be
+  separated by any threshold — same keystrokes, two real words.
+
+---
+
 ## After v1.3.12 — Cyrillic gate over ru + uk; similar-layouts tests; label example
 
 - Testing "between similar layouts" with the favoured layout absent: no same-

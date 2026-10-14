@@ -19,6 +19,11 @@ public let autoSameScriptMargin: Float = 1.5   // other same-script pairs
 // -3.0 the gate rejected 14% of them ("халепа" -3.15); -3.6 passes 97.8% and
 // fires nothing new on 39 English abbreviations ("e.g", "i.e", "don't" …).
 public let autoPunctPlausible: Float = -3.6
+// Pure-letter words: the converted form must read at least this well, so junk
+// does not convert into lesser junk ("всы" -> "dcs" -4.25). Measured 2026-10-14
+// on 12 one-Latin + one-Cyrillic pairs, frequency-weighted: recall -0.06 points
+// at most, uk/ru leaks 0.54% -> 0.14%, English on de/fr/es/pl/pt 3.05% -> 0.13%.
+public let autoPlausible: Float = -4.0
 
 /// A layout that also knows its language, so the right trigram model can be picked.
 public protocol AutoLayout: LayoutMaps {
@@ -149,7 +154,7 @@ public func decideAutoTarget<L: AutoLayout>(_ w: String, cur: L, enabled: [L],
         // Read like the gate above: the script's common language counts on any of
         // its layouts ("c,jhrf" is Russian "сборка" typed for a Ukrainian layout).
         let sAlt = max(tModel.score(out), model(t.isCyrillic ? "ru" : "en")?.score(out) ?? -.infinity)
-        guard forced || pureFor || sAlt > autoPunctPlausible else { continue }
+        guard forced || sAlt > (pureFor ? autoPlausible : autoPunctPlausible) else { continue }
         let margin = sameScript ? autoSameScriptMargins[tLang] ?? autoSameScriptMargin : autoMargin
         let sGate = sameScript ? sTyped : sScript   // same-script: the target's own model is the alternative
         guard forced || (sGate < autoGarbage && sAlt - sGate > margin) else { continue }

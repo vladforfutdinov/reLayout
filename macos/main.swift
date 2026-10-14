@@ -80,6 +80,8 @@ private let dbgTime: DateFormatter = {
 #endif
 func dbg(_ s: @autoclosure () -> String) {
 #if DEBUG
+    // Passwords never reach the trace: nothing is written while one is being typed.
+    if IsSecureEventInputEnabled() || focusedIsSecureField() { return }
     let dbgPath = "/tmp/relayout.log"
     let data = Data((dbgTime.string(from: Date()) + " " + s() + "\n").utf8)
     if let h = FileHandle(forWritingAtPath: dbgPath) {
@@ -88,6 +90,16 @@ func dbg(_ s: @autoclosure () -> String) {
         try? data.write(to: URL(fileURLWithPath: dbgPath))
     }
 #endif
+}
+
+func focusedIsSecureField() -> Bool {
+    let sys = AXUIElementCreateSystemWide()
+    var el: CFTypeRef?
+    guard AXUIElementCopyAttributeValue(sys, kAXFocusedUIElementAttribute as CFString, &el) == .success,
+          let el, CFGetTypeID(el) == AXUIElementGetTypeID() else { return false }
+    var sub: CFTypeRef?
+    return AXUIElementCopyAttributeValue(el as! AXUIElement, kAXSubroleAttribute as CFString, &sub) == .success
+        && (sub as? String) == (kAXSecureTextFieldSubrole as String)
 }
 
 func fourCharCode(_ s: String) -> FourCharCode {
@@ -1950,6 +1962,9 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             guard let refcon else { return Unmanaged.passUnretained(event) }
             let me = Unmanaged<AppController>.fromOpaque(refcon).takeUnretainedValue()
             let synth = event.getIntegerValueField(.eventSourceUserData) == AppController.synthMarker
+            dbg("tap type=\(type.rawValue) code=\(event.getIntegerValueField(.keyboardEventKeycode)) "
+                + "flags=\(String(event.flags.rawValue, radix: 16)) synth=\(synth) "
+                + "pid=\(event.getIntegerValueField(.eventSourceUnixProcessID))")
             // A click may move the caret or focus, and a Cmd/Ctrl shortcut may too
             // (paste, undo, Cmd+arrows, send, app switch): the buffered word and a
             // pending preposition no longer sit right before the caret, and a later
@@ -2264,14 +2279,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     private func isAutoExcluded() -> Bool {
         if let bid = NSWorkspace.shared.frontmostApplication?.bundleIdentifier,
            autoExcludedApps.contains(bid) { return true }   // user deny-list
-        let sys = AXUIElementCreateSystemWide()
-        var el: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(sys, kAXFocusedUIElementAttribute as CFString, &el) == .success,
-              let el, CFGetTypeID(el) == AXUIElementGetTypeID() else { return false }
-        var sub: CFTypeRef?
-        if AXUIElementCopyAttributeValue(el as! AXUIElement, kAXSubroleAttribute as CFString, &sub) == .success,
-           let s = sub as? String, s == (kAXSecureTextFieldSubrole as String) { return true }
-        return false
+        return focusedIsSecureField()
     }
 
     // Every layout switch goes through here: TIS is documented to ignore a request

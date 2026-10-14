@@ -627,7 +627,6 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     private weak var autoCb: NSButton?
     private weak var autoExcBtn: NSButton?
     private weak var autoEnterCb: NSButton?
-    private weak var autoSimilarCb: NSButton?
     private weak var learnedLabel: NSTextField?
     private weak var learnedViewBtn: NSButton?
     private var learnedWindow: NSWindow?
@@ -741,8 +740,6 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         autoExcBtn?.isEnabled = ok
         autoEnterCb?.isEnabled = ok && autoMode
         autoEnterCb?.state = autoEnterNewline ? .on : .off
-        autoSimilarCb?.isEnabled = ok && autoMode
-        autoSimilarCb?.state = autoSameScript ? .on : .off
         learnedLabel?.stringValue = String(format: L("settings.learned"), String(learnedConvert.count + learnedKeep.count))
         learnedViewBtn?.isEnabled = ok && autoMode
         autoInfo?.isHidden = ok
@@ -1115,17 +1112,6 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         let enterCb = makeCheckbox(L("settings.autoCorrectEnter"), #selector(toggleAutoEnter(_:)), on: autoEnterNewline)
         let enterRow = NSStackView(views: [enterCb])
         enterRow.edgeInsets = NSEdgeInsets(top: 0, left: 20, bottom: 0, right: 0)   // sub-option of auto-correct
-        // "Between similar layouts (uk ↔ ru) — experimental": the ⓘ goes before the dash.
-        let similarParts = L("settings.autoCorrectSimilar").components(separatedBy: "—")
-        let similarCb = makeCheckbox(similarParts[0].trimmingCharacters(in: .whitespaces),
-                                     #selector(toggleAutoSimilar(_:)), on: autoSameScript)
-        let similarInfo = NSImageView(image: NSImage(systemSymbolName: "info.circle", accessibilityDescription: nil) ?? NSImage())
-        similarInfo.contentTintColor = .secondaryLabelColor
-        similarInfo.toolTip = L("settings.autoCorrectSimilar.tip")   // hints live on ⓘ, like the auto-correct row
-        let similarTag = NSTextField(labelWithString: "— " + similarParts.dropFirst().joined(separator: "—").trimmingCharacters(in: .whitespaces))
-        let similarRow = NSStackView(views: [similarCb, similarInfo, similarTag])
-        similarRow.orientation = .horizontal; similarRow.spacing = 4; similarRow.alignment = .centerY
-        similarRow.edgeInsets = NSEdgeInsets(top: 0, left: 20, bottom: 0, right: 0)
         let learnedLbl = NSTextField(labelWithString: "")
         let learnedView = NSButton(title: L("settings.learned.view"), target: self, action: #selector(openLearned))
         learnedView.bezelStyle = .rounded; learnedView.controlSize = .small
@@ -1133,7 +1119,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         learnedRow.orientation = .horizontal; learnedRow.spacing = 12; learnedRow.alignment = .centerY
         learnedRow.edgeInsets = NSEdgeInsets(top: 0, left: 20, bottom: 0, right: 0)
 
-        self.autoCb = autoCb; autoExcBtn = excBtn; autoInfo = autoInfoIcon; autoEnterCb = enterCb; autoSimilarCb = similarCb
+        self.autoCb = autoCb; autoExcBtn = excBtn; autoInfo = autoInfoIcon; autoEnterCb = enterCb
         learnedLabel = learnedLbl; learnedViewBtn = learnedView
         updateAutoAvailability()
 
@@ -1190,7 +1176,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
                                         on: updater?.updater.automaticallyChecksForUpdates ?? true)
         arranged.append(autoUpdateCb)
 #endif
-        arranged += [langGrid, sep2, hkGrid, sep3, autoRow, enterRow, similarRow, learnedRow, version, link, copyright]
+        arranged += [langGrid, sep2, hkGrid, sep3, autoRow, enterRow, learnedRow, version, link, copyright]
 
         let stack = NSStackView(views: arranged)
         stack.orientation = .vertical
@@ -1887,8 +1873,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     // Cross-script trigram decision lives in the engine (Core/Auto.swift); this
     // only feeds it the cached models.
     func autoDecide(_ w: String, cur: Layout, enabled: [Layout]) -> (target: Layout, out: String)? {
-        decideAutoTarget(w, cur: cur, enabled: enabled, model: trigram, learned: learnedVerdict,
-                         sameScript: autoSameScript)
+        decideAutoTarget(w, cur: cur, enabled: enabled, model: trigram, learned: learnedVerdict)
     }
 
 
@@ -2081,11 +2066,6 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     }
 
     private var autoEnterNewline: Bool { UserDefaults.standard.object(forKey: "autoEnterNewline") as? Bool ?? true }
-    // Experimental: ru <-> uk conversion (see decideAutoTarget sameScript). Default off.
-    private var autoSameScript: Bool { UserDefaults.standard.bool(forKey: "autoSameScript") }
-    @objc private func toggleAutoSimilar(_ sender: NSButton) {
-        UserDefaults.standard.set(sender.state == .on, forKey: "autoSameScript")
-    }
 
     // Main thread, from the tap, before the Return reaches the app. Only a long word
     // (no preposition adjacency across a line) in a field whose caret and text are
@@ -2202,13 +2182,6 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         }
         autoChainTarget = d.target
         dbg("auto: \(word.debugDescription) -> \(d.out.debugDescription) [\(d.target.id)] cur=\(cur.id)")
-        if d.out == word {
-            // Right text, wrong layout (uk word on the ru layout): switch only, no retype.
-            guard wordBody(word) >= 3 else { return false }
-            autoRun.noCandidate()
-            selectLayout(d.target)
-            return false
-        }
         let srcSource = cur.source
         let outTrail = transliterate(trail, from: cur, to: d.target)
         // The short-word rule (engine): a 1-2 letter word waits for a neighbour.

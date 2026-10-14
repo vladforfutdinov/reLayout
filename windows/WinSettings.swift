@@ -15,9 +15,7 @@ private let idChkAutoEnter:  Int = 110
 private let idBtnExceptions: Int = 111
 private let idCmbLanguage:   Int = 112
 private let idAutoInfo:      Int = 113
-private let idSimilarInfo:   Int = 118
 private let idName:          Int = 114
-private let idChkAutoSimilar: Int = 115
 private let idBtnLearnedView: Int = 117
 // Secondary (gray) text: the caption column and the footer.
 private let idCapLanguage:   Int = 120
@@ -238,14 +236,12 @@ private func buildControls(_ hwnd: HWND?) {
     let autoW = textWidth(autoTitle, hwnd) + 24   // + the check box itself
     let excTitle = L("settings.exceptions")
     let excW = textWidth(excTitle, hwnd) + 24
-    let similarTitle = L("settings.autoCorrectSimilar")
     let learnedW = textWidth(L("settings.learned", "0000"), hwnd) + 4   // room for the count to grow
     let learnedViewTitle = L("settings.learned.view")
     let learnedViewW = textWidth(learnedViewTitle, hwnd) + 24
     let rows: [Int32] = [
         autoW + 24 + 16 + excW,
         20 + textWidth(L("settings.autoCorrectEnter"), hwnd) + 24,
-        20 + textWidth(similarTitle, hwnd) + 24 + 22,
         20 + learnedW + 8 + learnedViewW,
         textWidth(L("settings.openAtLogin"), hwnd) + 24,
         captionW + 10 + 200,
@@ -326,20 +322,6 @@ private func buildControls(_ hwnd: HWND?) {
     makeCheck(L("settings.autoCorrectEnter"), margin + 20, y, content - 20, hwnd, idChkAutoEnter,
               on: loadAutoEnter(), enabled: available && loadAutoMode())
     y += 28
-    // "Between similar layouts (uk ↔ ru) — experimental": the ⓘ goes before the dash.
-    let similarParts = similarTitle.split(separator: "—", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespaces) }
-    let similarW = textWidth(similarParts[0], hwnd) + 24
-    makeCheck(similarParts[0], margin + 20, y, similarW, hwnd, idChkAutoSimilar,
-              on: loadAutoSameScript(), enabled: available && loadAutoMode())
-    let similarInfo = makeControl("STATIC", "\u{E946}" /* Info glyph */, 0,
-                                  margin + 20 + similarW + 2, y + 2, 20, 20, hwnd, idSimilarInfo)
-    setFont(similarInfo, glyphFont)
-    addTooltip(&tooltip, hwnd, similarInfo, L("settings.autoCorrectSimilar.tip"), overWindow: true)
-    if similarParts.count > 1 {
-        makeControl("STATIC", "— " + similarParts[1], 0, margin + 20 + similarW + 24, y + 4,
-                    textWidth("— " + similarParts[1], hwnd) + 4, 20, hwnd, idSimilarInfo + labelOffset)
-    }
-    y += 30
     // The count takes the View button's id + labelOffset, so it grays with the button.
     makeControl("STATIC", L("settings.learned", "\(learnedCount())"), 0,
                 margin + 20, y + 4, learnedW, 20, hwnd, idBtnLearnedView + labelOffset)
@@ -497,13 +479,9 @@ private func settingsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lPa
             saveAutoMode(on)
             reloadAutoMode()
             enableCheck(hwnd, idChkAutoEnter, on)
-            enableCheck(hwnd, idChkAutoSimilar, on)
             refreshSettingsLearned()
         case idChkAutoEnter:
             saveAutoEnter(isChecked(hwnd, idChkAutoEnter))
-            reloadAutoMode()
-        case idChkAutoSimilar:
-            saveAutoSameScript(isChecked(hwnd, idChkAutoSimilar))
             reloadAutoMode()
         case idBtnLearnedView: openLearned(owner: hwnd)
         case idBtnExceptions: openExceptions(owner: hwnd)

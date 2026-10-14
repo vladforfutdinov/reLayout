@@ -12,7 +12,6 @@ private let keyHotkeyVK   = "HotkeyVK"
 private let keyDoubleTap  = "DoubleTap"
 private let keyAutoMode   = "AutoCorrect"
 private let keyAutoEnter  = "AutoCorrectOnEnter"
-private let keyAutoSameScript = "AutoCorrectSameScript"
 private let keyLearned    = "AutoCorrectLearned"
 private let keyKept       = "AutoCorrectKept"
 private let keyLearnCounts = "AutoCorrectLearnCounts"
@@ -188,17 +187,6 @@ func loadAutoEnter() -> Bool {
 func saveAutoEnter(_ on: Bool) {
     _ = withPrefsKey(write: true) { key -> Bool in
         writeDword(key, keyAutoEnter, on ? 1 : 0); return true
-    }
-}
-
-/// Experimental same-script correction (ru <-> uk); default off.
-func loadAutoSameScript() -> Bool {
-    (withPrefsKey(write: false) { readDword($0, keyAutoSameScript) } ?? 0) != 0
-}
-
-func saveAutoSameScript(_ on: Bool) {
-    _ = withPrefsKey(write: true) { key -> Bool in
-        writeDword(key, keyAutoSameScript, on ? 1 : 0); return true
     }
 }
 

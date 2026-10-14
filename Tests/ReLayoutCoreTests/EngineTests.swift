@@ -274,28 +274,6 @@ final class EngineTests: XCTestCase {
         XCTAssertNil(decideAutoTarget("ghbdtn", cur: latin, enabled: [latin], model: { models[$0] }))
     }
 
-    func testAutoDecideConvertsBetweenSameScriptLanguages() {
-        // A fake Russian layout: the "і" key types "ы". "привыт" on it is "привіт".
-        let (latin, uk) = makeLayouts()
-        var ru = uk; ru.languageCode = "ru"
-        let st = uk.charToStroke["і"]!
-        ru.charToStroke["і"] = nil; ru.charToStroke["ы"] = st; ru.strokeToChar[st] = "ы"
-        let models = ["ru": model(knowing: ["привет"]), "uk": model(knowing: ["привіт"]), "en": model(knowing: [])]
-        let r = decideAutoTarget("привыт", cur: ru, enabled: [latin, ru, uk], model: { models[$0] }, sameScript: true)
-        XCTAssertEqual(r?.out, "привіт")
-        XCTAssertEqual(r?.target.languageCode, "uk")
-        // A plausible Russian word stays, even though uk would read its conversion.
-        XCTAssertNil(decideAutoTarget("привет", cur: ru, enabled: [latin, ru, uk], model: { models[$0] }, sameScript: true))
-        // No distinctive letter: the word converts to itself, only the layout is wrong.
-        let same = decideAutoTarget("мабуть", cur: ru, enabled: [latin, ru, uk],
-                                    model: { ["ru": self.model(knowing: []), "uk": self.model(knowing: ["мабуть"]), "en": self.model(knowing: [])][$0] },
-                                    sameScript: true)
-        XCTAssertEqual(same?.out, "мабуть")
-        XCTAssertEqual(same?.target.languageCode, "uk")
-        // Off by default: same-script layouts are not candidates.
-        XCTAssertNil(decideAutoTarget("привыт", cur: ru, enabled: [latin, ru, uk], model: { models[$0] }))
-    }
-
     func testAutoDecideSparesAWordAnotherLayoutOfTheScriptReads() {
         // "еще" on the Ukrainian layout: junk to uk, a word to ru, and its Latin
         // reading "tot" is English. With ru enabled it stays; without, it converts.

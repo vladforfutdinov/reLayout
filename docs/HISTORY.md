@@ -6,6 +6,17 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
+## After v1.3.12 — "Between similar layouts" (auto ru <-> uk) removed
+
+- The experimental opt-in never worked well enough in daily use and got in
+  the way, so it is gone on both platforms: the Settings checkbox and its ⓘ,
+  `autoSameScript` / `AutoCorrectSameScript`, engine `sameScript:` with
+  `autoSameScriptMargins`, the switch-only path for an unchanged word, and the
+  `settings.autoCorrectSimilar*` strings. Auto-correct is cross-script only
+  again. Kept: the hotkey's model-based choice among same-script targets
+  (`bestConversion`), the twin-layout fallback, the dict_uk-filtered uk model
+  and the any-layout-of-the-script junk gate.
+
 ## After v1.3.10 — no second Cmd+C probe within a second
 
 - With nothing selected and an empty word buffer in an app without an

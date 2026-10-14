@@ -16,7 +16,6 @@ let WM_AUTOENTER = UINT(WM_APP) + 12
 
 private var autoEnabled = false  // mirrors the preference; the hook reads it per key
 private var autoEnterEnabled = true
-private var autoSameScript = false
 private var learnedConvert: [String: String] = [:]   // the user's verdicts, cached from the registry
 private var learnedKeep: Set<String> = []
 private var learnedCounts: [String: Int] = [:]
@@ -116,7 +115,6 @@ func typedWord() -> (text: String, spaces: Int) {
 func reloadAutoMode() {
     autoEnabled = loadAutoMode()
     autoEnterEnabled = loadAutoEnter()
-    autoSameScript = loadAutoSameScript()
     learnedConvert = loadLearned()
     learnedKeep = Set(loadKept())
     learnedCounts = loadLearnCounts()
@@ -208,7 +206,7 @@ private var chainTarget: WinLayout?   // layout of the last auto candidate, for 
 private func evaluate(word: String, trail: String, boundary: Int32, shift: Bool, cur: WinLayout) -> Bool {
     guard !word.isEmpty, !autoExcluded() else { run.noCandidate(); return false }
     guard let decided = decideAutoTarget(word, cur: cur, enabled: WinLayout.installedList(), model: trigram,
-                                         learned: learnedVerdict, sameScript: autoSameScript) else {
+                                         learned: learnedVerdict) else {
         // A short word the model reads as fine right after a chain word ("ot" in
         // "nf ot [fktgf") rides along with its reading in the chain's layout.
         if wordBody(word) <= 2, run.previous != nil, let t = chainTarget {
@@ -219,13 +217,6 @@ private func evaluate(word: String, trail: String, boundary: Int32, shift: Bool,
         return false
     }
     chainTarget = decided.target
-    if decided.out == word {
-        // Right text, wrong layout (uk word on the ru layout): switch only, no retype.
-        guard wordBody(word) >= 3 else { return false }
-        run.noCandidate()
-        switchLayout(to: decided.target)
-        return false
-    }
     let outTrail = trail.isEmpty ? "" : transliterate(trail, from: cur, to: decided.target)
     // The short-word rule (engine): a 1-2 letter word waits for a neighbour.
     guard let fix = run.plan(raw: word + trail, out: decided.out + outTrail, cyrillic: decided.target.isCyrillic,
@@ -356,7 +347,7 @@ private var enterJob: EnterJob?
 private func enterFollowUp(word: String, trail: String, cur: WinLayout) {
     guard autoEnterEnabled, !correcting, wordBody(word) >= 3, !autoExcluded(), !foregroundIsConsole(),
           let decided = decideAutoTarget(word, cur: cur, enabled: WinLayout.installedList(), model: trigram,
-                                         learned: learnedVerdict, sameScript: autoSameScript),
+                                         learned: learnedVerdict),
           let before = readFieldSnapshot(), before.tail.hasSuffix(word + trail)
     else { return }
     let outTrail = trail.isEmpty ? "" : transliterate(trail, from: cur, to: decided.target)

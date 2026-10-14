@@ -33,6 +33,8 @@ work (not per commit). Operational "where are we right now" lives in
 - Found with the dev trace (`RELAYOUT_DEBUG`, now default in `run.sh`). Not
   re-measured on the FrequencyWords sweep.
 
+---
+
 ## After v1.3.12 — en always gates the Latin side too (`bead4d4`)
 
 - Follow-up to the uk/ru gate: the same rule on the Latin side, en always

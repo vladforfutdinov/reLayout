@@ -6,6 +6,27 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
+## After v1.3.12 — Cyrillic gate over ru + uk; similar-layouts tests; label example
+
+- Testing "between similar layouts" with the favoured layout absent: no same-
+  script switch ever targets a missing layout (by construction), but a uk word
+  on the ru layout with uk absent could leave for Latin ("лише" -> "kbit").
+  The typed-side gate now always adds ru and uk on a Cyrillic layout (en on a
+  Latin one, as before). Measured, one Latin + ru: uk words on ru converted to
+  Latin 1.12% -> 0.91% (en-ru; 0.60–1.15% -> 0.42–0.91% over the six), recall
+  of Latin words on ru −0.1…−0.25 points, FP flat. Most of the remainder are uk
+  words with і/ї/є typed as ы/ъ/э, which no model reads.
+- Also measured and rejected: max over ALL models of a script on both sides
+  (typed gate and target reading). Recall of Cyrillic typed on Latin −0.15…−0.6
+  points (fr-uk 99.02 -> 98.40), FP on Cyrillic words ~0.15% -> ~0.25%, and
+  the leaks grew (uk on ru 1.12% -> 1.46%, ru on uk 0.14% -> 0.26%): the best
+  of six Latin models reads most Latin junk.
+- `testAutoDecideSameScriptNeverTargetsAMissingLayout`: favoured similar layout
+  absent / present, same-language twin, missing model, kept word, checkbox.
+- Option label shows a Latin pair too: "(uk ↔ ru, en ↔ de)" in all 12 lproj.
+
+---
+
 ## After v1.3.12 — "Between similar layouts" back, offered only when it can fire
 
 - Revert of `b797c71`: the opt-in `autoSameScript` (`decideAutoTarget(sameScript:)`,

@@ -85,11 +85,11 @@ public func decideAutoTarget<L: AutoLayout>(_ w: String, cur: L, enabled: [L],
         return nil   // already plausible -> leave it
     }
     // Cross-script gate: the word is junk only if no layout of its script reads
-    // it. Each script's common language is typed on any of its layouts even when
-    // not enabled (Russian on uk: "еще" -> "tot"; English on pl: "but" -> "иге"),
-    // so ru and en always gate their script.
+    // it. Languages typed on any layout of their script even when not enabled
+    // (Russian on uk: "еще" -> "tot"; Ukrainian on ru: "лише" -> "kbit"; English
+    // on pl: "but" -> "иге") always gate it: ru + uk for Cyrillic, en for Latin.
     var langs = enabled.filter { $0.isCyrillic == cur.isCyrillic }.compactMap(\.languageCode)
-    langs.append(cur.isCyrillic ? "ru" : "en")
+    langs += cur.isCyrillic ? ["ru", "uk"] : ["en"]
     var sScript = sTyped
     for lang in langs {
         if let m = model(lang) { sScript = max(sScript, m.score(w)) }

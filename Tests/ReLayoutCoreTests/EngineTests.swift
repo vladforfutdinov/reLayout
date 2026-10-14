@@ -296,6 +296,50 @@ final class EngineTests: XCTestCase {
         XCTAssertNil(decideAutoTarget("привыт", cur: ru, enabled: [latin, ru, uk], model: { models[$0] }))
     }
 
+    // The similar layout the models favour is not enabled: the layout stays, the
+    // word is not retyped, and it does not leak into the other script either.
+    func testAutoDecideSameScriptNeverTargetsAMissingLayout() {
+        let (latin, uk) = makeLayouts()
+        var ru = uk; ru.languageCode = "ru"
+        let st = uk.charToStroke["і"]!
+        ru.charToStroke["і"] = nil; ru.charToStroke["ы"] = st; ru.strokeToChar[st] = "ы"
+        let models = ["ru": model(knowing: ["привет"]), "uk": model(knowing: ["привіт", "лише"]),
+                      "en": model(knowing: ["ghbdtn", "kbit"])]
+        func decide(_ w: String, _ cur: FakeLayout, _ enabled: [FakeLayout],
+                    learned: @escaping (String) -> LearnedVerdict? = { _ in nil }) -> (target: FakeLayout, out: String)? {
+            decideAutoTarget(w, cur: cur, enabled: enabled, model: { models[$0] }, learned: learned, sameScript: true)
+        }
+
+        // uk favoured, missing: "привыт" (distinctive letter) and "лише" (no distinctive letter: switch only).
+        XCTAssertNil(decide("привыт", ru, [latin, ru]))
+        XCTAssertNil(decide("лише", ru, [latin, ru]))
+        XCTAssertNil(decide("лише", ru, [ru]))
+        XCTAssertNil(decideAutoTarget("лише", cur: ru, enabled: [latin, ru], model: { models[$0] }))   // option off
+        // ...present: both fire, into uk.
+        XCTAssertEqual(decide("привыт", ru, [latin, ru, uk])?.target.languageCode, "uk")
+        XCTAssertEqual(decide("лише", ru, [latin, ru, uk])?.out, "лише")
+
+        // ru favoured, missing: Russian on uk stays, though its Latin reading is English.
+        XCTAssertNil(decide("привет", uk, [latin, uk]))
+        // ...present: right text, wrong layout -> switch only, into ru.
+        let sw = decide("привет", uk, [latin, uk, ru])
+        XCTAssertEqual(sw?.out, "привет")
+        XCTAssertEqual(sw?.target.languageCode, "ru")
+
+        // A twin of the same language is never similar: nothing to switch to.
+        var ruPC = ru; ruPC.languageCode = "ru"
+        XCTAssertNil(decide("лише", ru, [latin, ru, ruPC]))
+        // Without a uk model nothing reads "лише": its English reading wins.
+        XCTAssertEqual(decideAutoTarget("лише", cur: ru, enabled: [latin, ru, uk],
+                                        model: { $0 == "uk" ? nil : models[$0] }, sameScript: true)?.out, "kbit")
+        // A kept word stays even with the similar layout present.
+        XCTAssertNil(decide("лише", ru, [latin, ru, uk], learned: { _ in .keep }))
+        // The Settings checkbox follows the same setups.
+        XCTAssertFalse(hasSimilarLayouts([latin, ru], model: { models[$0] }))
+        XCTAssertFalse(hasSimilarLayouts([latin, ru, ruPC], model: { models[$0] }))
+        XCTAssertTrue(hasSimilarLayouts([latin, ru, uk], model: { models[$0] }))
+    }
+
     func testAutoDecideSparesAWordAnotherLayoutOfTheScriptReads() {
         // "еще" on the Ukrainian layout: junk to uk, a word to ru, and its Latin
         // reading "tot" is English. It stays whether or not ru is enabled.

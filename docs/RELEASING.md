@@ -1,10 +1,8 @@
 # Releasing reLayout
 
-A release is a git tag `vX.Y.Z`. Pushing it runs `.github/workflows/build.yml`,
-which builds, **signs with Developer ID + Hardened Runtime, notarizes, staples**,
-and publishes a GitHub Release with `reLayout.dmg` + `reLayout.zip`.
+A release is a git tag `vX.Y.Z`. Pushing it runs `.github/workflows/build.yml`, which builds, **signs with Developer ID + Hardened Runtime, notarizes, staples**, and publishes a GitHub Release with `reLayout.dmg` + `reLayout.zip`.
 
-`main`/PR builds skip signing and notarization (ad-hoc), so they need no secrets.
+Manual `workflow_dispatch` builds skip signing and notarization (ad-hoc), so they need no secrets.
 
 ## One-time: repository secrets
 
@@ -12,8 +10,7 @@ Set these under **Settings → Secrets and variables → Actions**.
 
 ### Developer ID certificate
 
-1. In Xcode (or developer.apple.com) create a **Developer ID Application**
-   certificate; make sure its private key is in your login keychain.
+1. In Xcode (or developer.apple.com) create a **Developer ID Application** certificate; make sure its private key is in your login keychain.
 2. Export it from Keychain Access as a `.p12` (set an export password).
 3. Base64 it:
    ```sh
@@ -24,8 +21,7 @@ Set these under **Settings → Secrets and variables → Actions**.
 
 ### App Store Connect API key (for notarytool)
 
-1. App Store Connect → **Users and Access → Integrations → App Store Connect API**
-   → generate a key with the **Developer** role. Download the `.p8` (one-time).
+1. App Store Connect → **Users and Access → Integrations → App Store Connect API** → generate a key with the **Developer** role. Download the `.p8` (one-time).
 2. Note the **Key ID** and the **Issuer ID** shown on that page.
 3. Base64 the key:
    ```sh
@@ -37,22 +33,17 @@ Set these under **Settings → Secrets and variables → Actions**.
 
 ### Homebrew tap (for `brew install --cask`)
 
-Already wired: the public repo **`homebrew-relayout`** has a write **deploy key**,
-whose private key is the secret **`TAP_DEPLOY_KEY`**. On each release, CI renders
-the cask from `packaging/homebrew/relayout.rb.tmpl` (version + DMG sha256) and
-pushes it to the tap over SSH. Users then:
+Already wired: the public repo **`homebrew-relayout`** has a write **deploy key**, whose private key is the secret **`TAP_DEPLOY_KEY`**. On each release, CI renders the cask from `packaging/homebrew/relayout.rb.tmpl` (version + DMG sha256) and pushes it to the tap over SSH. Users then:
 
 ```sh
 brew install --cask vladforfutdinov/relayout/relayout
 ```
 
-If `TAP_DEPLOY_KEY` is unset the release still succeeds — the tap bump is skipped.
-To rotate: regenerate the key, replace the deploy key on the tap, update the secret.
+If `TAP_DEPLOY_KEY` is unset the release still succeeds — the tap bump is skipped. To rotate: regenerate the key, replace the deploy key on the tap, update the secret.
 
 ### Sparkle auto-update (EdDSA + appcast)
 
-Release builds embed [Sparkle](https://sparkle-project.org) and check
-`SUFeedURL` (injected at build time from the `RELAYOUT_FEED_URL` variable).
+Release builds embed [Sparkle](https://sparkle-project.org) and check `SUFeedURL` (injected at build time from the `RELAYOUT_FEED_URL` variable).
 
 1. Build once with Sparkle to fetch the tools, then generate the EdDSA keypair:
    ```sh
@@ -60,103 +51,54 @@ Release builds embed [Sparkle](https://sparkle-project.org) and check
    .sparkle/*/bin/generate_keys            # stores the private key in your keychain
    .sparkle/*/bin/generate_keys -p         # prints the PUBLIC key
    ```
-   - Put the **public** key in the `RELAYOUT_SU_PUBLIC_KEY` repository variable
-     (and `scripts/identity.env` for local Sparkle builds) — `build.sh` injects
-     it into `Info.plist` → `SUPublicEDKey` at build time.
+   - Put the **public** key in the `RELAYOUT_SU_PUBLIC_KEY` repository variable (and `scripts/identity.env` for local Sparkle builds) — `build.sh` injects it into `Info.plist` → `SUPublicEDKey` at build time.
    - Export the **private** key and add it as the secret **`SPARKLE_ED_PRIVATE_KEY`**:
      ```sh
      .sparkle/*/bin/generate_keys -x sparkle_private.key   # the file's contents = the secret
      ```
-2. The **`gh-pages`** branch holds both the Sparkle `appcast.xml` and the **landing
-   page** (`index.html` + `logo.png`). It is served at
-   **`https://relayout.forfutdinov.com/`** by a **DigitalOcean static site** that
-   deploys from `gh-pages` (redeploys on push); GitHub Pages also mirrors it at the
-   `github.io` URL. The CI appcast step only touches `appcast.xml`, so it never
-   clobbers the site.
+2. The **`gh-pages`** branch holds both the Sparkle `appcast.xml` and the **landing page** (`index.html` + `logo.png`). It is served at **`https://relayout.forfutdinov.com/`** by a **DigitalOcean static site** that deploys from `gh-pages` (redeploys on push); GitHub Pages also mirrors it at the `github.io` URL. The CI appcast step only touches `appcast.xml`, so it never clobbers the site.
 
-On release, CI signs the embedded `Sparkle.framework` with your Developer ID
-(same Team ID as the app, so Hardened Runtime's library validation passes),
-notarizes, generates the signed appcast from `reLayout.zip`, and publishes it to
-`gh-pages`. If `SPARKLE_ED_PRIVATE_KEY` is unset the appcast step is skipped.
+On release, CI signs the embedded `Sparkle.framework` with your Developer ID (same Team ID as the app, so Hardened Runtime's library validation passes), notarizes, generates the signed appcast from `reLayout.zip`, and publishes it to `gh-pages`. CI signs with `SPARKLE_ED_PRIVATE_KEY_NEXT` (see rotation below); if it is unset the appcast step is skipped.
 
-**Rotating the EdDSA key.** Installed apps accept only updates signed with the key
-they embed, so rotation takes two releases:
-1. Put the new public key in `RELAYOUT_SU_PUBLIC_KEY` and the new private key in
-   `SPARKLE_ED_PRIVATE_KEY_NEXT`; keep the old `SPARKLE_ED_PRIVATE_KEY`. Tag the
-   transition release. `generate_appcast` leaves its item **unsigned** (the app's
-   key ≠ signing key) — run `gh workflow run resign-appcast -f version=vX.Y.Z` to
-   sign it with the old key.
-2. **Every release after the transition one** is signed with the new key: point
-   `build.yml` at `SPARKLE_ED_PRIVATE_KEY_NEXT` before tagging it. The transition
-   release already embeds the new public key, so its users reject old-key items
-   ("The update is improperly signed", seen 1.3.8 → 1.3.11 when 1.3.9–1.3.11 had
-   been re-signed with the old key). Users still on a pre-transition version get the
-   same error on the newest item and must install the transition release by hand.
-   A wrongly signed item is fixed in place: `gh workflow run resign-appcast
-   -f version=vX.Y.Z -f key=next`. Delete the old secret once no one needs it.
-3. Pre-transition installs: `build.yml` runs `scripts/appcast-informational.py`
-   after `generate_appcast`, marking every item informational for installs below
-   1.3.8 (`<sparkle:informationalUpdate><sparkle:belowVersion>`), so they see the
-   release page instead of a signature error. Remove the step when they are gone.
+**Rotating the EdDSA key.** Installed apps accept only updates signed with the key they embed, so rotation takes two releases:
+1. Put the new public key in `RELAYOUT_SU_PUBLIC_KEY` and the new private key in `SPARKLE_ED_PRIVATE_KEY_NEXT`; keep the old `SPARKLE_ED_PRIVATE_KEY`. Tag the transition release. `generate_appcast` leaves its item **unsigned** (the app's key ≠ signing key) — run `gh workflow run resign-appcast -f version=vX.Y.Z` to sign it with the old key.
+2. **Every release after the transition one** is signed with the new key: `build.yml` reads `SPARKLE_ED_PRIVATE_KEY_NEXT` (already switched after 1.3.8). The transition release already embeds the new public key, so its users reject old-key items ("The update is improperly signed", seen 1.3.8 → 1.3.11 when 1.3.9–1.3.11 had been re-signed with the old key). Users still on a pre-transition version get the same error on the newest item and must install the transition release by hand. A wrongly signed item is fixed in place: `gh workflow run resign-appcast -f version=vX.Y.Z -f key=next`. Delete the old secret once no one needs it.
+3. Pre-transition installs: `build.yml` runs `scripts/appcast-informational.py` after `generate_appcast`, marking every item informational for installs below 1.3.8 (`<sparkle:informationalUpdate><sparkle:belowVersion>`), so they see the release page instead of a signature error. Remove the step when they are gone.
 
 ### Release notes in the update window
 
-`docs/release-notes/vX.Y.Z.md` (committed **before** the tag) is the single source
-of the user-facing notes. On a tag, CI:
+`docs/release-notes/vX.Y.Z.md` (committed **before** the tag) is the single source of the user-facing notes. On a tag, CI:
 
-- prepends it to the GitHub release body (`gh release create --notes-file` +
-  `--generate-notes`, so the Full Changelog link survives);
-- renders it through the GitHub `/markdown` API into `reLayout.html` next to
-  `reLayout.zip`. `generate_appcast` embeds a `DOCTYPE`/`body`-less HTML sibling of
-  the archive as the item's `<description>` — that is what Sparkle shows in the
-  "new version available" window.
+- prepends it to the GitHub release body (`gh release create --notes-file` + `--generate-notes`, so the Full Changelog link survives);
+- renders it through the GitHub `/markdown` API into `reLayout.html` next to `reLayout.zip`. `generate_appcast` embeds a `DOCTYPE`/`body`-less HTML sibling of the archive as the item's `<description>` — that is what Sparkle shows in the "new version available" window.
 
-No file for the tag → the release gets only auto-generated notes and the appcast
-item no description. Writing it is part of `/release`.
+No file for the tag → the release gets only auto-generated notes and the appcast item no description. Writing it is part of `/release`.
 
 ## Forking: release under your own identity
 
-**No owner identity is hardcoded in the repo** — it comes entirely from
-configuration. Set these as **repository variables** (Settings → Secrets and
-variables → Actions → **Variables** — they are public values, NOT secrets):
+**No owner identity is hardcoded in the repo** — it comes entirely from configuration. Set these as **repository variables** (Settings → Secrets and variables → Actions → **Variables** — they are public values, NOT secrets):
 
 | Variable | Meaning |
 |---|---|
 | `RELAYOUT_BUNDLE_ID` | base bundle id (dev builds append `.dev`) |
 | `RELAYOUT_DISPLAY_NAME` | app display name |
-| `RELAYOUT_REPO_SLUG` | `owner/repo` for the About link + cask URLs (CI falls back to the building repo) |
+| `RELAYOUT_REPO_SLUG` | `owner/repo` for the About link + cask URLs (the build falls back to the building repo; the tap step does not) |
 | `RELAYOUT_FEED_URL` | Sparkle `SUFeedURL` (your appcast location) |
 | `RELAYOUT_SU_PUBLIC_KEY` | Sparkle `SUPublicEDKey` |
 | `RELAYOUT_TAP_REPO` | Homebrew tap `owner/name` |
 
-Without them, **release builds fail on purpose** (`build.sh` rejects the neutral
-placeholder id; `update-cask.sh` demands its variables once `TAP_DEPLOY_KEY` is
-set). Dev builds don't need any of this: they fall back to a neutral identity —
-bundle id `com.example.relayout.dev`, repo slug from the git origin remote,
-Sparkle disabled.
+Without them, **release builds fail on purpose** (`build.sh` rejects the neutral placeholder id; `update-cask.sh` demands its variables once `TAP_DEPLOY_KEY` is set). Dev builds don't need any of this: they fall back to a neutral identity — bundle id `com.example.relayout.dev`, repo slug from the git origin remote, Sparkle disabled.
 
-For local development with a real identity, copy
-`scripts/identity.env.example` → `scripts/identity.env` (gitignored) and fill
-in your values; `build.sh` sources it, env vars still win.
+For local development with a real identity, copy `scripts/identity.env.example` → `scripts/identity.env` (gitignored) and fill in your values; `build.sh` sources it, env vars still win.
 
 Notes for a fork:
 
-- **`RELAYOUT_SU_PUBLIC_KEY` and the `SPARKLE_ED_PRIVATE_KEY` secret are a
-  keypair — always replace BOTH** (generate with `generate_keys`, see the
-  Sparkle section above). Shipping upstream's public key with your private key
-  (or vice versa) breaks update verification.
-- `RELAYOUT_FEED_URL` should point where *your* CI publishes `appcast.xml`
-  (the gh-pages step publishes to your fork's gh-pages automatically — e.g.
-  `https://<owner>.github.io/<repo>/appcast.xml`).
-- For the Homebrew tap, create your own `homebrew-<name>` repo, add a write
-  deploy key as the `TAP_DEPLOY_KEY` secret, and set `RELAYOUT_TAP_REPO`.
-- The Windows port's About link (`windows/Identity.swift`) is stamped by CI
-  from `RELAYOUT_REPO_SLUG` / `github.repository` — nothing to edit.
-- On a tag, `build-windows` (x64 + arm64) builds the installer and the portable
-  SFX and attaches them to the Release the macOS job created; the version comes
-  from the tag. No Windows secrets: the files are not Authenticode-signed yet.
-- The remaining signing/notarization secrets (top of this file) are yours to
-  create — they were never shared with the upstream repo.
+- **`RELAYOUT_SU_PUBLIC_KEY` and the `SPARKLE_ED_PRIVATE_KEY_NEXT` secret (the one CI signs with) are a keypair — always replace BOTH** (generate with `generate_keys`, see the Sparkle section above). Shipping upstream's public key with your private key (or vice versa) breaks update verification.
+- `RELAYOUT_FEED_URL` should point where *your* CI publishes `appcast.xml` (the gh-pages step publishes to your fork's gh-pages automatically — e.g. `https://<owner>.github.io/<repo>/appcast.xml`).
+- For the Homebrew tap, create your own `homebrew-<name>` repo, add a write deploy key as the `TAP_DEPLOY_KEY` secret, and set `RELAYOUT_TAP_REPO`.
+- The Windows port's About link (`windows/Identity.swift`) is stamped by CI from `RELAYOUT_REPO_SLUG` / `github.repository` — nothing to edit.
+- On a tag, `build-windows` (x64 + arm64) builds the installer and the portable SFX and attaches them to the Release the macOS job created; the version comes from the tag. No Windows secrets: the files are not Authenticode-signed yet.
+- The remaining signing/notarization secrets (top of this file) are yours to create — they were never shared with the upstream repo.
 
 ## Cutting a release
 
@@ -165,8 +107,7 @@ git tag vX.Y.Z
 git push origin vX.Y.Z
 ```
 
-CI then signs, notarizes, staples, and attaches the DMG/zip to the Release.
-Watch it: `gh run watch` · verify: `gh release view vX.Y.Z`.
+CI then signs, notarizes, staples, and attaches the DMG/zip to the Release. Watch it: `gh run watch` · verify: `gh release view vX.Y.Z`.
 
 ## Local signed build (optional)
 
@@ -177,5 +118,4 @@ AC_API_KEY_PATH=AuthKey.p8 AC_API_KEY_ID=… AC_API_ISSUER_ID=… ./scripts/nota
 ./scripts/make-dmg.sh
 ```
 
-Without `SIGN_IDENTITY`, `build.sh` falls back to the local self-signed identity
-(`./scripts/make-cert.sh`) or ad-hoc — fine for development, not for distribution.
+Without `SIGN_IDENTITY`, `build.sh` falls back to the local self-signed identity (`./scripts/make-cert.sh`) or ad-hoc — fine for development, not for distribution.

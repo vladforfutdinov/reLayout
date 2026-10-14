@@ -1,138 +1,70 @@
 # reLayout
 
+A tiny open-source menu-bar app that instantly retypes text typed in the wrong keyboard layout.
+
 **Website:** [relayout.forfutdinov.com](https://relayout.forfutdinov.com/)
 
 ![reLayout in action: ](assets/demo.gif)
 
-Punto/Caramba-style "retype the selection in the correct keyboard layout" for macOS — a
-tiny menu-bar app (a Windows port is in preview, see [below](#windows-preview)). Select
-wrong-layout text, hit the hotkey, and it's retyped in the right layout; the system input
-source flips so you can keep going. Press the hotkey again within ~1.5 s to try the next layout, or to undo when there is none left.
-
-Works with **any** enabled keyboard layouts — not hard-coded to a specific pair. An optional
-**auto-correct** mode (default off) fixes wrong-layout words as you type, no hotkey needed.
+Typed `ghbdtn` instead of `привет`? Select it, press the hotkey, and it's retyped in the right layout — the system input source switches too, so you can keep typing. Works with **any** installed layouts, not a hard-coded pair. macOS; Windows port in preview.
 
 ## Install
+
+**macOS:**
 
 ```sh
 brew install --cask vladforfutdinov/relayout/relayout
 ```
 
-**Or** grab **`reLayout.dmg`** from the [latest release](https://github.com/vladforfutdinov/reLayout/releases/latest)
-and drag **ReLayout** onto **Applications**. Releases are Developer-ID signed and **notarized**,
-so they open without a Gatekeeper warning.
+or download `reLayout.dmg` from the [latest release](https://github.com/vladforfutdinov/reLayout/releases/latest) and drag it to Applications (signed and notarized). On first launch, grant **Accessibility**: System Settings → Privacy & Security → Accessibility → enable reLayout → relaunch.
 
-First launch asks for **Accessibility** (to read the selection / send keystrokes):
-**System Settings → Privacy & Security → Accessibility** → enable **reLayout** → relaunch.
+**Windows (preview):** each release has an installer (`reLayout-windows-<arch>-setup.exe`) and a portable `.exe` for x64 and arm64. They aren't code-signed yet, so SmartScreen asks once ("More info" → "Run anyway"). No auto-update yet — download a newer release to upgrade.
 
 ## Use
 
-1. Select the mistyped text — or select nothing right after typing the word (spaces after it are
-   fine): the hotkey then converts the word you just typed. It never guesses at other unselected text.
-   This works in terminals too (on Windows consoles only the just-typed word is converted).
-2. Press the hotkey (default: **tap left Option**).
-3. Press it again within ~1.5 s to **try the next layout** (with three or more enabled: the
-   original text retyped into each remaining layout in turn), and once there is none left, to
-   **undo** (restores the text and the previous input source). With two layouts the second press
-   is the undo. A click or any other key in between ends the window.
+1. Select the mistyped text — or select nothing right after typing a word to fix that word.
+2. Press the hotkey (default: **tap left Option**; Ctrl+Alt+R on Windows).
+3. Press again within ~1.5 s to try the next layout, and once there's none left, to undo.
 
-Conversion is **per word**: only words typed in the layout active when you press the hotkey are
-converted; the rest is left alone. `я сказал ghbdtn` (US active) → `я сказал привет`.
+Only words in the wrong layout are converted: `я сказал ghbdtn` → `я сказал привет`. A word split by a layout switch is fixed too: `ghj` + switch + `сто` → `просто`.
 
-Switching the layout in the middle of a word is handled too: `ghj` + Globe + `сто` → `просто`
-— only the half typed on the wrong layout is rewritten.
+Change the hotkey (combo, modifier tap, or tap sequence) in **rL → Settings…**.
 
-Set your own hotkey (a combo, a modifier tap, or a tap sequence) and toggle auto-correct in
-**rL → Settings…**.
+## Auto-correct (optional, off by default)
 
-## Windows (preview)
+Fixes wrong-layout words **as you type**, no hotkey:
 
-`windows/` holds a Windows port with the same engine: the hotkey (a combo or a bare-modifier
-tap) converts a selection read through UI Automation, with the clipboard — saved and restored —
-as the fallback; auto-correct, its Enter follow-up, app exceptions and press-again undo work as
-on macOS, and the UI follows the same translations. Each release attaches an installer
-(`reLayout-windows-<arch>-setup.exe`) and a portable `.exe` for x64 and arm64. They are not
-code-signed yet, so SmartScreen asks to confirm the first run ("More info" → "Run anyway"),
-and there is no auto-update — download a newer release to upgrade.
+- Between Cyrillic and Latin layouts (ru/uk ↔ en/de/fr/es/pl/pt), judged by small on-device language models tuned for ≥99% precision.
+- Experimental: between similar layouts of different languages (ru ↔ uk).
+- Skips password fields; terminals, code editors, VMs and remote desktops are excluded by default (Settings → Auto-correct → Exceptions…).
+- Learns from you: undo a fix, or correct the same word with the hotkey a few times, and auto-correct follows your choice.
 
-## Why it handles `ß`/`æ` → `ы`/`э`
-
-It doesn't map character→character. It maps `char → (source layout, reversed) → physical key + modifiers → (target layout) → char` via Carbon `UCKeyTranslate`, over the actually-installed
-layouts. So the Option layer just works: `ы э ъ ё` (Option on Ukrainian) sit on the same
-keycodes as `ß æ …` (Option on US), and convert with no hand-coded tables. Details in
-[ARCHITECTURE.md](docs/ARCHITECTURE.md).
-
-## Auto-correct (optional, default off)
-
-A live mode that fixes a wrong-layout word **as you type**, no hotkey: on each word boundary a
-per-language character-trigram model scores the word and silently corrects it when its converted
-form is the plausible one, including a word split by a mid-word layout switch. A word boundary is
-a space or Tab, with any punctuation just before it converted along ("ltkfq? " → "делай, ");
-Enter is never delayed: the word is fixed afterwards only if Enter made a new line in a field that
-exposes its text to Accessibility (TextEdit, Notes, Telegram's Shift+Enter …) — a submitted
-launcher query or chat message stays as typed, and browsers/Electron apps and terminals keep plain Enter
-(*Settings → Fix on Enter*, on by default). A
-click or a Cmd/Ctrl shortcut drops the unfinished word. **Between scripts**
-(ru/uk ↔ en/de/fr/es/pl/pt — a model per language ships in `Resources/trigram/`), tuned for ≥99% precision, and, as an experimental opt-in (*Settings → Between similar layouts*), between
-layouts of one script and different languages (ru ↔ uk: "ъжа" typed on the Russian layout becomes "їжа"),
-offered only when two such layouts are enabled — with only
-same-script layouts enabled (e.g. ABC + German) the checkbox is disabled, with the reason behind its ⓘ hint — with a
-per-app deny-list (*Settings → Auto-correct → Exceptions…*): terminals, code editors, virtual
-machines and remote desktops are on it from the start — remove one to turn auto-correct on
-there. Secure fields are always skipped.
-Typing straight through a fix is safe — in auto-correct and on the hotkey alike: the keys you press
-while text is being retyped are held for those few milliseconds and typed back right after, so
-nothing lands in the middle of the fix. Fixing a typo with Backspace mid-word is safe too.
+How it decides: [ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Privacy
 
-Reading the selection and sending keystrokes needs Accessibility — the same grant a text
-expander asks for. Everything below is verifiable in the source (MIT):
+- **Your text never leaves the machine and is never written to disk.** No analytics, telemetry, or account. The only network call is the [Sparkle](https://sparkle-project.org) update check (can be turned off).
+- **The clipboard is left untouched** when Accessibility can read the selection.
+- Only settings and auto-correct's learned words are stored (Settings → Learned words to view or reset).
 
-- **Your text never leaves the machine, and is never written to disk** — converted in memory,
-  typed back. No analytics, telemetry, or account. The only network call is the
-  [Sparkle](https://sparkle-project.org) update check (a signed appcast; off via Settings).
-- **The clipboard is left untouched** on the Accessibility path; the rare ⌘C fallback only reads.
-  So watchers like DeepL's `Ctrl+C+C` don't fire.
-- **Password fields are skipped**, and only your settings are persisted — never text. The one
-  exception is the auto-correct's learned words: a word you correct with the hotkey three
-  times after auto-correct left it alone (and a correction you undo, once) is stored locally so
-  auto-correct follows your verdict next time. Settings → Learned words shows the list and resets it.
+## Limitations
+
+- Needs at least two keyboard layouts.
+- Same-script layouts (e.g. ABC vs German) can't be told apart word by word.
+- Secure input fields block synthetic keystrokes.
 
 ## Build from source
 
 ```sh
-./scripts/make-cert.sh     # one-time: self-signed identity so the Accessibility grant survives rebuilds
-./scripts/build.sh         # -> dist/ReLayout.app
-./scripts/make-dmg.sh      # optional: -> dist/reLayout.dmg installer
-open ./dist/ReLayout.app
+./scripts/make-cert.sh   # one-time: keeps the Accessibility grant across rebuilds
+./scripts/build.sh       # -> dist/ReLayout.app
 ```
 
-Signed/notarized builds are produced by CI on a `vX.Y.Z` tag; forks can release under their own
-identity. See [RELEASING.md](docs/RELEASING.md). Architecture and the Windows port live in
-[ARCHITECTURE.md](docs/ARCHITECTURE.md).
-
-Diagnostics:
-
-```sh
-./dist/ReLayout.app/Contents/MacOS/ReLayout --enabled    # list enabled sources in order
-./dist/ReLayout.app/Contents/MacOS/ReLayout --selftest   # sample conversions, no GUI
-```
-
-## Limitations
-
-- Same-script layouts (e.g. ABC vs German) can't be told apart per-word — every Latin word is
-  treated as convertible.
-- Secure input fields block synthetic keystrokes. Needs ≥ 2 enabled keyboard layouts.
+Architecture, the Windows port and diagnostics: [ARCHITECTURE.md](docs/ARCHITECTURE.md). Releasing (including from a fork): [RELEASING.md](docs/RELEASING.md).
 
 ## Credits
 
-The UI is localized to 12 languages. Auto-correct trigram models in `Resources/trigram/` are
-built offline from [FrequencyWords](https://github.com/hermitdave/FrequencyWords) by Hermit Dave
-(MIT, derived from OpenSubtitles), the Ukrainian list filtered through the word forms of
-[dict_uk](https://github.com/brown-uk/dict_uk) (GPL-3.0/MIT dual; only the filter result is
-used); reLayout ships only the derived statistics. Updates use
-[Sparkle](https://sparkle-project.org).
+UI in 12 languages. Auto-correct models are built from [FrequencyWords](https://github.com/hermitdave/FrequencyWords) by Hermit Dave (MIT, from OpenSubtitles), with the Ukrainian list filtered through [dict_uk](https://github.com/brown-uk/dict_uk); only derived statistics ship. Updates via [Sparkle](https://sparkle-project.org).
 
 ## License
 

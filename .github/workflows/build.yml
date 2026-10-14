@@ -15,7 +15,7 @@ permissions:
 #   AC_API_KEY_ID                 App Store Connect API Key ID
 #   AC_API_ISSUER_ID              App Store Connect issuer ID (UUID)
 #   AC_API_KEY_P8_BASE64          base64 of the App Store Connect .p8 key
-# main/PR builds skip signing+notarization (ad-hoc) so they need no secrets.
+# workflow_dispatch builds skip signing+notarization (ad-hoc) so they need no secrets.
 #
 # Owner identity comes from repository VARIABLES (public values, not secrets) —
 # no owner defaults are hardcoded in the repo. REQUIRED for release builds:

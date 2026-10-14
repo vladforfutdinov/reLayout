@@ -4,131 +4,59 @@
 
 ## Context
 
-reLayout is a keyboard-driven "retype the selection in the correct layout" utility
-(Punto/Caramba-style): a macOS menu-bar app (`macos/main.swift`, ~98K) and a Windows
-tray-app port (`windows/*.swift`), sharing one conversion engine (`Core/Engine.swift`,
-`ReLayoutCore`) built/tested cross-platform via SwiftPM (`Package.swift`, `core.yml`).
-v1.2.x; released via Homebrew cask and signed/notarized GitHub releases
-(`RELEASING.md`, `scripts/`). Past decisions/fixes: `docs/HISTORY.md`.
+reLayout is a keyboard-driven "retype the selection in the correct layout" utility (Punto/Caramba-style): a macOS menu-bar app (`macos/main.swift`, ~137K) and a Windows tray-app port (`windows/*.swift`), sharing one conversion engine (`Core/Engine.swift`, `ReLayoutCore`) built/tested cross-platform via SwiftPM (`Package.swift`, `core.yml`). v1.3.x; released via Homebrew cask and signed/notarized GitHub releases (`RELEASING.md`, `scripts/`). Past decisions/fixes: `docs/HISTORY.md`.
 
 ## Decisions
 
-1. **Shared engine as a SwiftPM library; platform shells are separate targets.**
-   `Core/Engine.swift` (`convertWrong`, `tokenize`, `hasCyr`/`hasLatin`,
-   `convertScriptRuns`) is the `ReLayoutCore` library; `macos/` and `windows/` import it.
-   *Rationale:* one engine, two UIs — `swift test` validates the same logic on both
-   OSes (`core.yml`), so a bug fixed once is fixed everywhere.
-   *Consequence:* the macOS shell isn't SwiftPM-built (#2) — the engine is the only
-   piece both build systems share; keep new cross-platform logic in `Core/`.
+1. **Shared engine as a SwiftPM library; platform shells are separate targets.** `Core/Engine.swift` (`convertWrong`, `tokenize`, `hasCyr`/`hasLatin`, `convertScriptRuns`) is the `ReLayoutCore` library; `windows/` imports it, `macos/` compiles `Core/*.swift` directly (`scripts/build.sh`). *Rationale:* one engine, two UIs — `swift test` validates the same logic on both OSes (`core.yml`), so a bug fixed once is fixed everywhere. *Consequence:* the macOS shell isn't SwiftPM-built (#2) — the engine is the only piece both build systems share; keep new cross-platform logic in `Core/`.
 
-2. **macOS app is a single `main.swift`, built by a shell script, not Xcode/SwiftPM.**
-   `macos/main.swift` + `Info.plist` is the whole app; `scripts/build.sh` runs
-   `swiftc` directly into a `.app` bundle.
-   *Rationale:* a menu-bar-only app with no storyboard needs no Xcode project; one
-   file keeps the event-tap/hotkey/menu/settings surface in one place to grep.
-   *Consequence:* no per-feature file boundaries — the `main` package (123 nodes) is
-   one flat namespace; symbol tools (`get_function_source`), not "open the file",
-   are how it's navigated. The single-file shape is kept as is: no split is
-   planned or tracked (no TODO/issue references one); revisit trigger — a second
-   contributor needing to work disjoint regions concurrently, or symbol-tool
-   navigation ceasing to scale with file size.
+2. **macOS app is a single `main.swift`, built by a shell script, not Xcode/SwiftPM.** `macos/main.swift` + `Info.plist` is the whole app; `scripts/build.sh` runs `swiftc` directly into a `.app` bundle. *Rationale:* a menu-bar-only app with no storyboard needs no Xcode project; one file keeps the event-tap/hotkey/menu/settings surface in one place to grep. *Consequence:* no per-feature file boundaries — the `main` package (123 nodes) is one flat namespace; symbol tools (`get_function_source`), not "open the file", are how it's navigated. The single-file shape is kept as is: no split is planned or tracked (no TODO/issue references one); revisit trigger — a second contributor needing to work disjoint regions concurrently, or symbol-tool navigation ceasing to scale with file size.
 
-3. **CGEventTap + synthetic `CGEvent` posting**, not the Accessibility text-replace
-   API. `postKey` (main.swift:1363) builds keyDown/keyUp events tagged via
-   `markSynth`, posted at `.cghidEventTap`.
-   *Rationale:* works uniformly regardless of whether the target app exposes an AX
-   text API; looks like a human retyping.
-   *Consequence:* needs the Accessibility permission (`promptAccessibilityIfNeeded`,
-   called from `applicationDidFinishLaunching`); every self-generated event must be
-   marked so the tap doesn't reprocess its own output (ties into #5).
+3. **CGEventTap + synthetic `CGEvent` posting**, not the Accessibility text-replace API. `postKey` (main.swift:1838) builds keyDown/keyUp events tagged via `markSynth`, posted at `.cgSessionEventTap`. *Rationale:* works uniformly regardless of whether the target app exposes an AX text API; looks like a human retyping. *Consequence:* needs the Accessibility permission (`promptAccessibilityIfNeeded`, called from `applicationDidFinishLaunching`); every self-generated event must be marked so the tap doesn't reprocess its own output (ties into #5).
 
-4. **Mid-word script-run splitting, not whole-token transliteration.**
-   `convertWrong` (Core/Engine.swift:214) special-cases a token with both Cyrillic
-   and Latin: only the wrong-script runs go through `convertScriptRuns`.
-   *Rationale:* a user who switches layout mid-word keeps the already-correct half
-   from being dragged through an unrelated conversion table.
-   *Consequence:* `convertScriptRuns`/`hasCyr`/`hasLatin` are the top hotspots after
-   `convertWrong` — layout-mapping changes must be checked against both paths.
+4. **Mid-word script-run splitting, not whole-token transliteration.** `convertWrong` (Core/Engine.swift:208) special-cases a token with both Cyrillic and Latin: only the wrong-script runs go through `convertScriptRuns`. *Rationale:* a user who switches layout mid-word keeps the already-correct half from being dragged through an unrelated conversion table. *Consequence:* `convertScriptRuns`/`hasCyr`/`hasLatin` are the top hotspots after `convertWrong` — layout-mapping changes must be checked against both paths.
 
-5. **Auto-correct gates keystrokes during a correction instead of racing them**
-   (v1.2.22, `docs/HISTORY.md`). Tap switched `.listenOnly` → `.defaultTap`;
-   `autoPending` (set synchronously in `beginCorrection`) makes the callback buffer
-   text keys into `autoHeld` while `worker` corrects async; `finishCorrection`
-   replays them.
-   *Rationale:* async correction + async typing could interleave, splicing new
-   keys into a synthetic retype.
-   *Consequence:* only character keys are held (modifiers/arrows/delete pass
-   through, so it can't freeze input) — new auto-correct code must respect
-   `autoPending`/`autoHeld` or reintroduce the race.
+5. **Auto-correct gates keystrokes during a correction instead of racing them** (v1.2.22, `docs/HISTORY.md`). Tap switched `.listenOnly` → `.defaultTap`; `autoPending` (set synchronously in `beginCorrection`) makes the callback buffer text keys into `autoHeld` while `worker` corrects async; `finishCorrection` replays them. *Rationale:* async correction + async typing could interleave, splicing new keys into a synthetic retype. *Consequence:* only character keys are held (modifiers/arrows/delete pass through, so it can't freeze input) — new auto-correct code must respect `autoPending`/`autoHeld` or reintroduce the race.
 
-6. **No enforced Windows/macOS parity beyond the shared engine.** `windows/`
-   reimplements hotkeys (`WinHotkey`), input (`WinInput`), tray (`WinTray`),
-   settings (`WinSettings`), prefs (`WinPrefs`) independently; only `ReLayoutCore`
-   is shared.
-   *Rationale:* the two OSes' input/tray APIs share nothing — a forced abstraction
-   over CGEventTap and the Win32 message loop would be the wrong DRY.
-   *Consequence:* platform bugs (e.g. #5's race) must be ported to `windows/` by
-   hand; nothing enforces it. Parity is purely best-effort: `core.yml` runs
-   `swift test` on both macOS and Windows, but only for `ReLayoutCore` — the
-   platform-shell layer has no cross-platform check at all, and coverage is
-   asymmetric even in isolation (`macos/tests.swift` exercises the macOS shell;
-   `windows/` has no test file or harness of its own).
+6. **No enforced Windows/macOS parity beyond the shared engine.** `windows/` reimplements hotkeys (`WinHotkey`), input (`WinInput`), tray (`WinTray`), settings (`WinSettings`), prefs (`WinPrefs`) independently; only `ReLayoutCore` is shared. *Rationale:* the two OSes' input/tray APIs share nothing — a forced abstraction over CGEventTap and the Win32 message loop would be the wrong DRY. *Consequence:* platform bugs (e.g. #5's race) must be ported to `windows/` by hand; nothing enforces it. Parity is purely best-effort: `core.yml` runs `swift test` on both macOS and Windows, but only for `ReLayoutCore` — the platform-shell layer has no cross-platform check at all, and coverage is asymmetric even in isolation (`macos/tests.swift` exercises the macOS shell; `windows/` has no test file or harness of its own).
 
-7. **Release notes and signing live in versioned files, not the release UI.**
-   `docs/release-notes/vX.Y.Z.md` is the single source for both the GitHub release
-   body and the Sparkle appcast (`generate_appcast` + GitHub's `/markdown` API);
-   signing/notarization scripted (`scripts/make-cert.sh`, `notarize.sh`,
-   `make-dmg.sh`), documented in `RELEASING.md`.
-   *Rationale:* Sparkle 2.6.4's `generate_appcast` only reads `.html`/`.txt`
-   siblings — hand-written GitHub notes alone are invisible to the in-app updater.
-   *Consequence:* skipping the notes file ships a blank "update available" panel.
-   `scripts/identity.env` (gitignored, copied from `identity.env.example`) holds
-   only non-secret owner identity (bundle id, display name, repo slug, feed URL,
-   Sparkle public key, tap repo) for local builds; actual signing/notarization
-   secrets (Developer ID `.p12`, App Store Connect API key, Sparkle private key)
-   live solely as GitHub repository secrets consumed by `build.yml`, documented
-   for forks under `RELEASING.md` → "Forking".
+7. **Release notes and signing live in versioned files, not the release UI.** `docs/release-notes/vX.Y.Z.md` is the single source for both the GitHub release body and the Sparkle appcast (`generate_appcast` + GitHub's `/markdown` API); signing/notarization scripted (`scripts/make-cert.sh`, `notarize.sh`, `make-dmg.sh`), documented in `RELEASING.md`. *Rationale:* Sparkle 2.6.4's `generate_appcast` only reads `.html`/`.txt` siblings — hand-written GitHub notes alone are invisible to the in-app updater. *Consequence:* skipping the notes file ships a blank "update available" panel. `scripts/identity.env` (gitignored, copied from `identity.env.example`) holds only non-secret owner identity (bundle id, display name, repo slug, feed URL, Sparkle public key, tap repo) for local builds; actual signing/notarization secrets (Developer ID `.p12`, App Store Connect API key, Sparkle private key) live solely as GitHub repository secrets consumed by `build.yml`, documented for forks under `RELEASING.md` → "Forking".
 
 ## Module map
 
 | File / cluster | Responsibility | Entry points |
 |---|---|---|
 | `Core/Engine.swift` | Conversion engine: tokenize, script detection, transliteration | `convertWrong`, `tokenize`, `convertScriptRuns`, `hasCyr`, `hasLatin` |
+| `Core/Auto.swift` | Auto-mode decision, `AutoRun` typed-word state machine, hotkey layout choice | `decideAutoTarget`, `AutoRun`, `planRetype` |
+| `Core/Trigram.swift` | Char-trigram language model | — |
+| `Core/Strings.swift` | `.strings` parser | — |
 | `macos/main.swift` | Whole macOS app: menu-bar, event tap, hotkeys, settings, Sparkle | `applicationDidFinishLaunching`, `installHotKeyHandler`, `postKey`, `performRetype`, `autoCorrect` |
-| `windows/WinHotkey.swift` | Global hotkey registration (Win32) | `applyHotkey`, `loadHotkey` |
+| `windows/WinHotkey.swift` | Hotkey detection via `WH_KEYBOARD_LL` low-level hook | — |
 | `windows/WinInput.swift` | Synthetic keystroke injection | `sendUnicode`, `keyEvent` |
 | `windows/WinTray.swift` | System-tray icon/menu | — |
-| `windows/WinSettings.swift` | Settings dialog | `settingsWndProc`, `buildControls` |
-| `windows/WinPrefs.swift`, `WinLayout.swift` | Prefs persistence; layout enumeration | — |
+| `windows/WinSettings.swift` | Settings dialog; hotkey apply | `settingsWndProc`, `buildControls`, `applyHotkey` |
+| `windows/WinPrefs.swift`, `WinLayout.swift` | Prefs persistence (`loadHotkey`); layout enumeration | `loadHotkey` |
+| `windows/WinAuto.swift` | Windows auto-mode: feeds keystrokes to `AutoRun`, performs the fix | — |
+| `windows/WinUIA.swift` | UI Automation selection read | — |
+| `windows/WinUpdate.swift` | Update check | — |
 | `windows/main.swift` | Windows entry point / message loop | `main` |
 | `Tests/`, `macos/tests.swift` | Cross-platform engine tests; macOS app tests | — |
 | `scripts/`, `.github/workflows/` | Build/sign/notarize/release scripts; CI | `build.sh`, `make-dmg.sh` |
 
 ## Hotspots & risks
 
-- `Core.Engine.convertWrong` (15 callers) is the single highest fan-in symbol — a
-  regression here is global. `hasCyr`/`hasLatin` (7 each), `convertScriptRuns` next.
-- `macos.main.L`/`dbg` (11/8 fan-in) are broad logging helpers — high fan-in partly
-  reflects the flat-file structure (#2), not a smell alone.
-- Accessibility permission is a hard dependency for the macOS event tap (#3); a
-  revoked grant silently breaks retype/auto-correct with no engine-level signal.
-- `main → Engine` and `tests → Engine` dominate cross-package calls, confirming the
-  engine as the real shared core (per-platform clusters cohere at 0.87–0.98).
-- No enforced parity check (#6): a macOS-only fix (v1.2.22 race) can leave
-  `windows/` with the same latent bug. CI (`core.yml`) only proves engine
-  parity via `swift test`; nothing checks the platform-shell layer, and
-  `windows/` carries no test harness at all (unlike `macos/tests.swift`).
+- `Core.Engine.convertWrong` (15 callers) is the single highest fan-in symbol — a regression here is global. `hasCyr`/`hasLatin` (7 each), `convertScriptRuns` next.
+- `macos.main.L`/`dbg` (11/8 fan-in) are broad logging helpers — high fan-in partly reflects the flat-file structure (#2), not a smell alone.
+- Accessibility permission is a hard dependency for the macOS event tap (#3); a revoked grant silently breaks retype/auto-correct with no engine-level signal.
+- `main → Engine` and `tests → Engine` dominate cross-package calls, confirming the engine as the real shared core (per-platform clusters cohere at 0.87–0.98).
+- No enforced parity check (#6): a macOS-only fix (v1.2.22 race) can leave `windows/` with the same latent bug. CI (`core.yml`) only proves engine parity via `swift test`; nothing checks the platform-shell layer, and `windows/` carries no test harness at all (unlike `macos/tests.swift`).
 
 ## Conventions
 
-- Tests: `swift test` runs `ReLayoutCoreTests` on both OSes via `core.yml`; macOS-only
-  behavior via `macos/tests.swift` (`scripts/run-tests.sh`).
-- History: `docs/HISTORY.md` is append-only, one block per coherent unit of work,
-  newest on top; day-to-day state lives in `docs/SNAPSHOT.md` instead.
-- Releases: tag-triggered (`build.yml`), process in `RELEASING.md`; notes go under
-  `docs/release-notes/` before tagging.
+- Tests: `swift test` runs `ReLayoutCoreTests` on both OSes via `core.yml`; macOS-only behavior via `macos/tests.swift` (`scripts/run-tests.sh`).
+- History: `docs/HISTORY.md` is append-only, one block per coherent unit of work, newest on top; day-to-day state lives in `docs/SNAPSHOT.md` instead.
+- Releases: tag-triggered (`build.yml`), process in `RELEASING.md`; notes go under `docs/release-notes/` before tagging.
 
 ## Open questions
 
-None. Closed items live as accepted-state clauses in Decisions and Hotspots;
-history is in git log.
+None. Closed items live as accepted-state clauses in Decisions and Hotspots; history is in git log.

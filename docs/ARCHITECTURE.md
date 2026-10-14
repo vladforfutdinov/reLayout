@@ -1,21 +1,16 @@
 # reLayout — Architecture & Build Reference
 
-Deep reference. For day-one orientation read [`CLAUDE.md`](../CLAUDE.md) first; this is
-the detail it links to.
+Deep reference. For day-one orientation read [`CLAUDE.md`](../CLAUDE.md) first; this is the detail it links to.
 
 ## Build env vars (read by `scripts/build.sh`)
 
 - `RELAYOUT_VERSION` — override version string.
 - `RELAYOUT_RELEASE=1` / `RELAYOUT_DEV=1` — force release vs dev bundle id/name.
 - `WITH_SPARKLE=1` — fetch & embed Sparkle 2.6.4 framework, compile with `-D SPARKLE`. CI uses this for releases.
+- `RELAYOUT_DEBUG=1` — compile with `-D DEBUG`: `dbg()` traces to `/tmp/relayout.log` (`scripts/run.sh` sets it).
 - `SIGN_IDENTITY` — Developer ID Application identity. Triggers Hardened Runtime + secure timestamp (notarization-ready). Without it, uses `ReLayout Self Signed` if present, else ad-hoc.
 
-Owner identity — **no owner values are hardcoded in the repo.** Resolution order in
-`build.sh`: `RELAYOUT_*` env vars (CI sets them from repository *variables*) →
-`scripts/identity.env` (gitignored local file; copy `identity.env.example`) →
-neutral fallbacks (`com.example.relayout`, repo slug derived from the git origin
-remote, Sparkle disabled). Release builds (`RELAYOUT_RELEASE=1` / exact tag)
-**fail** under the neutral id. See [`RELEASING.md`](RELEASING.md) → "Forking".
+Owner identity — **no owner values are hardcoded in the repo.** Resolution order in `build.sh`: `RELAYOUT_*` env vars (CI sets them from repository *variables*) → `scripts/identity.env` (gitignored local file; copy `identity.env.example`) → neutral fallbacks (`com.example.relayout`, repo slug derived from the git origin remote, Sparkle disabled). Release builds (`RELAYOUT_RELEASE=1` / exact tag) **fail** under the neutral id. See [`RELEASING.md`](RELEASING.md) → "Forking".
 
 - `RELAYOUT_BUNDLE_ID` — base bundle id (dev builds append `.dev`).
 - `RELAYOUT_DISPLAY_NAME` — app display name (dev appends ` (dev)`).
@@ -26,14 +21,9 @@ remote, Sparkle disabled). Release builds (`RELAYOUT_RELEASE=1` / exact tag)
 
 ## Release flow
 
-Tag `vX.Y.Z` → `.github/workflows/build.yml` signs (Developer ID), notarizes
-(`notarize.sh`, App Store Connect API key), staples, publishes a GitHub Release with
-`reLayout.dmg` + `reLayout.zip`, updates the Sparkle appcast + Homebrew cask. See
-[`RELEASING.md`](RELEASING.md) for the secret list.
+Tag `vX.Y.Z` → `.github/workflows/build.yml` signs (Developer ID), notarizes (`notarize.sh`, App Store Connect API key), staples, publishes a GitHub Release with `reLayout.dmg` + `reLayout.zip`, updates the Sparkle appcast + Homebrew cask. See [`RELEASING.md`](RELEASING.md) for the secret list.
 
-Dev vs release builds use **different bundle IDs** (the base `RELAYOUT_BUNDLE_ID` vs
-the same id + `.dev`) and different `.app` names so macOS keeps separate
-Accessibility grants and UserDefaults.
+Dev vs release builds use **different bundle IDs** (the base `RELAYOUT_BUNDLE_ID` vs the same id + `.dev`) and different `.app` names so macOS keeps separate Accessibility grants and UserDefaults.
 
 ## Conversion engine (`Core/Engine.swift`)
 
@@ -83,6 +73,8 @@ Holds everything outside the engine:
 
 `macos/tests.swift` provides a `@main` entry under `-DTESTING` that replaces the GUI bootstrap so the unit tests exercise the **real** engine + helpers, not copies.
 
+Diagnostics without the GUI: `ReLayout.app/Contents/MacOS/ReLayout --enabled` lists the enabled input sources in order; `--selftest` prints sample conversions.
+
 ## Windows port (`windows/`, preview)
 
 - `main.swift` — single-instance mutex, message loop (with `IsDialogMessageW` for our windows), the hotkey retype and press-again undo.
@@ -94,6 +86,8 @@ Holds everything outside the engine:
 - `WinUpdate.swift` + `native/relayout_http.cpp` — the update check (GitHub latest release over WinHTTP, which Swift's WinSDK module lacks).
 - `WinAuto.swift` — the auto-correct mode around the engine's `AutoRun`, with a mouse hook that ends the run on a click.
 - `WinTray.swift` — tray icon and menu, launch-at-login (HKCU Run), the hidden window that runs fixes off the hook.
-- `WinSettings.swift` / `WinExceptions.swift` / `WinLearned.swift` / `WinPrefs.swift` / `WinLoc.swift` — Settings, Exceptions and Learned-words windows, preferences in the registry, UI strings.
+- `WinSettings.swift` / `WinExceptions.swift` / `WinLearned.swift` / `WinPrefs.swift` / `WinLoc.swift` / `WinTooltip.swift` — Settings, Exceptions and Learned-words windows, preferences in the registry, UI strings, the ⓘ tooltip.
+- `Identity.swift` / `Version.swift` — repo slug and version, overwritten by CI before `swift build`; `WinDebug.swift` — dev-build trace log.
+- `packaging/windows/relayout.iss` — Inno Setup script for the installer.
 
 Only built when host OS is Windows (`#if os(Windows)` gate in `Package.swift`); macOS `swift test` ignores the executable target. Selection is read through UI Automation (`windows/native/relayout_uia.cpp`, in the C++ target `RelayoutNative` — Swift has no COM); the clipboard is the fallback for controls without UIA text, and is saved and restored around it. `WinAuto.swift` is the opt-in auto-correct mode: the keyboard hook feeds typed characters into a word buffer, a boundary (space/Tab) runs the shared `decideAutoTarget`, and the fix is backspaced in and retyped. Trigram models ship as `trigram/<lang>.txt` next to the exe. Short words follow the macOS neighbour rule, and the Enter follow-up (skipped in consoles, where the hotkey converts only the typed word) uses a second UIA call (field length, caret, selection, the text before the caret) with the engine's `enterOutcome`. A deny-list of executables (Settings > Exceptions — a list with icons, "Exclude current app" from a foreground WinEvent hook, "Choose…") and the UIA password-field flag gate it per app and per field. UI strings come from the macOS `Localizable.strings`, shipped as `lang/<code>.lproj` next to the exe and read with the engine's `parseStrings` (`WinLoc.swift`); Settings mirrors the macOS window (logo, login + language, a click-to-record hotkey field where a double tap is recorded as two taps, auto-correct with an ⓘ tooltip and Exceptions…, centered footer); a language change or `WM_DPICHANGED` rebuilds it. The hook runs on the main thread, so every wait in the retype path uses `pumpWait` (pumps messages), never `Sleep`. Releases: on a `v*` tag `build-windows` attaches the installer and the portable SFX (x64, arm64, unsigned) to the GitHub Release. `WinUpdate.swift` checks GitHub's latest release a minute after start and daily (WinHTTP via `relayout_http.cpp`), announces a newer one once in the tray and adds a menu item to its page; nothing is downloaded. Dev builds skip it.

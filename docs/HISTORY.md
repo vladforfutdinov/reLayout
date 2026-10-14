@@ -6,6 +6,18 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
+## After v1.3.12 — punctuated word read in the script's common language (`aeec8da`)
+
+- "c,jhrf" (Russian "сборка", ABC + Ukrainian-PC) was not fixed: a word with
+  mapped punctuation needs its conversion above `autoPunctPlausible` (-3.6),
+  and it was scored by the target layout's language only (uk -3.91; ru -3.14).
+- The target reading now takes the better of the target language and the
+  script's common one (ru for Cyrillic, en for Latin) — the same rule the
+  cross-script gate already uses for the typed word. Only words with
+  б/ю/ж/э/х/ъ on punctuation keys are affected; pure-letter words skip the gate.
+- Found with the dev trace (`RELAYOUT_DEBUG`, now default in `run.sh`). Not
+  re-measured on the FrequencyWords sweep.
+
 ## After v1.3.12 — en always gates the Latin side too (`bead4d4`)
 
 - Follow-up to the uk/ru gate: the same rule on the Latin side, en always

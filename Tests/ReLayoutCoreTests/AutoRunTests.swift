@@ -30,6 +30,24 @@ final class AutoRunTests: XCTestCase {
         XCTAssertTrue(run.hotkeyTarget == ("", 0))
     }
 
+    func testAnAmbiguousWordWaitsForANeighbour() {
+        // "рук" / "her": alone it stays; the next wrong-layout word takes it along.
+        var run = AutoRun()
+        XCTAssertNil(run.plan(raw: "рук", out: "her", cyrillic: false, ambiguous: true))
+        XCTAssertEqual(run.plan(raw: "ыщт", out: "son", cyrillic: false),
+                       AutoRun.Fix(erase: 7, text: "her son", original: "рук ыщт"))
+        // After a committed conversion of the same script it is fixed at once.
+        XCTAssertEqual(run.plan(raw: "рук", out: "her", cyrillic: false, ambiguous: true),
+                       AutoRun.Fix(erase: 3, text: "her", original: "рук"))
+        // A neighbour of the other script does not count.
+        run.noCandidate()
+        XCTAssertNil(run.plan(raw: "рук", out: "her", cyrillic: false, ambiguous: true))
+        XCTAssertNil(run.plan(raw: "ghb", out: "при", cyrillic: true, ambiguous: true))
+        // A learned verdict converts it alone.
+        run.noCandidate()
+        XCTAssertNotNil(run.plan(raw: "рук", out: "her", cyrillic: false, trusted: true, ambiguous: true))
+    }
+
     func testBackspacingTheSpacesRejoinsTheWord() {
         var run = AutoRun()
         _ = type("ghbdtn  ", into: &run)

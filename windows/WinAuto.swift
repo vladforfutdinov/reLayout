@@ -229,7 +229,8 @@ private func evaluate(word: String, trail: String, boundary: Int32, shift: Bool,
     let outTrail = trail.isEmpty ? "" : transliterate(trail, from: cur, to: decided.target)
     // The short-word rule (engine): a 1-2 letter word waits for a neighbour.
     guard let fix = run.plan(raw: word + trail, out: decided.out + outTrail, cyrillic: decided.target.isCyrillic,
-                             trusted: learnedVerdict(learnedKey(word)) == .convert) else { return false }
+                             trusted: learnedVerdict(learnedKey(word)) == .convert,
+                             ambiguous: decided.ambiguous) else { return false }
     queued = QueuedFix(fix: fix, boundary: boundary, shift: shift, target: decided.target, src: cur)
     correcting = true
     gateSince = GetTickCount()
@@ -357,7 +358,7 @@ private func enterFollowUp(word: String, trail: String, cur: WinLayout) {
     guard autoEnterEnabled, !correcting, wordBody(word) >= 3, !autoExcluded(), !foregroundIsConsole(),
           let decided = decideAutoTarget(word, cur: cur, enabled: WinLayout.installedList(), model: trigram,
                                          learned: learnedVerdict, sameScript: autoSameScript),
-          let before = readFieldSnapshot(), before.tail.hasSuffix(word + trail)
+          !decided.ambiguous, let before = readFieldSnapshot(), before.tail.hasSuffix(word + trail)
     else { return }
     let outTrail = trail.isEmpty ? "" : transliterate(trail, from: cur, to: decided.target)
     enterJob = EnterJob(before: before, word: word + trail,

@@ -6,6 +6,26 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
+## After v1.3.12 — ambiguous 3-letter words wait for a neighbour
+
+- "рук" typed on Ukrainian-PC kept becoming "her" ("сколько нам понадобится
+  рук для этой работы?"): typed −2.64, converted −1.52 — the same keys spell
+  two real words, no threshold separates them.
+- `decideAutoTarget` now returns `ambiguous` for a pure 3-letter cross-script
+  candidate whose both readings score ≥ `autoAmbiguous` (−3.0); `AutoRun.plan`
+  gives it the short-word treatment (fixed only next to a same-script
+  conversion), the Enter follow-up skips it, a lone hotkey fix of one counts
+  as a miss (learned after 3), a learned `.convert` fixes it alone.
+- Measured on Leipzig news 2024 (5k sentences each of ru, uk, en, de, pl;
+  6 pairs, re-implemented rule): leaks in correct text 0.56 -> 0.51 per 1000
+  words; whole wrong-layout sentences −0.04 points; a lone foreign 3-letter
+  word inserted into a sentence 96.5% -> 92.3% fixed (lost: "but" as "иге",
+  "aby", "der", "tym"). That insertion scenario is synthetic (random words by
+  frequency) and likely overstates the cost: lone foreign words in real text
+  are mostly longer terms. T = −3.5 and N = {3, 4} cost more (85.6%).
+
+---
+
 ## After v1.3.12 — absolute plausibility gate for pure-letter words (−4.0)
 
 - Junk converted into lesser junk ("всы" -> "dcs", "якщо" -> "zroj" before the

@@ -1895,7 +1895,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
 
     // Cross-script trigram decision lives in the engine (Core/Auto.swift); this
     // only feeds it the cached models.
-    func autoDecide(_ w: String, cur: Layout, enabled: [Layout]) -> (target: Layout, out: String)? {
+    func autoDecide(_ w: String, cur: Layout, enabled: [Layout]) -> (target: Layout, out: String, ambiguous: Bool)? {
         decideAutoTarget(w, cur: cur, enabled: enabled, model: trigram, learned: learnedVerdict,
                          sameScript: autoSameScript)
     }
@@ -2109,7 +2109,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
               !isAutoExcluded() else { return }
         let enabled = Layout.enabledList()
         guard let cur = enabled.first(where: { $0.id == currentSourceID() }),
-              let d = autoDecide(word, cur: cur, enabled: enabled),
+              let d = autoDecide(word, cur: cur, enabled: enabled), !d.ambiguous,
               let el = focusedTextElement(), isEditable(el), let before = fieldSnapshot(el),
               before.tail.hasSuffix(word + trail) else { return }
         let outTrail = transliterate(trail, from: cur, to: d.target)
@@ -2227,8 +2227,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         let outTrail = transliterate(trail, from: cur, to: d.target)
         // The short-word rule (engine): a 1-2 letter word waits for a neighbour.
         guard let fix = autoRun.plan(raw: word + trail, out: d.out + outTrail, cyrillic: d.target.isCyrillic,
-                                     trusted: learnedVerdict(learnedKey(word)) == .convert)
-        else { dbg("auto: short word waits for a neighbour"); return false }
+                                     trusted: learnedVerdict(learnedKey(word)) == .convert, ambiguous: d.ambiguous)
+        else { dbg("auto: short or ambiguous word waits for a neighbour"); return false }
         beginCorrection {
             self.autoCorrect(fix, boundary: boundary, boundaryFlags: flags, target: d.target, srcSource: srcSource)
         }

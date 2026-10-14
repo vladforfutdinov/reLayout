@@ -24,6 +24,12 @@ public let autoPunctPlausible: Float = -3.6
 // on 12 one-Latin + one-Cyrillic pairs, frequency-weighted: recall -0.06 points
 // at most, uk/ru leaks 0.54% -> 0.14%, English on de/fr/es/pl/pt 3.05% -> 0.13%.
 public let autoPlausible: Float = -4.0
+// A 3-letter word both of whose readings score at least this is two real words
+// on the same keys ("рук" / "her", "цру" / "whe"): it waits for a neighbour like
+// a 1-2 letter word. Measured 2026-10-14 on Leipzig news sentences, 6 pairs:
+// leaks 0.56 -> 0.51 per 1000 words, whole wrong-layout sentences -0.04 points,
+// a lone foreign 3-letter word in a sentence 96.5% -> 92.3% fixed.
+public let autoAmbiguous: Float = -3.0
 
 /// A layout that also knows its language, so the right trigram model can be picked.
 public protocol AutoLayout: LayoutMaps {
@@ -67,12 +73,14 @@ public func learnedKey(_ w: String) -> String {
 ///     `.convert` converts it past the plausibility gates.
 ///   - sameScript: also consider same-script layouts of another language (ru ↔ uk).
 ///     Experimental: the models tell the two apart only on their distinctive letters.
-/// - Returns: the target layout and the converted word, or nil to leave the word alone.
+/// - Returns: the target layout, the converted word, and whether the word reads as
+///   a real word both ways (`autoAmbiguous`: convert only next to a neighbour);
+///   nil to leave the word alone.
 ///   With `sameScript`, `out == w` means: the text is right, only the layout is wrong.
 public func decideAutoTarget<L: AutoLayout>(_ w: String, cur: L, enabled: [L],
                                             model: (String) -> TrigramModel?,
                                             learned: (String) -> LearnedVerdict? = { _ in nil },
-                                            sameScript: Bool = false) -> (target: L, out: String)? {
+                                            sameScript: Bool = false) -> (target: L, out: String, ambiguous: Bool)? {
     guard let curLang = cur.languageCode, let curModel = model(curLang) else { return nil }
     let targets = enabled.filter {
         $0.isCyrillic != cur.isCyrillic || (sameScript && $0.languageCode != curLang)
@@ -108,7 +116,7 @@ public func decideAutoTarget<L: AutoLayout>(_ w: String, cur: L, enabled: [L],
     // Punctuation-bearing mixed words are left alone — the shape gates below
     // reason about a single-script word.
     let mixed = pure && hasCyr(w[...]) && hasLatin(w[...])
-    var best: (L, String, Float)?
+    var best: (L, String, Float, ambiguous: Bool)?
     for t in targets {
         if mixed {
             // Two readings: convert the pre-switch run into the current script
@@ -124,7 +132,7 @@ public func decideAutoTarget<L: AutoLayout>(_ w: String, cur: L, enabled: [L],
                 guard let out = convertScriptRuns(w, src: r.src, dst: r.dst), out != w else { continue }
                 let sAlt = r.model.score(out)
                 guard sAlt - sTyped > autoMargin else { continue }
-                if best == nil || sAlt > best!.2 { best = (r.target, out, sAlt) }
+                if best == nil || sAlt > best!.2 { best = (r.target, out, sAlt, false) }
             }
             continue
         }
@@ -158,12 +166,14 @@ public func decideAutoTarget<L: AutoLayout>(_ w: String, cur: L, enabled: [L],
         let margin = sameScript ? autoSameScriptMargins[tLang] ?? autoSameScriptMargin : autoMargin
         let sGate = sameScript ? sTyped : sScript   // same-script: the target's own model is the alternative
         guard forced || (sGate < autoGarbage && sAlt - sGate > margin) else { continue }
-        if best == nil || sAlt > best!.2 { best = (t, out, sAlt) }
+        let ambiguous = !forced && !sameScript && pure && w.count == 3
+            && sGate >= autoAmbiguous && sAlt >= autoAmbiguous
+        if best == nil || sAlt > best!.2 { best = (t, out, sAlt, ambiguous) }
     }
     guard let b = best else {
         return nil
     }
-    return (b.0, b.1)
+    return (b.0, b.1, b.ambiguous)
 }
 
 // A hotkey miss is learned only when its conversion reads in the target
@@ -198,7 +208,7 @@ public func hotkeyMisses<L: AutoLayout>(replaced: String, out: String, src: L, d
         let key = learnedKey(String(t))
         guard t != o, !key.isEmpty, dstModel.score(learnedKey(String(o))) > autoLearnPlausible else { return nil }
         let miss = phrase ? wordBody(key) >= 3
-            : wordBody(key) < 3 || decideAutoTarget(key, cur: src, enabled: enabled, model: model) == nil
+            : wordBody(key) < 3 || decideAutoTarget(key, cur: src, enabled: enabled, model: model)?.ambiguous ?? true
         return miss ? key : nil
     }
 }
@@ -506,14 +516,16 @@ public struct AutoRun {
     ///   - out: their conversion.
     ///   - cyrillic: the script of the conversion.
     ///   - trusted: the user's own verdict (a learned word): fixed alone whatever its length.
+    ///   - ambiguous: a long word that reads as a real word both ways: waits like a short one.
     /// - Returns: the correction, or nil when a short word waits for a neighbour.
-    public mutating func plan(raw: String, out: String, cyrillic: Bool, trusted: Bool = false) -> Fix? {
-        let fix = planFix(raw: raw, out: out, cyrillic: cyrillic, trusted: trusted)
+    public mutating func plan(raw: String, out: String, cyrillic: Bool, trusted: Bool = false,
+                              ambiguous: Bool = false) -> Fix? {
+        let fix = planFix(raw: raw, out: out, cyrillic: cyrillic, trusted: trusted, ambiguous: ambiguous)
         if fix != nil { dropSpacedWord() }   // converted: nothing left for the hotkey
         return fix
     }
 
-    private mutating func planFix(raw: String, out: String, cyrillic: Bool, trusted: Bool) -> Fix? {
+    private mutating func planFix(raw: String, out: String, cyrillic: Bool, trusted: Bool, ambiguous: Bool) -> Fix? {
         let chain = previous.flatMap { $0.cyrillic == cyrillic ? $0 : nil }
         let bridge = chain == nil ? [] : bridged
         bridged = []
@@ -524,7 +536,7 @@ public struct AutoRun {
             let original = raws.joined(separator: " ")
             return Fix(erase: original.count, text: outs.joined(separator: " "), original: original)
         }
-        if trusted || wordBody(raw) >= 3 {
+        if trusted || (wordBody(raw) >= 3 && !ambiguous) {
             let swallow = chain.flatMap { $0.committed ? nil : ($0.raw, $0.out) }.map { [$0] } ?? []
             previous = Previous(raw: raw, out: out, cyrillic: cyrillic, committed: true)
             return fix(swallow + bridge)

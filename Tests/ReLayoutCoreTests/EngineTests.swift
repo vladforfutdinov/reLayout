@@ -306,7 +306,7 @@ final class EngineTests: XCTestCase {
         let models = ["ru": model(knowing: ["привет"]), "uk": model(knowing: ["привіт", "лише"]),
                       "en": model(knowing: ["ghbdtn", "kbit"])]
         func decide(_ w: String, _ cur: FakeLayout, _ enabled: [FakeLayout],
-                    learned: @escaping (String) -> LearnedVerdict? = { _ in nil }) -> (target: FakeLayout, out: String)? {
+                    learned: @escaping (String) -> LearnedVerdict? = { _ in nil }) -> (target: FakeLayout, out: String, ambiguous: Bool)? {
             decideAutoTarget(w, cur: cur, enabled: enabled, model: { models[$0] }, learned: learned, sameScript: true)
         }
 
@@ -398,6 +398,19 @@ final class EngineTests: XCTestCase {
         XCTAssertEqual(decideAutoTarget("ghb", cur: latin, enabled: [latin, uk],
                                         model: { ["en": en, "uk": self.model(knowing: ["пюю"])][$0] },
                                         learned: { _ in .convert })?.out, "при")
+    }
+
+    func testAutoDecideFlagsAThreeLetterWordThatReadsBothWays() {
+        // "ghb" reads -3.0 in en (knows "^^g", "^gh") and "при" -1.0 in uk: ambiguous.
+        let (latin, uk) = makeLayouts()
+        let both = ["en": model(knowing: ["ghx"]), "uk": model(knowing: ["при"])]
+        XCTAssertEqual(decideAutoTarget("ghb", cur: latin, enabled: [latin, uk], model: { both[$0] })?.ambiguous, true)
+        // Junk to en: an ordinary conversion.
+        let junk = ["en": model(knowing: []), "uk": model(knowing: ["при"])]
+        XCTAssertEqual(decideAutoTarget("ghb", cur: latin, enabled: [latin, uk], model: { junk[$0] })?.ambiguous, false)
+        // Four letters are never ambiguous.
+        let four = ["en": model(knowing: ["ghbx"]), "uk": model(knowing: ["прив"])]
+        XCTAssertEqual(decideAutoTarget("ghbd", cur: latin, enabled: [latin, uk], model: { four[$0] })?.ambiguous, false)
     }
 
     func testAutoDecideWithoutAModelDoesNothing() {

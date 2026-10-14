@@ -6,7 +6,7 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
-## After v1.3.12 — en always gates the Latin side too
+## After v1.3.12 — en always gates the Latin side too (`bead4d4`)
 
 - Follow-up to the uk/ru gate: the same rule on the Latin side, en always
   consulted on a de/fr/es/pl/pt layout (`langs.append(cur.isCyrillic ? "ru" :

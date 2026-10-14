@@ -6,20 +6,6 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
-## After v1.3.12 — uk trigram model back to the unfiltered list
-
-- The owner still got "еще" -> "tot" with only ABC + Ukrainian-PC enabled: the
-  cross-script gate (`d5ca6d2`) consults enabled layouts only, and the clean
-  uk model scores "еще" −5.75. The dict_uk cleaning (`8960ec5`) was done for the
-  ru <-> uk same-script option, which is now removed (`b797c71`), so it only
-  cost the uk-only user. `Resources/trigram/uk.txt` restored from `8960ec5^`
-  (raw FrequencyWords list, a quarter Russian by mass): "еще" −1.9, above the
-  −2.5 garbage line, stays. The 8960ec5 measurements put uk <-> en recall
-  0.993 vs 0.994 and false positives 10 vs 9 for raw vs clean.
-  `scripts/trigram/filter.py` is kept for experiments.
-
----
-
 ## After v1.3.12 — "Between similar layouts" (auto ru <-> uk) removed (`b797c71`)
 
 - The experimental opt-in never worked well enough in daily use and got in

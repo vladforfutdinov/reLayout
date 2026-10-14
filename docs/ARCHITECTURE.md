@@ -65,7 +65,7 @@ A word that mixes scripts comes from a **mid-word layout switch** ("ghjсто").
 
 `Core/Strings.swift` — `parseStrings`, a reader for the `.strings` files, so the Windows port shows the macOS translations (macOS itself reads them through `Bundle`).
 
-`Core/Trigram.swift` — a character-trigram language model used by the auto-correct mode. `TrigramModel.score(_:)` returns a word's length-normalized mean trigram log-prob under a per-language model; models are generated offline (`scripts/trigram/gen.py`) from FrequencyWords 50k lists and shipped as `Resources/trigram/<lang>.txt`. The uk list is a quarter Russian by mass and is shipped raw on purpose, so the uk model reads Russian typed on the Ukrainian layout as plausible; `scripts/trigram/filter.py` (dict_uk filter) is kept for experiments. Platform-free, so it lives in the engine.
+`Core/Trigram.swift` — a character-trigram language model used by the auto-correct mode. `TrigramModel.score(_:)` returns a word's length-normalized mean trigram log-prob under a per-language model; models are generated offline (`scripts/trigram/gen.py`) from FrequencyWords 50k lists and shipped as `Resources/trigram/<lang>.txt`. The uk list is first passed through `scripts/trigram/filter.py` with dict_uk's word forms: raw, it is a quarter Russian by mass, which taught the model to accept Russian words. Platform-free, so it lives in the engine.
 
 ## macOS app (`macos/main.swift`, single file)
 

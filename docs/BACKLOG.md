@@ -42,3 +42,11 @@ Generate trigram models for ~40–60 langs (all Cyrillic + common Latin from the
 - Auto-mode is **cross-script only** by default (same-script ru↔uk is an experimental opt-in, `autoSameScript`) — Latin↔Latin pairs never auto-fire. Wide Latin set serves as cross-script targets + source-language junk models, not Latin↔Latin correction.
 - Thresholds `autoGarbage`/`autoMargin` (`Core/Auto.swift`) and `calibrate.py` are tuned for ru/uk↔en only; new pairs reuse them un-recalibrated. Acceptable (cross-script detection is robust); a future task could extend `calibrate.py`.
 - Repo + `.app` grow ~9 MB.
+
+## Windows: a triple-clicked line counts as no selection
+
+Windows `readSelection` treats any copy that ends in a line break as "no selection", so a line selected by triple click is ignored and the hotkey falls back to the typed word.
+
+**Why:** the rule guards against VS Code copying the whole line when nothing is selected; macOS tells the two apart by VS Code's `"isFromEmptySelection":true` clipboard metadata (`org.chromium.web-custom-data`) instead of the trailing newline.
+
+**Steps:** read the same Chromium custom-data format on Windows (clipboard format registered as "Chromium Web Custom MIME Data Format") and drop the trailing-newline rule; verify in VS Code and a plain editor in the VM.

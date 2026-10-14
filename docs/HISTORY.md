@@ -6,6 +6,17 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
+## v1.3.13 / v1.3.14 — released; Windows build fixed
+
+- v1.3.13 (`0f2fef4`): macOS shipped (DMG/zip, appcast item signed, notes in
+  the release body and the Sparkle window). Both Windows jobs and `core`
+  failed: `WinSettings.swift` called `hasSimilarLayouts` but does not import
+  `ReLayoutCore`. Fixed in `5a16b20` (helper moved to `WinAuto.swift`), `core`
+  green; v1.3.14 re-ships the same code with the Windows installer/exe, macOS
+  notes say "no changes".
+
+---
+
 ## After v1.3.12 — ambiguous 3-letter words wait for a neighbour
 
 - "рук" typed on Ukrainian-PC kept becoming "her" ("сколько нам понадобится

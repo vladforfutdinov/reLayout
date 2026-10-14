@@ -61,6 +61,7 @@ Details for each → [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## Conventions worth knowing
 
+- Work branches merge into the **local `main`** only (`git merge` in this checkout) — never merge or push a branch into `origin/main` directly. The user builds from the local checkout; a merge that lands only on origin leaves it stale.
 - When changing the conversion algorithm or an auto-mode rule, edit `Core/` and add a test in `Tests/ReLayoutCoreTests/` — both platforms then pick it up. Don't duplicate engine code into `macos/main.swift` or `windows/`.
 - Localizable keys: add to **every** `Resources/<lang>.lproj/Localizable.strings` — both apps read them, and `StringsTests` fails when a language lacks an English key. On macOS a missing key shows the key string itself.
 - App icon and "rL" wordmark are generated inline by `scripts/build.sh` (a tiny Swift snippet using `NSImage`) from `Resources/for-{light,dark}-text-1024.png`. The menu-bar icon is appearance-aware (white on dark, black on light) loaded via `NSImage(named:)`.

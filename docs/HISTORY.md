@@ -6,6 +6,24 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
+## After v1.3.12 — en always gates the Latin side too
+
+- Follow-up to the uk/ru gate: the same rule on the Latin side, en always
+  consulted on a de/fr/es/pl/pt layout (`langs.append(cur.isCyrillic ? "ru" :
+  "en")`). Measured on the shipped models, FrequencyWords 50k (first 20k words
+  of 3+ letters), one Latin layout + ru or uk, pure-letter rule, row-aligned
+  layout maps (pl = US, accented/AltGr letters skipped):
+  - English words typed on L converted to Cyrillic: es/pl/pt 0.45–0.79% ->
+    0.11–0.15% ("but" -> "иге", "when" -> "црут", "next" -> "туче"); de/fr
+    (literal word) 0.35–0.48% -> 0.09–0.16%.
+  - False positives on real L words roughly halved (de-ru 19 -> 10, pt-ru 19 -> 8).
+  - Recall (Cyrillic typed on L) down 0.2–0.5 points, worst pl-uk 0.9937 ->
+    0.9890; those words are still fixed by the hotkey.
+- The earlier "all six Latin models" gate (recall 0.989) stays rejected; only
+  en is added.
+
+---
+
 ## After v1.3.12 — uk always gated by the ru model too (`0be61af`)
 
 - The owner still got "еще" -> "tot" with only ABC + Ukrainian-PC enabled: the

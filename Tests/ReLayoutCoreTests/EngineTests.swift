@@ -284,6 +284,17 @@ final class EngineTests: XCTestCase {
         XCTAssertNil(decideAutoTarget("еще", cur: uk, enabled: [latin, uk], model: { models[$0] }))
     }
 
+    func testAutoDecideSparesEnglishTypedOnAnotherLatinLayout() {
+        // "hit" on a German-only Latin side: junk to de, but English, and its
+        // Cyrillic reading "рше" is known. en always gates Latin, so it stays.
+        var (latin, uk) = makeLayouts()
+        latin.languageCode = "de"
+        let models = ["de": model(knowing: ["öl"]), "en": model(knowing: ["hit"]), "uk": model(knowing: ["рше"])]
+        XCTAssertNil(decideAutoTarget("hit", cur: latin, enabled: [latin, uk], model: { models[$0] }))
+        XCTAssertEqual(decideAutoTarget("ghb", cur: latin, enabled: [latin, uk],
+                                        model: { ["de": models["de"]!, "uk": model(knowing: ["при"])][$0] })?.out, "при")
+    }
+
     func testAutoDecideWithoutAModelDoesNothing() {
         let (latin, cyr) = makeLayouts()
         XCTAssertNil(decideAutoTarget("ghbdtn", cur: latin, enabled: [latin, cyr], model: { _ in nil }))

@@ -73,7 +73,7 @@ exposes its text to Accessibility (TextEdit, Notes, Telegram's Shift+Enter …) 
 launcher query or chat message stays as typed, and browsers/Electron apps and terminals keep plain Enter
 (*Settings → Fix on Enter*, on by default). A
 click or a Cmd/Ctrl shortcut drops the unfinished word. **Between scripts**
-(ru/uk ↔ en/de/fr/es/pl/pt — a model per language ships in `Resources/trigram/`), tuned for ≥99% precision, and, as an experimental opt-in (*Settings → Between similar layouts (uk ↔ ru, en ↔ de)*), between
+(ru/uk ↔ en/de/fr/es/pl/pt — a model per language ships in `Resources/trigram/`), tuned for ≥99% precision, and, as an experimental opt-in (*Settings → Between similar layouts*), between
 layouts of one script and different languages (ru ↔ uk: "ъжа" typed on the Russian layout becomes "їжа"),
 offered only when two such layouts are enabled — with only
 same-script layouts enabled (e.g. ABC + German) the checkbox is disabled, with the reason behind its ⓘ hint — with a

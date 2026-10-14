@@ -43,7 +43,9 @@ work (not per commit). Operational "where are we right now" lives in
   of six Latin models reads most Latin junk.
 - `testAutoDecideSameScriptNeverTargetsAMissingLayout`: favoured similar layout
   absent / present, same-language twin, missing model, kept word, checkbox.
-- Option label shows a Latin pair too: "(uk ↔ ru, en ↔ de)" in all 12 lproj.
+- Option label shows a Latin pair too: "(uk ↔ ru, en ↔ de)" in all 12 lproj;
+  later moved out of the label into the ⓘ hint, which also says when the
+  checkbox is available (two layouts of one script, different languages).
 
 ---
 

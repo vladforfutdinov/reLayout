@@ -326,7 +326,7 @@ private func buildControls(_ hwnd: HWND?) {
     makeCheck(L("settings.autoCorrectEnter"), margin + 20, y, content - 20, hwnd, idChkAutoEnter,
               on: loadAutoEnter(), enabled: available && loadAutoMode())
     y += 28
-    // "Between similar layouts (uk ↔ ru, en ↔ de) — experimental": the ⓘ goes before the dash.
+    // "Between similar layouts — experimental": the ⓘ goes before the dash.
     let similarParts = similarTitle.split(separator: "—", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespaces) }
     let similarW = textWidth(similarParts[0], hwnd) + 24
     makeCheck(similarParts[0], margin + 20, y, similarW, hwnd, idChkAutoSimilar,

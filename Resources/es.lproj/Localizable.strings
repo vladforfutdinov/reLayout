@@ -21,8 +21,8 @@
 "settings.autoUpdate" = "Buscar actualizaciones automáticamente";
 "settings.autoCorrect" = "Autocorregir distribución";
 "settings.autoCorrectEnter" = "Corregir con Intro (solo nueva línea)";
-"settings.autoCorrectSimilar" = "Entre distribuciones parecidas (uk ↔ ru, en ↔ de) — experimental";
-"settings.autoCorrectSimilar.tip" = "Convierte una palabra escrita en la distribución rusa que se lee como ucraniana, y al revés («ъжа» → «їжа»). Los dos idiomas solo se distinguen por sus letras propias: las palabras comunes a ambos no se tocan y algunos errores se escapan.";
+"settings.autoCorrectSimilar" = "Entre distribuciones parecidas — experimental";
+"settings.autoCorrectSimilar.tip" = "Convierte una palabra escrita en la distribución rusa que se lee como ucraniana, y al revés («ъжа» → «їжа»). Los dos idiomas solo se distinguen por sus letras propias: las palabras comunes a ambos no se tocan y algunos errores se escapan. Pares como uk ↔ ru o en ↔ de. Solo disponible si hay activadas dos distribuciones del mismo alfabeto y de idiomas distintos, p. ej. ucraniano y ruso.";
 "settings.autoCorrectUnavailable" = "La autocorrección necesita distribuciones de alfabetos distintos, p. ej., inglés y cualquier cirílica. Las de un mismo alfabeto (%@) no se distinguen con fiabilidad: usa el atajo de teclado.";
 
 // auto-correct exceptions

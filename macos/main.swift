@@ -1127,7 +1127,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         let enterCb = makeCheckbox(L("settings.autoCorrectEnter"), #selector(toggleAutoEnter(_:)), on: autoEnterNewline)
         let enterRow = NSStackView(views: [enterCb])
         enterRow.edgeInsets = NSEdgeInsets(top: 0, left: 20, bottom: 0, right: 0)   // sub-option of auto-correct
-        // "Between similar layouts (uk ↔ ru, en ↔ de) — experimental": the ⓘ goes before the dash.
+        // "Between similar layouts — experimental": the ⓘ goes before the dash.
         let similarParts = L("settings.autoCorrectSimilar").components(separatedBy: "—")
         let similarCb = makeCheckbox(similarParts[0].trimmingCharacters(in: .whitespaces),
                                      #selector(toggleAutoSimilar(_:)), on: autoSameScript)

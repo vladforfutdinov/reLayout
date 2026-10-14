@@ -4,11 +4,13 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
-## Docs pass for the SignPath application
+## Docs pass for the SignPath application (`1a4a20e`, `74b3984`)
 
-- README rewritten (139 → ~85 lines): tagline shared with the SignPath form and the GitHub description, Windows install next to macOS, auto-correct as a short list; its fine print and the `--enabled`/`--selftest` diagnostics live in ARCHITECTURE. GitHub topics added for discoverability.
+- README rewritten (139 → ~85 lines): tagline shared with the SignPath form, Windows install next to macOS, auto-correct as a short list; its fine print and the `--enabled`/`--selftest` diagnostics live in ARCHITECTURE. GitHub topics added for discoverability.
 - Docs audited against code: CLAUDE.md (Windows is released on tags, AX is read-only), RELEASING (CI signs with `SPARKLE_ED_PRIVATE_KEY_NEXT`; forks pair that secret with their public key; the tap step has no repo-slug fallback), ARCHITECTURE (`RELAYOUT_DEBUG`, missing Windows files), ADR and BACKLOG (stale line refs, module map).
 - `docs/fork-parameterization-plan.md` removed: fully implemented — `RELAYOUT_*` identity vars, PlistBuddy-filled Info.plist, `RLRepoSlug`/`windows/Identity.swift`, parameterised cask, bot-authored appcast commits, RELEASING "Forking" section — and went further with neutral `com.example.relayout` fallbacks instead of upstream defaults.
+- `74b3984`: README Build from source covers Windows with winget install commands for VS Build Tools + Swift; `build-windows.ps1` no longer needs git (About slug falls back to the committed `example/reLayout`). Secure Input moved from Limitations to Privacy; the Windows update check is named next to Sparkle.
+- Paragraph hard wraps removed across README and `docs/*.md`.
 
 ---
 

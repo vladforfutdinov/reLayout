@@ -6,7 +6,7 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
-## After v1.3.12 — "Between similar layouts" (auto ru <-> uk) removed
+## After v1.3.12 — "Between similar layouts" (auto ru <-> uk) removed (`b797c71`)
 
 - The experimental opt-in never worked well enough in daily use and got in
   the way, so it is gone on both platforms: the Settings checkbox and its ⓘ,

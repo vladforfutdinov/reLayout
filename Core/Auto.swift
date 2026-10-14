@@ -62,15 +62,14 @@ public func decideAutoTarget<L: AutoLayout>(_ w: String, cur: L, enabled: [L],
     guard forced || sTyped < autoGarbage else {
         return nil   // already plausible -> leave it
     }
-    // Cross-script gate: the word is junk only if NO enabled layout of its script
-    // reads it. Russian typed on the Ukrainian layout ("еще") is not Ukrainian,
-    // but it is not a wrong-layout word either, and its Latin reading "tot" is a
-    // real English word: judged by the uk model alone it converted. Measured on
-    // 3933 Russian words typed on uk: 1.17% converted to Latin junk with the
-    // current-layout gate, 0.15% with this one, recall en<->uk 0.994 -> 0.992.
+    // Cross-script gate: the word is junk only if no layout of its script reads
+    // it. Russian typed on the Ukrainian layout ("еще" -> "tot") is common even
+    // without a ru layout enabled, so uk is always gated by ru as well.
+    var langs = enabled.filter { $0.isCyrillic == cur.isCyrillic }.compactMap(\.languageCode)
+    if curLang == "uk" { langs.append("ru") }
     var sScript = sTyped
-    for l in enabled where l.isCyrillic == cur.isCyrillic {
-        if let lang = l.languageCode, let m = model(lang) { sScript = max(sScript, m.score(w)) }
+    for lang in langs {
+        if let m = model(lang) { sScript = max(sScript, m.score(w)) }
     }
 
     // A hyphen is not punctuation here — it is part of the word ("rfrjuj-nj" is

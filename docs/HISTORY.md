@@ -6,6 +6,19 @@ work (not per commit). Operational "where are we right now" lives in
 
 ---
 
+## After v1.3.12 — uk always gated by the ru model too
+
+- The owner still got "еще" -> "tot" with only ABC + Ukrainian-PC enabled: the
+  cross-script gate (`d5ca6d2`) consulted enabled layouts only. Shipping the
+  unfiltered uk model again was tried and reverted: it would also blur the
+  hotkey's ru/uk choice (`bestConversion`) for users with both layouts.
+- `decideAutoTarget` now adds the ru model to the gate whenever the current
+  layout is uk, enabled or not. Same rule as measured with ru enabled (recall
+  en<->uk 0.994 -> 0.992, Russian-on-uk junk 1.17% -> 0.15%); not re-measured.
+  ru is not gated by uk in return: not reported, not measured.
+
+---
+
 ## After v1.3.12 — "Between similar layouts" (auto ru <-> uk) removed (`b797c71`)
 
 - The experimental opt-in never worked well enough in daily use and got in

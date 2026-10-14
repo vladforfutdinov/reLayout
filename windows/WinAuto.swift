@@ -448,3 +448,6 @@ func installAutoMouseHook() {
 func uninstallAutoMouseHook() {
     if let hook = mouseHook { UnhookWindowsHookEx(hook); mouseHook = nil }
 }
+
+/// Whether "Between similar layouts" can fire with the installed layouts.
+func similarAvailable() -> Bool { hasSimilarLayouts(WinLayout.installedList(), model: trigram) }

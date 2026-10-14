@@ -589,4 +589,3 @@ func openSettings() {
     SetFocus(settingsHwnd)
 }
 
-private func similarAvailable() -> Bool { hasSimilarLayouts(WinLayout.installedList(), model: trigram) }

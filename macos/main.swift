@@ -1127,15 +1127,12 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         let enterCb = makeCheckbox(L("settings.autoCorrectEnter"), #selector(toggleAutoEnter(_:)), on: autoEnterNewline)
         let enterRow = NSStackView(views: [enterCb])
         enterRow.edgeInsets = NSEdgeInsets(top: 0, left: 20, bottom: 0, right: 0)   // sub-option of auto-correct
-        // "Between similar layouts — experimental": the ⓘ goes before the dash.
-        let similarParts = L("settings.autoCorrectSimilar").components(separatedBy: "—")
-        let similarCb = makeCheckbox(similarParts[0].trimmingCharacters(in: .whitespaces),
-                                     #selector(toggleAutoSimilar(_:)), on: autoSameScript)
+        // The ⓘ stays live while the checkbox is disabled: it says why.
+        let similarCb = makeCheckbox(L("settings.autoCorrectSimilar"), #selector(toggleAutoSimilar(_:)), on: autoSameScript)
         let similarInfo = NSImageView(image: NSImage(systemSymbolName: "info.circle", accessibilityDescription: nil) ?? NSImage())
         similarInfo.contentTintColor = .secondaryLabelColor
         similarInfo.toolTip = L("settings.autoCorrectSimilar.tip")   // hints live on ⓘ, like the auto-correct row
-        let similarTag = NSTextField(labelWithString: "— " + similarParts.dropFirst().joined(separator: "—").trimmingCharacters(in: .whitespaces))
-        let similarRow = NSStackView(views: [similarCb, similarInfo, similarTag])
+        let similarRow = NSStackView(views: [similarCb, similarInfo])
         similarRow.orientation = .horizontal; similarRow.spacing = 4; similarRow.alignment = .centerY
         similarRow.edgeInsets = NSEdgeInsets(top: 0, left: 20, bottom: 0, right: 0)
         let learnedLbl = NSTextField(labelWithString: "")

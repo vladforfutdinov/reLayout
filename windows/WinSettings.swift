@@ -326,19 +326,14 @@ private func buildControls(_ hwnd: HWND?) {
     makeCheck(L("settings.autoCorrectEnter"), margin + 20, y, content - 20, hwnd, idChkAutoEnter,
               on: loadAutoEnter(), enabled: available && loadAutoMode())
     y += 28
-    // "Between similar layouts — experimental": the ⓘ goes before the dash.
-    let similarParts = similarTitle.split(separator: "—", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespaces) }
-    let similarW = textWidth(similarParts[0], hwnd) + 24
-    makeCheck(similarParts[0], margin + 20, y, similarW, hwnd, idChkAutoSimilar,
+    // The ⓘ stays live while the checkbox is disabled: it says why.
+    let similarW = textWidth(similarTitle, hwnd) + 24
+    makeCheck(similarTitle, margin + 20, y, similarW, hwnd, idChkAutoSimilar,
               on: loadAutoSameScript(), enabled: available && loadAutoMode() && similarAvailable())
     let similarInfo = makeControl("STATIC", "\u{E946}" /* Info glyph */, 0,
                                   margin + 20 + similarW + 2, y + 2, 20, 20, hwnd, idSimilarInfo)
     setFont(similarInfo, glyphFont)
     addTooltip(&tooltip, hwnd, similarInfo, L("settings.autoCorrectSimilar.tip"), overWindow: true)
-    if similarParts.count > 1 {
-        makeControl("STATIC", "— " + similarParts[1], 0, margin + 20 + similarW + 24, y + 4,
-                    textWidth("— " + similarParts[1], hwnd) + 4, 20, hwnd, idSimilarInfo + labelOffset)
-    }
     y += 30
     // The count takes the View button's id + labelOffset, so it grays with the button.
     makeControl("STATIC", L("settings.learned", "\(learnedCount())"), 0,

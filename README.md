@@ -43,21 +43,33 @@ How it decides: [ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Privacy
 
-- **Your text never leaves the machine and is never written to disk.** No analytics, telemetry, or account. The only network call is the [Sparkle](https://sparkle-project.org) update check (can be turned off).
+- **Your text never leaves the machine and is never written to disk.** No analytics, telemetry, or account. The only network call is the update check: [Sparkle](https://sparkle-project.org) on macOS (can be turned off), a look at the latest GitHub release on Windows (nothing is downloaded).
 - **The clipboard is left untouched** when Accessibility can read the selection.
+- **Password fields are skipped.** While macOS Secure Input is on (a password field or a terminal's Secure Keyboard Entry), the system blocks reLayout entirely.
 - Only settings and auto-correct's learned words are stored (Settings → Learned words to view or reset).
 
 ## Limitations
 
 - Needs at least two keyboard layouts.
 - Same-script layouts (e.g. ABC vs German) can't be told apart word by word.
-- Secure input fields block synthetic keystrokes.
 
 ## Build from source
 
+**macOS** — requires only the Command Line Tools (they include Swift; full Xcode works too). The app runs on macOS 13+; no Xcode project and no dependencies, `build.sh` calls `swiftc` directly.
+
 ```sh
+xcode-select --install   # one-time: Command Line Tools
 ./scripts/make-cert.sh   # one-time: keeps the Accessibility grant across rebuilds
 ./scripts/build.sh       # -> dist/ReLayout.app
+```
+
+**Windows** — requires Visual Studio Build Tools (MSVC + Windows SDK) and the [Swift toolchain](https://www.swift.org/install/windows/) (6.1+ on x64, 6.3.2+ on arm64). In PowerShell:
+
+```powershell
+winget install --id Microsoft.VisualStudio.2022.BuildTools -e --source winget --custom "--add Microsoft.VisualStudio.Component.Windows11SDK.22621 --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 --add Microsoft.VisualStudio.Component.VC.Tools.ARM64"
+winget install --id Swift.Toolchain -e --source winget
+# reopen PowerShell so PATH picks up swift, then:
+scripts\build-windows.ps1   # -> dist\win\ReLayoutWin.exe
 ```
 
 Architecture, the Windows port and diagnostics: [ARCHITECTURE.md](docs/ARCHITECTURE.md). Releasing (including from a fork): [RELEASING.md](docs/RELEASING.md).

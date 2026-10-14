@@ -17,7 +17,7 @@ Pop-Location
 # The About link's repo, like scripts/build.sh: RELAYOUT_REPO_SLUG, else the origin
 # remote. Stamped into windows\Identity.swift for the build only, then restored.
 $slug = $env:RELAYOUT_REPO_SLUG
-if (-not $slug) {
+if (-not $slug -and (Get-Command git -ErrorAction SilentlyContinue)) {
   $origin = git remote get-url origin 2>$null
   if ($origin -match 'github\.com[:/](.+?)(\.git)?$') { $slug = $Matches[1] }
 }

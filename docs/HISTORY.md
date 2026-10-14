@@ -46,6 +46,9 @@ work (not per commit). Operational "where are we right now" lives in
 - Option label shows a Latin pair too: "(uk ↔ ru, en ↔ de)" in all 12 lproj;
   later moved out of the label into the ⓘ hint, which also says when the
   checkbox is available (two layouts of one script, different languages).
+- The row is one checkbox title, "Between similar layouts (experimental)", and
+  the ⓘ after it (`4543a3c`): the whole title grays out when the option is
+  unavailable, the ⓘ stays live to say why. The "—"-split tag is gone.
 
 ---
 

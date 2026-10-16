@@ -33,6 +33,13 @@ struct FakeLayout: LayoutMaps {
 // a key that types `g` in Latin types `п` in Cyrillic, etc. The last two rows live on
 // an Option layer (mods != 0) to exercise the modifier path (an Option-layer char
 // mapping to a Cyrillic letter, like the real ß/æ overlap).
+func testDbgRedact() {
+    eq(dbgRedact(#"feed "п" buf="Пароль1!" app=com.apple.Terminal"#),
+       #"feed "я" buf="яяяяяя0·" app=com.apple.Terminal"#, "redact: letters/digits/symbols masked, rest kept")
+    eq(dbgRedact(#"type: "ab c\r" "\u{1C}" "x\"y""#), #"type: "aa a\r" "\u{1C}" "a\"a""#, "redact: spaces and escapes kept")
+    eq(dbgRedact(#"learned: ["ghb"]"#), #"learned: ["aaa"]"#, "redact: arrays")
+}
+
 func makeLayouts() -> (latin: FakeLayout, cyr: FakeLayout) {
     // (keyCode, mods, latinChar, cyrChar)
     let rows: [(UInt16, UInt32, String, String)] = [
@@ -204,6 +211,7 @@ struct ReLayoutTests {
         testModKeyLabelAndChord()
         testCarbonModsFrom()
         testPressedModKeys()
+        testDbgRedact()
 
         print("\n\(passed) passed, \(failed) failed")
         exit(failed == 0 ? 0 : 1)

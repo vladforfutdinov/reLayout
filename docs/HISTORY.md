@@ -4,6 +4,18 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.14 — the dev trace holds no typed text
+
+- The secure-input skip left terminal passwords (sudo, ssh) in
+  `/tmp/relayout.log`. `dbgRedact` now masks every quoted string in a trace
+  line: letters -> `a`/`я` (script stays visible), digits -> `0`, symbols ->
+  `·`; spaces and escapes stay. The tap line names only non-text key codes
+  and carries `same=` (key equals the previous one) for spotting doubles.
+- Cost: the log no longer shows which word was typed — repro reports carry
+  the word.
+
+---
+
 ## Docs pass for the SignPath application (`1a4a20e`, `74b3984`)
 
 - README rewritten (139 → ~85 lines): tagline shared with the SignPath form, Windows install next to macOS, auto-correct as a short list; its fine print and the `--enabled`/`--selftest` diagnostics live in ARCHITECTURE. GitHub topics added for discoverability.

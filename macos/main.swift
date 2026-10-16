@@ -83,7 +83,7 @@ func dbg(_ s: @autoclosure () -> String) {
     // Passwords never reach the trace: nothing is written while one is being typed.
     if IsSecureEventInputEnabled() || focusedIsSecureField() { return }
     let dbgPath = "/tmp/relayout.log"
-    let data = Data((dbgTime.string(from: Date()) + " " + s() + "\n").utf8)
+    let data = Data((dbgTime.string(from: Date()) + " " + dbgRedact(s()) + "\n").utf8)
     if let h = FileHandle(forWritingAtPath: dbgPath) {
         h.seekToEndOfFile(); h.write(data); h.closeFile()
     } else {
@@ -91,6 +91,35 @@ func dbg(_ s: @autoclosure () -> String) {
     }
 #endif
 }
+
+/// Masks every quoted string in a trace line (typed keys, words, selections):
+/// letters become "a" (Latin) or "я" (Cyrillic), digits "0", other symbols "·";
+/// spaces and escapes (`\r`, `\u{1C}`) stay. Text outside quotes is kept.
+func dbgRedact(_ line: String) -> String {
+    var out = "", quoted = false
+    var it = line.makeIterator()
+    while let c = it.next() {
+        if c == "\"" { quoted.toggle(); out.append(c); continue }
+        guard quoted else { out.append(c); continue }
+        if c == "\\" {
+            out.append(c)
+            guard let e = it.next() else { break }
+            out.append(e)
+            if e == "u" { while let h = it.next() { out.append(h); if h == "}" { break } } }
+        } else if c.isLetter {
+            out.append(c.unicodeScalars.contains { (0x400...0x52F).contains($0.value) } ? "я" : "a")
+        } else if c.isNumber {
+            out.append("0")
+        } else {
+            out.append(c == " " ? " " : "·")
+        }
+    }
+    return out
+}
+
+/// Key codes the trace may name: they type no text (Return, Tab, Space, Delete,
+/// Esc, keypad Enter, navigation). Any other key is logged as "·".
+let dbgKeyNames: Set<Int> = [36, 48, 49, 51, 53, 76, 115, 116, 117, 119, 121, 123, 124, 125, 126]
 
 func focusedIsSecureField() -> Bool {
     let sys = AXUIElementCreateSystemWide()
@@ -1922,6 +1951,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     // worker hands completion back with DispatchQueue.main.async.
     fileprivate var autoPending = 0     // retypes in flight (auto-correct or hotkey)
     fileprivate var autoHeld: [(s: String, flags: CGEventFlags)] = []   // keys swallowed while retyping
+    fileprivate var dbgLastCode: Int64 = -1
     // A retype that hangs (unresponsive app, AX call stuck) must never freeze the
     // keyboard: past this the gate passes keys through even while in flight.
     fileprivate var gateSince = 0.0
@@ -1974,9 +2004,12 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             guard let refcon else { return Unmanaged.passUnretained(event) }
             let me = Unmanaged<AppController>.fromOpaque(refcon).takeUnretainedValue()
             let synth = event.getIntegerValueField(.eventSourceUserData) == AppController.synthMarker
-            dbg("tap type=\(type.rawValue) code=\(event.getIntegerValueField(.keyboardEventKeycode)) "
+            let tapCode = event.getIntegerValueField(.keyboardEventKeycode)
+            dbg("tap type=\(type.rawValue) code=\(dbgKeyNames.contains(Int(tapCode)) ? String(tapCode) : "·") "
+                + "same=\(type == .keyDown && tapCode == me.dbgLastCode) "
                 + "flags=\(String(event.flags.rawValue, radix: 16)) synth=\(synth) "
                 + "pid=\(event.getIntegerValueField(.eventSourceUnixProcessID))")
+            if type == .keyDown { me.dbgLastCode = tapCode }
             // A click may move the caret or focus, and a Cmd/Ctrl shortcut may too
             // (paste, undo, Cmd+arrows, send, app switch): the buffered word and a
             // pending preposition no longer sit right before the caret, and a later

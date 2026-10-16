@@ -647,6 +647,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     fileprivate var keyTap: CFMachPort?       // CGEventTap that flags key presses during a hold
     // The last physical keyDown the auto tap fed, for the Globe double (below).
     private var lastFedKey: (code: Int64, time: Double) = (-1, 0)
+    private var dbgRecentFed: [(code: Int64, time: Double)] = []
     private var keyTapSource: CFRunLoopSource?
     fileprivate var tapArmed = false
     private var tapArmTime: Double = 0
@@ -2009,7 +2010,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
                 + "same=\(type == .keyDown && tapCode == me.dbgLastCode) "
                 + "flags=\(String(event.flags.rawValue, radix: 16)) synth=\(synth) "
                 + "pid=\(event.getIntegerValueField(.eventSourceUnixProcessID))")
-            if type == .keyDown { me.dbgLastCode = tapCode }
+            if type == .keyDown, !synth { me.dbgLastCode = tapCode }
             // A click may move the caret or focus, and a Cmd/Ctrl shortcut may too
             // (paste, undo, Cmd+arrows, send, app switch): the buffered word and a
             // pending preposition no longer sit right before the caret, and a later
@@ -2049,6 +2050,14 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
                     dbg("globe double: \(s.debugDescription) from TextInputSwitcher, not fed")
                     return Unmanaged.passUnretained(event)
                 }
+#if DEBUG
+                if me.isInputSwitcherEvent(event) {
+                    let i = me.dbgRecentFed.lastIndex { $0.code == code }
+                    dbg("switcher repost, fed: matches #\(i.map { me.dbgRecentFed.count - $0 }.map(String.init) ?? "none") "
+                        + "(1 = last of \(me.dbgRecentFed.count)), last \(Int((now - me.lastFedKey.time) * 1000))ms ago")
+                }
+                me.dbgRecentFed = (me.dbgRecentFed + [(code, now)]).suffix(4)
+#endif
                 me.lastFedKey = (code, now)
                 // Only text-producing keys are held back; modifiers, Globe, arrows
                 // and delete keep flowing so nothing the user does can be stalled

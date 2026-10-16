@@ -2050,12 +2050,18 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
                     dbg("globe double: \(s.debugDescription) from TextInputSwitcher, not fed")
                     return Unmanaged.passUnretained(event)
                 }
-#if DEBUG
+                // A re-post that lands after other keys: its first sighting sits earlier
+                // in the buffer than on screen, so a fix would erase the wrong span.
                 if me.isInputSwitcherEvent(event) {
+#if DEBUG
                     let i = me.dbgRecentFed.lastIndex { $0.code == code }
                     dbg("switcher repost, fed: matches #\(i.map { me.dbgRecentFed.count - $0 }.map(String.init) ?? "none") "
-                        + "(1 = last of \(me.dbgRecentFed.count)), last \(Int((now - me.lastFedKey.time) * 1000))ms ago")
+                        + "(1 = last of \(me.dbgRecentFed.count)), last \(Int((now - me.lastFedKey.time) * 1000))ms ago; word dropped")
+#endif
+                    me.autoRun.reset()
+                    return Unmanaged.passUnretained(event)
                 }
+#if DEBUG
                 me.dbgRecentFed = (me.dbgRecentFed + [(code, now)]).suffix(4)
 #endif
                 me.lastFedKey = (code, now)

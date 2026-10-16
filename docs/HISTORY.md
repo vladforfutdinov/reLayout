@@ -4,6 +4,19 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.14 — a late switcher re-post drops the word
+
+- Vivaldi, "anthropic " + Globe + a Cyrillic word came out "anthropicооум":
+  TextInputSwitcher re-posted the key it held while its HUD was up 100 ms
+  after the NEXT key, so the `lastFedKey` filter (re-post == last fed key)
+  missed it. The buffer kept the first sighting (Latin) plus the re-post, one
+  char more than the screen; the fix erased 4 and took the space.
+- Any TextInputSwitcher-sourced key that is not that immediate double now
+  resets the word buffer and goes through unfed: no fix for that word rather
+  than a wrong-span erase. The trace logs which recent fed key it matched.
+
+---
+
 ## After v1.3.14 — the dev trace holds no typed text
 
 - The secure-input skip left terminal passwords (sudo, ssh) in

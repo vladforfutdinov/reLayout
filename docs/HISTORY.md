@@ -13,6 +13,10 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
   `RevertWatch` arms when a `keep` word is left alone; an edit plus the same
   word again within 15 s drops the keep and the word is judged afresh
   (converted). Both platforms.
+- Teaching a conversion without the hotkey (owner: "учше" -> "exit"): a
+  word left alone, erased and typed in its other-layout reading within 15 s
+  is learned `convert` at once (owner chose once, not the hotkey's three).
+  Third `RevertWatch` (`manualWatch`); retyping the same word is no signal.
 
 ---
 

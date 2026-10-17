@@ -22,6 +22,8 @@ private var learnedConvert: [String: String] = [:]   // the user's verdicts, cac
 private var learnedKeep: Set<String> = []
 private var revertWatch = RevertWatch()
 private var unkeepWatch = RevertWatch()   // a keep left alone, then erased and retyped
+private var manualWatch = RevertWatch()   // a word left alone, then retyped in the other layout
+private var manualTyped: String?
 private var revertLayouts: (src: WinLayout, dst: WinLayout)?
 private func uptime() -> Double { Double(GetTickCount64()) / 1000 }
 private var learnedCounts: [String: Int] = [:]
@@ -202,7 +204,7 @@ func autoFeed(vk: UINT, scan: WORD, shortcut: Bool, shift: Bool) -> Bool {
 
     // Anything that may delete or select text arms learning by revert.
     if vk == vkBack || shortcut || navigationVKs.contains(vk) {
-        revertWatch.edit(at: uptime()); unkeepWatch.edit(at: uptime())
+        revertWatch.edit(at: uptime()); unkeepWatch.edit(at: uptime()); manualWatch.edit(at: uptime())
     }
     // Backspace edits the word; Ctrl+Backspace removes a word — nothing left to track.
     if vk == vkBack {
@@ -258,7 +260,19 @@ private func evaluate(word: String, trail: String, boundary: Int32, shift: Bool,
     } else if learnedVerdict(learnedKey(word)) == .keep {
         unkeepWatch.corrected(word, into: "", at: uptime())
     }
+    // A word left alone, erased and typed in the other layout by hand ("учше",
+    // then "exit"): learned as a conversion at once.
+    if manualWatch.reverted(word, at: uptime(), typedBack: { $0 }), let typed = manualTyped {
+        promoteLearned(learnedKey(typed), to: learnedKey(word))
+        dwatch("learned convert by hand")
+    }
     guard let decided = autoDecide(word, cur: cur, enabled: WinLayout.installedList()) else {
+        if wordBody(word) >= 3, !isAbbreviation(word),
+           let t = WinLayout.installedList().first(where: { $0.isCyrillic != cur.isCyrillic }),
+           let conv = convertWrong(word, src: cur, dst: t) {
+            manualWatch.corrected(conv, into: word, at: uptime())
+            manualTyped = word
+        }
         // A short word the model reads as fine right after a chain word ("ot" in
         // "nf ot [fktgf") rides along with its reading in the chain's layout.
         if wordBody(word) <= 2, run.previous != nil, let t = chainTarget {
@@ -506,7 +520,7 @@ private let mouseProc: HOOKPROC = { nCode, wParam, lParam in
         || wParam == WPARAM(WM_MBUTTONDOWN) {
         resetAutoBuffer()
         forgetConversion()
-        revertWatch.edit(at: uptime()); unkeepWatch.edit(at: uptime())
+        revertWatch.edit(at: uptime()); unkeepWatch.edit(at: uptime()); manualWatch.edit(at: uptime())
     }
     return CallNextHookEx(nil, nCode, wParam, lParam)
 }

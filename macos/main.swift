@@ -2099,6 +2099,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     fileprivate var autoRun = AutoRun()
     fileprivate var revertWatch = RevertWatch()
     fileprivate var unkeepWatch = RevertWatch()   // a keep left alone, then erased and retyped
+    fileprivate var manualWatch = RevertWatch()   // a word left alone, then retyped in the other layout
+    private var manualTyped: String?
     private var revertLayouts: (src: Layout, dst: Layout)?
 
     // Fast typing races the retype: the deletes + retype of a finished word land
@@ -2191,6 +2193,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
                     .contains(Int(event.getIntegerValueField(.keyboardEventKeycode))) {
                 me.revertWatch.edit(at: ProcessInfo.processInfo.systemUptime)
                 me.unkeepWatch.edit(at: ProcessInfo.processInfo.systemUptime)
+                me.manualWatch.edit(at: ProcessInfo.processInfo.systemUptime)
             }
             if type == .keyDown, !synth,
                event.getIntegerValueField(.keyboardEventKeycode) == Int64(kVK_Delete) {
@@ -2444,9 +2447,25 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         } else if learnedVerdict(learnedKey(word)) == .keep {
             unkeepWatch.corrected(word, into: "", at: now)
         }
+        // A word left alone, erased and typed in the other layout by hand ("учше",
+        // then "exit"): learned as a conversion at once.
+        if manualWatch.reverted(word, at: now, typedBack: { $0 }), let typed = manualTyped {
+            let key = learnedKey(typed)
+            learnedConvert[key] = learnedKey(word)
+            learnedKeep = learnedKeep.filter { $0 != key }
+            learnedCounts[key] = nil; learnedCandidates[key] = nil
+            dbg("learned convert by hand: \(key.debugDescription) -> \(learnedKey(word).debugDescription)")
+            refreshLearnedUI()
+        }
         let enabled = Layout.enabledList()
         guard let cur = enabled.first(where: { $0.id == currentSourceID() }),
               let d = autoDecide(word, cur: cur, enabled: enabled) else {
+            if let cur = enabled.first(where: { $0.id == currentSourceID() }), wordBody(word) >= 3, !isAbbreviation(word),
+               let t = enabled.first(where: { $0.isCyrillic != cur.isCyrillic }),
+               let conv = convertWrong(word, src: cur, dst: t) {
+                manualWatch.corrected(conv, into: word, at: ProcessInfo.processInfo.systemUptime)
+                manualTyped = word
+            }
             // A short word the model reads as fine right after a chain word ("ot"
             // in "nf ot [fktgf") rides along with its reading in the chain's layout.
             if wordBody(word) <= 2, autoRun.previous != nil, let t = autoChainTarget,

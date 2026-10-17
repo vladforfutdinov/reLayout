@@ -532,7 +532,7 @@ final class ShortcutField: NSView {
         guard recording else { return }
         if let m = monitor { NSEvent.removeMonitor(m); monitor = nil }
         seqTimer?.cancel(); seqTimer = nil
-        if finalize, seqMode != nil { finalizeSequence() }
+        if finalize, seqMode != nil { finalizeSequence(); return }   // it stops recording
         recording = false
         onRecordingChanged?(false)   // resume the live hotkey
     }
@@ -581,8 +581,8 @@ final class ShortcutField: NSView {
         DispatchQueue.main.asyncAfter(deadline: .now() + seqWindow, execute: work)
     }
 
-    // The sequence is finished (window elapsed) -> save it. Stay focused so the
-    // user can immediately record a different sequence (which replaces this one).
+    // The sequence is finished (window elapsed) -> save it and stop recording, so
+    // both hotkeys and auto-correct resume at once (they are paused while recording).
     private func finalizeSequence() {
         guard let mode = seqMode else { return }
         seqTimer = nil
@@ -591,7 +591,7 @@ final class ShortcutField: NSView {
         committing = true                 // onCommit relayouts the window / churns focus
         defer { committing = false }
         onCommit?(Hotkey(mode: mode, code: seqCode, mods: seqMods, chord: seqChord, taps: seqTaps, display: disp))
-        window?.makeFirstResponder(self)
+        stop(finalize: false)
     }
 }
 

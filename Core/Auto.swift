@@ -239,27 +239,6 @@ public func spellCheckedTarget<L: AutoLayout>(_ w: String, cur: L, enabled: [L],
     return nil
 }
 
-/// The word with one letter of a doubled pair removed ("ссборка" -> "сборка"),
-/// when the typed word is misspelled in every dictionary of `langs` and exactly
-/// one such removal is spelled right and keeps `undoubledMinLetters`+ letters.
-/// Words starting with a capital (names) and learned `.keep` words are left alone.
-/// The dictionary is asked only for words that have a doubled pair.
-public func undoubled(_ w: String, langs: [String], learned: (String) -> LearnedVerdict? = { _ in nil },
-                      isWord: SpellCheck) -> String? {
-    let chars = Array(w)
-    guard chars.count > undoubledMinLetters, !chars[0].isUppercase, w.allSatisfy(\.isLetter),
-          zip(chars, chars.dropFirst()).contains(where: ==),
-          learned(learnedKey(w)) != .keep,
-          spelledRight(w, in: langs, isWord) == false else { return nil }
-    var found = Set<String>()
-    for i in 0..<(chars.count - 1) where chars[i] == chars[i + 1] {
-        var c = chars; c.remove(at: i)
-        let cand = String(c)
-        if cand.count >= undoubledMinLetters, spelledRight(cand, in: langs, isWord) == true { found.insert(cand) }
-    }
-    return found.count == 1 ? found.first : nil
-}
-public let undoubledMinLetters = 4
 
 // A hotkey miss is learned only when its conversion reads in the target
 // language: a real miss does ("exit" -2.41, "ок" -2.78, "сброс" -3.41), a
@@ -585,15 +564,6 @@ public struct AutoRun {
     /// The boundary word had no candidate: it breaks the chain of short words.
     public mutating func noCandidate() {
         previous = nil; bridged = []
-    }
-
-    /// A same-layout spelling fix of the boundary word alone (`undoubled`): it ends
-    /// the chain like a word with no candidate.
-    /// - Returns: the correction for `raw` (word plus trail) -> `out`.
-    public mutating func respell(raw: String, out: String) -> Fix {
-        dropSpacedWord()
-        noCandidate()
-        return Fix(erase: raw.count, text: out, original: raw)
     }
 
     /// A short word with no candidate right after a chain word: it neither breaks

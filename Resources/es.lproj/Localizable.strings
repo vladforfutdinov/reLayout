@@ -24,7 +24,7 @@
 "settings.autoCorrectSimilar" = "Entre distribuciones parecidas (experimental)";
 "settings.autoCorrectSimilar.tip" = "Convierte una palabra escrita en la distribución rusa que se lee como ucraniana, y al revés («ъжа» → «їжа»). Los dos idiomas solo se distinguen por sus letras propias: las palabras comunes a ambos no se tocan y algunos errores se escapan. Pares como uk ↔ ru o en ↔ de. Solo disponible si hay activadas dos distribuciones del mismo alfabeto y de idiomas distintos, p. ej. ucraniano y ruso.";
 "settings.autoCorrectSpell" = "Comprobar con el diccionario del sistema (experimental)";
-"settings.autoCorrectSpell.tip" = "Consulta el diccionario ortográfico del sistema antes de convertir: una palabra real no se toca aunque parezca rara, y una palabra que el diccionario solo conoce en la otra distribución se convierte. También quita una letra duplicada («grracias» → «gracias»); las palabras que empiezan con mayúscula no se tocan. Disponible solo si el sistema tiene un diccionario ortográfico para el idioma de una distribución activada.";
+"settings.autoCorrectSpell.tip" = "Consulta el diccionario ortográfico del sistema antes de convertir: una palabra real no se toca aunque parezca rara, y una palabra que el diccionario solo conoce en la otra distribución se convierte. Disponible solo si el sistema tiene un diccionario ortográfico para el idioma de una distribución activada.";
 "settings.autoCorrectUnavailable" = "La autocorrección necesita distribuciones de alfabetos distintos, p. ej., inglés y cualquier cirílica. Las de un mismo alfabeto (%@) no se distinguen con fiabilidad: usa el atajo de teclado.";
 
 // auto-correct exceptions

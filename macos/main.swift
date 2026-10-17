@@ -782,12 +782,13 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         autoCb?.isEnabled = ok
         autoCb?.state = ok && autoMode ? .on : .off
         autoExcBtn?.isEnabled = ok
-        autoEnterCb?.isEnabled = ok && autoMode
-        autoEnterCb?.state = autoEnterNewline ? .on : .off
-        autoSimilarCb?.isEnabled = ok && autoMode && hasSimilarLayouts(enabled, model: trigram)
-        autoSimilarCb?.state = autoSameScript ? .on : .off
-        autoSpellCb?.isEnabled = ok && autoMode && hasSpellDictionary(enabled)
-        autoSpellCb?.state = autoSpell ? .on : .off
+        // A disabled sub-option shows off; the stored preference is kept for later.
+        for (cb, on, pref) in [(autoEnterCb, ok && autoMode, autoEnterNewline),
+                               (autoSimilarCb, ok && autoMode && hasSimilarLayouts(enabled, model: trigram), autoSameScript),
+                               (autoSpellCb, ok && autoMode && hasSpellDictionary(enabled), autoSpell)] {
+            cb?.isEnabled = on
+            cb?.state = on && pref ? .on : .off
+        }
         learnedLabel?.stringValue = String(format: L("settings.learned"), String(learnedConvert.count + learnedKeep.count))
         learnedViewBtn?.isEnabled = ok && autoMode
         autoInfo?.isHidden = ok
@@ -2180,8 +2181,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     private var autoEnterNewline: Bool { UserDefaults.standard.object(forKey: "autoEnterNewline") as? Bool ?? true }
     // Experimental: ru <-> uk conversion (see decideAutoTarget sameScript). Default off.
     private var autoSameScript: Bool { UserDefaults.standard.bool(forKey: "autoSameScript") }
-    // Spell-check option: the system dictionary refines layout decisions and fixes a
-    // doubled letter (see spellCheckedTarget, undoubled). Default off.
+    // Spell-check option: the system dictionary refines layout decisions
+    // (see spellCheckedTarget). Default off.
     private var autoSpell: Bool { UserDefaults.standard.bool(forKey: "autoSpell") }
     @objc private func toggleAutoSpell(_ sender: NSButton) {
         UserDefaults.standard.set(sender.state == .on, forKey: "autoSpell")
@@ -2296,18 +2297,6 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
               let d = autoDecide(word, cur: cur, enabled: enabled) else {
             // A short word the model reads as fine right after a chain word ("ot"
             // in "nf ot [fktgf") rides along with its reading in the chain's layout.
-            if autoSpell, let cur = enabled.first(where: { $0.id == currentSourceID() }),
-               let fixed = undoubled(word, langs: scriptLanguages(cyrillic: cur.isCyrillic, enabled: enabled),
-                                     learned: learnedVerdict, isWord: isWord) {
-                let fix = autoRun.respell(raw: word + trail, out: fixed + trail)
-                dbg("auto: doubled \(word.debugDescription) -> \(fixed.debugDescription)")
-                let srcSource = cur.source
-                beginCorrection {
-                    self.autoCorrect(fix, boundary: boundary, boundaryFlags: flags, target: cur, srcSource: srcSource,
-                                     learn: false)
-                }
-                return true
-            }
             if wordBody(word) <= 2, autoRun.previous != nil, let t = autoChainTarget,
                let cur = enabled.first(where: { $0.id == currentSourceID() }) {
                 dbg("auto: no candidate for \(word.debugDescription), bridged")
@@ -2391,10 +2380,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     // Delete the wrong word (and a swallowed preposition before it), retype the
     // conversion and the boundary, switch the system layout. Records it so the
     // hotkey undo reverts.
-    /// - Parameter learn: false for a typo fix — undoing it stores no `keep` verdict
-    ///   (typo fixes never enter the learned words).
     private func autoCorrect(_ fix: AutoRun.Fix, boundary: String, boundaryFlags: CGEventFlags,
-                             target: Layout, srcSource: TISInputSource, learn: Bool = true) {
+                             target: Layout, srcSource: TISInputSource) {
         waitModifiersReleased()
         dbg("fix: erase=\(fix.erase) type=\(fix.text.debugDescription) -> \(target.id)")
         eraseBack(fix.erase)
@@ -2404,7 +2391,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         DispatchQueue.main.sync { self.selectLayout(target) }
         lastConversion = Conversion(original: fix.original + boundary, typed: fix.text + boundary,
                                     srcSource: srcSource, time: ProcessInfo.processInfo.systemUptime,
-                                    autoWords: learn ? fix.original.split(separator: " ").map { learnedKey(String($0)) } : [])
+                                    autoWords: fix.original.split(separator: " ").map { learnedKey(String($0)) })
     }
 
     /// True when the event was posted by macOS's TextInputSwitcher (the Globe HUD).

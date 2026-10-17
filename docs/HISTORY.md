@@ -4,6 +4,19 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.14 — same-language doubled-letter fix removed
+
+- Owner: a typo in a word typed in the right layout is visible and the app's
+  own spelling handles it; reLayout targets typos inside wrong-layout words
+  ("ghbddtn", "gbhdtn", "ghjdtn" -> "привет"; measurement pending). `undoubled`,
+  `AutoRun.respell`, their tests and the hint sentence are gone (`ef61880`,
+  `3caac67` superseded). Rule kept from `8a82e73`: typo fixes never enter
+  the learned words.
+- Settings: a disabled sub-option (Enter, similar layouts, system dictionary)
+  shows unchecked; the stored preference is kept.
+
+---
+
 ## After v1.3.14 — system spelling dictionary as an option (`autoSpell`)
 
 - Owner's call: the OS spell checker is allowed (no dictionary of our own).

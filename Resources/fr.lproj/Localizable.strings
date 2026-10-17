@@ -24,7 +24,7 @@
 "settings.autoCorrectSimilar" = "Entre dispositions proches (expérimental)";
 "settings.autoCorrectSimilar.tip" = "Convertit un mot saisi sur la disposition russe qui se lit comme de l’ukrainien, et inversement (« ъжа » → « їжа »). Les deux langues ne se distinguent que par leurs lettres propres : les mots communs restent intacts et certaines erreurs passent. Paires comme uk ↔ ru ou en ↔ de. Disponible seulement si deux dispositions d’une même écriture et de langues différentes sont activées, p. ex. ukrainien et russe.";
 "settings.autoCorrectSpell" = "Vérifier avec le dictionnaire du système (expérimental)";
-"settings.autoCorrectSpell.tip" = "Consulte le dictionnaire orthographique du système avant de convertir : un vrai mot reste intact même s’il paraît étrange, et un mot que le dictionnaire ne connaît que dans l’autre disposition est converti. Supprime aussi une lettre doublée (« bonjjour » → « bonjour ») ; les mots commençant par une majuscule restent intacts. Disponible uniquement si le système dispose d’un dictionnaire orthographique pour la langue d’une disposition activée.";
+"settings.autoCorrectSpell.tip" = "Consulte le dictionnaire orthographique du système avant de convertir : un vrai mot reste intact même s’il paraît étrange, et un mot que le dictionnaire ne connaît que dans l’autre disposition est converti. Disponible uniquement si le système dispose d’un dictionnaire orthographique pour la langue d’une disposition activée.";
 "settings.autoCorrectUnavailable" = "La correction automatique nécessite des dispositions d’alphabets différents, par ex. anglais et n’importe quelle cyrillique. Celles d’un même alphabet (%@) ne se distinguent pas de façon fiable : utilisez le raccourci.";
 
 // auto-correct exceptions

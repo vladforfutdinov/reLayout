@@ -24,7 +24,7 @@
 "settings.autoCorrectSimilar" = "Między podobnymi układami (eksperymentalne)";
 "settings.autoCorrectSimilar.tip" = "Poprawia słowo wpisane w układzie rosyjskim, które czyta się jak ukraińskie, i odwrotnie („ъжа” → „їжа”). Języki różnią się tylko charakterystycznymi literami: wspólne słowa pozostają nietknięte, a część błędów się prześlizguje. Pary takie jak uk ↔ ru czy en ↔ de. Dostępne tylko, gdy włączone są dwa układy tego samego pisma w różnych językach, np. ukraiński i rosyjski.";
 "settings.autoCorrectSpell" = "Sprawdzaj słownikiem systemowym (eksperymentalne)";
-"settings.autoCorrectSpell.tip" = "Przed zamianą pyta systemowy słownik ortograficzny: prawdziwe słowo zostaje, nawet jeśli wygląda dziwnie, a słowo, które słownik zna tylko w drugim układzie, jest zamieniane. Usuwa też podwojoną literę („dobrrze” → „dobrze”); słowa zaczynające się wielką literą zostają. Dostępne tylko, gdy system ma słownik ortograficzny dla języka jednego z włączonych układów.";
+"settings.autoCorrectSpell.tip" = "Przed zamianą pyta systemowy słownik ortograficzny: prawdziwe słowo zostaje, nawet jeśli wygląda dziwnie, a słowo, które słownik zna tylko w drugim układzie, jest zamieniane. Dostępne tylko, gdy system ma słownik ortograficzny dla języka jednego z włączonych układów.";
 "settings.autoCorrectUnavailable" = "Autokorekta wymaga układów o różnych alfabetach, np. angielskiego i dowolnego cyrylickiego. Układów jednego alfabetu (%@) nie da się wiarygodnie rozróżnić – użyj skrótu klawiszowego.";
 
 // auto-correct exceptions

@@ -2119,11 +2119,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     // The typed-word run (word, trail, previous word) lives in the engine: the same
     // state machine drives the Windows port, and its rules are tested there.
     fileprivate var autoRun = AutoRun()
-    fileprivate var revertWatch = RevertWatch()
-    fileprivate var unkeepWatch = RevertWatch()   // a keep left alone, then erased and retyped
-    fileprivate var manualWatch = RevertWatch()   // a word left alone, then retyped in the other layout
-    private var manualTyped: String?
-    private var revertLayouts: (src: Layout, dst: Layout)?
+    fileprivate var edits = EditLearning<Layout>()
 
     // Fast typing races the retype: the deletes + retype of a finished word land
     // in the middle of the characters typed since, producing mixed text and bogus
@@ -2213,9 +2209,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             if !synth, type != .keyDown || event.flags.contains(.maskCommand) || event.flags.contains(.maskControl)
                 || [kVK_Delete, kVK_ForwardDelete, kVK_LeftArrow, kVK_RightArrow, kVK_UpArrow, kVK_DownArrow]
                     .contains(Int(event.getIntegerValueField(.keyboardEventKeycode))) {
-                me.revertWatch.edit()
-                me.unkeepWatch.edit()
-                me.manualWatch.edit()
+                me.edits.edit()
             }
             if type == .keyDown, !synth,
                event.getIntegerValueField(.keyboardEventKeycode) == Int64(kVK_Delete) {
@@ -2452,40 +2446,30 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             dbg("auto: skipped (word=\(word.debugDescription) excluded=\(isAutoExcluded()))")
             autoRun.noCandidate(); return false
         }
-        if revertWatch.reverted(word, typedBack: { w in
-            self.revertLayouts.flatMap { convertScriptRuns(w, src: $0.dst, dst: $0.src) } ?? w }) {
-            learnedKeep = Array(Set(learnedKeep + [learnedKey(word)])).sorted()
-            dbg("learned keep by revert: \(learnedKey(word).debugDescription)")
-            refreshLearnedUI()
-            autoRun.noCandidate(); return false
-        }
-        // The other way round: a word left alone as a keep, erased and typed again,
-        // is wanted converted after all — the keep goes and the word is judged afresh.
-        if unkeepWatch.reverted(word, typedBack: { $0 }) {
-            learnedKeep = learnedKeep.filter { $0 != learnedKey(word) }
-            dbg("keep dropped by revert: \(learnedKey(word).debugDescription)")
-            refreshLearnedUI()
-        } else if learnedVerdict(learnedKey(word)) == .keep {
-            unkeepWatch.corrected(word, into: "")
-        }
-        // A word left alone, erased and typed in the other layout by hand ("учше",
-        // then "exit"): learned as a conversion at once.
-        if manualWatch.reverted(word, typedBack: { $0 }), let typed = manualTyped {
-            let key = learnedKey(typed)
-            learnedConvert[key] = learnedKey(word)
-            learnedKeep = learnedKeep.filter { $0 != key }
-            learnedCounts[key] = nil; learnedCandidates[key] = nil
-            dbg("learned convert by hand: \(key.debugDescription) -> \(learnedKey(word).debugDescription)")
-            refreshLearnedUI()
-        }
         let enabled = Layout.enabledList()
+        for lesson in edits.boundary(word, verdict: learnedVerdict(learnedKey(word))) {
+            switch lesson {
+            case .keep(let key):
+                learnedKeep = Array(Set(learnedKeep + [key])).sorted()
+                dbg("learned keep by revert: \(key.debugDescription)")
+                refreshLearnedUI()
+                autoRun.noCandidate(); return false
+            case .dropKeep(let key):
+                learnedKeep = learnedKeep.filter { $0 != key }
+                dbg("keep dropped by revert: \(key.debugDescription)")
+                refreshLearnedUI()
+            case .convert(let key, let out):
+                learnedConvert[key] = out
+                learnedKeep = learnedKeep.filter { $0 != key }
+                learnedCounts[key] = nil; learnedCandidates[key] = nil
+                dbg("learned convert by hand: \(key.debugDescription) -> \(out.debugDescription)")
+                refreshLearnedUI()
+            }
+        }
         guard let cur = enabled.first(where: { $0.id == currentSourceID() }),
               let d = autoDecide(word, cur: cur, enabled: enabled) else {
-            if let cur = enabled.first(where: { $0.id == currentSourceID() }), wordBody(word) >= 3, !isAbbreviation(word),
-               let t = enabled.first(where: { $0.isCyrillic != cur.isCyrillic }),
-               let conv = convertWrong(word, src: cur, dst: t) {
-                manualWatch.corrected(conv, into: word)
-                manualTyped = word
+            if let cur = enabled.first(where: { $0.id == currentSourceID() }) {
+                edits.leftAlone(word, cur: cur, enabled: enabled)
             }
             // A short word the model reads as fine right after a chain word ("ot"
             // in "nf ot [fktgf") rides along with its reading in the chain's layout.
@@ -2514,8 +2498,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         guard let fix = autoRun.plan(raw: word + trail, out: d.out + outTrail, cyrillic: d.target.isCyrillic,
                                      trusted: learnedVerdict(learnedKey(word)) == .convert, ambiguous: d.ambiguous)
         else { dbg("auto: short or ambiguous word waits for a neighbour"); return false }
-        revertWatch.corrected(word, into: d.out)
-        revertLayouts = (cur, d.target)
+        edits.corrected(word, into: d.out, from: cur, to: d.target)
         dbg("revert watch: armed")
         beginCorrection {
             self.autoCorrect(fix, boundary: boundary, boundaryFlags: flags, target: d.target, srcSource: srcSource)

@@ -356,6 +356,61 @@ public struct RevertWatch {
     }
 }
 
+/// What a word boundary taught (`EditLearning`); keys are `learnedKey`s.
+public enum EditLesson: Equatable {
+    case keep(String)                 // a correction erased and the typed word retyped
+    case dropKeep(String)             // a word left as a keep, erased and retyped
+    case convert(String, to: String)  // a missed word erased and typed in the other layout
+}
+
+/// Learning from edits, shared by both platforms: three `RevertWatch`es — a
+/// correction reverted, a keep reverted, a missed word fixed by hand.
+public struct EditLearning<L: AutoLayout> {
+    private var revert = RevertWatch(), unkeep = RevertWatch(), manual = RevertWatch()
+    private var corrected: (src: L, dst: L)?
+    private var missed: String?
+
+    public init() {}
+
+    /// A key or click of the user's that may delete text.
+    public mutating func edit() { revert.edit(); unkeep.edit(); manual.edit() }
+
+    /// At a word boundary, before the decision. A `.keep` lesson means: leave the
+    /// word as typed and decide nothing.
+    /// - Parameter verdict: the word's learned verdict before any lesson.
+    public mutating func boundary(_ word: String, verdict: LearnedVerdict?) -> [EditLesson] {
+        let key = learnedKey(word), layouts = corrected
+        if revert.reverted(word, typedBack: { w in layouts.flatMap { convertScriptRuns(w, src: $0.dst, dst: $0.src) } ?? w }) {
+            return [.keep(key)]
+        }
+        var lessons: [EditLesson] = []
+        if unkeep.reverted(word, typedBack: { $0 }) {
+            lessons.append(.dropKeep(key))
+        } else if verdict == .keep {
+            unkeep.corrected(word, into: "")
+        }
+        if manual.reverted(word, typedBack: { $0 }), let typed = missed {
+            lessons.append(.convert(learnedKey(typed), to: key))
+        }
+        return lessons
+    }
+
+    /// An auto-correction of `word` into `out`, from layout `src` to `dst`.
+    public mutating func corrected(_ word: String, into out: String, from src: L, to dst: L) {
+        revert.corrected(word, into: out)
+        corrected = (src, dst)
+    }
+
+    /// `word` was left as typed on `cur`: watch for it being retyped in the other layout.
+    public mutating func leftAlone(_ word: String, cur: L, enabled: [L]) {
+        guard wordBody(word) >= 3, !isAbbreviation(word),
+              let t = enabled.first(where: { $0.isCyrillic != cur.isCyrillic }),
+              let conv = convertWrong(word, src: cur, dst: t) else { return }
+        manual.corrected(conv, into: word)
+        missed = word
+    }
+}
+
 // A hotkey miss is learned only when its conversion reads in the target
 // language: a real miss does ("exit" -2.41, "ок" -2.78, "сброс" -3.41), a
 // deliberate transliteration of correct text does not ("nf ot [fktgf" -10..-18),

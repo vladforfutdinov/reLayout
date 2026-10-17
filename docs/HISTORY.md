@@ -14,6 +14,10 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
     on any key in its hotkey hook and on clicks in the always-on mouse hook);
   - a `RevertWatch` watches only the next word: retyped after an edit, it is a
     revert/unkeep/manual fix; typed with no edit, the user moved on.
+- The three watches, their arming and the lessons moved from both platforms
+  into engine `EditLearning` (+ `EditLesson`, tested once). The spell chain
+  (`decideAutoTarget` -> `spellCheckedTarget` -> `spellRepairedTarget`) stays
+  per platform: ~8 lines each, interleaved with platform trace lines.
 
 ---
 

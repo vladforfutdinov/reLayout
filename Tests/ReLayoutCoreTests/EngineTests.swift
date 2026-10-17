@@ -502,6 +502,20 @@ final class EngineTests: XCTestCase {
         XCTAssertEqual(decide("ghbdtn", cyrKnows: ["привет"], latinKnows: ["hello"])?.out, "привет")
     }
 
+    func testEditLearning() {
+        let (latin, cyr) = makeLayouts()
+        var e = EditLearning<FakeLayout>()
+        e.corrected("ghbdtn", into: "привет", from: latin, to: cyr); e.edit()
+        XCTAssertEqual(e.boundary("ghbdtn", verdict: nil), [.keep("ghbdtn")])
+        _ = e.boundary("ghbdtn", verdict: .keep)                       // left as a keep: watched
+        e.edit()
+        XCTAssertEqual(e.boundary("ghbdtn", verdict: .keep), [.dropKeep("ghbdtn")])
+        e.leftAlone("ghbdtn", cur: latin, enabled: [latin, cyr]); e.edit()
+        XCTAssertEqual(e.boundary("привет", verdict: nil), [.convert("ghbdtn", to: "привет")])
+        e.leftAlone("ghbdtn", cur: latin, enabled: [latin, cyr])
+        XCTAssertEqual(e.boundary("привет", verdict: nil), [])           // no edit: moved on
+    }
+
     func testAutoDecideWithoutAModelDoesNothing() {
         let (latin, cyr) = makeLayouts()
         XCTAssertNil(decideAutoTarget("ghbdtn", cur: latin, enabled: [latin, cyr], model: { _ in nil }))

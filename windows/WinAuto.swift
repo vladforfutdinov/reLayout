@@ -20,11 +20,7 @@ private var autoSameScript = false
 private var autoSpell = false
 private var learnedConvert: [String: String] = [:]   // the user's verdicts, cached from the registry
 private var learnedKeep: Set<String> = []
-private var revertWatch = RevertWatch()
-private var unkeepWatch = RevertWatch()   // a keep left alone, then erased and retyped
-private var manualWatch = RevertWatch()   // a word left alone, then retyped in the other layout
-private var manualTyped: String?
-private var revertLayouts: (src: WinLayout, dst: WinLayout)?
+private var edits = EditLearning<WinLayout>()
 private var learnedCounts: [String: Int] = [:]
 private var learnedCandidates: [String: String] = [:]   // counted words and their conversions
 private var excludedApps: [String] = []
@@ -203,7 +199,7 @@ func autoFeed(vk: UINT, scan: WORD, shortcut: Bool, shift: Bool) -> Bool {
 
     // Anything that may delete or select text arms learning by revert.
     if vk == vkBack || shortcut || navigationVKs.contains(vk) {
-        revertWatch.edit(); unkeepWatch.edit(); manualWatch.edit()
+        edits.edit()
     }
     // Backspace edits the word; Ctrl+Backspace removes a word — nothing left to track.
     if vk == vkBack {
@@ -243,35 +239,24 @@ private var chainTarget: WinLayout?   // layout of the last auto candidate, for 
 
 private func evaluate(word: String, trail: String, boundary: Int32, shift: Bool, cur: WinLayout) -> Bool {
     guard !word.isEmpty, !autoExcluded() else { run.noCandidate(); return false }
-    if revertWatch.reverted(word, typedBack: { w in
-        revertLayouts.flatMap { convertScriptRuns(w, src: $0.dst, dst: $0.src) } ?? w }) {
-        learnedKeep.insert(learnedKey(word))
-        saveLearnedWords()
-        dwatch("learned keep by revert")
-        run.noCandidate(); return false
-    }
-    // The other way round: a keep left alone, erased and typed again, is wanted
-    // converted after all — the keep goes and the word is judged afresh.
-    if unkeepWatch.reverted(word, typedBack: { $0 }) {
-        learnedKeep.remove(learnedKey(word))
-        saveLearnedWords()
-        dwatch("keep dropped by revert")
-    } else if learnedVerdict(learnedKey(word)) == .keep {
-        unkeepWatch.corrected(word, into: "")
-    }
-    // A word left alone, erased and typed in the other layout by hand ("учше",
-    // then "exit"): learned as a conversion at once.
-    if manualWatch.reverted(word, typedBack: { $0 }), let typed = manualTyped {
-        promoteLearned(learnedKey(typed), to: learnedKey(word))
-        dwatch("learned convert by hand")
+    for lesson in edits.boundary(word, verdict: learnedVerdict(learnedKey(word))) {
+        switch lesson {
+        case .keep(let key):
+            learnedKeep.insert(key)
+            saveLearnedWords()
+            dwatch("learned keep by revert")
+            run.noCandidate(); return false
+        case .dropKeep(let key):
+            learnedKeep.remove(key)
+            saveLearnedWords()
+            dwatch("keep dropped by revert")
+        case .convert(let key, let out):
+            promoteLearned(key, to: out)
+            dwatch("learned convert by hand")
+        }
     }
     guard let decided = autoDecide(word, cur: cur, enabled: WinLayout.installedList()) else {
-        if wordBody(word) >= 3, !isAbbreviation(word),
-           let t = WinLayout.installedList().first(where: { $0.isCyrillic != cur.isCyrillic }),
-           let conv = convertWrong(word, src: cur, dst: t) {
-            manualWatch.corrected(conv, into: word)
-            manualTyped = word
-        }
+        edits.leftAlone(word, cur: cur, enabled: WinLayout.installedList())
         // A short word the model reads as fine right after a chain word ("ot" in
         // "nf ot [fktgf") rides along with its reading in the chain's layout.
         if wordBody(word) <= 2, run.previous != nil, let t = chainTarget {
@@ -295,8 +280,7 @@ private func evaluate(word: String, trail: String, boundary: Int32, shift: Bool,
                              trusted: learnedVerdict(learnedKey(word)) == .convert,
                              ambiguous: decided.ambiguous) else { return false }
     queued = QueuedFix(fix: fix, boundary: boundary, shift: shift, target: decided.target, src: cur)
-    revertWatch.corrected(word, into: decided.out)
-    revertLayouts = (cur, decided.target)
+    edits.corrected(word, into: decided.out, from: cur, to: decided.target)
     correcting = true
     gateSince = GetTickCount()
     PostMessageW(trayWindow(), WM_AUTOFIX, 0, 0)
@@ -519,7 +503,7 @@ private let mouseProc: HOOKPROC = { nCode, wParam, lParam in
         || wParam == WPARAM(WM_MBUTTONDOWN) {
         resetAutoBuffer()
         forgetConversion()
-        revertWatch.edit(); unkeepWatch.edit(); manualWatch.edit()
+        edits.edit()
     }
     return CallNextHookEx(nil, nCode, wParam, lParam)
 }

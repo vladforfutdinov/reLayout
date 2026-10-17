@@ -145,6 +145,23 @@ public func decideAutoTarget<L: AutoLayout>(_ w: String, cur: L, enabled: [L],
             }
             continue
         }
+        // A trailing "." or "," that is a letter in `t` ("ghbdtn." -> "приветю") may as
+        // well be the punctuation the user meant: read it once as a letter (below) and
+        // once as itself after the converted word ("привет."); the better reading wins.
+        if !pure, let tail = w.last, tail == "." || tail == ",", t.isCyrillic != cur.isCyrillic {
+            let core = String(w.dropLast())
+            if core.count >= 2, core.allSatisfy(\.isLetter),
+               let o = convertWrong(core, src: cur, dst: t), o != core,
+               let tLang = t.languageCode, let tModel = model(tLang) {
+                let sAlt = max(tModel.score(o), model(t.isCyrillic ? "ru" : "en")?.score(o) ?? -.infinity)
+                var sCore = curModel.score(core)
+                for lang in langs { if let m = model(lang) { sCore = max(sCore, m.score(core)) } }
+                if forced || (sAlt > autoPlausible && sCore < autoGarbage && sAlt - sCore > autoMargin),
+                   best == nil || sAlt > best!.2 {
+                    best = (t, o + String(tail), sAlt, false)
+                }
+            }
+        }
         // Shape + core gates (see autoWordCore): mapped punctuation may be a
         // Cyrillic letter (",skj" is "было"), but not when the word minus its
         // edge punctuation is already plausible ("'hello", "hello," stay).

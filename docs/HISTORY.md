@@ -10,8 +10,12 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
   IBM, МФЦ, КПСС) is never auto-corrected; a learned `convert` still wins,
   the hotkey still converts. Cost, accepted: a word typed with Caps Lock in
   the wrong layout ("GHBDTN") is left too. Not measured — the frequency lists
-  carry no case. Caramba's "with a dot" rule (г., стр.) not taken: a dot also
-  ends sentences ("ghbdtn." must convert).
+  carry no case.
+- Dot rule, owner's version: a trailing "."/"," is a letter only if it is
+  one in the other layout; then both readings are scored — "ghbdtn." ->
+  "привет." (dot kept) beats "приветю"; "стр." on the Russian layout reads
+  "cnh/" the other way, junk, left. A learned convert with junk both ways
+  now gives "привет," (was "приветб").
 
 ---
 

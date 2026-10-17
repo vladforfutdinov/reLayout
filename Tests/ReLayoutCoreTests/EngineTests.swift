@@ -489,6 +489,14 @@ final class EngineTests: XCTestCase {
                                          model: { models[$0] }, isWord: speller(["привет", "ghbddtn"]), guesses: none))
     }
 
+    func testAutoDecideReadsATrailingDotAsADot() {
+        // "." is "ю" on the Cyrillic layout; "приветю" is junk, "привет." reads.
+        XCTAssertEqual(decide("ghbdtn.", cyrKnows: ["привет"], latinKnows: ["hello"])?.out, "привет.")
+        XCTAssertEqual(decide("ghbdtn,", cyrKnows: ["привет"], latinKnows: ["hello"])?.out, "привет,")
+        // A real letter on that key still converts as one: ",skj" is "было"-like.
+        XCTAssertEqual(decide("ghbdtn.", cyrKnows: ["приветю"], latinKnows: ["hello"])?.out, "приветю")
+    }
+
     func testAutoDecideLeavesAbbreviations() {
         XCTAssertTrue(isAbbreviation("IBM"))
         XCTAssertTrue(isAbbreviation("МФЦ,"))
@@ -513,7 +521,7 @@ final class EngineTests: XCTestCase {
         XCTAssertEqual(decideAutoTarget("ghbdtn", cur: latin, enabled: [latin, cyr],
                                         model: { models[$0] }, learned: learned)?.out, "привет")
         XCTAssertEqual(decideAutoTarget("ghbdtn,", cur: latin, enabled: [latin, cyr],
-                                        model: { models[$0] }, learned: learned)?.out, "приветб")
+                                        model: { models[$0] }, learned: learned)?.out, "привет,")   // a tie: punctuation
     }
 
     func testLearnedKeepBlocksAConversion() {

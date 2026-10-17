@@ -75,7 +75,9 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
   text-less checkbox drew its focus cue as a dotted sliver beside the box —
   hidden (WM_UPDATEUISTATE UISF_HIDEFOCUS); the ⓘ glyphs sat 2 px low.
   Captions (Language, both hotkeys) left-aligned like macOS.
-  ⓘ glyphs centred on their rows (y + 1); Learned words column titles moved
+  ⓘ glyphs: nudging the top (y+2 low, y high, y+1 still high) never fit — the
+  icon font's glyph sits high in its cell; now SS_CENTERIMAGE over the label's
+  one-line rect (`053f6e7`); Learned words column titles moved
   over the row text — missed; then (`ed26dd8`) the list became three
   columns: the check box alone in column 0, Typed and Becomes as sub-items,
   titles at list border + the cells' 4 px text inset. Label editing of

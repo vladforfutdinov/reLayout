@@ -71,7 +71,9 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 - Tray: a green dot in the glyph's corner while auto-correct is on, drawn at
   runtime. Windows has no monochrome tray variant (the ICOs are pre-tinted
   per taskbar), so the dot is always green: deeper on light, lighter on dark.
-- Not compiled or run on Windows when written.
+- Built in the VM on first try (`4c9c998`). Owner's review (`5c6536a`): a
+  text-less checkbox drew its focus cue as a dotted sliver beside the box —
+  hidden (WM_UPDATEUISTATE UISF_HIDEFOCUS); the ⓘ glyphs sat 2 px low.
 
 ---
 

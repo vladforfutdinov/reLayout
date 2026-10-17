@@ -241,8 +241,8 @@ private func buildLearned(_ hwnd: HWND?) {
     // none: a list view's header does not follow the dark theme. "Typed" clears
     // the rows' check boxes.
     let colW = width / 2
-    makeLrnControl("STATIC", L("settings.learned.col.typed"), 0, 38, y, colW - 22, 18, hwnd, idLrnColTyped)
-    makeLrnControl("STATIC", L("settings.learned.col.out"), 0, 16 + colW + 4, y, width - colW - 4, 18, hwnd, idLrnColOut)
+    makeLrnControl("STATIC", L("settings.learned.col.typed"), 0, 40, y, colW - 24, 18, hwnd, idLrnColTyped)
+    makeLrnControl("STATIC", L("settings.learned.col.out"), 0, 16 + colW + 5, y, width - colW - 5, 18, hwnd, idLrnColOut)
     y += 20
     let list = makeLrnControl("SysListView32", "",
                               Int32(0x1 /* LVS_REPORT */) | Int32(0x4000 /* LVS_NOCOLUMNHEADER */)

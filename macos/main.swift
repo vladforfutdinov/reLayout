@@ -2045,8 +2045,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
 
     // Cross-script trigram decision lives in the engine (Core/Auto.swift); this
     // only feeds it the cached models.
-    /// - Returns: the decision; `repaired` = a typo in the conversion was fixed too
-    ///   (never learned).
+    /// - Returns: the decision; `repaired` = a typo in the conversion was fixed too.
     func autoDecide(_ w: String, cur: Layout, enabled: [Layout])
         -> (target: Layout, out: String, ambiguous: Bool, repaired: Bool)? {
         let d = decideAutoTarget(w, cur: cur, enabled: enabled, model: trigram, learned: learnedVerdict,
@@ -2343,7 +2342,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         let srcSource = cur.source
         beginCorrection {
             self.finishEnter(el: el, before: before, word: word, trail: trail, out: d.out, outTrail: outTrail,
-                             flags: flags, target: d.target, srcSource: srcSource, learn: !d.repaired)
+                             flags: flags, target: d.target, srcSource: srcSource)
         }
     }
 
@@ -2351,8 +2350,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     // ~50 ms after the line break appears, so a single changed read is not enough —
     // then retypes the word above the new line only for `.newline`.
     private func finishEnter(el: AXUIElement, before: FieldSnapshot, word: String, trail: String, out: String,
-                             outTrail: String, flags: CGEventFlags, target: Layout, srcSource: TISInputSource,
-                             learn: Bool) {
+                             outTrail: String, flags: CGEventFlags, target: Layout, srcSource: TISInputSource) {
         guard let after = awaitSettledField(before: before, read: { self.fieldSnapshot(el) },
                                             wait: { usleep(useconds_t($0 * 1000)) })
         else { dbg("enter: field did not settle"); return }
@@ -2367,7 +2365,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         DispatchQueue.main.sync { self.selectLayout(target) }
         lastConversion = Conversion(original: word + trail + "\r", typed: out + outTrail + "\r",
                                     srcSource: srcSource, time: ProcessInfo.processInfo.systemUptime,
-                                    autoWords: learn ? [learnedKey(word)] : [])
+                                    autoWords: [learnedKey(word)])
     }
 
     private func focusedTextElement() -> AXUIElement? {
@@ -2463,14 +2461,11 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         guard let fix = autoRun.plan(raw: word + trail, out: d.out + outTrail, cyrillic: d.target.isCyrillic,
                                      trusted: learnedVerdict(learnedKey(word)) == .convert, ambiguous: d.ambiguous)
         else { dbg("auto: short or ambiguous word waits for a neighbour"); return false }
-        if !d.repaired {   // typo repairs are never learned, so they arm no revert
-            revertWatch.corrected(word, into: d.out, at: ProcessInfo.processInfo.systemUptime)
-            revertLayouts = (cur, d.target)
-            dbg("revert watch: armed")
-        }
+        revertWatch.corrected(word, into: d.out, at: ProcessInfo.processInfo.systemUptime)
+        revertLayouts = (cur, d.target)
+        dbg("revert watch: armed")
         beginCorrection {
-            self.autoCorrect(fix, boundary: boundary, boundaryFlags: flags, target: d.target, srcSource: srcSource,
-                             learn: !d.repaired)
+            self.autoCorrect(fix, boundary: boundary, boundaryFlags: flags, target: d.target, srcSource: srcSource)
         }
         return true
     }
@@ -2527,10 +2522,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     // Delete the wrong word (and a swallowed preposition before it), retype the
     // conversion and the boundary, switch the system layout. Records it so the
     // hotkey undo reverts.
-    /// - Parameter learn: false for a typo repair — undoing it stores no `keep`
-    ///   verdict (typo fixes never enter the learned words).
     private func autoCorrect(_ fix: AutoRun.Fix, boundary: String, boundaryFlags: CGEventFlags,
-                             target: Layout, srcSource: TISInputSource, learn: Bool = true) {
+                             target: Layout, srcSource: TISInputSource) {
         waitModifiersReleased()
         dbg("fix: erase=\(fix.erase) type=\(fix.text.debugDescription) -> \(target.id)")
         eraseBack(fix.erase)
@@ -2540,7 +2533,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         DispatchQueue.main.sync { self.selectLayout(target) }
         lastConversion = Conversion(original: fix.original + boundary, typed: fix.text + boundary,
                                     srcSource: srcSource, time: ProcessInfo.processInfo.systemUptime,
-                                    autoWords: learn ? fix.original.split(separator: " ").map { learnedKey(String($0)) } : [])
+                                    autoWords: fix.original.split(separator: " ").map { learnedKey(String($0)) })
     }
 
     /// True when the event was posted by macOS's TextInputSwitcher (the Globe HUD).

@@ -20,6 +20,11 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
   the layout the fix had switched to ("я"+"aaa"). The retype is now mapped
   back through the fix's layouts (`typedBack`, `convertScriptRuns`) before
   comparing; typing the correction itself again is no revert.
+- Then "kpss" (an abbreviation): converted with a typo repair every time and
+  never learnable. Owner's split: the repair is never learned as a
+  conversion, but undoing/reverting it stores the TYPED word as `keep`. The
+  `learn:` flag is gone on both platforms; every auto-correction arms the
+  revert watch.
 
 ---
 

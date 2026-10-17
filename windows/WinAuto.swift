@@ -43,7 +43,6 @@ private struct QueuedFix {
     let shift: Bool          // Shift+Tab stays Shift+Tab when re-sent
     let target: WinLayout
     let src: WinLayout       // for undo
-    let learn: Bool          // false for a typo repair: its undo learns no `keep`
 }
 private var queued: QueuedFix?
 
@@ -270,12 +269,9 @@ private func evaluate(word: String, trail: String, boundary: Int32, shift: Bool,
     guard let fix = run.plan(raw: word + trail, out: decided.out + outTrail, cyrillic: decided.target.isCyrillic,
                              trusted: learnedVerdict(learnedKey(word)) == .convert,
                              ambiguous: decided.ambiguous) else { return false }
-    queued = QueuedFix(fix: fix, boundary: boundary, shift: shift, target: decided.target, src: cur,
-                       learn: !decided.repaired)
-    if !decided.repaired {   // typo repairs are never learned, so they arm no revert
-        revertWatch.corrected(word, into: decided.out, at: uptime())
-        revertLayouts = (cur, decided.target)
-    }
+    queued = QueuedFix(fix: fix, boundary: boundary, shift: shift, target: decided.target, src: cur)
+    revertWatch.corrected(word, into: decided.out, at: uptime())
+    revertLayouts = (cur, decided.target)
     correcting = true
     gateSince = GetTickCount()
     PostMessageW(trayWindow(), WM_AUTOFIX, 0, 0)
@@ -410,7 +406,6 @@ private struct EnterJob {
     let text: String        // its conversion
     let target: WinLayout
     let src: WinLayout      // for undo
-    let learn: Bool         // false for a typo repair
 }
 private var enterJob: EnterJob?
 
@@ -424,7 +419,7 @@ private func enterFollowUp(word: String, trail: String, cur: WinLayout) {
     else { return }
     let outTrail = trail.isEmpty ? "" : transliterate(trail, from: cur, to: decided.target)
     enterJob = EnterJob(before: before, word: word + trail,
-                        text: decided.out + outTrail, target: decided.target, src: cur, learn: !decided.repaired)
+                        text: decided.out + outTrail, target: decided.target, src: cur)
     correcting = true
     gateSince = GetTickCount()
     PostMessageW(trayWindow(), WM_AUTOENTER, 0, 0)
@@ -443,7 +438,7 @@ func runAutoEnter() {
     guard typeText(job.text, in: job.target) else { return }   // also leaves target active
     sendKeyTap(Int32(vkReturn))
     recordConversion(original: job.word + "\r", typed: job.text + "\r", src: job.src,
-                     autoWords: job.learn ? [learnedKey(job.word)] : [])
+                     autoWords: [learnedKey(job.word)])
 }
 
 // MARK: - the fix (runs on the UI thread, off the hook)
@@ -458,7 +453,7 @@ func runAutoFix() {
     sendKeyTap(job.boundary, shift: job.shift)
     let boundary = job.boundary == Int32(vkTab) ? "\t" : " "
     recordConversion(original: job.fix.original + boundary, typed: job.fix.text + boundary, src: job.src,
-                     autoWords: job.learn ? job.fix.original.split(separator: " ").map { learnedKey(String($0)) } : [])
+                     autoWords: job.fix.original.split(separator: " ").map { learnedKey(String($0)) })
 }
 
 /// Replays what was typed during the fix, feeding each key through the run first

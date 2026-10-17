@@ -171,6 +171,9 @@ private func setFieldText(_ hwnd: HWND?, _ id: Int, _ s: String) {
 private func makeCheck(_ title: String, _ x: Int32, _ y: Int32, _ w: Int32, _ hwnd: HWND?, _ id: Int,
                        on: Bool, enabled: Bool) -> HWND? {
     let box = makeControl("BUTTON", "", Int32(BS_AUTOCHECKBOX) | Int32(WS_TABSTOP), x, y + 2, 18, 18, hwnd, id)
+    // The box has no text of its own (the label is a static), so its focus cue is a
+    // stray dotted sliver beside it: hide it.
+    SendMessageW(box, 0x0128 /* WM_UPDATEUISTATE */, WPARAM(0x0001_0001) /* UIS_SET, UISF_HIDEFOCUS */, 0)
     check(box, on)
     makeControl("STATIC", title, Int32(0x0100 /* SS_NOTIFY */), x + 22, y + 3, w - 22, 20, hwnd, id + labelOffset)
     enableCheck(hwnd, id, enabled)
@@ -350,7 +353,7 @@ private func buildControls(_ hwnd: HWND?) {
     makeCheck(autoTitle, margin, y, autoW, hwnd, idChkAuto, on: available && loadAutoMode(), enabled: available)
     if !available {
         let info = makeControl("STATIC", "\u{E946}" /* Info glyph */, 0,
-                               margin + autoW + 2, y + 2, 20, 20, hwnd, idAutoInfo)
+                               margin + autoW + 2, y, 20, 20, hwnd, idAutoInfo)
         setFont(info, glyphFont)
         let installed = WinLayout.installedList().map(\.displayName).joined(separator: ", ")
         addTooltip(&tooltip, hwnd, info, L("settings.autoCorrectUnavailable", installed), overWindow: true)
@@ -368,7 +371,7 @@ private func buildControls(_ hwnd: HWND?) {
               on: available && similarAvailable() && loadAutoSameScript(),
               enabled: available && loadAutoMode() && similarAvailable())
     let similarInfo = makeControl("STATIC", "\u{E946}" /* Info glyph */, 0,
-                                  margin + 20 + similarW + 2, y + 2, 20, 20, hwnd, idSimilarInfo)
+                                  margin + 20 + similarW + 2, y, 20, 20, hwnd, idSimilarInfo)
     setFont(similarInfo, glyphFont)
     addTooltip(&tooltip, hwnd, similarInfo, L("settings.autoCorrectSimilar.tip"), overWindow: true)
     y += 30

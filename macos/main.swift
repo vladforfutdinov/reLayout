@@ -670,6 +670,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     private weak var autoExcBtn: NSButton?
     private weak var autoEnterCb: NSButton?
     private weak var autoSimilarCb: NSButton?
+    private weak var autoSpellCb: NSButton?
     private weak var learnedLabel: NSTextField?
     private weak var learnedViewBtn: NSButton?
     private var learnedWindow: NSWindow?
@@ -785,6 +786,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         autoEnterCb?.state = autoEnterNewline ? .on : .off
         autoSimilarCb?.isEnabled = ok && autoMode && hasSimilarLayouts(enabled, model: trigram)
         autoSimilarCb?.state = autoSameScript ? .on : .off
+        autoSpellCb?.isEnabled = ok && autoMode && hasSpellDictionary(enabled)
+        autoSpellCb?.state = autoSpell ? .on : .off
         learnedLabel?.stringValue = String(format: L("settings.learned"), String(learnedConvert.count + learnedKeep.count))
         learnedViewBtn?.isEnabled = ok && autoMode
         autoInfo?.isHidden = ok
@@ -1165,6 +1168,13 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         let similarRow = NSStackView(views: [similarCb, similarInfo])
         similarRow.orientation = .horizontal; similarRow.spacing = 4; similarRow.alignment = .centerY
         similarRow.edgeInsets = NSEdgeInsets(top: 0, left: 20, bottom: 0, right: 0)
+        let spellCb = makeCheckbox(L("settings.autoCorrectSpell"), #selector(toggleAutoSpell(_:)), on: autoSpell)
+        let spellInfo = NSImageView(image: NSImage(systemSymbolName: "info.circle", accessibilityDescription: nil) ?? NSImage())
+        spellInfo.contentTintColor = .secondaryLabelColor
+        spellInfo.toolTip = L("settings.autoCorrectSpell.tip")
+        let spellRow = NSStackView(views: [spellCb, spellInfo])
+        spellRow.orientation = .horizontal; spellRow.spacing = 4; spellRow.alignment = .centerY
+        spellRow.edgeInsets = NSEdgeInsets(top: 0, left: 20, bottom: 0, right: 0)
         let learnedLbl = NSTextField(labelWithString: "")
         let learnedView = NSButton(title: L("settings.learned.view"), target: self, action: #selector(openLearned))
         learnedView.bezelStyle = .rounded; learnedView.controlSize = .small
@@ -1173,6 +1183,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         learnedRow.edgeInsets = NSEdgeInsets(top: 0, left: 20, bottom: 0, right: 0)
 
         self.autoCb = autoCb; autoExcBtn = excBtn; autoInfo = autoInfoIcon; autoEnterCb = enterCb; autoSimilarCb = similarCb
+        autoSpellCb = spellCb
         learnedLabel = learnedLbl; learnedViewBtn = learnedView
         updateAutoAvailability()
 
@@ -1229,7 +1240,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
                                         on: updater?.updater.automaticallyChecksForUpdates ?? true)
         arranged.append(autoUpdateCb)
 #endif
-        arranged += [langGrid, sep2, hkGrid, sep3, autoRow, enterRow, similarRow, learnedRow, version, link, copyright]
+        arranged += [langGrid, sep2, hkGrid, sep3, autoRow, enterRow, similarRow, spellRow, learnedRow, version, link, copyright]
 
         let stack = NSStackView(views: arranged)
         stack.orientation = .vertical
@@ -1926,8 +1937,32 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     // Cross-script trigram decision lives in the engine (Core/Auto.swift); this
     // only feeds it the cached models.
     func autoDecide(_ w: String, cur: Layout, enabled: [Layout]) -> (target: Layout, out: String, ambiguous: Bool)? {
-        decideAutoTarget(w, cur: cur, enabled: enabled, model: trigram, learned: learnedVerdict,
-                         sameScript: autoSameScript)
+        let d = decideAutoTarget(w, cur: cur, enabled: enabled, model: trigram, learned: learnedVerdict,
+                                 sameScript: autoSameScript)
+        guard autoSpell else { return d }
+        let s = spellCheckedTarget(w, cur: cur, enabled: enabled, decided: d, model: trigram,
+                                   learned: learnedVerdict, isWord: isWord)
+        if s?.out != d?.out { dbg("spell: \(w.debugDescription) -> \(s?.out.debugDescription ?? "left")") }
+        return s
+    }
+
+    // Layout language code -> the spell checker's identifier for it ("pt" -> "pt_BR"
+    // when there is no bare "pt"); an exact match wins.
+    private lazy var spellLanguages: [String: String] = {
+        var m: [String: String] = [:]
+        for id in NSSpellChecker.shared.availableLanguages {
+            let code = String(id.prefix(2))
+            if m[code] == nil || id == code { m[code] = id }
+        }
+        return m
+    }()
+    // shortcut: synchronous call on the main thread (the tap's run loop) — median
+    // 0.5 ms, 1 in 100 takes 50–100 ms; add a timeout with a trigram fallback if
+    // that stall is felt.
+    private func isWord(_ w: String, _ lang: String) -> Bool? {
+        guard let id = spellLanguages[lang] else { return nil }
+        return NSSpellChecker.shared.checkSpelling(of: w, startingAt: 0, language: id, wrap: false,
+                                                   inSpellDocumentWithTag: 0, wordCount: nil).location == NSNotFound
     }
 
 
@@ -2145,6 +2180,15 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     private var autoEnterNewline: Bool { UserDefaults.standard.object(forKey: "autoEnterNewline") as? Bool ?? true }
     // Experimental: ru <-> uk conversion (see decideAutoTarget sameScript). Default off.
     private var autoSameScript: Bool { UserDefaults.standard.bool(forKey: "autoSameScript") }
+    // Spell-check option: the system dictionary refines layout decisions and fixes a
+    // doubled letter (see spellCheckedTarget, undoubled). Default off.
+    private var autoSpell: Bool { UserDefaults.standard.bool(forKey: "autoSpell") }
+    @objc private func toggleAutoSpell(_ sender: NSButton) {
+        UserDefaults.standard.set(sender.state == .on, forKey: "autoSpell")
+    }
+    private func hasSpellDictionary(_ enabled: [Layout]) -> Bool {
+        enabled.contains { $0.languageCode.flatMap { spellLanguages[$0] } != nil }
+    }
     @objc private func toggleAutoSimilar(_ sender: NSButton) {
         UserDefaults.standard.set(sender.state == .on, forKey: "autoSameScript")
     }
@@ -2252,6 +2296,17 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
               let d = autoDecide(word, cur: cur, enabled: enabled) else {
             // A short word the model reads as fine right after a chain word ("ot"
             // in "nf ot [fktgf") rides along with its reading in the chain's layout.
+            if autoSpell, let cur = enabled.first(where: { $0.id == currentSourceID() }),
+               let fixed = undoubled(word, langs: scriptLanguages(cyrillic: cur.isCyrillic, enabled: enabled),
+                                     learned: learnedVerdict, isWord: isWord) {
+                let fix = autoRun.respell(raw: word + trail, out: fixed + trail)
+                dbg("auto: doubled \(word.debugDescription) -> \(fixed.debugDescription)")
+                let srcSource = cur.source
+                beginCorrection {
+                    self.autoCorrect(fix, boundary: boundary, boundaryFlags: flags, target: cur, srcSource: srcSource)
+                }
+                return true
+            }
             if wordBody(word) <= 2, autoRun.previous != nil, let t = autoChainTarget,
                let cur = enabled.first(where: { $0.id == currentSourceID() }) {
                 dbg("auto: no candidate for \(word.debugDescription), bridged")

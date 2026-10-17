@@ -4,6 +4,32 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.14 — system spelling dictionary as an option (`autoSpell`)
+
+- Owner's call: the OS spell checker is allowed (no dictionary of our own).
+  Measured offline on FrequencyWords 2018 50k (first 20k words of 3+ letters
+  per language, row-aligned maps, real `decideAutoTarget`, NSSpellChecker
+  ru/uk/en; uk list filtered by the same checker, so uk-active FP is optimistic):
+  - Layout rule (A2g, shipped): recall / FP, baseline -> spell
+    en<->ru ABC 98.88/0.150 -> 99.27/0.100; ru 98.14/0.139 -> 98.54/0.059;
+    en<->uk ABC 99.17/0.195 -> 99.61/0.130; uk 98.04/0.099 -> 98.55/0.015.
+    Fixed e.g. "учше" -> "exit", "herf" -> "рука"; broken: names/acronyms the
+    en dictionary lacks (manolo, cath), "мммм".
+  - Rejected variants: never convert a dictionary word (loses "иге" -> "but",
+    ru words that are junk typing); override for 3-letter words (breaks tim,
+    ceo, gen into "ешь", "сущ", "пут"); spell only in an "uncertain" score band
+    (40-60% of words fall in it, worse on both axes).
+  - Doubled letter (B3, shipped): synthetic doubles fixed ru 87.7%, uk 97.0%,
+    en 80.2%, wrong fixes <= 0.013%; real words altered ru 0.010%, en 0.055%
+    (British spellings: travelling). Without the capital skip and 4-letter
+    floor it altered 0.36-0.44% (Scott -> scot, хмм -> хм). Skipping words
+    the app's own autocorrect would fix kept only 2-3% recall: dropped.
+- Spell-check latency: median 0.5 ms, 1 in 100 calls 50-100 ms; the call is
+  synchronous (`shortcut:`), only for words the trigrams convert or score as junk.
+- Default off, experimental; macOS only (Windows passes no checker).
+
+---
+
 ## After v1.3.14 — a late switcher re-post drops the word
 
 - Vivaldi, "anthropic " + Globe + a Cyrillic word came out "anthropicооум":

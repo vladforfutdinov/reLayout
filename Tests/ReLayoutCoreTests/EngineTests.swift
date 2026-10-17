@@ -413,6 +413,65 @@ final class EngineTests: XCTestCase {
         XCTAssertEqual(decideAutoTarget("ghbd", cur: latin, enabled: [latin, uk], model: { four[$0] })?.ambiguous, false)
     }
 
+    // A spell checker that knows exactly `words`, with dictionaries for `langs` only.
+    private func speller(_ words: Set<String>, langs: Set<String> = ["en", "uk", "ru"]) -> SpellCheck {
+        { w, l in langs.contains(l) ? words.contains(w) : nil }
+    }
+
+    func testSpellDropsAConversionOfARealWordIntoJunk() {
+        let (latin, uk) = makeLayouts()
+        let d = (target: uk, out: "иду", ambiguous: false)
+        XCTAssertNil(spellCheckedTarget("bdl", cur: latin, enabled: [latin, uk], decided: d,
+                                        model: { _ in nil }, isWord: speller(["bdl"])))
+        // Both are words: the trigram decision stands.
+        XCTAssertEqual(spellCheckedTarget("bdl", cur: latin, enabled: [latin, uk], decided: d,
+                                          model: { _ in nil }, isWord: speller(["bdl", "иду"]))?.out, "иду")
+        // No dictionary: unchanged.
+        XCTAssertEqual(spellCheckedTarget("bdl", cur: latin, enabled: [latin, uk], decided: d,
+                                          model: { _ in nil }, isWord: speller(["bdl"], langs: []))?.out, "иду")
+    }
+
+    func testSpellConvertsJunkWhoseConversionIsAWord() {
+        let (latin, uk) = makeLayouts()
+        let models = ["en": model(knowing: ["hello"]), "uk": model(knowing: ["їжа"])]
+        let r = spellCheckedTarget("ghbdtn", cur: latin, enabled: [latin, uk], decided: nil,
+                                   model: { models[$0] }, isWord: speller(["привет"]))
+        XCTAssertEqual(r?.out, "привет")
+        XCTAssertTrue(r?.target.isCyrillic ?? false)
+        // Typed word is in a dictionary of its script, too short, or learned keep: left alone.
+        XCTAssertNil(spellCheckedTarget("ghbdtn", cur: latin, enabled: [latin, uk], decided: nil,
+                                        model: { models[$0] }, isWord: speller(["привет", "ghbdtn"])))
+        XCTAssertNil(spellCheckedTarget("ghb", cur: latin, enabled: [latin, uk], decided: nil,
+                                        model: { models[$0] }, isWord: speller(["при"])))
+        XCTAssertNil(spellCheckedTarget("ghbdtn", cur: latin, enabled: [latin, uk], decided: nil,
+                                        model: { models[$0] }, learned: { _ in .keep }, isWord: speller(["привет"])))
+    }
+
+    func testUndoubled() {
+        let check = speller(["сборка", "привет", "сбор"])
+        XCTAssertEqual(undoubled("ссборка", langs: ["ru"], isWord: check), "сборка")
+        XCTAssertEqual(undoubled("приввет", langs: ["ru"], isWord: check), "привет")
+        XCTAssertNil(undoubled("Ссборка", langs: ["ru"], isWord: check))       // capital: a name
+        XCTAssertNil(undoubled("сборка", langs: ["ru"], isWord: check))        // spelled right
+        XCTAssertNil(undoubled("ссборка", langs: ["de"], isWord: check))       // no dictionary
+        XCTAssertNil(undoubled("ххм", langs: ["ru"], isWord: speller(["хм"]))) // result too short
+        XCTAssertNil(undoubled("ааббв", langs: ["ru"], isWord: speller(["аббв", "аабв"])))   // two matches
+        XCTAssertNil(undoubled("ссборка", langs: ["ru"], learned: { _ in .keep }, isWord: check))  // undone once
+        var asked = 0
+        _ = undoubled("сборка", langs: ["ru"], isWord: { _, _ in asked += 1; return false })
+        XCTAssertEqual(asked, 0)                                                // no doubled pair: no lookup
+    }
+
+    func testRespellEndsTheChain() {
+        var run = AutoRun()
+        for c in "d " { _ = run.feed(String(c), mapsToCyrillic: { _ in true }) }
+        _ = run.plan(raw: "d", out: "в", cyrillic: true)                       // pending short candidate
+        let fix = run.respell(raw: "ссборка,", out: "сборка,")
+        XCTAssertEqual(fix.erase, 8)
+        XCTAssertEqual(fix.text, "сборка,")
+        XCTAssertNil(run.previous)
+    }
+
     func testAutoDecideWithoutAModelDoesNothing() {
         let (latin, cyr) = makeLayouts()
         XCTAssertNil(decideAutoTarget("ghbdtn", cur: latin, enabled: [latin, cyr], model: { _ in nil }))

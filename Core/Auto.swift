@@ -176,6 +176,91 @@ public func decideAutoTarget<L: AutoLayout>(_ w: String, cur: L, enabled: [L],
     return (b.0, b.1, b.ambiguous)
 }
 
+/// A system spell checker: whether `word` is spelled right in language `lang`
+/// (ISO 639-1); nil when there is no dictionary for that language.
+public typealias SpellCheck = (_ word: String, _ lang: String) -> Bool?
+
+/// Languages typed on a script's layouts: the enabled ones plus the script's
+/// common languages, as in the cross-script gate of `decideAutoTarget`.
+public func scriptLanguages<L: AutoLayout>(cyrillic: Bool, enabled: [L]) -> [String] {
+    var langs = enabled.filter { $0.isCyrillic == cyrillic }.compactMap(\.languageCode)
+    langs += cyrillic ? ["ru", "uk"] : ["en"]
+    var seen = Set<String>()
+    return langs.filter { seen.insert($0).inserted }
+}
+
+/// True if any language's dictionary has the word, false if at least one has a
+/// dictionary and none has the word, nil if none has a dictionary.
+func spelledRight(_ w: String, in langs: [String], _ isWord: SpellCheck) -> Bool? {
+    var any: Bool?
+    for l in langs {
+        guard let r = isWord(w, l) else { continue }
+        if r { return true }
+        any = false
+    }
+    return any
+}
+
+// Rule A2 (HISTORY, after v1.3.14): measured on FrequencyWords 20k, it raised
+// recall and lowered false positives on every en <-> ru/uk run.
+public let spellOverrideMinLetters = 4
+
+/// Refines a cross-script `decideAutoTarget` result with a system dictionary.
+/// - A conversion is dropped when the typed word is spelled right in its script
+///   and the conversion is not; when both are words the trigram decision stands.
+/// - A word the trigrams leave alone is converted when it is junk to them, no
+///   dictionary of its script has it, and a dictionary of the other script has its
+///   conversion (pure letters, `spellOverrideMinLetters`+ letters).
+/// Same-script results and learned `.keep` words are left as they are.
+/// - Returns: the refined decision; nil to leave the word.
+public func spellCheckedTarget<L: AutoLayout>(_ w: String, cur: L, enabled: [L],
+                                              decided: (target: L, out: String, ambiguous: Bool)?,
+                                              model: (String) -> TrigramModel?,
+                                              learned: (String) -> LearnedVerdict? = { _ in nil },
+                                              isWord: SpellCheck) -> (target: L, out: String, ambiguous: Bool)? {
+    let typedLangs = scriptLanguages(cyrillic: cur.isCyrillic, enabled: enabled)
+    if let d = decided {
+        guard d.target.isCyrillic != cur.isCyrillic, learned(learnedKey(w)) != .convert else { return d }
+        let outLangs = scriptLanguages(cyrillic: d.target.isCyrillic, enabled: enabled)
+        if spelledRight(w, in: typedLangs, isWord) == true, spelledRight(d.out, in: outLangs, isWord) == false {
+            return nil
+        }
+        return d
+    }
+    guard learned(learnedKey(w)) != .keep, w.count >= spellOverrideMinLetters, w.allSatisfy(\.isLetter),
+          let lang = cur.languageCode, let m = model(lang), m.score(w) < autoGarbage,
+          spelledRight(w, in: typedLangs, isWord) == false else { return nil }
+    for t in enabled where t.isCyrillic != cur.isCyrillic {
+        guard let out = convertWrong(w, src: cur, dst: t), out != w, out.allSatisfy(\.isLetter),
+              spelledRight(out, in: scriptLanguages(cyrillic: t.isCyrillic, enabled: enabled), isWord) == true
+        else { continue }
+        return (t, out, false)
+    }
+    return nil
+}
+
+/// The word with one letter of a doubled pair removed ("ссборка" -> "сборка"),
+/// when the typed word is misspelled in every dictionary of `langs` and exactly
+/// one such removal is spelled right and keeps `undoubledMinLetters`+ letters.
+/// Words starting with a capital (names) and learned `.keep` words are left alone.
+/// The dictionary is asked only for words that have a doubled pair.
+public func undoubled(_ w: String, langs: [String], learned: (String) -> LearnedVerdict? = { _ in nil },
+                      isWord: SpellCheck) -> String? {
+    let chars = Array(w)
+    guard chars.count > undoubledMinLetters, !chars[0].isUppercase, w.allSatisfy(\.isLetter),
+          zip(chars, chars.dropFirst()).contains(where: ==),
+          learned(learnedKey(w)) != .keep,
+          spelledRight(w, in: langs, isWord) == false else { return nil }
+    var found = Set<String>()
+    for i in 0..<(chars.count - 1) where chars[i] == chars[i + 1] {
+        var c = chars; c.remove(at: i)
+        let cand = String(c)
+        if cand.count >= undoubledMinLetters, spelledRight(cand, in: langs, isWord) == true { found.insert(cand) }
+    }
+    return found.count == 1 ? found.first : nil
+}
+public let undoubledMinLetters = 4
+
 // A hotkey miss is learned only when its conversion reads in the target
 // language: a real miss does ("exit" -2.41, "ок" -2.78, "сброс" -3.41), a
 // deliberate transliteration of correct text does not ("nf ot [fktgf" -10..-18),
@@ -500,6 +585,15 @@ public struct AutoRun {
     /// The boundary word had no candidate: it breaks the chain of short words.
     public mutating func noCandidate() {
         previous = nil; bridged = []
+    }
+
+    /// A same-layout spelling fix of the boundary word alone (`undoubled`): it ends
+    /// the chain like a word with no candidate.
+    /// - Returns: the correction for `raw` (word plus trail) -> `out`.
+    public mutating func respell(raw: String, out: String) -> Fix {
+        dropSpacedWord()
+        noCandidate()
+        return Fix(erase: raw.count, text: out, original: raw)
     }
 
     /// A short word with no candidate right after a chain word: it neither breaks

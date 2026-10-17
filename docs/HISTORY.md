@@ -4,6 +4,23 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.14 — spell-check option on Windows (`autoSpell`, Windows)
+
+- The macOS `autoSpell` option ported: Windows Spell Checking API in a new C++
+  shim (`windows/native/relayout_spell.cpp`), `WinSpell.swift` wraps it as the
+  engine's `SpellCheck` / `SpellGuesses`; `WinAuto.autoDecide` runs the same
+  chain as macOS for the boundary fix and the Enter follow-up; a repaired typo is
+  never learned. Settings row + ⓘ under "Between similar layouts", registry
+  `AutoCorrectSpell`, default off.
+- Language mapping: the 2-letter layout code if the API supports it, else the
+  first supported `<code>-…` tag. One checker cached per code.
+- COM on the UI thread (STA), as the UIA reader. Dictionaries are opened when
+  preferences load, not on the first word: a slow first load inside the
+  low-level keyboard hook would hit its timeout.
+- Debug trace logs only the outcome ("spell: left/converted",
+  "typo: repaired len=N"), no words — the Windows log records no typed text.
+- Not verified on Windows at commit time (no Windows build on the macOS host).
+
 ## After v1.3.14 — typo repair inside wrong-layout words (`autoSpell`, `98c2b56`)
 
 - Owner's goal: "ghbddtn" / "gbhdtn" / "ghjdtn" -> "привет" in auto mode; a typo

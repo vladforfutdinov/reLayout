@@ -447,6 +447,48 @@ final class EngineTests: XCTestCase {
                                         model: { models[$0] }, learned: { _ in .keep }, isWord: speller(["привет"])))
     }
 
+    func testIsOneEdit() {
+        XCTAssertTrue(isOneEdit("провет", "привет"))      // substitution
+        XCTAssertTrue(isOneEdit("приввет", "привет"))     // insertion
+        XCTAssertTrue(isOneEdit("првет", "привет"))       // deletion
+        XCTAssertTrue(isOneEdit("пирвет", "привет"))      // adjacent swap
+        XCTAssertFalse(isOneEdit("привет", "привет"))
+        XCTAssertFalse(isOneEdit("пврие", "привет"))
+        XCTAssertFalse(isOneEdit("ирпвет", "привет"))     // swap, not adjacent
+    }
+
+    func testSpellRepairsATypoInAWrongLayoutWord() {
+        let (latin, uk) = makeLayouts()
+        let models = ["en": model(knowing: ["hello"]), "uk": model(knowing: ["їжа"])]
+        let check = speller(["привет"])
+        let none: SpellGuesses = { _, _ in [] }
+        // Doubled letter, trigrams left it alone: converted and repaired.
+        let r = spellRepairedTarget("ghbddtn", cur: latin, enabled: [latin, uk], decided: nil,
+                                    model: { models[$0] }, isWord: check, guesses: none)
+        XCTAssertEqual(r?.out, "привет")
+        XCTAssertEqual(r?.repaired, true)
+        // Swapped letters inside a conversion the trigrams already made.
+        let d = (target: uk, out: "пирвет", ambiguous: false)
+        XCTAssertEqual(spellRepairedTarget("gbhdtn", cur: latin, enabled: [latin, uk], decided: d,
+                                           model: { models[$0] }, isWord: check, guesses: none)?.out, "привет")
+        // A wrong letter only the system's guesses find.
+        let guesses: SpellGuesses = { w, _ in w == "прщвет" ? ["привет", "Прщ"] : [] }
+        XCTAssertEqual(spellRepairedTarget("ghodtn", cur: latin, enabled: [latin, uk], decided: nil,
+                                           model: { models[$0] }, isWord: check, guesses: guesses)?.out, "привет")
+        // Two candidates: no repair, the plain decision stands (here: convert as typed).
+        let two: SpellGuesses = { _, _ in ["привет", "пролет"] }
+        let p = spellRepairedTarget("ghjdtn", cur: latin, enabled: [latin, uk],
+                                    decided: (target: uk, out: "провет", ambiguous: false),
+                                    model: { models[$0] }, isWord: speller(["привет", "пролет"]), guesses: two)
+        XCTAssertEqual(p?.out, "провет")
+        XCTAssertEqual(p?.repaired, false)
+        // Capitalized or a real word of its own language: untouched.
+        XCTAssertNil(spellRepairedTarget("Ghbddtn", cur: latin, enabled: [latin, uk], decided: nil,
+                                         model: { models[$0] }, isWord: check, guesses: none))
+        XCTAssertNil(spellRepairedTarget("ghbddtn", cur: latin, enabled: [latin, uk], decided: nil,
+                                         model: { models[$0] }, isWord: speller(["привет", "ghbddtn"]), guesses: none))
+    }
+
     func testAutoDecideWithoutAModelDoesNothing() {
         let (latin, cyr) = makeLayouts()
         XCTAssertNil(decideAutoTarget("ghbdtn", cur: latin, enabled: [latin, cyr], model: { _ in nil }))

@@ -240,6 +240,79 @@ public func spellCheckedTarget<L: AutoLayout>(_ w: String, cur: L, enabled: [L],
 }
 
 
+/// The system spell checker's suggestions for a misspelled `word` in language `lang`.
+public typealias SpellGuesses = (_ word: String, _ lang: String) -> [String]
+
+/// True when `a` and `b` differ by one edit: a substituted, inserted or deleted
+/// letter, or two adjacent letters swapped.
+public func isOneEdit(_ a: String, _ b: String) -> Bool {
+    let x = Array(a), y = Array(b)
+    if x.count == y.count {
+        let diff = x.indices.filter { x[$0] != y[$0] }
+        if diff.count == 1 { return true }
+        return diff.count == 2 && diff[1] == diff[0] + 1 && x[diff[0]] == y[diff[1]] && x[diff[1]] == y[diff[0]]
+    }
+    let (long, short) = x.count > y.count ? (x, y) : (y, x)
+    guard long.count == short.count + 1 else { return false }
+    var i = 0
+    while i < short.count, long[i] == short[i] { i += 1 }
+    return long[(i + 1)...].elementsEqual(short[i...])
+}
+
+/// The one dictionary word a misspelled conversion was most likely meant to be:
+/// first one doubled letter removed or two adjacent letters swapped, else the
+/// system's guesses one edit away. Nil unless exactly one candidate remains.
+func repairedSpelling(_ out: String, langs: [String], isWord: SpellCheck, guesses: SpellGuesses) -> String? {
+    let chars = Array(out)
+    guard chars.count >= 2 else { return nil }
+    var own = Set<String>()
+    for i in 0..<(chars.count - 1) {
+        var c = chars
+        if chars[i] == chars[i + 1] { c.remove(at: i) } else { c.swapAt(i, i + 1) }
+        own.insert(String(c))
+    }
+    let words = own.filter { $0.count >= spellOverrideMinLetters && spelledRight($0, in: langs, isWord) == true }
+    if words.count == 1 { return words.first }
+    var guessed = Set<String>()
+    for l in langs {
+        for g in guesses(out, l) where g.count >= spellOverrideMinLetters && g.allSatisfy(\.isLetter)
+            && g.first?.isUppercase == false && isOneEdit(out, g) {
+            guessed.insert(g)
+        }
+    }
+    return guessed.count == 1 ? guessed.first : nil
+}
+
+/// Repairs a one-letter typo in a wrong-layout word on top of `spellCheckedTarget`
+/// (`decided`): a conversion that is not a dictionary word ("ghbddtn" ->
+/// "приввет") becomes the single dictionary word `repairedSpelling` finds
+/// ("привет"); a word left alone is converted when its conversion repairs to one.
+/// The typed word must be pure letters, `spellOverrideMinLetters`+ long, not
+/// capitalized, junk to its own model and misspelled in its script.
+/// - Returns: the decision and whether a typo was repaired; nil to leave the word.
+public func spellRepairedTarget<L: AutoLayout>(_ w: String, cur: L, enabled: [L],
+                                               decided: (target: L, out: String, ambiguous: Bool)?,
+                                               model: (String) -> TrigramModel?,
+                                               learned: (String) -> LearnedVerdict? = { _ in nil },
+                                               isWord: SpellCheck, guesses: SpellGuesses)
+    -> (target: L, out: String, ambiguous: Bool, repaired: Bool)? {
+    let plain = decided.map { (target: $0.target, out: $0.out, ambiguous: $0.ambiguous, repaired: false) }
+    guard learned(learnedKey(w)) != .keep, w.count >= spellOverrideMinLetters, w.allSatisfy(\.isLetter),
+          w.first?.isUppercase == false, let lang = cur.languageCode, let m = model(lang), m.score(w) < autoGarbage,
+          spelledRight(w, in: scriptLanguages(cyrillic: cur.isCyrillic, enabled: enabled), isWord) == false
+    else { return plain }
+    let targets = decided.map { [$0.target] } ?? enabled.filter { $0.isCyrillic != cur.isCyrillic }
+    for t in targets where t.isCyrillic != cur.isCyrillic {
+        let langs = scriptLanguages(cyrillic: t.isCyrillic, enabled: enabled)
+        guard let out = decided?.out ?? convertWrong(w, src: cur, dst: t), out != w, out.allSatisfy(\.isLetter),
+              spelledRight(out, in: langs, isWord) == false,
+              let fixed = repairedSpelling(out, langs: langs, isWord: isWord, guesses: guesses)
+        else { continue }
+        return (t, fixed, decided?.ambiguous ?? false, true)
+    }
+    return plain
+}
+
 // A hotkey miss is learned only when its conversion reads in the target
 // language: a real miss does ("exit" -2.41, "ок" -2.78, "сброс" -3.41), a
 // deliberate transliteration of correct text does not ("nf ot [fktgf" -10..-18),

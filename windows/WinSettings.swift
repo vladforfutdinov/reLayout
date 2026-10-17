@@ -352,8 +352,8 @@ private func buildControls(_ hwnd: HWND?) {
     let available = WinLayout.crossScriptAvailable()
     makeCheck(autoTitle, margin, y, autoW, hwnd, idChkAuto, on: available && loadAutoMode(), enabled: available)
     if !available {
-        let info = makeControl("STATIC", "\u{E946}" /* Info glyph */, 0,
-                               margin + autoW + 2, y + 1, 20, 20, hwnd, idAutoInfo)
+        let info = makeControl("STATIC", "\u{E946}" /* Info glyph */, Int32(0x0200 /* SS_CENTERIMAGE */),
+                               margin + autoW + 2, y + 3, 20, 16, hwnd, idAutoInfo)
         setFont(info, glyphFont)
         let installed = WinLayout.installedList().map(\.displayName).joined(separator: ", ")
         addTooltip(&tooltip, hwnd, info, L("settings.autoCorrectUnavailable", installed), overWindow: true)
@@ -370,8 +370,10 @@ private func buildControls(_ hwnd: HWND?) {
     makeCheck(similarTitle, margin + 20, y, similarW, hwnd, idChkAutoSimilar,
               on: available && similarAvailable() && loadAutoSameScript(),
               enabled: available && loadAutoMode() && similarAvailable())
-    let similarInfo = makeControl("STATIC", "\u{E946}" /* Info glyph */, 0,
-                                  margin + 20 + similarW + 2, y + 1, 20, 20, hwnd, idSimilarInfo)
+    // Centred on the label's text line (y + 3, one line tall), not top-aligned:
+    // the icon font's glyph sits high in its cell.
+    let similarInfo = makeControl("STATIC", "\u{E946}" /* Info glyph */, Int32(0x0200 /* SS_CENTERIMAGE */),
+                                  margin + 20 + similarW + 2, y + 3, 20, 16, hwnd, idSimilarInfo)
     setFont(similarInfo, glyphFont)
     addTooltip(&tooltip, hwnd, similarInfo, L("settings.autoCorrectSimilar.tip"), overWindow: true)
     y += 30

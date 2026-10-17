@@ -4,6 +4,17 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.14 — abbreviations left alone (both platforms)
+
+- From Caramba Switcher: a word typed in capitals (2+ letters, all upper:
+  IBM, МФЦ, КПСС) is never auto-corrected; a learned `convert` still wins,
+  the hotkey still converts. Cost, accepted: a word typed with Caps Lock in
+  the wrong layout ("GHBDTN") is left too. Not measured — the frequency lists
+  carry no case. Caramba's "with a dot" rule (г., стр.) not taken: a dot also
+  ends sentences ("ghbdtn." must convert).
+
+---
+
 ## After v1.3.14 — learning by revert (both platforms)
 
 - Idea from Caramba Switcher ("erase a wrong switch with Backspace and retype

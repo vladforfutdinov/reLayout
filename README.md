@@ -38,6 +38,7 @@ Fixes wrong-layout words **as you type**, no hotkey:
 - Experimental: between similar layouts of different languages (ru ↔ uk).
 - Experimental: check with the system spelling dictionary — a real word is never converted into junk, a word the trigrams miss is converted when the dictionary knows its other-layout reading, and one typo inside a wrong-layout word is fixed when the dictionary leaves a single candidate (“ghbddtn” → “привет”). Off by default; uses the system's spell checker on macOS and Windows.
 - Skips password fields; terminals, code editors, VMs and remote desktops are excluded by default (Settings → Auto-correct → Exceptions…).
+- Leaves abbreviations alone: a word typed in capitals (IBM, МФЦ) is never auto-corrected — the hotkey still converts it.
 - Learns from you: undo a fix (with the hotkey, or just erase it and type the word again), or correct the same word with the hotkey a few times, and auto-correct follows your choice.
 - Optional second hotkey to switch it on and off (Settings → Auto-correct on/off; not set by default). On macOS a dot in the menu-bar icon's corner shows it is on.
 

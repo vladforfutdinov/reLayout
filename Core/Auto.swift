@@ -60,6 +60,12 @@ public func hasSimilarLayouts<L: AutoLayout>(_ enabled: [L], model: (String) -> 
     return langs.contains { a in langs.contains { $0.1 == a.1 && $0.0 != a.0 } }
 }
 
+/// Two or more letters, every one of them a capital ("IBM", "МФЦ", "КПСС").
+public func isAbbreviation(_ w: String) -> Bool {
+    let letters = w.filter(\.isLetter)
+    return letters.count >= 2 && letters.allSatisfy(\.isUppercase)
+}
+
 public func learnedKey(_ w: String) -> String {
     var s = Substring(w.lowercased())
     while let l = s.last, !l.isLetter { s = s.dropLast() }
@@ -93,6 +99,9 @@ public func decideAutoTarget<L: AutoLayout>(_ w: String, cur: L, enabled: [L],
     case .convert: forced = true
     case nil: forced = false
     }
+    // An abbreviation is typed in capitals (IBM, МФЦ): left alone, as in Caramba.
+    // A word typed with Caps Lock in the wrong layout ("GHBDTN") is left too.
+    guard forced || !isAbbreviation(w) else { return nil }
     let sTyped = curModel.score(w)
     guard forced || sTyped < autoGarbage else {
         return nil   // already plausible -> leave it
@@ -228,7 +237,7 @@ public func spellCheckedTarget<L: AutoLayout>(_ w: String, cur: L, enabled: [L],
         return d
     }
     guard learned(learnedKey(w)) != .keep, w.count >= spellOverrideMinLetters, w.allSatisfy(\.isLetter),
-          let lang = cur.languageCode, let m = model(lang), m.score(w) < autoGarbage,
+          !isAbbreviation(w), let lang = cur.languageCode, let m = model(lang), m.score(w) < autoGarbage,
           spelledRight(w, in: typedLangs, isWord) == false else { return nil }
     for t in enabled where t.isCyrillic != cur.isCyrillic {
         guard let out = convertWrong(w, src: cur, dst: t), out != w, out.allSatisfy(\.isLetter),

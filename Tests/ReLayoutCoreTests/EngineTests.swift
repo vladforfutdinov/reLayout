@@ -489,6 +489,15 @@ final class EngineTests: XCTestCase {
                                          model: { models[$0] }, isWord: speller(["привет", "ghbddtn"]), guesses: none))
     }
 
+    func testAutoDecideLeavesAbbreviations() {
+        XCTAssertTrue(isAbbreviation("IBM"))
+        XCTAssertTrue(isAbbreviation("МФЦ,"))
+        XCTAssertFalse(isAbbreviation("Ibm"))
+        XCTAssertFalse(isAbbreviation("I"))
+        XCTAssertNil(decide("GHBDTN", cyrKnows: ["привет"], latinKnows: ["hello"]))
+        XCTAssertEqual(decide("ghbdtn", cyrKnows: ["привет"], latinKnows: ["hello"])?.out, "привет")
+    }
+
     func testAutoDecideWithoutAModelDoesNothing() {
         let (latin, cyr) = makeLayouts()
         XCTAssertNil(decideAutoTarget("ghbdtn", cur: latin, enabled: [latin, cyr], model: { _ in nil }))

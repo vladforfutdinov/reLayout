@@ -24,6 +24,9 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
   available. The icon is a template (only alpha survives), so the owner's
   "green, light for monochrome" resolves to the light variant: the glyph's
   tone at 60 % alpha. Not checked visually yet.
+- Recording no longer outlives a commit (`24b7eed`): the field used to stay
+  in recording mode until focus left it, and recording pauses both hotkeys
+  and auto-correct — owner saw both stop right after setting the toggle.
 
 ---
 

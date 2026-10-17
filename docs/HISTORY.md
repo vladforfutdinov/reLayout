@@ -75,6 +75,9 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
   text-less checkbox drew its focus cue as a dotted sliver beside the box —
   hidden (WM_UPDATEUISTATE UISF_HIDEFOCUS); the ⓘ glyphs sat 2 px low.
   Captions (Language, both hotkeys) left-aligned like macOS.
+  ⓘ glyphs centred on their rows (y + 1); Learned words column titles moved
+  1-2 px to sit over the row text (empirical at 100 %, not derived from the
+  list view's metrics).
 
 ---
 

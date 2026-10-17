@@ -25,7 +25,6 @@ private var unkeepWatch = RevertWatch()   // a keep left alone, then erased and 
 private var manualWatch = RevertWatch()   // a word left alone, then retyped in the other layout
 private var manualTyped: String?
 private var revertLayouts: (src: WinLayout, dst: WinLayout)?
-private func uptime() -> Double { Double(GetTickCount64()) / 1000 }
 private var learnedCounts: [String: Int] = [:]
 private var learnedCandidates: [String: String] = [:]   // counted words and their conversions
 private var excludedApps: [String] = []
@@ -204,7 +203,7 @@ func autoFeed(vk: UINT, scan: WORD, shortcut: Bool, shift: Bool) -> Bool {
 
     // Anything that may delete or select text arms learning by revert.
     if vk == vkBack || shortcut || navigationVKs.contains(vk) {
-        revertWatch.edit(at: uptime()); unkeepWatch.edit(at: uptime()); manualWatch.edit(at: uptime())
+        revertWatch.edit(); unkeepWatch.edit(); manualWatch.edit()
     }
     // Backspace edits the word; Ctrl+Backspace removes a word — nothing left to track.
     if vk == vkBack {
@@ -244,7 +243,7 @@ private var chainTarget: WinLayout?   // layout of the last auto candidate, for 
 
 private func evaluate(word: String, trail: String, boundary: Int32, shift: Bool, cur: WinLayout) -> Bool {
     guard !word.isEmpty, !autoExcluded() else { run.noCandidate(); return false }
-    if revertWatch.reverted(word, at: uptime(), typedBack: { w in
+    if revertWatch.reverted(word, typedBack: { w in
         revertLayouts.flatMap { convertScriptRuns(w, src: $0.dst, dst: $0.src) } ?? w }) {
         learnedKeep.insert(learnedKey(word))
         saveLearnedWords()
@@ -253,16 +252,16 @@ private func evaluate(word: String, trail: String, boundary: Int32, shift: Bool,
     }
     // The other way round: a keep left alone, erased and typed again, is wanted
     // converted after all — the keep goes and the word is judged afresh.
-    if unkeepWatch.reverted(word, at: uptime(), typedBack: { $0 }) {
+    if unkeepWatch.reverted(word, typedBack: { $0 }) {
         learnedKeep.remove(learnedKey(word))
         saveLearnedWords()
         dwatch("keep dropped by revert")
     } else if learnedVerdict(learnedKey(word)) == .keep {
-        unkeepWatch.corrected(word, into: "", at: uptime())
+        unkeepWatch.corrected(word, into: "")
     }
     // A word left alone, erased and typed in the other layout by hand ("учше",
     // then "exit"): learned as a conversion at once.
-    if manualWatch.reverted(word, at: uptime(), typedBack: { $0 }), let typed = manualTyped {
+    if manualWatch.reverted(word, typedBack: { $0 }), let typed = manualTyped {
         promoteLearned(learnedKey(typed), to: learnedKey(word))
         dwatch("learned convert by hand")
     }
@@ -270,7 +269,7 @@ private func evaluate(word: String, trail: String, boundary: Int32, shift: Bool,
         if wordBody(word) >= 3, !isAbbreviation(word),
            let t = WinLayout.installedList().first(where: { $0.isCyrillic != cur.isCyrillic }),
            let conv = convertWrong(word, src: cur, dst: t) {
-            manualWatch.corrected(conv, into: word, at: uptime())
+            manualWatch.corrected(conv, into: word)
             manualTyped = word
         }
         // A short word the model reads as fine right after a chain word ("ot" in
@@ -296,7 +295,7 @@ private func evaluate(word: String, trail: String, boundary: Int32, shift: Bool,
                              trusted: learnedVerdict(learnedKey(word)) == .convert,
                              ambiguous: decided.ambiguous) else { return false }
     queued = QueuedFix(fix: fix, boundary: boundary, shift: shift, target: decided.target, src: cur)
-    revertWatch.corrected(word, into: decided.out, at: uptime())
+    revertWatch.corrected(word, into: decided.out)
     revertLayouts = (cur, decided.target)
     correcting = true
     gateSince = GetTickCount()
@@ -520,7 +519,7 @@ private let mouseProc: HOOKPROC = { nCode, wParam, lParam in
         || wParam == WPARAM(WM_MBUTTONDOWN) {
         resetAutoBuffer()
         forgetConversion()
-        revertWatch.edit(at: uptime()); unkeepWatch.edit(at: uptime()); manualWatch.edit(at: uptime())
+        revertWatch.edit(); unkeepWatch.edit(); manualWatch.edit()
     }
     return CallNextHookEx(nil, nCode, wParam, lParam)
 }

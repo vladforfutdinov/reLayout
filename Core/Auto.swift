@@ -326,36 +326,33 @@ public func spellRepairedTarget<L: AutoLayout>(_ w: String, cur: L, enabled: [L]
 /// Learning by revert: right after an auto-correction the user deletes it
 /// (Backspace, Delete, a selection by mouse or keyboard, a Cmd/Ctrl edit) and types
 /// the same word again — the correction was wrong, so the word becomes a `keep`.
+/// It watches only the next word: one typed with no edit before it means the
+/// user moved on.
 public struct RevertWatch {
-    /// Seconds after a correction in which a retype counts as a revert.
-    public static let window = 15.0
     private var original: String?
     private var output = ""
-    private var since = 0.0
     private var edited = false
 
     public init() {}
 
-    /// An auto-correction of `word` (as typed) into `out` landed at `t`.
-    public mutating func corrected(_ word: String, into out: String, at t: Double) {
-        original = learnedKey(word); output = learnedKey(out); since = t; edited = false
+    /// An auto-correction of `word` (as typed) into `out` landed.
+    public mutating func corrected(_ word: String, into out: String) {
+        original = learnedKey(word); output = learnedKey(out); edited = false
     }
 
     /// A key or click that may delete text.
-    public mutating func edit(at t: Double) {
-        if original != nil, t - since <= Self.window { edited = true }
+    public mutating func edit() {
+        if original != nil { edited = true }
     }
 
-    /// True (once) when `word`, at a word boundary at `t`, retypes the corrected word
-    /// after an edit within the window. `typedBack` maps the correction's target
-    /// layout back to the typed one: after the fix switched the layout, a retype
-    /// may start in it ("я" + "aaa"). Typing the correction itself again is no revert.
-    public mutating func reverted(_ word: String, at t: Double, typedBack: (String) -> String) -> Bool {
+    /// At the next word boundary: true when `word` retypes the corrected word after
+    /// an edit. `typedBack` maps the correction's target layout back to the typed
+    /// one: after the fix switched the layout, a retype may start in it ("я" +
+    /// "aaa"). Typing the correction itself again is no revert. Disarms either way.
+    public mutating func reverted(_ word: String, typedBack: (String) -> String) -> Bool {
         guard let o = original else { return false }
-        guard t - since <= Self.window else { original = nil; return false }
-        guard edited, learnedKey(word) != output, learnedKey(typedBack(word)) == o else { return false }
         original = nil
-        return true
+        return edited && learnedKey(word) != output && learnedKey(typedBack(word)) == o
     }
 }
 

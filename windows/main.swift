@@ -12,19 +12,17 @@ struct Conversion {
     let original: String
     var typed: String
     let src: WinLayout
-    var time: DWORD
     var learned: [String] = []   // hotkey misses this conversion learned: undo forgets them
     var autoWords: [String] = [] // words an auto-correction fixed: undo learns them as `keep`
     var alternatives: [(out: String, dst: WinLayout)] = []   // the other readings, next press first
     var suffix = ""              // spaces after a typed word, kept on retarget
 }
 private var lastConversion: Conversion?
-private let undoWindowMs: DWORD = 1500
 
 func recordConversion(original: String, typed: String, src: WinLayout,
                       learned: [String] = [], autoWords: [String] = [],
                       alternatives: [(out: String, dst: WinLayout)] = [], suffix: String = "") {
-    lastConversion = Conversion(original: original, typed: typed, src: src, time: GetTickCount(),
+    lastConversion = Conversion(original: original, typed: typed, src: src,
                                 learned: learned, autoWords: autoWords, alternatives: alternatives, suffix: suffix)
 }
 
@@ -59,7 +57,7 @@ func performRetype() {
     dwatch("hotkey")
     // Press-again: the next reading, then undo. Off in double-tap mode, where a
     // second press is the trigger.
-    if !loadHotkey(.retype).doubleTap, let last = lastConversion, GetTickCount() &- last.time < undoWindowMs {
+    if !loadHotkey(.retype).doubleTap, let last = lastConversion {
         lastConversion = nil
         if let next = last.alternatives.first { return performRetarget(last, to: next) }
         return performUndo(last)
@@ -131,7 +129,6 @@ private func performRetarget(_ last: Conversion, to next: (out: String, dst: Win
     var again = last
     again.typed = next.out + last.suffix
     again.alternatives = Array(last.alternatives.dropFirst())
-    again.time = GetTickCount()
     lastConversion = again
 }
 

@@ -675,15 +675,14 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     private var autoHotkey: Hotkey?   // unset by default: nothing registered
     private func definition(_ slot: HotkeySlot) -> Hotkey? { slot == .retype ? hotkey : autoHotkey }
 
-    // Last conversion, for double-tap undo: pressing the hotkey again within
-    // undoWindow seconds reverses it (reselects the typed text, restores the
-    // original, flips the input source back). Accessed only from `worker`
-    // (serial), so no lock. systemUptime is monotonic.
+    // Last conversion, for press-again undo: the next hotkey press reverses it
+    // (reselects the typed text, restores the original, flips the input source
+    // back) until any other key or click (`startUndoWatch`) — the caret may have
+    // moved past it.
     private struct Conversion {
         let original: String
         var typed: String
         let srcSource: TISInputSource
-        var time: Double
         var learned: [String] = []   // hotkey misses recorded by this conversion: undo forgets them
         var autoWords: [String] = [] // words an auto-correction fixed: undo learns them as `keep`
         // Press-again cycle (engine retypeAlternatives): the next readings of
@@ -692,7 +691,29 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         var suffix = ""
     }
     private var lastConversion: Conversion?
-    private let undoWindow = 1.5
+    private var undoTap: CFMachPort?
+    private var undoTapSource: CFRunLoopSource?
+
+    // Any key or click of the user's ends press-again undo; our own combo hotkey
+    // and synthetic keys do not. Runs whether or not auto-correct is on.
+    private func startUndoWatch() {
+        let mask = [CGEventType.keyDown, .leftMouseDown, .rightMouseDown, .otherMouseDown]
+            .reduce(CGEventMask(0)) { $0 | CGEventMask(1) << $1.rawValue }
+        let cb: CGEventTapCallBack = { _, type, event, refcon in
+            guard let refcon else { return Unmanaged.passUnretained(event) }
+            let me = Unmanaged<AppController>.fromOpaque(refcon).takeUnretainedValue()
+            if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+                if let t = me.undoTap { CGEvent.tapEnable(tap: t, enable: true) }
+            } else if event.getIntegerValueField(.eventSourceUserData) != AppController.synthMarker,
+                      type != .keyDown || ![me.hotkey, me.autoHotkey].contains(where: {
+                          $0?.isCombo(code: event.getIntegerValueField(.keyboardEventKeycode), flags: event.flags) == true }) {
+                me.lastConversion = nil
+            }
+            return Unmanaged.passUnretained(event)
+        }
+        guard let (tap, src) = installEventTap(mask, cb) else { return }
+        undoTap = tap; undoTapSource = src
+    }
     // When the Cmd+C probe last found nothing selected: a second synthetic Cmd+C
     // within a second would be DeepL's Cmd+C-Cmd+C trigger.
     private var lastEmptyProbe: Double = 0
@@ -753,6 +774,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         installHotKeyHandler()
         applyHotkey()
         applyAutoMode()          // start the auto-correct monitor if enabled
+        startUndoWatch()
         // Track the last non-self frontmost app so "Exclude current app" can target
         // it (once our Settings/Exceptions window is key, WE are frontmost).
         NSWorkspace.shared.notificationCenter.addObserver(
@@ -2191,9 +2213,9 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             if !synth, type != .keyDown || event.flags.contains(.maskCommand) || event.flags.contains(.maskControl)
                 || [kVK_Delete, kVK_ForwardDelete, kVK_LeftArrow, kVK_RightArrow, kVK_UpArrow, kVK_DownArrow]
                     .contains(Int(event.getIntegerValueField(.keyboardEventKeycode))) {
-                me.revertWatch.edit(at: ProcessInfo.processInfo.systemUptime)
-                me.unkeepWatch.edit(at: ProcessInfo.processInfo.systemUptime)
-                me.manualWatch.edit(at: ProcessInfo.processInfo.systemUptime)
+                me.revertWatch.edit()
+                me.unkeepWatch.edit()
+                me.manualWatch.edit()
             }
             if type == .keyDown, !synth,
                event.getIntegerValueField(.keyboardEventKeycode) == Int64(kVK_Delete) {
@@ -2369,7 +2391,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         usleep(10_000)
         DispatchQueue.main.sync { self.selectLayout(target) }
         lastConversion = Conversion(original: word + trail + "\r", typed: out + outTrail + "\r",
-                                    srcSource: srcSource, time: ProcessInfo.processInfo.systemUptime,
+                                    srcSource: srcSource,
                                     autoWords: [learnedKey(word)])
     }
 
@@ -2430,7 +2452,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             dbg("auto: skipped (word=\(word.debugDescription) excluded=\(isAutoExcluded()))")
             autoRun.noCandidate(); return false
         }
-        if revertWatch.reverted(word, at: ProcessInfo.processInfo.systemUptime, typedBack: { w in
+        if revertWatch.reverted(word, typedBack: { w in
             self.revertLayouts.flatMap { convertScriptRuns(w, src: $0.dst, dst: $0.src) } ?? w }) {
             learnedKeep = Array(Set(learnedKeep + [learnedKey(word)])).sorted()
             dbg("learned keep by revert: \(learnedKey(word).debugDescription)")
@@ -2439,17 +2461,16 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         }
         // The other way round: a word left alone as a keep, erased and typed again,
         // is wanted converted after all — the keep goes and the word is judged afresh.
-        let now = ProcessInfo.processInfo.systemUptime
-        if unkeepWatch.reverted(word, at: now, typedBack: { $0 }) {
+        if unkeepWatch.reverted(word, typedBack: { $0 }) {
             learnedKeep = learnedKeep.filter { $0 != learnedKey(word) }
             dbg("keep dropped by revert: \(learnedKey(word).debugDescription)")
             refreshLearnedUI()
         } else if learnedVerdict(learnedKey(word)) == .keep {
-            unkeepWatch.corrected(word, into: "", at: now)
+            unkeepWatch.corrected(word, into: "")
         }
         // A word left alone, erased and typed in the other layout by hand ("учше",
         // then "exit"): learned as a conversion at once.
-        if manualWatch.reverted(word, at: now, typedBack: { $0 }), let typed = manualTyped {
+        if manualWatch.reverted(word, typedBack: { $0 }), let typed = manualTyped {
             let key = learnedKey(typed)
             learnedConvert[key] = learnedKey(word)
             learnedKeep = learnedKeep.filter { $0 != key }
@@ -2463,7 +2484,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             if let cur = enabled.first(where: { $0.id == currentSourceID() }), wordBody(word) >= 3, !isAbbreviation(word),
                let t = enabled.first(where: { $0.isCyrillic != cur.isCyrillic }),
                let conv = convertWrong(word, src: cur, dst: t) {
-                manualWatch.corrected(conv, into: word, at: ProcessInfo.processInfo.systemUptime)
+                manualWatch.corrected(conv, into: word)
                 manualTyped = word
             }
             // A short word the model reads as fine right after a chain word ("ot"
@@ -2493,7 +2514,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         guard let fix = autoRun.plan(raw: word + trail, out: d.out + outTrail, cyrillic: d.target.isCyrillic,
                                      trusted: learnedVerdict(learnedKey(word)) == .convert, ambiguous: d.ambiguous)
         else { dbg("auto: short or ambiguous word waits for a neighbour"); return false }
-        revertWatch.corrected(word, into: d.out, at: ProcessInfo.processInfo.systemUptime)
+        revertWatch.corrected(word, into: d.out)
         revertLayouts = (cur, d.target)
         dbg("revert watch: armed")
         beginCorrection {
@@ -2564,7 +2585,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         usleep(10_000)
         DispatchQueue.main.sync { self.selectLayout(target) }
         lastConversion = Conversion(original: fix.original + boundary, typed: fix.text + boundary,
-                                    srcSource: srcSource, time: ProcessInfo.processInfo.systemUptime,
+                                    srcSource: srcSource,
                                     autoWords: fix.original.split(separator: " ").map { learnedKey(String($0)) })
     }
 
@@ -2660,20 +2681,19 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     /// - Parameters:
     ///   - typed: the word typed before the caret and the spaces after it
     ///     (`AutoRun.hotkeyTarget`), converted when nothing is selected.
-    ///   - pressAgain: a press within `undoWindow` cycles/undoes the last conversion.
+    ///   - pressAgain: a press right after a conversion cycles/undoes it.
     func performRetype(typed: (text: String, spaces: Int) = ("", 0), pressAgain: Bool = true) {
         guard AXIsProcessTrusted() else {
             DispatchQueue.main.async { self.promptAccessibilityIfNeeded() }
             return
         }
 
-        // Press-again: within undoWindow of a conversion, the next press retypes the
+        // Press-again: right after a conversion, the next press retypes the
         // original into the next layout (three or more enabled), and once the
         // readings are exhausted it reverses the conversion. Disabled when
         // "Trigger on double-tap" is on — a second double-tap would be ambiguous
         // with the trigger itself.
-        if pressAgain, let last = lastConversion,
-           ProcessInfo.processInfo.systemUptime - last.time < undoWindow {
+        if pressAgain, let last = lastConversion {
             lastConversion = nil
             if let next = last.alternatives.first { performRetarget(last, to: next) } else { performUndo(last) }
             return
@@ -2742,7 +2762,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         // remember it so a quick second hotkey can undo
         lastConversion = Conversion(original: typed == r.out ? r.replaced : text, typed: typed,
                                     srcSource: r.src.source,
-                                    time: ProcessInfo.processInfo.systemUptime, learned: r.learned,
+                                    learned: r.learned,
                                     alternatives: typed == r.out ? r.alternatives : [])
     }
 
@@ -2759,7 +2779,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         usleep(20_000)
         DispatchQueue.main.sync { self.autoRun.reset(); self.selectLayout(r.dst) }
         lastConversion = Conversion(original: r.replaced + spaces, typed: r.out + spaces, srcSource: r.src.source,
-                                    time: ProcessInfo.processInfo.systemUptime, learned: r.learned,
+                                    learned: r.learned,
                                     alternatives: r.alternatives, suffix: spaces)
     }
 
@@ -2776,7 +2796,6 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         var again = last
         again.typed = next.out + last.suffix
         again.alternatives = Array(last.alternatives.dropFirst())
-        again.time = ProcessInfo.processInfo.systemUptime
         lastConversion = again
     }
 

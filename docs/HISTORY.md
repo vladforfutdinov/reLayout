@@ -4,6 +4,19 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.14 — no time windows for undo and learning
+
+- Owner: the 1.5 s press-again undo and the 15 s revert window were limits a
+  user cannot see. Now signals end them instead:
+  - press-again undo lasts until any other key or click of the user's
+    (macOS `startUndoWatch`, a listen-only tap running with auto-correct off
+    too — the auto tap alone only covered auto mode; Windows already forgot
+    on any key in its hotkey hook and on clicks in the always-on mouse hook);
+  - a `RevertWatch` watches only the next word: retyped after an edit, it is a
+    revert/unkeep/manual fix; typed with no edit, the user moved on.
+
+---
+
 ## After v1.3.14 — a keep is dropped the same way it was learned
 
 - Owner: a keep learned by revert could only be removed in the Learned words

@@ -19,6 +19,10 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
   First version wanted the rest of the word to be plain letters, so "re,f,"
   ("куба,": a "," inside is "б") got nothing; now the converted rest must
   be letters.
+- Reverted (owner): read keys literally. The Russian comma/period are other
+  keys (Shift+/ and /), so "re,f," is "кубаб" and "[kr," is "хлкб" ("хлеб"
+  with a typo); the dual reading also let a fragment beat the real word
+  ("хле" -3.1 vs "хлеб" -4.1). Back to mapped punctuation = letter.
 
 ---
 

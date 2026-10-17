@@ -219,7 +219,7 @@ private func addTrayIcon() {
 
 // Fill nid.szTip from the current hotkey (does not push to the shell on its own).
 private func writeTooltip() {
-    let tip = Array("reLayout — \(currentHotkeyDisplay())".utf16) + [0]
+    let tip = Array("reLayout — \(hotkeyDisplay(.retype))".utf16) + [0]
     withUnsafeMutableBytes(of: &nid.szTip) { dst in
         memset(dst.baseAddress, 0, dst.count)
         tip.withUnsafeBytes { src in
@@ -248,25 +248,91 @@ private func taskbarIsLight() -> Bool {
 }
 
 /// The tray glyph for the taskbar's theme, at the small-icon size for this DPI
-/// (LoadIconW would give the 32 px one, scaled down blurry). Falls back to the app
-/// icon, then to the system one.
+/// (LoadIconW would give the 32 px one, scaled down blurry), with the auto-correct
+/// dot while it is on. Falls back to the app icon, then to the system one.
 private func themedTrayIcon() -> HICON? {
     let hInst = GetModuleHandleW(nil)
     trayIsLight = taskbarIsLight()
     for id in [trayIsLight ? 2 : 3, 1] {
         if let image = LoadImageW(hInst, UnsafePointer<WCHAR>(bitPattern: id), UINT(IMAGE_ICON),
                                   GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), 0) {
-            return HICON(OpaquePointer(image))
+            let icon = HICON(OpaquePointer(image))
+            guard autoModeActive(), let dotted = withAutoDot(icon, color: trayIsLight ? 0x0F7B0F : 0x6CCB5F) else {
+                return icon
+            }
+            DestroyIcon(icon)
+            return dotted
         }
     }
     return LoadIconW(nil, UnsafePointer<WCHAR>(bitPattern: 32512))
 }
 
+/// A copy of `icon` with a dot in its top-right corner and a gap cleared in the
+/// glyph around it.
+/// - Parameter color: 0xRRGGBB.
+/// - Returns: nil when the icon has no 32-bit alpha bitmap to draw on.
+private func withAutoDot(_ icon: HICON, color: UInt32) -> HICON? {
+    var info = ICONINFO()
+    guard GetIconInfo(icon, &info) else { return nil }
+    defer {
+        if let b = info.hbmColor { DeleteObject(UnsafeMutableRawPointer(b)) }
+        if let b = info.hbmMask { DeleteObject(UnsafeMutableRawPointer(b)) }
+    }
+    guard let source = info.hbmColor else { return nil }
+    var bm = BITMAP()
+    guard GetObjectW(UnsafeMutableRawPointer(source), Int32(MemoryLayout<BITMAP>.size), &bm) != 0 else { return nil }
+    let w = Int(bm.bmWidth), h = Int(bm.bmHeight)
+    guard w > 0, h > 0 else { return nil }
+
+    var bmi = BITMAPINFO()
+    bmi.bmiHeader.biSize = DWORD(MemoryLayout<BITMAPINFOHEADER>.size)
+    bmi.bmiHeader.biWidth = LONG(w)
+    bmi.bmiHeader.biHeight = -LONG(h)   // top-down rows, as CreateBitmap takes them
+    bmi.bmiHeader.biPlanes = 1
+    bmi.bmiHeader.biBitCount = 32
+    bmi.bmiHeader.biCompression = DWORD(0 /* BI_RGB */)
+    var px = [UInt32](repeating: 0, count: w * h)   // 0xAARRGGBB
+    let dc = GetDC(nil)
+    let rows = GetDIBits(dc, source, 0, UINT(h), &px, &bmi, UINT(0 /* DIB_RGB_COLORS */))
+    ReleaseDC(nil, dc)
+    guard rows == Int32(h), px.contains(where: { $0 >> 24 != 0 }) else { return nil }
+
+    let radius = Double(w) * 0.18
+    let gap = max(1, Double(w) / 16)
+    let cx = Double(w) - radius, cy = radius
+    for y in 0..<h {
+        for x in 0..<w {
+            let dx = Double(x) + 0.5 - cx, dy = Double(y) + 0.5 - cy
+            let d = (dx * dx + dy * dy).squareRoot()
+            guard d < radius + gap + 0.5 else { continue }
+            let i = y * w + x
+            let dot = min(max(radius + 0.5 - d, 0), 1)       // antialiased edge
+            if dot > 0 {
+                px[i] = UInt32(dot * 255 + 0.5) << 24 | color & 0xFF_FFFF
+            } else {
+                let keep = min(max(d - radius - gap + 0.5, 0), 1)
+                px[i] = UInt32(Double(px[i] >> 24) * keep + 0.5) << 24 | px[i] & 0xFF_FFFF
+            }
+        }
+    }
+
+    guard let bits = CreateBitmap(Int32(w), Int32(h), 1, 32, px) else { return nil }
+    defer { DeleteObject(UnsafeMutableRawPointer(bits)) }
+    let maskBytes = [UInt8](repeating: 0, count: (w + 15) / 16 * 2 * h)   // 1 bpp, WORD-aligned rows
+    guard let mask = CreateBitmap(Int32(w), Int32(h), 1, 1, maskBytes) else { return nil }
+    defer { DeleteObject(UnsafeMutableRawPointer(mask)) }
+    var dotted = ICONINFO()
+    dotted.fIcon = true
+    dotted.hbmMask = mask
+    dotted.hbmColor = bits
+    return CreateIconIndirect(&dotted)
+}
+
 private let themeTimer: UINT_PTR = 20
 private var trayIsLight = true   // the taskbar theme the current glyph was picked for
 
-/// Re-picks the tray glyph after a theme change.
-private func refreshTrayIcon() {
+/// Re-picks the tray glyph: after a theme change, and when auto-correct turns on or off.
+func refreshTrayIcon() {
     guard trayHwnd != nil else { return }
     let old = nid.hIcon
     nid.hIcon = themedTrayIcon()

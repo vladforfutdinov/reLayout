@@ -35,19 +35,23 @@ func forgetConversion() {
 }
 
 // "Trigger on double-tap": fire only on the second hotkey press within the window.
-private var lastTriggerTick: DWORD = 0
+private var lastTriggerTick = [DWORD](repeating: 0, count: HotkeySlot.allCases.count)
 private let doubleTapWindowMs: DWORD = 350
 
-// Called for every hotkey activation (WM_RETYPE from the hook); gates the
-// conversion on a double-press/tap when enabled.
-func triggerHotkey() {
-    guard loadDoubleTap() else { performRetype(); return }
-    let now = GetTickCount()
-    if now &- lastTriggerTick <= doubleTapWindowMs {
-        lastTriggerTick = 0
-        performRetype()
-    } else {
-        lastTriggerTick = now
+// Called for every hotkey activation (WM_RETYPE / WM_TOGGLE_AUTO from the hook);
+// gates it on a double-press/tap when that hotkey was recorded as one.
+func triggerHotkey(_ slot: HotkeySlot) {
+    if loadHotkey(slot).doubleTap {
+        let now = GetTickCount()
+        guard now &- lastTriggerTick[slot.rawValue] <= doubleTapWindowMs else {
+            lastTriggerTick[slot.rawValue] = now
+            return
+        }
+        lastTriggerTick[slot.rawValue] = 0
+    }
+    switch slot {
+    case .retype:     performRetype()
+    case .autoToggle: toggleAutoMode()
     }
 }
 
@@ -55,7 +59,7 @@ func performRetype() {
     dwatch("hotkey")
     // Press-again: the next reading, then undo. Off in double-tap mode, where a
     // second press is the trigger.
-    if !loadDoubleTap(), let last = lastConversion, GetTickCount() &- last.time < undoWindowMs {
+    if !loadHotkey(.retype).doubleTap, let last = lastConversion, GetTickCount() &- last.time < undoWindowMs {
         lastConversion = nil
         if let next = last.alternatives.first { return performRetarget(last, to: next) }
         return performUndo(last)
@@ -178,7 +182,7 @@ dlogStartup()
 
 // Global hotkey via a low-level keyboard hook (see WinHotkey.swift) so a bare
 // modifier (e.g. Left Shift) can be a hotkey, which RegisterHotKey can't do.
-// The hook posts WM_RETYPE to this thread; we run the conversion here.
+// The hook posts WM_RETYPE / WM_TOGGLE_AUTO to this thread; we act on them here.
 if !installHotkeyHook() {
     let err = GetLastError()
     let text = L("win.hookFailed", "\(err)")
@@ -197,7 +201,9 @@ _ = setupTray()
 var msg = MSG()
 while GetMessageW(&msg, nil, 0, 0) {
     if msg.message == WM_RETYPE {
-        triggerHotkey()
+        triggerHotkey(.retype)
+    } else if msg.message == WM_TOGGLE_AUTO {
+        triggerHotkey(.autoToggle)
     }
     // Tab / Shift+Tab / arrows / Space between the controls of our windows.
     if [settingsWindow(), exceptionsWindow(), learnedWindow()].contains(where: { $0 != nil && IsDialogMessageW($0, &msg) }) {

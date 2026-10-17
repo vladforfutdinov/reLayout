@@ -125,6 +125,27 @@ func reloadAutoMode() {
     run.reset()
 }
 
+/// Turns auto-correct on or off as the Settings checkbox does: saves it, re-reads
+/// the preferences, syncs an open Settings window and the tray icon's dot.
+func setAutoMode(_ on: Bool) {
+    saveAutoMode(on)
+    reloadAutoMode()
+    refreshSettingsAuto()
+    refreshTrayIcon()
+}
+
+/// The auto-correct on/off hotkey. Does nothing while auto-correct is unavailable
+/// (layouts of one script), where the Settings checkbox is disabled too.
+func toggleAutoMode() {
+    guard WinLayout.crossScriptAvailable() else { dwatch("auto toggle: unavailable"); return }
+    let on = !loadAutoMode()
+    dwatch("auto toggle: \(on ? "on" : "off")")
+    setAutoMode(on)
+}
+
+/// Auto-correct is on and can act — what the Settings checkbox shows checked.
+func autoModeActive() -> Bool { autoEnabled && WinLayout.crossScriptAvailable() }
+
 /// True when the character is a letter on an installed Cyrillic layout while a
 /// Latin one is active ("," is б), so ",skj" buffers as "было".
 private func mapsToCyrillic(_ ch: Character, cur: WinLayout) -> Bool {

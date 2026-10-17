@@ -306,7 +306,8 @@ public func spellRepairedTarget<L: AutoLayout>(_ w: String, cur: L, enabled: [L]
                                                isWord: SpellCheck, guesses: SpellGuesses)
     -> (target: L, out: String, ambiguous: Bool, repaired: Bool)? {
     let plain = decided.map { (target: $0.target, out: $0.out, ambiguous: $0.ambiguous, repaired: false) }
-    guard learned(learnedKey(w)) != .keep, w.count >= spellOverrideMinLetters, w.allSatisfy(\.isLetter),
+    // Punctuation that is a letter on the other layout counts as one ("[kr," is "хлкб").
+    guard learned(learnedKey(w)) != .keep, w.count >= spellOverrideMinLetters,
           w.first?.isUppercase == false, let lang = cur.languageCode, let m = model(lang), m.score(w) < autoGarbage,
           spelledRight(w, in: scriptLanguages(cyrillic: cur.isCyrillic, enabled: enabled), isWord) == false
     else { return plain }

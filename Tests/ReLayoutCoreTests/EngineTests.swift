@@ -482,6 +482,10 @@ final class EngineTests: XCTestCase {
                                     model: { models[$0] }, isWord: speller(["привет", "пролет"]), guesses: two)
         XCTAssertEqual(p?.out, "провет")
         XCTAssertEqual(p?.repaired, false)
+        // A typo on a punctuation key that is a letter there: "ghbd,tn" is "привбет".
+        XCTAssertEqual(spellRepairedTarget("ghbd,tn", cur: latin, enabled: [latin, uk], decided: nil,
+                                           model: { models[$0] }, isWord: check,
+                                           guesses: { w, _ in w == "привбет" ? ["привет"] : [] })?.out, "привет")
         // Capitalized or a real word of its own language: untouched.
         XCTAssertNil(spellRepairedTarget("Ghbddtn", cur: latin, enabled: [latin, uk], decided: nil,
                                          model: { models[$0] }, isWord: check, guesses: none))

@@ -23,6 +23,9 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
   keys (Shift+/ and /), so "re,f," is "кубаб" and "[kr," is "хлкб" ("хлеб"
   with a typo); the dual reading also let a fragment beat the real word
   ("хле" -3.1 vs "хлеб" -4.1). Back to mapped punctuation = letter.
+  Typo repair now also takes words with letters on punctuation keys ("[kr,"
+  = "хлкб"); here it still stays: ru guesses "хлеб", uk "хліб" — two
+  candidates, no repair.
 
 ---
 

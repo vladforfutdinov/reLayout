@@ -27,6 +27,7 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 - Spell-check latency: median 0.5 ms, 1 in 100 calls 50-100 ms; the call is
   synchronous (`shortcut:`), only for words the trigrams convert or score as junk.
 - Default off, experimental; macOS only (Windows passes no checker).
+- The ⓘ hint's doubled-letter example is in the UI language (`3caac67`): "helllo" -> "hello", „gehhen“ -> „gehen“ …, each checked to be misspelled with a single dictionary fix (pl „dziękkuję“ passed the pl checker as a word, so pl uses „dobrrze“).
 
 ---
 

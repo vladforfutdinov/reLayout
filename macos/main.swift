@@ -252,6 +252,60 @@ final class Layout: AutoLayout {
 
 enum HKMode: Int { case carbon = 0, modTap = 1 }
 
+/// A recorded hotkey: a Carbon combo (`code` + `mods`) or a modifier-tap chord,
+/// firing after `taps` activations within the double-tap window.
+struct Hotkey: Equatable {
+    var mode: HKMode
+    var code: UInt32 = 0          // carbon: virtual key
+    var mods: UInt32 = 0          // carbon: Carbon modifier mask
+    var chord: [UInt16] = []      // modTap: modifier virtual keys
+    var taps = 1
+    var display: String
+
+    /// Same activation whatever the tap count: the single-tap one would fire on
+    /// the other's first tap. Left/right modifiers count as one key.
+    func clashes(with o: Hotkey) -> Bool {
+        guard mode == o.mode else { return false }
+        return mode == .carbon ? code == o.code && mods == o.mods
+                               : Set(chord.map(canonicalMod)) == Set(o.chord.map(canonicalMod))
+    }
+
+    /// True when a keyDown with this key code and these flags is this combo.
+    func isCombo(code c: Int64, flags: CGEventFlags) -> Bool {
+        guard mode == .carbon, c == Int64(code) else { return false }
+        var m: UInt32 = 0
+        if flags.contains(.maskCommand)   { m |= UInt32(cmdKey) }
+        if flags.contains(.maskAlternate) { m |= UInt32(optionKey) }
+        if flags.contains(.maskControl)   { m |= UInt32(controlKey) }
+        if flags.contains(.maskShift)     { m |= UInt32(shiftKey) }
+        return m == mods
+    }
+
+    /// The hotkey stored under `prefix` (`hk` -> `hkType`, `hkCode`, …); nil when none is.
+    static func load(_ d: UserDefaults, prefix p: String) -> Hotkey? {
+        guard d.object(forKey: p + "Type") != nil else { return nil }
+        return Hotkey(mode: HKMode(rawValue: d.integer(forKey: p + "Type")) ?? .carbon,
+                      code: UInt32(d.integer(forKey: p + "Code")),
+                      mods: UInt32(d.integer(forKey: p + "Mods")),
+                      chord: (d.array(forKey: p + "Chord") as? [Int])?.map { UInt16($0) } ?? [],
+                      taps: max(1, d.integer(forKey: p + "Taps")),   // 0 (absent) -> 1
+                      display: d.string(forKey: p + "Display") ?? "")
+    }
+
+    func save(_ d: UserDefaults, prefix p: String) {
+        d.set(mode.rawValue, forKey: p + "Type")
+        d.set(Int(code), forKey: p + "Code")
+        d.set(Int(mods), forKey: p + "Mods")
+        d.set(chord.map { Int($0) }, forKey: p + "Chord")
+        d.set(max(1, taps), forKey: p + "Taps")
+        d.set(display, forKey: p + "Display")
+    }
+
+    static func remove(_ d: UserDefaults, prefix p: String) {
+        for k in ["Type", "Code", "Mods", "Chord", "Taps", "Display"] { d.removeObject(forKey: p + k) }
+    }
+}
+
 func carbonModsFrom(_ f: NSEvent.ModifierFlags) -> UInt32 {
     var m: UInt32 = 0
     if f.contains(.command) { m |= UInt32(cmdKey) }
@@ -381,8 +435,7 @@ func symbolicHotkeyName(_ id: Int) -> String {
 
 final class ShortcutField: NSView {
     var display: String { didSet { needsDisplay = true } }
-    // (mode, keyCode, carbonMods, chord, taps, display)
-    var onCommit: ((HKMode, UInt32, UInt32, [UInt16], Int, String) -> Void)?
+    var onCommit: ((Hotkey) -> Void)?
     // Called true when recording starts, false when it ends — lets the owner
     // suspend the live hotkey so it doesn't fire (and steal focus) while typing one.
     var onRecordingChanged: ((Bool) -> Void)?
@@ -407,13 +460,13 @@ final class ShortcutField: NSView {
     private var seqLastTime: TimeInterval = 0
     private var seqTimer: DispatchWorkItem?
 
-    init(display: String) {
+    init(display: String, label: String) {
         self.display = display
         super.init(frame: NSRect(x: 0, y: 0, width: 150, height: 24))
         translatesAutoresizingMaskIntoConstraints = false
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
-        setAccessibilityLabel(L("settings.hotkey"))
+        setAccessibilityLabel(label)
     }
     required init?(coder: NSCoder) { fatalError("ShortcutField is code-only") }
 
@@ -537,7 +590,7 @@ final class ShortcutField: NSView {
         display = disp
         committing = true                 // onCommit relayouts the window / churns focus
         defer { committing = false }
-        onCommit?(mode, seqCode, seqMods, seqChord, seqTaps, disp)
+        onCommit?(Hotkey(mode: mode, code: seqCode, mods: seqMods, chord: seqChord, taps: seqTaps, display: disp))
         window?.makeFirstResponder(self)
     }
 }
@@ -592,7 +645,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     static let shared = AppController()
 
     private var statusItem: NSStatusItem!
-    private var hotKeyRef: EventHotKeyRef?
+    private var hotKeyRefs: [HotkeySlot: EventHotKeyRef] = [:]
     private var handlerInstalled = false
     private var appearanceObservation: NSKeyValueObservation?   // refresh static icon on dark/light switch
 
@@ -611,13 +664,16 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     // this never deadlocks since the main thread never blocks waiting on `worker`.
     private let worker = DispatchQueue(label: "relayout.worker")
 
-    // user-configurable hotkey (persisted in UserDefaults). Default: tap left Option.
-    private var hotKeyMode: HKMode = .modTap
-    private var hotKeyCode = UInt32(kVK_ANSI_R)   // carbon: virtual key
-    private var hotKeyMods = UInt32(controlKey | optionKey)
-    private var hotKeyChord: [UInt16] = [UInt16(kVK_Option)]   // modTap: modifier virtual keys
-    private var hotKeyTaps = 1     // activations within the window to fire (1 = single tap)
-    private var hotKeyDisplay = "left⌥"
+    // Two user-configurable hotkeys, persisted under their own UserDefaults prefix.
+    // The raw value is the Carbon EventHotKeyID.id.
+    private enum HotkeySlot: UInt32, CaseIterable {
+        case retype = 1, autoToggle = 2
+        var prefix: String { self == .retype ? "hk" : "autoHk" }
+        var caption: String { L(self == .retype ? "settings.hotkey" : "settings.autoHotkey") }
+    }
+    private var hotkey = AppController.defaultHotkey
+    private var autoHotkey: Hotkey?   // unset by default: nothing registered
+    private func definition(_ slot: HotkeySlot) -> Hotkey? { slot == .retype ? hotkey : autoHotkey }
 
     // Last conversion, for double-tap undo: pressing the hotkey again within
     // undoWindow seconds reverses it (reselects the typed text, restores the
@@ -643,22 +699,21 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     private var autoChainTarget: Layout?   // layout of the last auto candidate, for bridged words
 
     // modifier-tap runtime state
-    private var tapMonitors: [Any] = []
     fileprivate var keyTap: CFMachPort?       // CGEventTap that flags key presses during a hold
     // The last physical keyDown the auto tap fed, for the Globe double (below).
     private var lastFedKey: (code: Int64, time: Double) = (-1, 0)
     private var dbgRecentFed: [(code: Int64, time: Double)] = []
     private var keyTapSource: CFRunLoopSource?
-    fileprivate var tapArmed = false
-    private var tapArmTime: Double = 0
-    fileprivate var tapInterrupted = false    // set by the key tap (file-scope callback)
-    private var tapPolluted = false   // an out-of-set modifier appeared this cycle
-
-    // Multi-tap hotkeys: a hotkey can require N activations within doubleTapWindow
-    // (e.g. double-tap Shift). The count is part of the recorded hotkey (hotKeyTaps),
-    // so there's no separate toggle. While hotKeyTaps > 1, press-again-undo is off.
-    private var tapSeqCount = 0
-    private var tapSeqTime = 0.0
+    // Per-hotkey press cycle. Multi-tap hotkeys require N activations within
+    // doubleTapWindow (e.g. double-tap Shift); the count is part of the recorded
+    // hotkey (`taps`). While the retype hotkey's taps > 1, press-again-undo is off.
+    private struct TapCycle {
+        var armed = false, armTime = 0.0
+        var interrupted = false   // a key/mouse press during the hold
+        var polluted = false      // an out-of-set modifier appeared this cycle
+        var seqCount = 0, seqTime = 0.0
+    }
+    private var tapCycles: [HotkeySlot: TapCycle] = [:]
     private let doubleTapWindow = 0.5
     private let modTapHoldWindow = 0.6   // max chord-hold duration to count as a tap
 
@@ -678,8 +733,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     private weak var autoInfo: NSImageView?
     private weak var excTable: NSTableView?
     private var lastActiveBundleID: String?   // last non-self frontmost app ("exclude current")
-    private weak var shortcutField: ShortcutField?
-    private weak var conflictLabel: NSTextField?
+    private var shortcutFields: [HotkeySlot: ShortcutField] = [:]   // replaced when Settings is rebuilt
+    private var conflictLabels: [HotkeySlot: NSTextField] = [:]
     private weak var loginCheckbox: NSButton?
 
     deinit {
@@ -743,9 +798,19 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         // image: the system tints it to the menu-bar foreground colour (white on a
         // dark bar, black on a light bar), correct even when the bar's tint doesn't
         // match the app's Light/Dark appearance (e.g. wallpaper-driven).
-        let glyph = (NSImage(named: "for-light-text-1024")?.copy() as? NSImage)
-            ?? NSApp.applicationIconImage ?? NSImage()
-        glyph.size = NSSize(width: 18, height: 18)
+        // Auto-correct on adds a dot in the empty top-right corner. A template keeps
+        // only alpha, so the dot can't be green: it is the bar's foreground at
+        // partial alpha, a lighter tone of the glyph.
+        let src = NSImage(named: "for-light-text-1024") ?? NSApp.applicationIconImage ?? NSImage()
+        let dot = autoMode && autoAvailable
+        let glyph = NSImage(size: NSSize(width: 18, height: 18), flipped: false) { r in
+            src.draw(in: r)
+            if dot {
+                NSColor.black.withAlphaComponent(0.6).setFill()
+                NSBezierPath(ovalIn: NSRect(x: r.maxX - 4.5, y: r.maxY - 4.5, width: 4.5, height: 4.5)).fill()
+            }
+            return true
+        }
         glyph.isTemplate = true
         button.image = glyph
         button.imagePosition = .imageOnly
@@ -776,9 +841,14 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     // Auto-correct only tells scripts apart (Cyrillic vs Latin); with every enabled
     // layout in one script it never fires, so the checkbox is shown off and disabled.
     // The stored preference is kept for when a layout of the other script returns.
+    private var autoAvailable: Bool {
+        let enabled = Layout.enabledList()
+        return enabled.contains { $0.isCyrillic } && enabled.contains { !$0.isCyrillic }
+    }
+
     private func updateAutoAvailability() {
         let enabled = Layout.enabledList()
-        let ok = enabled.contains { $0.isCyrillic } && enabled.contains { !$0.isCyrillic }
+        let ok = autoAvailable
         autoCb?.isEnabled = ok
         autoCb?.state = ok && autoMode ? .on : .off
         autoExcBtn?.isEnabled = ok
@@ -827,47 +897,65 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
 
     // MARK: hotkey
 
-    // Single entry point for both hotkey modes. Fires once the hotkey has been
-    // activated hotKeyTaps times within doubleTapWindow (1 = fire immediately).
-    func triggerHotkey() {
+    // Single entry point for both hotkey modes and both hotkeys. Fires once the
+    // hotkey has been activated `taps` times within doubleTapWindow (1 = at once).
+    private func hotkeyActivated(_ slot: HotkeySlot) {
+        guard let hk = definition(slot) else { return }
         let typed = autoRun.hotkeyTarget
-        if hotKeyTaps <= 1 { beginCorrection { self.performRetype(typed: typed) }; return }
-        let now = ProcessInfo.processInfo.systemUptime
-        tapSeqCount = (now - tapSeqTime <= doubleTapWindow) ? tapSeqCount + 1 : 1
-        tapSeqTime = now
-        if tapSeqCount >= hotKeyTaps {
-            tapSeqCount = 0
-            beginCorrection { self.performRetype(typed: typed) }
+        if hk.taps > 1 {
+            let now = ProcessInfo.processInfo.systemUptime
+            var c = tapCycles[slot, default: TapCycle()]
+            c.seqCount = (now - c.seqTime <= doubleTapWindow) ? c.seqCount + 1 : 1
+            c.seqTime = now
+            let done = c.seqCount >= hk.taps
+            if done { c.seqCount = 0 }
+            tapCycles[slot] = c
+            guard done else { return }
         }
+        switch slot {
+        case .retype:
+            let pressAgain = hk.taps == 1
+            beginCorrection { self.performRetype(typed: typed, pressAgain: pressAgain) }
+        case .autoToggle:
+            toggleAutoModeFromHotkey()
+        }
+    }
+
+    // Unavailable auto-correct (one script) leaves the checkbox disabled, so the
+    // hotkey can't change the preference either.
+    private func toggleAutoModeFromHotkey() {
+        guard autoAvailable else { dbg("auto toggle hotkey: unavailable, ignored"); return }
+        autoMode.toggle()
+        dbg("auto toggle hotkey: autoMode=\(autoMode)")
+        updateAutoAvailability()
     }
 
     private func installHotKeyHandler() {
         guard !handlerInstalled else { return }
         var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard),
                                  eventKind: UInt32(kEventHotKeyPressed))
-        let ih = InstallEventHandler(GetApplicationEventTarget(), { _, _, _ in
-            dbg("hotkey fired")
-            AppController.shared.triggerHotkey()
+        let ih = InstallEventHandler(GetApplicationEventTarget(), { _, event, _ in
+            var id = EventHotKeyID()
+            let st = GetEventParameter(event, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID),
+                                       nil, MemoryLayout<EventHotKeyID>.size, nil, &id)
+            dbg("hotkey fired id=\(id.id) status=\(st)")
+            if st == noErr, let slot = HotkeySlot(rawValue: id.id) { AppController.shared.hotkeyActivated(slot) }
             return noErr
         }, 1, &spec, nil, nil)
         handlerInstalled = (ih == noErr)
         dbg("InstallEventHandler status=\(ih)")
     }
 
-    // Unregister the live hotkey (both modes). Used to pause it while the user
+    // Unregister the live hotkeys (both modes). Used to pause them while the user
     // records a new one, and as the first half of applyHotkey.
     private func suspendHotkey() {
-        if let r = hotKeyRef { UnregisterEventHotKey(r); hotKeyRef = nil }
-        for m in tapMonitors { NSEvent.removeMonitor(m) }
-        tapMonitors.removeAll()
+        for r in hotKeyRefs.values { UnregisterEventHotKey(r) }
+        hotKeyRefs = [:]
         removeEventTap(&keyTap, &keyTapSource)
-        tapArmed = false
-        tapPolluted = false
-        tapInterrupted = false
-        tapSeqCount = 0; tapSeqTime = 0   // don't carry a stale multi-tap count into a new hotkey
+        tapCycles = [:]   // don't carry a stale cycle or multi-tap count into a new hotkey
     }
 
-    // Tear down whatever is active, then install the current mode.
+    // Tear down whatever is active, then install the current hotkeys.
     private func applyHotkey() {
         suspendHotkey()
         // Disabled only while the shortcut recorder is actively capturing: taps there
@@ -878,16 +966,22 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         // Having Settings merely open no longer disables the hotkey.
         guard !recordingHotkey else { return }
 
-        switch hotKeyMode {
-        case .carbon:
-            let hkID = EventHotKeyID(signature: fourCharCode("RLAY"), id: 1)
-            let st = RegisterEventHotKey(hotKeyCode, hotKeyMods, hkID,
-                                         GetApplicationEventTarget(), 0, &hotKeyRef)
-            dbg("carbon hotkey code=\(hotKeyCode) mods=\(hotKeyMods) status=\(st)")
-        case .modTap:
-            setupTapMonitors()
-            dbg("modTap hotkey chord=\(hotKeyChord)")
+        var needsTap = false
+        for slot in HotkeySlot.allCases {
+            guard let hk = definition(slot) else { continue }
+            switch hk.mode {
+            case .carbon:
+                var ref: EventHotKeyRef?
+                let st = RegisterEventHotKey(hk.code, hk.mods, EventHotKeyID(signature: fourCharCode("RLAY"), id: slot.rawValue),
+                                             GetApplicationEventTarget(), 0, &ref)
+                if let ref { hotKeyRefs[slot] = ref }
+                dbg("carbon hotkey \(slot) code=\(hk.code) mods=\(hk.mods) status=\(st)")
+            case .modTap:
+                needsTap = true
+                dbg("modTap hotkey \(slot) chord=\(hk.chord) taps=\(hk.taps)")
+            }
         }
+        if needsTap { setupTapMonitors() }
     }
 
     // Create a listen-only session event tap, add it to the main run loop, enable it.
@@ -927,8 +1021,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             case .flagsChanged:
                 me.handleTapFlags(modsFromCGFlags(event.flags))
             case .keyDown, .leftMouseDown, .rightMouseDown, .otherMouseDown:
-                me.tapInterrupted = true   // a key/mouse during the hold -> not a tap
-                me.tapArmed = false
+                me.interruptTapCycles()   // a key/mouse during the hold -> not a tap
             case .tapDisabledByTimeout, .tapDisabledByUserInput:
                 if let t = me.keyTap { CGEvent.tapEnable(tap: t, enable: true) }
             default:
@@ -939,80 +1032,88 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         if let (tap, src) = installEventTap(mask, cb) { keyTap = tap; keyTapSource = src }
     }
 
+    fileprivate func interruptTapCycles() {
+        for k in tapCycles.keys { tapCycles[k]?.interrupted = true; tapCycles[k]?.armed = false }
+    }
+
     // Called from the event tap on every modifier change. `cur` = the modifier
-    // keys currently held. Arms on the exact chord, fires on a clean release.
+    // keys currently held. Each modifier-tap hotkey arms on its exact chord and
+    // fires on a clean release.
     fileprivate func handleTapFlags(_ cur: Set<UInt16>) {
-        let target = Set(hotKeyChord.map(canonicalMod))   // normalize L/R to match cur
-        guard !target.isEmpty else { return }
-        if cur.isEmpty {
-            // fire only on a clean cycle: exact chord, no extra modifier ever, no
-            // key/mouse interruption, released quickly.
-            if tapArmed, !tapInterrupted, !tapPolluted,
-               ProcessInfo.processInfo.systemUptime - tapArmTime < modTapHoldWindow {
-                triggerHotkey()
+        let now = ProcessInfo.processInfo.systemUptime
+        for slot in HotkeySlot.allCases {
+            guard let hk = definition(slot), hk.mode == .modTap else { continue }
+            let target = Set(hk.chord.map(canonicalMod))   // normalize L/R to match cur
+            guard !target.isEmpty else { continue }
+            var c = tapCycles[slot, default: TapCycle()]
+            var fire = false
+            if cur.isEmpty {
+                // fire only on a clean cycle: exact chord, no extra modifier ever, no
+                // key/mouse interruption, released quickly.
+                fire = c.armed && !c.interrupted && !c.polluted && now - c.armTime < modTapHoldWindow
+                c.armed = false
+                c.polluted = false   // reset for the next press cycle
+            } else if !cur.isSubset(of: target) {
+                // a modifier OUTSIDE the configured set was held together with it —
+                // poison the whole cycle so releasing back to the chord can't re-arm.
+                c.polluted = true
+                c.armed = false
+            } else if cur == target, !c.polluted, !c.armed {
+                c.armed = true
+                c.armTime = now
+                c.interrupted = false
             }
-            tapArmed = false
-            tapPolluted = false   // reset for the next press cycle
-        } else if !cur.isSubset(of: target) {
-            // a modifier OUTSIDE the configured set was held together with it —
-            // poison the whole cycle so releasing back to the chord can't re-arm.
-            tapPolluted = true
-            tapArmed = false
-        } else if cur == target {
-            if !tapPolluted, !tapArmed {
-                tapArmed = true
-                tapArmTime = ProcessInfo.processInfo.systemUptime
-                tapInterrupted = false
-            }
+            // a non-empty strict subset = chord still building up / partially released -> wait
+            tapCycles[slot] = c
+            if fire { hotkeyActivated(slot) }
         }
-        // a non-empty strict subset = chord still building up / partially released -> wait
     }
 
     // MARK: hotkey persistence
 
     private func loadHotkey() {
         let d = UserDefaults.standard
-        guard d.object(forKey: "hkType") != nil else { return } // keep defaults
-        hotKeyMode = HKMode(rawValue: d.integer(forKey: "hkType")) ?? .carbon
-        hotKeyCode = UInt32(d.integer(forKey: "hkCode"))
-        hotKeyMods = UInt32(d.integer(forKey: "hkMods"))
-        hotKeyChord = (d.array(forKey: "hkChord") as? [Int])?.map { UInt16($0) } ?? []
-        hotKeyTaps = max(1, d.integer(forKey: "hkTaps"))   // 0 (absent) -> 1
-        hotKeyDisplay = d.string(forKey: "hkDisplay") ?? hotKeyDisplay
-    }
-
-    private func saveHotkey(mode: HKMode, code: UInt32, mods: UInt32, chord: [UInt16], taps: Int, display: String) {
-        hotKeyMode = mode; hotKeyCode = code; hotKeyMods = mods; hotKeyChord = chord
-        hotKeyTaps = max(1, taps); hotKeyDisplay = display
-        let d = UserDefaults.standard
-        d.set(mode.rawValue, forKey: "hkType")
-        d.set(Int(code), forKey: "hkCode")
-        d.set(Int(mods), forKey: "hkMods")
-        d.set(chord.map { Int($0) }, forKey: "hkChord")
-        d.set(hotKeyTaps, forKey: "hkTaps")
-        d.set(display, forKey: "hkDisplay")
+        hotkey = Hotkey.load(d, prefix: HotkeySlot.retype.prefix) ?? AppController.defaultHotkey
+        autoHotkey = Hotkey.load(d, prefix: HotkeySlot.autoToggle.prefix)
     }
 
     // default hotkey: tap left Option
-    private static let defaultHotkey: (HKMode, UInt32, UInt32, [UInt16], String) =
-        (.modTap, UInt32(kVK_ANSI_R), UInt32(controlKey | optionKey), [UInt16(kVK_Option)], "left ⌥")
+    private static let defaultHotkey = Hotkey(mode: .modTap, code: UInt32(kVK_ANSI_R), mods: UInt32(controlKey | optionKey),
+                                              chord: [UInt16(kVK_Option)], display: "left ⌥")
 
-    @objc private func resetHotkey() {
-        shortcutField?.endRecording()      // a recording in progress must not override the reset
-        let d = AppController.defaultHotkey
-        commitHotkey(d.0, d.1, d.2, d.3, 1, d.4)
-        shortcutField?.display = d.4
+    @objc private func resetHotkey() { restoreHotkey(.retype) }
+    @objc private func clearAutoHotkey() { restoreHotkey(.autoToggle) }
+
+    // The retype hotkey goes back to its default, the auto-correct toggle to none.
+    private func restoreHotkey(_ slot: HotkeySlot) {
+        shortcutFields[slot]?.endRecording()   // a recording in progress must not override the reset
+        commitHotkey(slot, slot == .retype ? AppController.defaultHotkey : nil)
     }
 
-    // Commit a hotkey captured by the ShortcutField.
-    private func commitHotkey(_ mode: HKMode, _ code: UInt32, _ mods: UInt32, _ chord: [UInt16], _ taps: Int, _ display: String) {
-        saveHotkey(mode: mode, code: code, mods: mods, chord: chord, taps: taps, display: display)
-        applyHotkey()
-        setupMenu()
-        let warn = mode == .carbon ? systemHotkeyConflict(keyCode: UInt16(code), cocoaMods: cocoaMods(mods)) : nil
-        conflictLabel?.stringValue = warn.map { String(format: L("settings.conflict"), $0) } ?? ""
-        conflictLabel?.isHidden = (warn == nil)   // collapse the row when no conflict
-        fitSettingsWindow()                       // re-fit so row spacing stays constant
+    // Commit a hotkey captured by a ShortcutField (nil = none). One matching the
+    // other hotkey's activation is refused: both would fire on the same press.
+    private func commitHotkey(_ slot: HotkeySlot, _ hk: Hotkey?) {
+        let other: HotkeySlot = slot == .retype ? .autoToggle : .retype
+        let warn: String?
+        if let hk, let o = definition(other), hk.clashes(with: o) {
+            warn = other.caption.trimmingCharacters(in: CharacterSet(charactersIn: ":：").union(.whitespaces))
+        } else {
+            let d = UserDefaults.standard
+            if let hk { hk.save(d, prefix: slot.prefix) } else { Hotkey.remove(d, prefix: slot.prefix) }
+            if slot == .retype { hotkey = hk ?? AppController.defaultHotkey } else { autoHotkey = hk }
+            applyHotkey()
+            warn = hk.flatMap(systemConflict)
+        }
+        shortcutFields[slot]?.display = hotkeyDisplay(slot)
+        conflictLabels[slot]?.stringValue = warn.map { String(format: L("settings.conflict"), $0) } ?? ""
+        conflictLabels[slot]?.isHidden = (warn == nil)   // collapse the row when no conflict
+        fitSettingsWindow()                              // re-fit so row spacing stays constant
+    }
+
+    private func hotkeyDisplay(_ slot: HotkeySlot) -> String { definition(slot)?.display ?? L("shortcut.none") }
+
+    private func systemConflict(_ hk: Hotkey) -> String? {
+        hk.mode == .carbon ? systemHotkeyConflict(keyCode: UInt16(hk.code), cocoaMods: cocoaMods(hk.mods)) : nil
     }
 
     // Resize the Settings window to its content's natural size, keeping the
@@ -1081,51 +1182,54 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             return l
         }
 
-        let field = ShortcutField(display: hotKeyDisplay)
-        field.onCommit = { [weak self] mode, code, mods, chord, taps, disp in
-            self?.commitHotkey(mode, code, mods, chord, taps, disp)
-        }
-        field.onRecordingChanged = { [weak self] active in
-            // Suspend BOTH the live hotkey and the auto-correct monitor while
-            // recording, so nothing fires (or auto-edits) on the keys being captured.
-            // This focus-scoped flag is the sole gate — applyHotkey/applyAutoMode read
-            // it, and finalizeSequence's mid-recording re-apply is held off until stop.
-            self?.recordingHotkey = active
-            if active {
-                self?.suspendHotkey(); self?.stopAutoMonitor()
-            } else {
-                self?.applyHotkey(); self?.applyAutoMode()
+        // One recorder row per hotkey: field + restore button, and an (optional)
+        // conflict warning under it. A multi-tap sequence (e.g. double Shift) is
+        // recorded by repeating it; no separate toggle.
+        func hotkeyColumn(_ slot: HotkeySlot, reset action: Selector) -> (column: NSStackView, row: NSStackView) {
+            let field = ShortcutField(display: hotkeyDisplay(slot), label: slot.caption)
+            field.onCommit = { [weak self] hk in self?.commitHotkey(slot, hk) }
+            field.onRecordingChanged = { [weak self] active in
+                // Suspend BOTH live hotkeys and the auto-correct monitor while
+                // recording, so nothing fires (or auto-edits) on the keys being captured.
+                // This focus-scoped flag is the sole gate — applyHotkey/applyAutoMode read
+                // it, and finalizeSequence's mid-recording re-apply is held off until stop.
+                self?.recordingHotkey = active
+                if active {
+                    self?.suspendHotkey(); self?.stopAutoMonitor()
+                } else {
+                    self?.applyHotkey(); self?.applyAutoMode()
+                }
             }
-        }
-        shortcutField = field
-        let resetIcon = NSImage(systemSymbolName: "arrow.uturn.backward", accessibilityDescription: L("settings.restoreDefault"))
-        let reset = NSButton(image: resetIcon ?? NSImage(), target: self, action: #selector(resetHotkey))
-        reset.isBordered = false
-        reset.bezelStyle = .accessoryBar
-        reset.imageScaling = .scaleProportionallyDown
-        reset.toolTip = L("settings.restoreDefault")
-        field.setContentHuggingPriority(.init(1), for: .horizontal)   // let it stretch to fill the row
-        let hkRow = NSStackView(views: [field, reset])
-        hkRow.orientation = .horizontal
-        hkRow.spacing = 8
-        hkRow.alignment = .centerY
+            shortcutFields[slot] = field
+            let resetIcon = NSImage(systemSymbolName: "arrow.uturn.backward", accessibilityDescription: L("settings.restoreDefault"))
+            let reset = NSButton(image: resetIcon ?? NSImage(), target: self, action: action)
+            reset.isBordered = false
+            reset.bezelStyle = .accessoryBar
+            reset.imageScaling = .scaleProportionallyDown
+            reset.toolTip = L("settings.restoreDefault")
+            field.setContentHuggingPriority(.init(1), for: .horizontal)   // let it stretch to fill the row
+            let row = NSStackView(views: [field, reset])
+            row.orientation = .horizontal
+            row.spacing = 8
+            row.alignment = .centerY
 
-        let conflict = NSTextField(labelWithString: "")
-        conflict.font = .systemFont(ofSize: 11)
-        conflict.textColor = .systemOrange
-        conflictLabel = conflict
-        if hotKeyMode == .carbon,
-           let w = systemHotkeyConflict(keyCode: UInt16(hotKeyCode), cocoaMods: cocoaMods(hotKeyMods)) {
-            conflict.stringValue = String(format: L("settings.conflict"), w)
-        }
-        conflict.isHidden = conflict.stringValue.isEmpty   // no empty line when no conflict
+            let conflict = NSTextField(labelWithString: "")
+            conflict.font = .systemFont(ofSize: 11)
+            conflict.textColor = .systemOrange
+            conflictLabels[slot] = conflict
+            if let w = definition(slot).flatMap(systemConflict) {
+                conflict.stringValue = String(format: L("settings.conflict"), w)
+            }
+            conflict.isHidden = conflict.stringValue.isEmpty   // no empty line when no conflict
 
-        // hotkey field + (optional) conflict warning. The hotkey can be a multi-tap
-        // sequence (e.g. double Shift) — just record it twice; no separate toggle.
-        let hkColumn = NSStackView(views: [hkRow, conflict])
-        hkColumn.orientation = .vertical
-        hkColumn.alignment = .leading
-        hkColumn.spacing = 4
+            let column = NSStackView(views: [row, conflict])
+            column.orientation = .vertical
+            column.alignment = .leading
+            column.spacing = 4
+            return (column, row)
+        }
+        let (hkColumn, hkRow) = hotkeyColumn(.retype, reset: #selector(resetHotkey))
+        let (autoHkColumn, autoHkRow) = hotkeyColumn(.autoToggle, reset: #selector(clearAutoHotkey))
 
         let cb = makeCheckbox(L("settings.openAtLogin"), #selector(toggleLogin), on: loginEnabled())
         loginCheckbox = cb
@@ -1201,10 +1305,11 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
 
         // ── labeled rows: language (section A) + hotkey (section B). Separate grids,
         // but a shared caption-column width keeps "Language:"/"Hotkey:" aligned. ──
-        let capW = ceil(max(caption(L("settings.language")).fittingSize.width,
-                            caption(L("settings.hotkey")).fittingSize.width))
+        let capW = ceil([L("settings.language"), L("settings.hotkey"), L("settings.autoHotkey")]
+                            .map { caption($0).fittingSize.width }.max() ?? 0)
         let langGrid = NSGridView(views: [[caption(L("settings.language")), langPopup]])
-        let hkGrid   = NSGridView(views: [[caption(L("settings.hotkey")), hkColumn]])
+        let hkGrid   = NSGridView(views: [[caption(L("settings.hotkey")), hkColumn],
+                                          [caption(L("settings.autoHotkey")), autoHkColumn]])
         for g in [langGrid, hkGrid] {
             g.rowSpacing = 10; g.columnSpacing = 10
             g.column(at: 0).xPlacement = .leading
@@ -1213,6 +1318,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         }
         langGrid.row(at: 0).yPlacement = .center
         hkGrid.row(at: 0).yPlacement = .center   // caption centered with the field
+        hkGrid.row(at: 1).yPlacement = .center
 
         // ── footer: version + link + copyright ──
         let info = Bundle.main.infoDictionary
@@ -1270,6 +1376,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             learnedRow.widthAnchor.constraint(equalTo: autoRow.widthAnchor),
             sep3.widthAnchor.constraint(equalTo: stack.widthAnchor),
             hkRow.widthAnchor.constraint(equalTo: langPopup.widthAnchor),   // hotkey field == language popup width
+            autoHkRow.widthAnchor.constraint(equalTo: langPopup.widthAnchor),
             // span full width so their centered content stays centered while the
             // stack itself is leading-aligned (checkboxes / grid labels flush left)
             logo.widthAnchor.constraint(equalTo: stack.widthAnchor),
@@ -1971,7 +2078,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
 
     var autoMode: Bool {
         get { UserDefaults.standard.bool(forKey: "autoMode") }
-        set { UserDefaults.standard.set(newValue, forKey: "autoMode"); applyAutoMode() }
+        set { UserDefaults.standard.set(newValue, forKey: "autoMode"); applyAutoMode(); updateStatusIcon() }
     }
     fileprivate var autoTap: CFMachPort?
     private var autoTapSource: CFRunLoopSource?
@@ -2047,6 +2154,12 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
                 + "flags=\(String(event.flags.rawValue, radix: 16)) synth=\(synth) "
                 + "pid=\(event.getIntegerValueField(.eventSourceUnixProcessID))")
             if type == .keyDown, !synth { me.dbgLastCode = tapCode }
+            // Our own combo hotkeys are not typing: they neither end the word run
+            // (the retype hotkey converts it) nor reach the buffer.
+            if type == .keyDown, !synth,
+               [me.hotkey, me.autoHotkey].contains(where: { $0?.isCombo(code: tapCode, flags: event.flags) == true }) {
+                return Unmanaged.passUnretained(event)
+            }
             // A click may move the caret or focus, and a Cmd/Ctrl shortcut may too
             // (paste, undo, Cmd+arrows, send, app switch): the buffered word and a
             // pending preposition no longer sit right before the caret, and a later
@@ -2483,9 +2596,11 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         return c
     }
 
-    /// - Parameter typed: the word typed before the caret and the spaces after it
-    ///   (`AutoRun.hotkeyTarget`), converted when nothing is selected.
-    func performRetype(typed: (text: String, spaces: Int) = ("", 0)) {
+    /// - Parameters:
+    ///   - typed: the word typed before the caret and the spaces after it
+    ///     (`AutoRun.hotkeyTarget`), converted when nothing is selected.
+    ///   - pressAgain: a press within `undoWindow` cycles/undoes the last conversion.
+    func performRetype(typed: (text: String, spaces: Int) = ("", 0), pressAgain: Bool = true) {
         guard AXIsProcessTrusted() else {
             DispatchQueue.main.async { self.promptAccessibilityIfNeeded() }
             return
@@ -2496,7 +2611,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         // readings are exhausted it reverses the conversion. Disabled when
         // "Trigger on double-tap" is on — a second double-tap would be ambiguous
         // with the trigger itself.
-        if hotKeyTaps == 1, let last = lastConversion,
+        if pressAgain, let last = lastConversion,
            ProcessInfo.processInfo.systemUptime - last.time < undoWindow {
             lastConversion = nil
             if let next = last.alternatives.first { performRetarget(last, to: next) } else { performUndo(last) }

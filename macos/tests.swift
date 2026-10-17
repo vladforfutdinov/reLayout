@@ -1,4 +1,4 @@
-// Unit tests for reLayout's pure logic (conversion engine + hotkey display helpers).
+// Unit tests for reLayout's pure logic (conversion engine + hotkey model and display helpers).
 //
 // Built only under -DTESTING, where main.swift's GUI bootstrap is compiled out and
 // this file supplies the entry point. Run via ./scripts/run-tests.sh. Hermetic: the
@@ -191,6 +191,46 @@ func testPressedModKeys() {
     eq(pressedModKeys(NSEvent.ModifierFlags(rawValue: 0)), [], "pressedModKeys none")
 }
 
+func testHotkeyClashes() {
+    let optTap = Hotkey(mode: .modTap, chord: [UInt16(kVK_Option)], display: "left ⌥")
+    var optDouble = optTap; optDouble.taps = 2
+    let rightOpt = Hotkey(mode: .modTap, chord: [UInt16(kVK_RightOption)], display: "right ⌥")
+    let shiftTap = Hotkey(mode: .modTap, chord: [UInt16(kVK_Shift)], display: "left ⇧")
+    let combo = Hotkey(mode: .carbon, code: UInt32(kVK_ANSI_R), mods: UInt32(controlKey | optionKey), display: "⌃⌥R")
+    var comboShift = combo; comboShift.mods |= UInt32(shiftKey)
+    check(optTap.clashes(with: optDouble), "same chord, different tap count clashes")
+    check(optTap.clashes(with: rightOpt), "left/right of one modifier clash")
+    check(!optTap.clashes(with: shiftTap), "different chords don't clash")
+    check(combo.clashes(with: combo), "same combo clashes")
+    check(!combo.clashes(with: comboShift), "combo with an extra modifier doesn't clash")
+    check(!combo.clashes(with: optTap), "combo vs modifier tap don't clash")
+}
+
+func testHotkeyIsCombo() {
+    let combo = Hotkey(mode: .carbon, code: UInt32(kVK_ANSI_T), mods: UInt32(controlKey | optionKey), display: "⌃⌥T")
+    check(combo.isCombo(code: Int64(kVK_ANSI_T), flags: [.maskControl, .maskAlternate]), "isCombo exact")
+    check(combo.isCombo(code: Int64(kVK_ANSI_T), flags: [.maskControl, .maskAlternate, .maskAlphaShift]),
+          "isCombo ignores caps lock")
+    check(!combo.isCombo(code: Int64(kVK_ANSI_T), flags: [.maskControl]), "isCombo missing modifier")
+    check(!combo.isCombo(code: Int64(kVK_ANSI_R), flags: [.maskControl, .maskAlternate]), "isCombo other key")
+    let tap = Hotkey(mode: .modTap, chord: [UInt16(kVK_Option)], display: "left ⌥")
+    check(!tap.isCombo(code: 0, flags: [.maskAlternate]), "modifier tap is never a combo")
+}
+
+func testHotkeyPersistence() {
+    let suite = "relayout.tests.hotkey"
+    guard let d = UserDefaults(suiteName: suite) else { check(false, "test defaults suite"); return }
+    defer { d.removePersistentDomain(forName: suite) }
+    eq(Hotkey.load(d, prefix: "autoHk"), nil, "nothing stored -> nil")
+    let hk = Hotkey(mode: .modTap, chord: [UInt16(kVK_Shift)], taps: 2, display: "left ⇧ ×2")
+    hk.save(d, prefix: "autoHk")
+    eq(Hotkey.load(d, prefix: "autoHk"), hk, "round trip")
+    eq(Hotkey.load(d, prefix: "hk"), nil, "prefixes are separate")
+    eq(d.integer(forKey: "autoHkTaps"), 2, "key names are prefix + field")
+    Hotkey.remove(d, prefix: "autoHk")
+    eq(Hotkey.load(d, prefix: "autoHk"), nil, "removed -> nil")
+}
+
 // MARK: - entry
 
 #if TESTING
@@ -211,6 +251,9 @@ struct ReLayoutTests {
         testModKeyLabelAndChord()
         testCarbonModsFrom()
         testPressedModKeys()
+        testHotkeyClashes()
+        testHotkeyIsCombo()
+        testHotkeyPersistence()
         testDbgRedact()
 
         print("\n\(passed) passed, \(failed) failed")

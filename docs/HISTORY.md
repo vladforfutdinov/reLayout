@@ -4,6 +4,32 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.14 — typo repair inside wrong-layout words (`autoSpell`, `98c2b56`)
+
+- Owner's goal: "ghbddtn" / "gbhdtn" / "ghjdtn" -> "привет" in auto mode; a typo
+  in a right-layout word is the app's business, the hotkey never repairs.
+  Measured offline (FrequencyWords 20k, 1,000 typo'd words per class per
+  direction, en<->ru/uk both ways, synthetic uniform typos; F = fixed / W =
+  wrong word; FP = layout switch on correct words N0 / typo'd right-layout
+  words N1):
+  - A2g alone: F 0 everywhere (51-79% converted with the typo);
+    FP 0.015% / 0.776%.
+  - doubled + swap only: F 87% / 87% on those classes, W <= 0.3%;
+    FP 0.075% / 1.11%.
+  - + adjacent-key substitution: subK F 69%; FP 0.22% / 1.8%; ~45 checks/word.
+  - + system guesses one edit away (shipped, owner's pick): F dbl 87%, swp 87%,
+    random letter 47%, adjacent key 47%, insertion 68%, deletion 26%;
+    W 1-7%; FP 0.52% / 4.2%; guesses() 6.8 ms mean, p99 21 ms, called for
+    ~75% of eligible (junk, misspelled) words, up to 2 languages.
+  - first guess regardless of ambiguity: more F but W up to 33%, FP 0.75% /
+    5.2% — rejected. Every-letter substitution: ~200 checks/word — rejected.
+  - Several candidates -> no repair, the trigram/spell decision stands.
+- Repairs never enter the learned words. Hint examples per UI language:
+  “рудддщ” -> “hello” (Latin UIs), «ghbddtn» -> «привет» (ru, be),
+  «ghbdssn» -> «привіт» (uk).
+
+---
+
 ## After v1.3.14 — auto-correct on/off hotkey + menu-bar dot (macOS)
 
 - A second recordable hotkey toggles `autoMode` (Settings row "Auto-correct

@@ -308,11 +308,11 @@ private func buildControls(_ hwnd: HWND?) {
               on: startupEnabled(), enabled: startupAvailable())
     y += 32
 
-    // Right-aligned caption column shared by "Language:" and the hotkeys.
+    // Left-aligned caption column shared by "Language:" and the hotkeys, as on macOS.
     let fieldX = margin + captionW + 10
     let fieldW = clientWidth - margin - fieldX
 
-    makeControl("STATIC", L("settings.language"), Int32(0x0002 /* SS_RIGHT */),
+    makeControl("STATIC", L("settings.language"), 0,
                 margin, y + 4, captionW, 20, hwnd, idCapLanguage)
     let lang = makeControl("COMBOBOX", "", Int32(0x0003 /* CBS_DROPDOWNLIST */) | Int32(WS_VSCROLL) | Int32(WS_TABSTOP),
                            fieldX, y, fieldW, 240, hwnd, idCmbLanguage)
@@ -332,7 +332,7 @@ private func buildControls(_ hwnd: HWND?) {
     // BS_NOTIFY reports losing focus, which ends a recording.
     for (slot, caption) in [(HotkeySlot.retype, L("settings.hotkey")), (HotkeySlot.autoToggle, L("settings.autoHotkey"))] {
         let ids = hotkeyIDs(slot)
-        makeControl("STATIC", caption, Int32(0x0002 /* SS_RIGHT */),
+        makeControl("STATIC", caption, 0,
                     margin, y + 4, captionW, 20, hwnd, ids.caption)
         makeControl("BUTTON", hotkeyDisplay(slot), Int32(0x4000 /* BS_NOTIFY */) | Int32(WS_TABSTOP),
                     fieldX, y - 1, fieldW - 34, 26, hwnd, ids.field)

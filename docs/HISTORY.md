@@ -74,6 +74,7 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 - Built in the VM on first try (`4c9c998`). Owner's review (`5c6536a`): a
   text-less checkbox drew its focus cue as a dotted sliver beside the box —
   hidden (WM_UPDATEUISTATE UISF_HIDEFOCUS); the ⓘ glyphs sat 2 px low.
+  Captions (Language, both hotkeys) left-aligned like macOS.
 
 ---
 

@@ -41,6 +41,9 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
   - first guess regardless of ambiguity: more F but W up to 33%, FP 0.75% /
     5.2% — rejected. Every-letter substitution: ~200 checks/word — rejected.
   - Several candidates -> no repair, the trigram/spell decision stands.
+- The similar-layouts ⓘ got the same treatment: non-Cyrillic UIs explain it
+  with en <-> de (“yeit” -> “zeit”; de UI: „zes“ -> „yes“), ru/uk/be keep
+  «ъжа» -> «їжа».
 - Repairs never enter the learned words. Hint examples per UI language:
   “рудддщ” -> “hello” (Latin UIs), «ghbddtn» -> «привет» (ru, be),
   «ghbdssn» -> «привіт» (uk).

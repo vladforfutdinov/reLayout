@@ -16,6 +16,9 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
   "привет." (dot kept) beats "приветю"; "стр." on the Russian layout reads
   "cnh/" the other way, junk, left. A learned convert with junk both ways
   now gives "привет," (was "приветб").
+  First version wanted the rest of the word to be plain letters, so "re,f,"
+  ("куба,": a "," inside is "б") got nothing; now the converted rest must
+  be letters.
 
 ---
 

@@ -493,6 +493,8 @@ final class EngineTests: XCTestCase {
         // "." is "ю" on the Cyrillic layout; "приветю" is junk, "привет." reads.
         XCTAssertEqual(decide("ghbdtn.", cyrKnows: ["привет"], latinKnows: ["hello"])?.out, "привет.")
         XCTAssertEqual(decide("ghbdtn,", cyrKnows: ["привет"], latinKnows: ["hello"])?.out, "привет,")
+        // A mapped letter inside the word stays a letter: "q,d," is "йбв,".
+        XCTAssertEqual(decide("q,d,", cyrKnows: ["йбв"], latinKnows: ["hello"])?.out, "йбв,")
         // A real letter on that key still converts as one: ",skj" is "было"-like.
         XCTAssertEqual(decide("ghbdtn.", cyrKnows: ["приветю"], latinKnows: ["hello"])?.out, "приветю")
     }

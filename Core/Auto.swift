@@ -150,8 +150,8 @@ public func decideAutoTarget<L: AutoLayout>(_ w: String, cur: L, enabled: [L],
         // once as itself after the converted word ("привет."); the better reading wins.
         if !pure, let tail = w.last, tail == "." || tail == ",", t.isCyrillic != cur.isCyrillic {
             let core = String(w.dropLast())
-            if core.count >= 2, core.allSatisfy(\.isLetter),
-               let o = convertWrong(core, src: cur, dst: t), o != core,
+            if core.count >= 2, let o = convertWrong(core, src: cur, dst: t), o != core,
+               o.allSatisfy({ $0.isLetter || isWordConnector($0) }),
                let tLang = t.languageCode, let tModel = model(tLang) {
                 let sAlt = max(tModel.score(o), model(t.isCyrillic ? "ru" : "en")?.score(o) ?? -.infinity)
                 var sCore = curModel.score(core)

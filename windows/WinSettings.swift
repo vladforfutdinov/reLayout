@@ -353,7 +353,7 @@ private func buildControls(_ hwnd: HWND?) {
     makeCheck(autoTitle, margin, y, autoW, hwnd, idChkAuto, on: available && loadAutoMode(), enabled: available)
     if !available {
         let info = makeControl("STATIC", "\u{E946}" /* Info glyph */, 0,
-                               margin + autoW + 2, y, 20, 20, hwnd, idAutoInfo)
+                               margin + autoW + 2, y + 1, 20, 20, hwnd, idAutoInfo)
         setFont(info, glyphFont)
         let installed = WinLayout.installedList().map(\.displayName).joined(separator: ", ")
         addTooltip(&tooltip, hwnd, info, L("settings.autoCorrectUnavailable", installed), overWindow: true)
@@ -371,7 +371,7 @@ private func buildControls(_ hwnd: HWND?) {
               on: available && similarAvailable() && loadAutoSameScript(),
               enabled: available && loadAutoMode() && similarAvailable())
     let similarInfo = makeControl("STATIC", "\u{E946}" /* Info glyph */, 0,
-                                  margin + 20 + similarW + 2, y, 20, 20, hwnd, idSimilarInfo)
+                                  margin + 20 + similarW + 2, y + 1, 20, 20, hwnd, idSimilarInfo)
     setFont(similarInfo, glyphFont)
     addTooltip(&tooltip, hwnd, similarInfo, L("settings.autoCorrectSimilar.tip"), overWindow: true)
     y += 30

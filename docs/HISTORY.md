@@ -4,6 +4,25 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## Auto-correct on/off hotkey (Windows)
+
+- A second recordable hotkey toggles auto-correct, with the Settings
+  checkbox's effect (prefs, `reloadAutoMode`, Settings synced). Default unset;
+  same kinds as the convert hotkey (combo, modifier tap, double tap). Prefs:
+  `AutoHotkeyMods` / `AutoHotkeyVK` / `AutoHotkeyDoubleTap`; the convert keys
+  are unchanged. Hotkey state became `Hotkey` + `HotkeySlot` + one
+  `HotkeyDetector` per slot in the hook.
+- Recording refuses the other hotkey's keys even if only the double tap
+  differs: a single tap would fire alongside the double one.
+- Unavailable auto-correct (one script): the toggle does nothing, like the
+  disabled checkbox; the debug log notes it.
+- Tray: a green dot in the glyph's corner while auto-correct is on, drawn at
+  runtime. Windows has no monochrome tray variant (the ICOs are pre-tinted
+  per taskbar), so the dot is always green: deeper on light, lighter on dark.
+- Not compiled or run on Windows when written.
+
+---
+
 ## After v1.3.14 — same-language doubled-letter fix removed
 
 - Owner: a typo in a word typed in the right layout is visible and the app's

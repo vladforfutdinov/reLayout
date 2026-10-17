@@ -2098,6 +2098,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     // state machine drives the Windows port, and its rules are tested there.
     fileprivate var autoRun = AutoRun()
     fileprivate var revertWatch = RevertWatch()
+    fileprivate var unkeepWatch = RevertWatch()   // a keep left alone, then erased and retyped
     private var revertLayouts: (src: Layout, dst: Layout)?
 
     // Fast typing races the retype: the deletes + retype of a finished word land
@@ -2189,6 +2190,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
                 || [kVK_Delete, kVK_ForwardDelete, kVK_LeftArrow, kVK_RightArrow, kVK_UpArrow, kVK_DownArrow]
                     .contains(Int(event.getIntegerValueField(.keyboardEventKeycode))) {
                 me.revertWatch.edit(at: ProcessInfo.processInfo.systemUptime)
+                me.unkeepWatch.edit(at: ProcessInfo.processInfo.systemUptime)
             }
             if type == .keyDown, !synth,
                event.getIntegerValueField(.keyboardEventKeycode) == Int64(kVK_Delete) {
@@ -2431,6 +2433,16 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             dbg("learned keep by revert: \(learnedKey(word).debugDescription)")
             refreshLearnedUI()
             autoRun.noCandidate(); return false
+        }
+        // The other way round: a word left alone as a keep, erased and typed again,
+        // is wanted converted after all — the keep goes and the word is judged afresh.
+        let now = ProcessInfo.processInfo.systemUptime
+        if unkeepWatch.reverted(word, at: now, typedBack: { $0 }) {
+            learnedKeep = learnedKeep.filter { $0 != learnedKey(word) }
+            dbg("keep dropped by revert: \(learnedKey(word).debugDescription)")
+            refreshLearnedUI()
+        } else if learnedVerdict(learnedKey(word)) == .keep {
+            unkeepWatch.corrected(word, into: "", at: now)
         }
         let enabled = Layout.enabledList()
         guard let cur = enabled.first(where: { $0.id == currentSourceID() }),

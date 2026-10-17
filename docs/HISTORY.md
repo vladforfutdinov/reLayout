@@ -4,6 +4,18 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.14 — a keep is dropped the same way it was learned
+
+- Owner: a keep learned by revert could only be removed in the Learned words
+  table (the hotkey does not clear it: `hotkeyMisses` counts only words auto
+  mode would leave anyway, and a reverted word is one it converts). Caramba
+  removes an exception by erasing and retyping the word, so: a second
+  `RevertWatch` arms when a `keep` word is left alone; an edit plus the same
+  word again within 15 s drops the keep and the word is judged afresh
+  (converted). Both platforms.
+
+---
+
 ## After v1.3.14 — abbreviations left alone (both platforms)
 
 - From Caramba Switcher: a word typed in capitals (2+ letters, all upper:

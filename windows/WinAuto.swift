@@ -21,6 +21,7 @@ private var autoSpell = false
 private var learnedConvert: [String: String] = [:]   // the user's verdicts, cached from the registry
 private var learnedKeep: Set<String> = []
 private var revertWatch = RevertWatch()
+private var unkeepWatch = RevertWatch()   // a keep left alone, then erased and retyped
 private var revertLayouts: (src: WinLayout, dst: WinLayout)?
 private func uptime() -> Double { Double(GetTickCount64()) / 1000 }
 private var learnedCounts: [String: Int] = [:]
@@ -200,7 +201,9 @@ func autoFeed(vk: UINT, scan: WORD, shortcut: Bool, shift: Bool) -> Bool {
     if passwordField { run.reset(); return false }
 
     // Anything that may delete or select text arms learning by revert.
-    if vk == vkBack || shortcut || navigationVKs.contains(vk) { revertWatch.edit(at: uptime()) }
+    if vk == vkBack || shortcut || navigationVKs.contains(vk) {
+        revertWatch.edit(at: uptime()); unkeepWatch.edit(at: uptime())
+    }
     // Backspace edits the word; Ctrl+Backspace removes a word — nothing left to track.
     if vk == vkBack {
         if shortcut { held = [] }
@@ -245,6 +248,15 @@ private func evaluate(word: String, trail: String, boundary: Int32, shift: Bool,
         saveLearnedWords()
         dwatch("learned keep by revert")
         run.noCandidate(); return false
+    }
+    // The other way round: a keep left alone, erased and typed again, is wanted
+    // converted after all — the keep goes and the word is judged afresh.
+    if unkeepWatch.reverted(word, at: uptime(), typedBack: { $0 }) {
+        learnedKeep.remove(learnedKey(word))
+        saveLearnedWords()
+        dwatch("keep dropped by revert")
+    } else if learnedVerdict(learnedKey(word)) == .keep {
+        unkeepWatch.corrected(word, into: "", at: uptime())
     }
     guard let decided = autoDecide(word, cur: cur, enabled: WinLayout.installedList()) else {
         // A short word the model reads as fine right after a chain word ("ot" in
@@ -494,7 +506,7 @@ private let mouseProc: HOOKPROC = { nCode, wParam, lParam in
         || wParam == WPARAM(WM_MBUTTONDOWN) {
         resetAutoBuffer()
         forgetConversion()
-        revertWatch.edit(at: uptime())
+        revertWatch.edit(at: uptime()); unkeepWatch.edit(at: uptime())
     }
     return CallNextHookEx(nil, nCode, wParam, lParam)
 }

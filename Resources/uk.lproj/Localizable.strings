@@ -8,6 +8,8 @@
 "settings.title" = "Параметри reLayout";
 "settings.openAtLogin" = "Запускати під час входу";
 "settings.hotkey" = "Скорочення:";
+"settings.autoHotkey" = "Увімк/вимк автовиправлення:";
+"shortcut.none" = "Не задано";
 "settings.conflict" = "⚠︎ вже використовується: %@";
 "settings.restoreDefault" = "Відновити типове";
 

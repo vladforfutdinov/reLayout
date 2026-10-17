@@ -8,6 +8,8 @@
 "settings.title" = "reLayout-Einstellungen";
 "settings.openAtLogin" = "Beim Anmelden öffnen";
 "settings.hotkey" = "Tastenkürzel:";
+"settings.autoHotkey" = "Autokorrektur ein/aus:";
+"shortcut.none" = "Nicht festgelegt";
 "settings.conflict" = "⚠︎ wird bereits verwendet von %@";
 "settings.restoreDefault" = "Standard wiederherstellen";
 

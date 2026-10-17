@@ -8,6 +8,8 @@
 "settings.title" = "Réglages de reLayout";
 "settings.openAtLogin" = "Ouvrir à la connexion";
 "settings.hotkey" = "Raccourci :";
+"settings.autoHotkey" = "Activer/désactiver la correction auto :";
+"shortcut.none" = "Non défini";
 "settings.conflict" = "⚠︎ déjà utilisé par %@";
 "settings.restoreDefault" = "Rétablir la valeur par défaut";
 

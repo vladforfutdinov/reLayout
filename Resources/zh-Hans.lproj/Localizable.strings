@@ -8,6 +8,8 @@
 "settings.title" = "reLayout 设置";
 "settings.openAtLogin" = "登录时打开";
 "settings.hotkey" = "快捷键：";
+"settings.autoHotkey" = "开/关自动更正:";
+"shortcut.none" = "未设置";
 "settings.conflict" = "⚠︎ 已被 %@ 占用";
 "settings.restoreDefault" = "恢复默认";
 

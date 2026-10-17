@@ -8,6 +8,8 @@
 "settings.title" = "reLayout 設定";
 "settings.openAtLogin" = "ログイン時に開く";
 "settings.hotkey" = "ショートカット：";
+"settings.autoHotkey" = "自動修正のオン/オフ:";
+"shortcut.none" = "未設定";
 "settings.conflict" = "⚠︎ %@ で既に使用されています";
 "settings.restoreDefault" = "デフォルトに戻す";
 

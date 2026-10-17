@@ -8,6 +8,8 @@
 "settings.title" = "Настройки reLayout";
 "settings.openAtLogin" = "Запускать при входе";
 "settings.hotkey" = "Сочетание:";
+"settings.autoHotkey" = "Вкл/выкл автоисправление:";
+"shortcut.none" = "Не задан";
 "settings.conflict" = "⚠︎ уже используется: %@";
 "settings.restoreDefault" = "Сбросить по умолчанию";
 

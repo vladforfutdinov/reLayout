@@ -8,6 +8,8 @@
 "settings.title" = "Ustawienia reLayout";
 "settings.openAtLogin" = "Otwórz przy logowaniu";
 "settings.hotkey" = "Skrót:";
+"settings.autoHotkey" = "Autokorekta wł./wył.:";
+"shortcut.none" = "Nie ustawiono";
 "settings.conflict" = "⚠︎ używane już przez %@";
 "settings.restoreDefault" = "Przywróć domyślne";
 

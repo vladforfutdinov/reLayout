@@ -8,6 +8,8 @@
 "settings.title" = "Ajustes de reLayout";
 "settings.openAtLogin" = "Abrir al iniciar sesión";
 "settings.hotkey" = "Atajo:";
+"settings.autoHotkey" = "Activar/desactivar autocorrección:";
+"shortcut.none" = "Sin asignar";
 "settings.conflict" = "⚠︎ ya lo usa %@";
 "settings.restoreDefault" = "Restaurar valor predeterminado";
 

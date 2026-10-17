@@ -59,6 +59,8 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
   the learned words.
 - Settings: a disabled sub-option (Enter, similar layouts, system dictionary)
   shows unchecked; the stored preference is kept.
+  Refined by the owner: only a system reason (no such layouts, no dictionary)
+  shows it off; disabled because auto-correct is off, it keeps its state.
 
 ---
 

@@ -852,12 +852,13 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         autoCb?.isEnabled = ok
         autoCb?.state = ok && autoMode ? .on : .off
         autoExcBtn?.isEnabled = ok
-        // A disabled sub-option shows off; the stored preference is kept for later.
-        for (cb, on, pref) in [(autoEnterCb, ok && autoMode, autoEnterNewline),
-                               (autoSimilarCb, ok && autoMode && hasSimilarLayouts(enabled, model: trigram), autoSameScript),
-                               (autoSpellCb, ok && autoMode && hasSpellDictionary(enabled), autoSpell)] {
-            cb?.isEnabled = on
-            cb?.state = on && pref ? .on : .off
+        // Disabled by the system (no such layouts, no dictionary): shown off. Disabled only
+        // because auto-correct is off: shows its stored state. The preference is kept.
+        for (cb, possible, pref) in [(autoEnterCb, ok, autoEnterNewline),
+                                     (autoSimilarCb, ok && hasSimilarLayouts(enabled, model: trigram), autoSameScript),
+                                     (autoSpellCb, ok && hasSpellDictionary(enabled), autoSpell)] {
+            cb?.isEnabled = possible && autoMode
+            cb?.state = possible && pref ? .on : .off
         }
         learnedLabel?.stringValue = String(format: L("settings.learned"), String(learnedConvert.count + learnedKeep.count))
         learnedViewBtn?.isEnabled = ok && autoMode

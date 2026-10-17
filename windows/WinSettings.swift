@@ -343,6 +343,8 @@ private func buildControls(_ hwnd: HWND?) {
     y += 14
 
     // ── section C: auto-correct (ⓘ explains why it is off), Exceptions…, on Enter ──
+    // A sub-option the system rules out (no layouts for it) shows off; one disabled
+    // only because auto-correct is off shows its stored state.
     builtForLayouts = installedLayouts()
     let available = WinLayout.crossScriptAvailable()
     makeCheck(autoTitle, margin, y, autoW, hwnd, idChkAuto, on: available && loadAutoMode(), enabled: available)
@@ -358,12 +360,13 @@ private func buildControls(_ hwnd: HWND?) {
     EnableWindow(exceptions, available)
     y += 28
     makeCheck(L("settings.autoCorrectEnter"), margin + 20, y, content - 20, hwnd, idChkAutoEnter,
-              on: loadAutoEnter(), enabled: available && loadAutoMode())
+              on: available && loadAutoEnter(), enabled: available && loadAutoMode())
     y += 28
     // The ⓘ stays live while the checkbox is disabled: it says why.
     let similarW = textWidth(similarTitle, hwnd) + 24
     makeCheck(similarTitle, margin + 20, y, similarW, hwnd, idChkAutoSimilar,
-              on: loadAutoSameScript(), enabled: available && loadAutoMode() && similarAvailable())
+              on: available && similarAvailable() && loadAutoSameScript(),
+              enabled: available && loadAutoMode() && similarAvailable())
     let similarInfo = makeControl("STATIC", "\u{E946}" /* Info glyph */, 0,
                                   margin + 20 + similarW + 2, y + 2, 20, 20, hwnd, idSimilarInfo)
     setFont(similarInfo, glyphFont)

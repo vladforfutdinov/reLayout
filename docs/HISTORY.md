@@ -15,6 +15,11 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
   Cmd/Ctrl shortcut; synthetic keys ignored). The retyped word is left and
   stored as `keep`. Typing the same word twice with no edit between is not a
   revert. Typo repairs never arm it (they are never learned).
+- First live test failed twice: the owner's word was a typo repair (never
+  armed, by rule — owner confirmed: never learned), and the retype began in
+  the layout the fix had switched to ("я"+"aaa"). The retype is now mapped
+  back through the fix's layouts (`typedBack`, `convertScriptRuns`) before
+  comparing; typing the correction itself again is no revert.
 
 ---
 

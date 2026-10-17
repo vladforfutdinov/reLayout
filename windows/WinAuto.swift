@@ -21,6 +21,7 @@ private var autoSpell = false
 private var learnedConvert: [String: String] = [:]   // the user's verdicts, cached from the registry
 private var learnedKeep: Set<String> = []
 private var revertWatch = RevertWatch()
+private var revertLayouts: (src: WinLayout, dst: WinLayout)?
 private func uptime() -> Double { Double(GetTickCount64()) / 1000 }
 private var learnedCounts: [String: Int] = [:]
 private var learnedCandidates: [String: String] = [:]   // counted words and their conversions
@@ -239,7 +240,8 @@ private var chainTarget: WinLayout?   // layout of the last auto candidate, for 
 
 private func evaluate(word: String, trail: String, boundary: Int32, shift: Bool, cur: WinLayout) -> Bool {
     guard !word.isEmpty, !autoExcluded() else { run.noCandidate(); return false }
-    if revertWatch.reverted(word, at: uptime()) {
+    if revertWatch.reverted(word, at: uptime(), typedBack: { w in
+        revertLayouts.flatMap { convertScriptRuns(w, src: $0.dst, dst: $0.src) } ?? w }) {
         learnedKeep.insert(learnedKey(word))
         saveLearnedWords()
         dwatch("learned keep by revert")
@@ -270,6 +272,10 @@ private func evaluate(word: String, trail: String, boundary: Int32, shift: Bool,
                              ambiguous: decided.ambiguous) else { return false }
     queued = QueuedFix(fix: fix, boundary: boundary, shift: shift, target: decided.target, src: cur,
                        learn: !decided.repaired)
+    if !decided.repaired {   // typo repairs are never learned, so they arm no revert
+        revertWatch.corrected(word, into: decided.out, at: uptime())
+        revertLayouts = (cur, decided.target)
+    }
     correcting = true
     gateSince = GetTickCount()
     PostMessageW(trayWindow(), WM_AUTOFIX, 0, 0)
@@ -453,7 +459,6 @@ func runAutoFix() {
     let boundary = job.boundary == Int32(vkTab) ? "\t" : " "
     recordConversion(original: job.fix.original + boundary, typed: job.fix.text + boundary, src: job.src,
                      autoWords: job.learn ? job.fix.original.split(separator: " ").map { learnedKey(String($0)) } : [])
-    if job.learn, let last = job.fix.original.split(separator: " ").last { revertWatch.corrected(String(last), at: uptime()) }
 }
 
 /// Replays what was typed during the fix, feeding each key through the run first

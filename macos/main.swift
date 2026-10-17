@@ -2099,6 +2099,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     // state machine drives the Windows port, and its rules are tested there.
     fileprivate var autoRun = AutoRun()
     fileprivate var revertWatch = RevertWatch()
+    private var revertLayouts: (src: Layout, dst: Layout)?
 
     // Fast typing races the retype: the deletes + retype of a finished word land
     // in the middle of the characters typed since, producing mixed text and bogus
@@ -2426,7 +2427,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             dbg("auto: skipped (word=\(word.debugDescription) excluded=\(isAutoExcluded()))")
             autoRun.noCandidate(); return false
         }
-        if revertWatch.reverted(word, at: ProcessInfo.processInfo.systemUptime) {
+        if revertWatch.reverted(word, at: ProcessInfo.processInfo.systemUptime, typedBack: { w in
+            self.revertLayouts.flatMap { convertScriptRuns(w, src: $0.dst, dst: $0.src) } ?? w }) {
             learnedKeep = Array(Set(learnedKeep + [learnedKey(word)])).sorted()
             dbg("learned keep by revert: \(learnedKey(word).debugDescription)")
             autoRun.noCandidate(); return false
@@ -2461,6 +2463,11 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         guard let fix = autoRun.plan(raw: word + trail, out: d.out + outTrail, cyrillic: d.target.isCyrillic,
                                      trusted: learnedVerdict(learnedKey(word)) == .convert, ambiguous: d.ambiguous)
         else { dbg("auto: short or ambiguous word waits for a neighbour"); return false }
+        if !d.repaired {   // typo repairs are never learned, so they arm no revert
+            revertWatch.corrected(word, into: d.out, at: ProcessInfo.processInfo.systemUptime)
+            revertLayouts = (cur, d.target)
+            dbg("revert watch: armed")
+        }
         beginCorrection {
             self.autoCorrect(fix, boundary: boundary, boundaryFlags: flags, target: d.target, srcSource: srcSource,
                              learn: !d.repaired)
@@ -2531,10 +2538,6 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         typeKey(boundary, flags: boundaryFlags)
         usleep(10_000)
         DispatchQueue.main.sync { self.selectLayout(target) }
-        if learn, let last = fix.original.split(separator: " ").last {
-            let t = ProcessInfo.processInfo.systemUptime
-            DispatchQueue.main.async { self.revertWatch.corrected(String(last), at: t) }
-        }
         lastConversion = Conversion(original: fix.original + boundary, typed: fix.text + boundary,
                                     srcSource: srcSource, time: ProcessInfo.processInfo.systemUptime,
                                     autoWords: learn ? fix.original.split(separator: " ").map { learnedKey(String($0)) } : [])

@@ -238,15 +238,17 @@ final class AutoRunTests: XCTestCase {
     }
 
     func testRevertWatch() {
+        let back: (String) -> String = { $0.replacingOccurrences(of: "п", with: "g") }
         var w = RevertWatch()
-        w.corrected("ghbdtn", at: 0)
-        XCTAssertFalse(w.reverted("ghbdtn", at: 2))             // typed twice, nothing deleted
+        w.corrected("ghbdtn", into: "привет", at: 0)
+        XCTAssertFalse(w.reverted("ghbdtn", at: 2, typedBack: back))   // typed twice, nothing deleted
         w.edit(at: 3)
-        XCTAssertFalse(w.reverted("ghbdtx", at: 4))             // another word
-        XCTAssertTrue(w.reverted("ghbdtn,", at: 5))             // deleted and retyped
-        XCTAssertFalse(w.reverted("ghbdtn", at: 6))             // once
-        w.corrected("ghbdtn", at: 10)
-        w.edit(at: 30)                                          // too late to count
-        XCTAssertFalse(w.reverted("ghbdtn", at: 31))
+        XCTAssertFalse(w.reverted("ghbdtx", at: 4, typedBack: back))   // another word
+        XCTAssertFalse(w.reverted("привет", at: 4, typedBack: back))   // the correction itself
+        XCTAssertTrue(w.reverted("пhbdtn,", at: 5, typedBack: back))   // retyped, starting in the new layout
+        XCTAssertFalse(w.reverted("ghbdtn", at: 6, typedBack: back))   // once
+        w.corrected("ghbdtn", into: "привет", at: 10)
+        w.edit(at: 30)                                                  // too late to count
+        XCTAssertFalse(w.reverted("ghbdtn", at: 31, typedBack: back))
     }
 }

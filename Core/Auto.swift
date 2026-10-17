@@ -320,14 +320,15 @@ public struct RevertWatch {
     /// Seconds after a correction in which a retype counts as a revert.
     public static let window = 15.0
     private var original: String?
+    private var output = ""
     private var since = 0.0
     private var edited = false
 
     public init() {}
 
-    /// An auto-correction of `word` (as typed) landed at `t`.
-    public mutating func corrected(_ word: String, at t: Double) {
-        original = learnedKey(word); since = t; edited = false
+    /// An auto-correction of `word` (as typed) into `out` landed at `t`.
+    public mutating func corrected(_ word: String, into out: String, at t: Double) {
+        original = learnedKey(word); output = learnedKey(out); since = t; edited = false
     }
 
     /// A key or click that may delete text.
@@ -335,12 +336,14 @@ public struct RevertWatch {
         if original != nil, t - since <= Self.window { edited = true }
     }
 
-    /// True (once) when `word`, at a word boundary at `t`, retypes the corrected
-    /// word after an edit within the window.
-    public mutating func reverted(_ word: String, at t: Double) -> Bool {
+    /// True (once) when `word`, at a word boundary at `t`, retypes the corrected word
+    /// after an edit within the window. `typedBack` maps the correction's target
+    /// layout back to the typed one: after the fix switched the layout, a retype
+    /// may start in it ("я" + "aaa"). Typing the correction itself again is no revert.
+    public mutating func reverted(_ word: String, at t: Double, typedBack: (String) -> String) -> Bool {
         guard let o = original else { return false }
         guard t - since <= Self.window else { original = nil; return false }
-        guard edited, learnedKey(word) == o else { return false }
+        guard edited, learnedKey(word) != output, learnedKey(typedBack(word)) == o else { return false }
         original = nil
         return true
     }

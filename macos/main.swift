@@ -2429,6 +2429,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             self.revertLayouts.flatMap { convertScriptRuns(w, src: $0.dst, dst: $0.src) } ?? w }) {
             learnedKeep = Array(Set(learnedKeep + [learnedKey(word)])).sorted()
             dbg("learned keep by revert: \(learnedKey(word).debugDescription)")
+            refreshLearnedUI()
             autoRun.noCandidate(); return false
         }
         let enabled = Layout.enabledList()

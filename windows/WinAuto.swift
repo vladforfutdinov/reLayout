@@ -21,6 +21,8 @@ private var autoSpell = false
 private var learnedConvert: [String: String] = [:]   // the user's verdicts, cached from the registry
 private var learnedKeep: Set<String> = []
 private var edits = EditLearning<WinLayout>()
+// Measured in the VM: a suggestion call takes 2-7 ms typically, 100+ ms at worst.
+private let guessBudgetMs: UInt64 = 50
 private var learnedCounts: [String: Int] = [:]
 private var learnedCandidates: [String: String] = [:]   // counted words and their conversions
 private var excludedApps: [String] = []
@@ -299,8 +301,20 @@ private func autoDecide(_ w: String, cur: WinLayout, enabled: [WinLayout])
     let s = spellCheckedTarget(w, cur: cur, enabled: enabled, decided: d, model: trigram,
                                learned: learnedVerdict, isWord: isWord)
     if s?.out != d?.out { dwatch("spell: \(s == nil ? "left" : "converted")") }
+    // Suggestions run inside the keyboard hook, which Windows drops when it runs
+    // long: past the budget the remaining languages are skipped, and a repair
+    // decided without them is not trusted.
+    let deadline = GetTickCount64() + guessBudgetMs
+    var overBudget = false
     let r = spellRepairedTarget(w, cur: cur, enabled: enabled, decided: s, model: trigram,
-                                learned: learnedVerdict, isWord: isWord, guesses: spellGuesses)
+                                learned: learnedVerdict, isWord: isWord, guesses: { word, lang in
+        guard GetTickCount64() < deadline else { overBudget = true; return [] }
+        return spellGuesses(word, lang)
+    })
+    if overBudget, r?.repaired == true {
+        dwatch("typo: over budget, not repaired")
+        return s.map { ($0.target, $0.out, $0.ambiguous, false) }
+    }
     if let r, r.repaired { dwatch("typo: repaired len=\(r.out.count)") }
     return r
 }

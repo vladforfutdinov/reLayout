@@ -4,6 +4,19 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.14 — Windows spell-check timing, suggestion budget
+
+- Measured in the VM (clang++ bench over the same COM API, ~2000 words per
+  language, half misspelled): Check p50 0.07-0.09 ms, p99 0.2-0.5 ms, max
+  24 ms (5-7x faster than macOS); Suggest p50 1.9-6.9 ms, p99 13-39 ms, max
+  101-127 ms; first dictionary load 9-51 ms (already warmed up off the hook).
+- Suggestions run inside the low-level keyboard hook (Windows skips and may
+  drop a slow hook), and a Cyrillic target asks ru and uk: worst case ~250 ms.
+  Budget: 50 ms from the first suggestion call; later languages are skipped,
+  and a repair decided past it falls back to the plain decision.
+
+---
+
 ## After v1.3.14 — Windows: modifier chords as a hotkey
 
 - Owner: Ctrl+Shift could not be recorded on Windows (macOS has chord taps

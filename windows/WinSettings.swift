@@ -83,6 +83,7 @@ private var separatorBrush: HBRUSH?
 // — the Windows form of the macOS tap sequence recorded in the same field.
 private let doubleTapCaptureMs: UINT = 350
 private var pendingTapVK: UINT = 0
+private var pendingTapMods: UINT = 0   // a chord tap waiting for its second (vk `chordVK`)
 private var recordingSlot = HotkeySlot.retype
 
 // NM_CLICK / NM_RETURN as UINT (NM_FIRST is 0, so these are 0u-2 / 0u-4).
@@ -239,14 +240,14 @@ private func startRecording(_ hwnd: HWND?, _ slot: HotkeySlot) {
 /// A combo is final. A bare-modifier tap waits for a second tap of the same key.
 private func captured(_ hwnd: HWND?, _ mods: UINT, _ vk: UINT) {
     KillTimer(hwnd, tapTimer)
-    if mods == 0, isModifierVK(vk) {
-        if pendingTapVK == vk {
+    if (mods == 0 && isModifierVK(vk)) || vk == chordVK {
+        if pendingTapVK == vk, pendingTapMods == mods {
             pendingTapVK = 0
             finishRecording(hwnd, mods, vk, doubleTap: true)
             return
         }
-        pendingTapVK = vk
-        setFieldText(hwnd, hotkeyIDs(recordingSlot).field, hotkeyLabel(0, vk))
+        pendingTapVK = vk; pendingTapMods = mods
+        setFieldText(hwnd, hotkeyIDs(recordingSlot).field, hotkeyLabel(mods, vk))
         SetTimer(hwnd, tapTimer, doubleTapCaptureMs, nil)
         startHotkeyCapture(onLive: { _ in }, onDone: { m, v in captured(hwnd, m, v) })
         return
@@ -513,7 +514,7 @@ private func settingsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lPa
         KillTimer(hwnd, tapTimer)
         let vk = pendingTapVK
         pendingTapVK = 0
-        if vk != 0 { finishRecording(hwnd, 0, vk, doubleTap: false) }
+        if vk != 0 { finishRecording(hwnd, pendingTapMods, vk, doubleTap: false) }
         return 0
     case UINT(WM_COMMAND):
         let notification = (UInt(truncatingIfNeeded: wParam) >> 16) & 0xFFFF

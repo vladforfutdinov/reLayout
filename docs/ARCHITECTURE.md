@@ -78,7 +78,7 @@ Diagnostics without the GUI: `ReLayout.app/Contents/MacOS/ReLayout --enabled` li
 ## Windows port (`windows/`, preview)
 
 - `main.swift` — single-instance mutex, message loop (with `IsDialogMessageW` for our windows), the per-hotkey double-tap gate, the hotkey retype and press-again undo.
-- `WinHotkey.swift` — low-level keyboard hook: two hotkeys (`HotkeySlot`: convert, auto-correct on/off; unset = vk 0), each a `HotkeyDetector` for combos and bare-modifier taps that posts `WM_RETYPE` / `WM_TOGGLE_AUTO`; hotkey capture for Settings; also feeds the auto mode. A key a hotkey swallows never reaches the undo window or the auto mode.
+- `WinHotkey.swift` — low-level keyboard hook: two hotkeys (`HotkeySlot`: convert, auto-correct on/off; unset = vk 0), each a `HotkeyDetector` for combos, bare-modifier taps and modifier-chord taps (`chordVK`: Ctrl+Shift released together) that posts `WM_RETYPE` / `WM_TOGGLE_AUTO`; hotkey capture for Settings; also feeds the auto mode. A key a hotkey swallows never reaches the undo window or the auto mode.
 - `WinLayout.swift` — builds `LayoutMaps` via `ToUnicodeEx` (cached per HKL), language code, lists/switches HKLs.
 - `WinInput.swift` — `SendInput` writes: text as real key presses of the target layout after switching to it (`typeText`; VK_PACKET can't be batched — a busy app reads one character several times, undocumented), paced Unicode events as the fallback, Backspace, Shift+Left; the Ctrl+C fallback read with clipboard save/restore, `pumpWait`, focus/console helpers.
 - `WinUIA.swift` + `native/relayout_uia.cpp` — UI Automation: the selection, the field snapshot for the Enter follow-up, the password-field flag. C++ because Swift has no COM.

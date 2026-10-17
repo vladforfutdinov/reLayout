@@ -7,7 +7,8 @@ import WinSDK
 // conversion is posted to the main thread (WM_RETYPE) so the hook stays cheap.
 //
 // A hotkey is (mods, vk). If vk is itself a modifier VK and mods == 0 it's a
-// modifier-tap hotkey; otherwise it's a combo. There are two: convert, and
+// modifier-tap hotkey; vk `chordVK` is a tap of the modifiers in `mods` together
+// (Ctrl+Shift); otherwise it's a combo. There are two: convert, and
 // auto-correct on/off, each detected by its own `HotkeyDetector`.
 
 let WM_RETYPE = UINT(WM_APP) + 10
@@ -48,6 +49,21 @@ private let modifierVKs: Set<UINT> = [0x10, 0xA0, 0xA1,   // Shift, LShift, RShi
 func isModifierVK(_ vk: UINT) -> Bool { modifierVKs.contains(vk) }
 private let altOrWinVKs: Set<UINT> = [0x12, 0xA4, 0xA5, 0x5B, 0x5C]
 
+/// `vk` of a modifier-chord tap: the modifiers in `mods`, pressed and released
+/// together with no other key (0xFF is a reserved VK).
+let chordVK: UINT = 0xFF
+
+/// MOD_* flag of a modifier VK, 0 for any other key.
+private func modFlag(_ vk: UINT) -> UINT {
+    switch vk {
+    case 0x10, 0xA0, 0xA1: return 4   // MOD_SHIFT
+    case 0x11, 0xA2, 0xA3: return 2   // MOD_CONTROL
+    case 0x12, 0xA4, 0xA5: return 1   // MOD_ALT
+    case 0x5B, 0x5C: return 8         // MOD_WIN
+    default: return 0
+    }
+}
+
 private func keyDown(_ vk: Int32) -> Bool { (Int(GetAsyncKeyState(vk)) & 0x8000) != 0 }
 
 // Exact modifier match (extra modifiers block the combo, like RegisterHotKey).
@@ -82,12 +98,15 @@ private struct HotkeyDetector {
     var tapInterrupted = false
     // combo: suppress auto-repeat (one fire per physical press)
     var comboFired = false
+    // chord tap: modifiers held now, and all held during this press
+    var held: UINT = 0
+    var peak: UINT = 0
 
     init(message: UINT) { self.message = message }
 
     mutating func set(_ hk: Hotkey) {
         mods = hk.mods; vk = hk.vk
-        tapArmed = false; comboFired = false
+        tapArmed = false; comboFired = false; held = 0; peak = 0
     }
 
     private func fire() {
@@ -98,7 +117,28 @@ private struct HotkeyDetector {
     mutating func handle(_ key: UINT, down: Bool, up: Bool) -> Bool {
         guard vk != 0 else { return false }
 
-        if isModifierVK(vk) && mods == 0 {
+        if vk == chordVK {
+            let flag = modFlag(key)
+            guard flag != 0 else {
+                if down { tapInterrupted = true }   // another key during the hold -> not a tap
+                return false
+            }
+            if down {
+                if held == 0 { tapArmed = true; tapInterrupted = false; tapArmTick = GetTickCount(); peak = 0 }
+                held |= flag; peak |= held
+            } else if up {
+                held &= ~flag
+                guard held == 0, tapArmed else { return false }
+                tapArmed = false
+                guard !tapInterrupted, peak == mods, GetTickCount() &- tapArmTick < 600 else { return false }
+                fire()
+                if mods & (1 | 8) != 0 {   // Alt/Win released alone would open the menu or Start
+                    sendMaskedRelease(key)
+                    return true
+                }
+            }
+            return false
+        } else if isModifierVK(vk) && mods == 0 {
             // modifier-tap mode
             if down {
                 if key == vk {
@@ -139,7 +179,11 @@ private struct HotkeyDetector {
 
 private var detectors = [HotkeyDetector(message: WM_RETYPE), HotkeyDetector(message: WM_TOGGLE_AUTO)]
 
-private func endCapture() { capturing = false; captureDone = nil; captureLive = nil }
+private var captureHeld: UINT = 0, capturePeak: UINT = 0
+
+private func endCapture() {
+    capturing = false; captureDone = nil; captureLive = nil; captureHeld = 0; capturePeak = 0
+}
 
 private func handleCapture(_ vk: UINT, down: Bool, up: Bool) {
     if down {
@@ -147,13 +191,20 @@ private func handleCapture(_ vk: UINT, down: Bool, up: Bool) {
             // a real key -> combo with whatever modifiers are held
             let cb = captureDone; endCapture(); cb?(currentMods(), vk)
         } else {
-            captureLive?(keyName(vk))      // live hint, e.g. "Left Shift" — just release to set it
+            captureHeld |= modFlag(vk); capturePeak |= captureHeld
+            // live hint, e.g. "Left Shift" or "Ctrl+Shift" — just release to set it
+            captureLive?(capturePeak.nonzeroBitCount > 1 ? hotkeyLabel(capturePeak, chordVK) : keyName(vk))
         }
     } else if up, isModifierVK(vk) {
-        // a modifier released (no real key was pressed, else we'd have finalized
-        // above) -> bare-modifier hotkey. Don't test GetAsyncKeyState here: during
-        // this key's own keyUP it still reports as down.
-        let cb = captureDone; endCapture(); cb?(0, vk)
+        // modifiers released with no real key in between (else we'd have finalized
+        // above) -> a bare-modifier hotkey, or a chord once the last one is up.
+        // Don't test GetAsyncKeyState here: during this key's own keyUP it still
+        // reports as down.
+        captureHeld &= ~modFlag(vk)
+        guard captureHeld == 0 else { return }
+        let peak = capturePeak, cb = captureDone
+        endCapture()
+        if peak.nonzeroBitCount > 1 { cb?(peak, chordVK) } else { cb?(0, vk) }
     }
 }
 
@@ -247,7 +298,7 @@ func hotkeyLabel(_ mods: UINT, _ vk: UINT) -> String {
     if mods & 1 != 0 { parts.append("Alt") }
     if mods & 4 != 0 { parts.append("Shift") }
     if mods & 8 != 0 { parts.append("Win") }
-    parts.append(keyName(vk))
+    if vk != chordVK { parts.append(keyName(vk)) }
     return parts.joined(separator: "+")
 }
 

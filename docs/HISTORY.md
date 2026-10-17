@@ -4,6 +4,19 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.14 — Windows: modifier chords as a hotkey
+
+- Owner: Ctrl+Shift could not be recorded on Windows (macOS has chord taps
+  since the start). A hotkey there was a lone modifier tap or a combo with a
+  real key; the recorder fired on the first modifier released. Now `vk`
+  `chordVK` (0xFF, a reserved VK) with `mods` = the chord: the recorder waits
+  until every modifier is up and reports the peak set; the detector tracks
+  held/peak per press and fires when the last one is released (no other key,
+  < 600 ms); Alt/Win in the chord get the masked release. Double tap works
+  the same way.
+
+---
+
 ## After v1.3.14 — no time windows for undo and learning
 
 - Owner: the 1.5 s press-again undo and the 15 s revert window were limits a

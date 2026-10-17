@@ -4,6 +4,29 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.14 — auto-correct on/off hotkey + menu-bar dot (macOS)
+
+- A second recordable hotkey toggles `autoMode` (Settings row "Auto-correct
+  on/off:", restore button clears it; unset by default, nothing registered).
+  Same kinds as the main hotkey: Carbon combo, modifier tap, tap sequence.
+  The scattered `hotKey*` properties became a `Hotkey` value and two
+  `HotkeySlot`s; the main hotkey keeps its `hk*` keys, the toggle uses `autoHk*`.
+- Recording one hotkey with the other's activation is refused and shown on the
+  conflict line; same chord with a different tap count counts as the same
+  (the single tap would fire on the double's first tap).
+- While auto-correct is unavailable (one script) the toggle does nothing, as
+  the disabled checkbox can't change the preference either.
+- The auto tap now passes our combo hotkeys' keyDown untouched (no run reset,
+  no feed), which settles the open question from "After v1.3.2 — hotkey
+  converts the word being typed": a combo retype hotkey no longer risks
+  emptying the typed-word target.
+- Menu-bar icon: a dot in the top-right corner while auto-correct is on and
+  available. The icon is a template (only alpha survives), so the owner's
+  "green, light for monochrome" resolves to the light variant: the glyph's
+  tone at 60 % alpha. Not checked visually yet.
+
+---
+
 ## After v1.3.14 — same-language doubled-letter fix removed
 
 - Owner: a typo in a word typed in the right layout is visible and the app's

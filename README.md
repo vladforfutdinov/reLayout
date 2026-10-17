@@ -39,6 +39,7 @@ Fixes wrong-layout words **as you type**, no hotkey:
 - Experimental: check with the system spelling dictionary — a real word is never converted into junk, a word the trigrams miss is converted when the dictionary knows its other-layout reading. Off by default; macOS only.
 - Skips password fields; terminals, code editors, VMs and remote desktops are excluded by default (Settings → Auto-correct → Exceptions…).
 - Learns from you: undo a fix, or correct the same word with the hotkey a few times, and auto-correct follows your choice.
+- Optional second hotkey to switch it on and off (Settings → Auto-correct on/off; not set by default). On macOS a dot in the menu-bar icon's corner shows it is on.
 
 How it decides: [ARCHITECTURE.md](docs/ARCHITECTURE.md).
 

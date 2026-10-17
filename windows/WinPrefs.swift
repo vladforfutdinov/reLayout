@@ -15,6 +15,7 @@ private let keyAutoHotkeyDoubleTap = "AutoHotkeyDoubleTap"
 private let keyAutoMode   = "AutoCorrect"
 private let keyAutoEnter  = "AutoCorrectOnEnter"
 private let keyAutoSameScript = "AutoCorrectSameScript"
+private let keyAutoSpell  = "AutoCorrectSpell"
 private let keyLearned    = "AutoCorrectLearned"
 private let keyKept       = "AutoCorrectKept"
 private let keyLearnCounts = "AutoCorrectLearnCounts"
@@ -208,6 +209,17 @@ func loadAutoSameScript() -> Bool {
 func saveAutoSameScript(_ on: Bool) {
     _ = withPrefsKey(write: true) { key -> Bool in
         writeDword(key, keyAutoSameScript, on ? 1 : 0); return true
+    }
+}
+
+/// The system spell checker refines auto-correct decisions; default off.
+func loadAutoSpell() -> Bool {
+    (withPrefsKey(write: false) { readDword($0, keyAutoSpell) } ?? 0) != 0
+}
+
+func saveAutoSpell(_ on: Bool) {
+    _ = withPrefsKey(write: true) { key -> Bool in
+        writeDword(key, keyAutoSpell, on ? 1 : 0); return true
     }
 }
 

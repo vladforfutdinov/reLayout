@@ -44,6 +44,20 @@ void relayout_allow_dark_menus(int32_t dark);
 int32_t relayout_https_get(const uint16_t *host, const uint16_t *path,
                            uint8_t *buf, int32_t cap);
 
+/// Whether the system spell checker has a dictionary for `lang`, a 2-letter code
+/// ("ru"; "en" also matches an "en-US" dictionary). Returns 1 or 0.
+int32_t relayout_spell_supported(const uint16_t *lang);
+
+/// Spell-checks one word in `lang`.
+/// Returns 1 when it is spelled right, 0 when misspelled, -1 when there is no
+/// dictionary for `lang` or the check failed.
+int32_t relayout_spell_check(const uint16_t *lang, const uint16_t *word);
+
+/// The spell checker's suggestions for `word` in `lang`, joined by '\n' into `buf`
+/// (cap: its size in UTF-16 units, terminator included; suggestions that do not
+/// fit are dropped). Returns the number written, or -1 with no dictionary/error.
+int32_t relayout_spell_suggest(const uint16_t *lang, const uint16_t *word, uint16_t *buf, int32_t cap);
+
 #ifdef __cplusplus
 }
 #endif

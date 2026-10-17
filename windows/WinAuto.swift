@@ -17,6 +17,7 @@ let WM_AUTOENTER = UINT(WM_APP) + 12
 private var autoEnabled = false  // mirrors the preference; the hook reads it per key
 private var autoEnterEnabled = true
 private var autoSameScript = false
+private var autoSpell = false
 private var learnedConvert: [String: String] = [:]   // the user's verdicts, cached from the registry
 private var learnedKeep: Set<String> = []
 private var learnedCounts: [String: Int] = [:]
@@ -39,6 +40,7 @@ private struct QueuedFix {
     let shift: Bool          // Shift+Tab stays Shift+Tab when re-sent
     let target: WinLayout
     let src: WinLayout       // for undo
+    let learn: Bool          // false for a typo repair: its undo learns no `keep`
 }
 private var queued: QueuedFix?
 
@@ -117,6 +119,11 @@ func reloadAutoMode() {
     autoEnabled = loadAutoMode()
     autoEnterEnabled = loadAutoEnter()
     autoSameScript = loadAutoSameScript()
+    autoSpell = loadAutoSpell()
+    if autoSpell {
+        let all = WinLayout.installedList()
+        warmSpellCheckers(scriptLanguages(cyrillic: true, enabled: all) + scriptLanguages(cyrillic: false, enabled: all))
+    }
     learnedConvert = loadLearned()
     learnedKeep = Set(loadKept())
     learnedCounts = loadLearnCounts()
@@ -228,8 +235,7 @@ private var chainTarget: WinLayout?   // layout of the last auto candidate, for 
 
 private func evaluate(word: String, trail: String, boundary: Int32, shift: Bool, cur: WinLayout) -> Bool {
     guard !word.isEmpty, !autoExcluded() else { run.noCandidate(); return false }
-    guard let decided = decideAutoTarget(word, cur: cur, enabled: WinLayout.installedList(), model: trigram,
-                                         learned: learnedVerdict, sameScript: autoSameScript) else {
+    guard let decided = autoDecide(word, cur: cur, enabled: WinLayout.installedList()) else {
         // A short word the model reads as fine right after a chain word ("ot" in
         // "nf ot [fktgf") rides along with its reading in the chain's layout.
         if wordBody(word) <= 2, run.previous != nil, let t = chainTarget {
@@ -252,11 +258,30 @@ private func evaluate(word: String, trail: String, boundary: Int32, shift: Bool,
     guard let fix = run.plan(raw: word + trail, out: decided.out + outTrail, cyrillic: decided.target.isCyrillic,
                              trusted: learnedVerdict(learnedKey(word)) == .convert,
                              ambiguous: decided.ambiguous) else { return false }
-    queued = QueuedFix(fix: fix, boundary: boundary, shift: shift, target: decided.target, src: cur)
+    queued = QueuedFix(fix: fix, boundary: boundary, shift: shift, target: decided.target, src: cur,
+                       learn: !decided.repaired)
     correcting = true
     gateSince = GetTickCount()
     PostMessageW(trayWindow(), WM_AUTOFIX, 0, 0)
     return true
+}
+
+/// The trigram decision, refined by the system dictionary when the spell-check
+/// option is on — the macOS autoDecide.
+/// - Returns: the decision; `repaired` = a typo in the conversion was fixed too
+///   (never learned).
+private func autoDecide(_ w: String, cur: WinLayout, enabled: [WinLayout])
+    -> (target: WinLayout, out: String, ambiguous: Bool, repaired: Bool)? {
+    let d = decideAutoTarget(w, cur: cur, enabled: enabled, model: trigram, learned: learnedVerdict,
+                             sameScript: autoSameScript)
+    guard autoSpell else { return d.map { ($0.target, $0.out, $0.ambiguous, false) } }
+    let s = spellCheckedTarget(w, cur: cur, enabled: enabled, decided: d, model: trigram,
+                               learned: learnedVerdict, isWord: isWord)
+    if s?.out != d?.out { dwatch("spell: \(s == nil ? "left" : "converted")") }
+    let r = spellRepairedTarget(w, cur: cur, enabled: enabled, decided: s, model: trigram,
+                                learned: learnedVerdict, isWord: isWord, guesses: spellGuesses)
+    if let r, r.repaired { dwatch("typo: repaired len=\(r.out.count)") }
+    return r
 }
 
 // MARK: - learned words (the user's verdicts; see the engine's hotkeyMisses)
@@ -369,6 +394,7 @@ private struct EnterJob {
     let text: String        // its conversion
     let target: WinLayout
     let src: WinLayout      // for undo
+    let learn: Bool         // false for a typo repair
 }
 private var enterJob: EnterJob?
 
@@ -377,13 +403,12 @@ private var enterJob: EnterJob?
 /// there to fix, a submitted field means it is gone.
 private func enterFollowUp(word: String, trail: String, cur: WinLayout) {
     guard autoEnterEnabled, !correcting, wordBody(word) >= 3, !autoExcluded(), !foregroundIsConsole(),
-          let decided = decideAutoTarget(word, cur: cur, enabled: WinLayout.installedList(), model: trigram,
-                                         learned: learnedVerdict, sameScript: autoSameScript),
+          let decided = autoDecide(word, cur: cur, enabled: WinLayout.installedList()),
           !decided.ambiguous, let before = readFieldSnapshot(), before.tail.hasSuffix(word + trail)
     else { return }
     let outTrail = trail.isEmpty ? "" : transliterate(trail, from: cur, to: decided.target)
     enterJob = EnterJob(before: before, word: word + trail,
-                        text: decided.out + outTrail, target: decided.target, src: cur)
+                        text: decided.out + outTrail, target: decided.target, src: cur, learn: !decided.repaired)
     correcting = true
     gateSince = GetTickCount()
     PostMessageW(trayWindow(), WM_AUTOENTER, 0, 0)
@@ -402,7 +427,7 @@ func runAutoEnter() {
     guard typeText(job.text, in: job.target) else { return }   // also leaves target active
     sendKeyTap(Int32(vkReturn))
     recordConversion(original: job.word + "\r", typed: job.text + "\r", src: job.src,
-                     autoWords: [learnedKey(job.word)])
+                     autoWords: job.learn ? [learnedKey(job.word)] : [])
 }
 
 // MARK: - the fix (runs on the UI thread, off the hook)
@@ -417,7 +442,7 @@ func runAutoFix() {
     sendKeyTap(job.boundary, shift: job.shift)
     let boundary = job.boundary == Int32(vkTab) ? "\t" : " "
     recordConversion(original: job.fix.original + boundary, typed: job.fix.text + boundary, src: job.src,
-                     autoWords: job.fix.original.split(separator: " ").map { learnedKey(String($0)) })
+                     autoWords: job.learn ? job.fix.original.split(separator: " ").map { learnedKey(String($0)) } : [])
 }
 
 /// Replays what was typed during the fix, feeding each key through the run first
@@ -472,3 +497,7 @@ func uninstallAutoMouseHook() {
 
 /// Whether "Between similar layouts" can fire with the installed layouts.
 func similarAvailable() -> Bool { hasSimilarLayouts(WinLayout.installedList(), model: trigram) }
+
+/// Whether the spell-check option can act: a system dictionary for an installed
+/// layout's language.
+func spellAvailable() -> Bool { hasSpellDictionary(WinLayout.installedList()) }

@@ -20,6 +20,8 @@ private let idAutoInfo:      Int = 113
 private let idSimilarInfo:   Int = 118
 private let idName:          Int = 114
 private let idChkAutoSimilar: Int = 115
+private let idChkAutoSpell:  Int = 116
+private let idSpellInfo:     Int = 119
 private let idBtnLearnedView: Int = 117
 // Secondary (gray) text: the caption column and the footer.
 private let idCapLanguage:   Int = 120
@@ -273,6 +275,7 @@ private func buildControls(_ hwnd: HWND?) {
     let excTitle = L("settings.exceptions")
     let excW = textWidth(excTitle, hwnd) + 24
     let similarTitle = L("settings.autoCorrectSimilar")
+    let spellTitle = L("settings.autoCorrectSpell")
     let learnedW = textWidth(L("settings.learned", "0000"), hwnd) + 4   // room for the count to grow
     let learnedViewTitle = L("settings.learned.view")
     let learnedViewW = textWidth(learnedViewTitle, hwnd) + 24
@@ -280,6 +283,7 @@ private func buildControls(_ hwnd: HWND?) {
         autoW + 24 + 16 + excW,
         20 + textWidth(L("settings.autoCorrectEnter"), hwnd) + 24,
         20 + textWidth(similarTitle, hwnd) + 24 + 22,
+        20 + textWidth(spellTitle, hwnd) + 24 + 22,
         20 + learnedW + 8 + learnedViewW,
         textWidth(L("settings.openAtLogin"), hwnd) + 24,
         captionW + 10 + 200,
@@ -376,6 +380,15 @@ private func buildControls(_ hwnd: HWND?) {
                                   margin + 20 + similarW + 2, y + 3, 20, 16, hwnd, idSimilarInfo)
     setFont(similarInfo, glyphFont)
     addTooltip(&tooltip, hwnd, similarInfo, L("settings.autoCorrectSimilar.tip"), overWindow: true)
+    y += 28
+    let spellW = textWidth(spellTitle, hwnd) + 24
+    let spellPossible = available && spellAvailable()
+    makeCheck(spellTitle, margin + 20, y, spellW, hwnd, idChkAutoSpell,
+              on: spellPossible && loadAutoSpell(), enabled: spellPossible && loadAutoMode())
+    let spellInfo = makeControl("STATIC", "\u{E946}" /* Info glyph */, Int32(0x0200 /* SS_CENTERIMAGE */),
+                                margin + 20 + spellW + 2, y + 3, 20, 16, hwnd, idSpellInfo)
+    setFont(spellInfo, glyphFont)
+    addTooltip(&tooltip, hwnd, spellInfo, L("settings.autoCorrectSpell.tip"), overWindow: true)
     y += 30
     // The count takes the View button's id + labelOffset, so it grays with the button.
     makeControl("STATIC", L("settings.learned", "\(learnedCount())"), 0,
@@ -536,6 +549,9 @@ private func settingsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lPa
         case idChkAutoSimilar:
             saveAutoSameScript(isChecked(hwnd, idChkAutoSimilar))
             reloadAutoMode()
+        case idChkAutoSpell:
+            saveAutoSpell(isChecked(hwnd, idChkAutoSpell))
+            reloadAutoMode()
         case idBtnLearnedView: openLearned(owner: hwnd)
         case idBtnExceptions: openExceptions(owner: hwnd)
         case idBtnReset:
@@ -584,6 +600,7 @@ func refreshSettingsAuto() {
     check(GetDlgItem(hwnd, Int32(idChkAuto)), on)
     enableCheck(hwnd, idChkAutoEnter, on)
     enableCheck(hwnd, idChkAutoSimilar, on && similarAvailable())
+    enableCheck(hwnd, idChkAutoSpell, on && spellAvailable())
 }
 
 /// Syncs the open Settings window's learned-words count and View button, and the

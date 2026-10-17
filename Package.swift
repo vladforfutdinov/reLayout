@@ -18,7 +18,7 @@ var targets: [Target] = [
 // (the manifest is evaluated on the build host). macOS `swift test` ignores it.
 #if os(Windows)
 targets.append(
-    // Win32 that Swift can't reach — COM (UI Automation) and WinHTTP — as C++.
+    // Win32 that Swift can't reach — COM (UI Automation, spell checking) and WinHTTP — as C++.
     .target(name: "RelayoutNative", path: "windows/native", publicHeadersPath: "include")
 )
 targets.append(
@@ -34,7 +34,7 @@ targets.append(
             .unsafeFlags(["-Xlinker", "/SUBSYSTEM:WINDOWS",
                           "-Xlinker", "/ENTRY:mainCRTStartup"]),
             .linkedLibrary("comctl32"),  // SysLink control in the Settings window
-            .linkedLibrary("ole32"),     // UI Automation lives behind COM
+            .linkedLibrary("ole32"),     // UI Automation and the spell checker live behind COM
             .linkedLibrary("oleaut32"),  // BSTR
             .linkedLibrary("uuid"),      // CLSID_CUIAutomation
             .linkedLibrary("winmm"),     // timeBeginPeriod: a 1 ms pause between typed characters

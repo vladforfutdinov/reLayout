@@ -2303,7 +2303,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
                 dbg("auto: doubled \(word.debugDescription) -> \(fixed.debugDescription)")
                 let srcSource = cur.source
                 beginCorrection {
-                    self.autoCorrect(fix, boundary: boundary, boundaryFlags: flags, target: cur, srcSource: srcSource)
+                    self.autoCorrect(fix, boundary: boundary, boundaryFlags: flags, target: cur, srcSource: srcSource,
+                                     learn: false)
                 }
                 return true
             }
@@ -2390,8 +2391,10 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     // Delete the wrong word (and a swallowed preposition before it), retype the
     // conversion and the boundary, switch the system layout. Records it so the
     // hotkey undo reverts.
+    /// - Parameter learn: false for a typo fix — undoing it stores no `keep` verdict
+    ///   (typo fixes never enter the learned words).
     private func autoCorrect(_ fix: AutoRun.Fix, boundary: String, boundaryFlags: CGEventFlags,
-                             target: Layout, srcSource: TISInputSource) {
+                             target: Layout, srcSource: TISInputSource, learn: Bool = true) {
         waitModifiersReleased()
         dbg("fix: erase=\(fix.erase) type=\(fix.text.debugDescription) -> \(target.id)")
         eraseBack(fix.erase)
@@ -2401,7 +2404,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         DispatchQueue.main.sync { self.selectLayout(target) }
         lastConversion = Conversion(original: fix.original + boundary, typed: fix.text + boundary,
                                     srcSource: srcSource, time: ProcessInfo.processInfo.systemUptime,
-                                    autoWords: fix.original.split(separator: " ").map { learnedKey(String($0)) })
+                                    autoWords: learn ? fix.original.split(separator: " ").map { learnedKey(String($0)) } : [])
     }
 
     /// True when the event was posted by macOS's TextInputSwitcher (the Globe HUD).

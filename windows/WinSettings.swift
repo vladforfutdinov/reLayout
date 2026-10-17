@@ -9,7 +9,9 @@ import WinSDK
 private let idChkStartup:    Int = 101
 private let idLnkAbout:      Int = 104
 private let idHotkeyField:   Int = 105
+private let idAutoHotkeyField: Int = 106
 private let idBtnReset:      Int = 107
+private let idBtnAutoReset:  Int = 108
 private let idChkAuto:       Int = 109
 private let idChkAutoEnter:  Int = 110
 private let idBtnExceptions: Int = 111
@@ -24,7 +26,15 @@ private let idCapLanguage:   Int = 120
 private let idCapHotkey:     Int = 121
 private let idVersion:       Int = 122
 private let idCopyright:     Int = 123
-private let secondaryIDs: Set<Int> = [idCapLanguage, idCapHotkey, idVersion, idCopyright]
+private let idCapAutoHotkey: Int = 124
+private let secondaryIDs: Set<Int> = [idCapLanguage, idCapHotkey, idCapAutoHotkey, idVersion, idCopyright]
+
+private func hotkeyIDs(_ slot: HotkeySlot) -> (caption: Int, field: Int, reset: Int) {
+    switch slot {
+    case .retype:     return (idCapHotkey, idHotkeyField, idBtnReset)
+    case .autoToggle: return (idCapAutoHotkey, idAutoHotkeyField, idBtnAutoReset)
+    }
+}
 
 private let idSeparator:     Int = 150
 // A check box's title is a separate label with the box's id + labelOffset.
@@ -48,7 +58,9 @@ private func installedLayouts() -> [UInt] {
 }
 
 private func rebuildIfLayoutsChanged(_ hwnd: HWND?) {
-    if installedLayouts() != builtForLayouts { PostMessageW(hwnd, WM_REBUILD, 0, 0) }
+    guard installedLayouts() != builtForLayouts else { return }
+    PostMessageW(hwnd, WM_REBUILD, 0, 0)
+    refreshTrayIcon()   // the auto-correct dot follows availability
 }
 
 private var settingsHwnd: HWND?
@@ -69,6 +81,7 @@ private var separatorBrush: HBRUSH?
 // — the Windows form of the macOS tap sequence recorded in the same field.
 private let doubleTapCaptureMs: UINT = 350
 private var pendingTapVK: UINT = 0
+private var recordingSlot = HotkeySlot.retype
 
 // NM_CLICK / NM_RETURN as UINT (NM_FIRST is 0, so these are 0u-2 / 0u-4).
 private let nmClick  = UINT(bitPattern: -2)
@@ -184,20 +197,37 @@ private func isChecked(_ hwnd: HWND?, _ id: Int) -> Bool {
     SendMessageW(GetDlgItem(hwnd, Int32(id)), UINT(BM_GETCHECK), 0, 0) == LRESULT(BST_CHECKED)
 }
 
-// Apply a captured/reset hotkey: persist, re-arm the hook, refresh UI + tooltip.
-private func applyHotkey(_ hwnd: HWND?, _ mods: UINT, _ vk: UINT, doubleTap: Bool) {
-    saveHotkey(mods: mods, vk: vk)
-    saveDoubleTap(doubleTap)
-    setHotkey(mods, vk)
-    setFieldText(hwnd, idHotkeyField, currentHotkeyDisplay())
-    updateTrayTooltip()
+/// Saves and arms `hk` for `slot`, then shows the slot's hotkey. The other slot's
+/// keys are refused with a beep: one press would fire both.
+private func assignHotkey(_ hwnd: HWND?, _ slot: HotkeySlot, _ hk: Hotkey) {
+    if hk.clashes(with: loadHotkey(slot.other)) {
+        _ = MessageBeep(UINT(MB_ICONWARNING))
+    } else {
+        saveHotkey(slot, hk)
+        setHotkey(slot, hk)
+        updateTrayTooltip()
+    }
+    setFieldText(hwnd, hotkeyIDs(slot).field, hotkeyDisplay(slot))
 }
 
-// MARK: - hotkey field (click to record, like the macOS ShortcutField)
+// MARK: - hotkey fields (click to record, like the macOS ShortcutField)
 
-private func startRecording(_ hwnd: HWND?) {
-    setFieldText(hwnd, idHotkeyField, L("win.pressKey"))
-    startHotkeyCapture(onLive: { s in setFieldText(hwnd, idHotkeyField, s) },
+/// Ends a recording, including a tap still waiting for its second.
+private func stopRecording(_ hwnd: HWND?) {
+    cancelHotkeyCapture()
+    KillTimer(hwnd, tapTimer)
+    pendingTapVK = 0
+}
+
+private func startRecording(_ hwnd: HWND?, _ slot: HotkeySlot) {
+    if pendingTapVK != 0 {   // a tap still waiting for its second: drop it
+        stopRecording(hwnd)
+        setFieldText(hwnd, hotkeyIDs(recordingSlot).field, hotkeyDisplay(recordingSlot))
+    }
+    recordingSlot = slot
+    let field = hotkeyIDs(slot).field
+    setFieldText(hwnd, field, L("win.pressKey"))
+    startHotkeyCapture(onLive: { s in setFieldText(hwnd, field, s) },
                        onDone: { mods, vk in captured(hwnd, mods, vk) })
 }
 
@@ -211,7 +241,7 @@ private func captured(_ hwnd: HWND?, _ mods: UINT, _ vk: UINT) {
             return
         }
         pendingTapVK = vk
-        setFieldText(hwnd, idHotkeyField, hotkeyLabel(0, vk))
+        setFieldText(hwnd, hotkeyIDs(recordingSlot).field, hotkeyLabel(0, vk))
         SetTimer(hwnd, tapTimer, doubleTapCaptureMs, nil)
         startHotkeyCapture(onLive: { _ in }, onDone: { m, v in captured(hwnd, m, v) })
         return
@@ -222,7 +252,7 @@ private func captured(_ hwnd: HWND?, _ mods: UINT, _ vk: UINT) {
 
 private func finishRecording(_ hwnd: HWND?, _ mods: UINT, _ vk: UINT, doubleTap: Bool) {
     cancelHotkeyCapture()
-    applyHotkey(hwnd, mods, vk, doubleTap: doubleTap)
+    assignHotkey(hwnd, recordingSlot, Hotkey(mods: mods, vk: vk, doubleTap: doubleTap))
     SetFocus(hwnd)   // leave the button; the next click records again
 }
 
@@ -233,7 +263,8 @@ private func buildControls(_ hwnd: HWND?) {
     applyTitleBarTheme(hwnd, dark: colors.dark)
     // Widest row decides the width: auto-correct + ⓘ + Exceptions…, the indented
     // options and learned words, the caption column + a usable field, the footer link.
-    let captionW = max(textWidth(L("settings.language"), hwnd), textWidth(L("settings.hotkey"), hwnd)) + 4
+    let captionW = ["settings.language", "settings.hotkey", "settings.autoHotkey"]
+        .map { textWidth(L($0), hwnd) }.max()! + 4
     let autoTitle = L("settings.autoCorrect")
     let autoW = textWidth(autoTitle, hwnd) + 24   // + the check box itself
     let excTitle = L("settings.exceptions")
@@ -274,7 +305,7 @@ private func buildControls(_ hwnd: HWND?) {
               on: startupEnabled(), enabled: startupAvailable())
     y += 32
 
-    // Right-aligned caption column shared by "Language:" and "Hotkey:".
+    // Right-aligned caption column shared by "Language:" and the hotkeys.
     let fieldX = margin + captionW + 10
     let fieldW = clientWidth - margin - fieldX
 
@@ -293,18 +324,21 @@ private func buildControls(_ hwnd: HWND?) {
     separator(hwnd, y, content)
     y += 14
 
-    // ── section B: hotkey — click it (or Space) to record; ↺ restores the default ──
+    // ── section B: hotkeys — click one (or Space) to record; ↺ restores its default ──
     // A button, not an edit box: nothing to select, no text caret, reachable by Tab.
     // BS_NOTIFY reports losing focus, which ends a recording.
-    makeControl("STATIC", L("settings.hotkey"), Int32(0x0002 /* SS_RIGHT */),
-                margin, y + 4, captionW, 20, hwnd, idCapHotkey)
-    makeControl("BUTTON", currentHotkeyDisplay(), Int32(0x4000 /* BS_NOTIFY */) | Int32(WS_TABSTOP),
-                fieldX, y - 1, fieldW - 34, 26, hwnd, idHotkeyField)
-    let reset = makeControl("BUTTON", "\u{E7A7}" /* Undo glyph */, Int32(WS_TABSTOP),
-                            clientWidth - margin - 28, y - 1, 28, 26, hwnd, idBtnReset)
-    setFont(reset, glyphFont)
-    addTooltip(&tooltip, hwnd, reset, L("settings.restoreDefault"))
-    y += 38
+    for (slot, caption) in [(HotkeySlot.retype, L("settings.hotkey")), (HotkeySlot.autoToggle, L("settings.autoHotkey"))] {
+        let ids = hotkeyIDs(slot)
+        makeControl("STATIC", caption, Int32(0x0002 /* SS_RIGHT */),
+                    margin, y + 4, captionW, 20, hwnd, ids.caption)
+        makeControl("BUTTON", hotkeyDisplay(slot), Int32(0x4000 /* BS_NOTIFY */) | Int32(WS_TABSTOP),
+                    fieldX, y - 1, fieldW - 34, 26, hwnd, ids.field)
+        let reset = makeControl("BUTTON", "\u{E7A7}" /* Undo glyph */, Int32(WS_TABSTOP),
+                                clientWidth - margin - 28, y - 1, 28, 26, hwnd, ids.reset)
+        setFont(reset, glyphFont)
+        addTooltip(&tooltip, hwnd, reset, L("settings.restoreDefault"))
+        y += slot == .retype ? 32 : 38
+    }
     separator(hwnd, y, content)
     y += 14
 
@@ -365,9 +399,7 @@ private func buildControls(_ hwnd: HWND?) {
 
 /// Destroys every control and builds them again — for a language or DPI change.
 private func rebuildControls(_ hwnd: HWND?) {
-    cancelHotkeyCapture()   // its callbacks target the field being destroyed
-    KillTimer(hwnd, tapTimer)
-    pendingTapVK = 0
+    stopRecording(hwnd)   // its callbacks target the field being destroyed
     var child = GetWindow(hwnd, UINT(GW_CHILD))
     while let c = child {
         child = GetWindow(c, UINT(GW_HWNDNEXT))
@@ -476,24 +508,20 @@ private func settingsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lPa
             // Not here: the combo box is still inside its own notification, and
             // destroying it now crashes when it returns. Rebuild once it is done.
             PostMessageW(hwnd, WM_REBUILD, 0, 0)
-        case idHotkeyField where notification == 0 /* BN_CLICKED */:
-            startRecording(hwnd)
-        case idHotkeyField where notification == 7 /* BN_KILLFOCUS */:
-            // Focus left without a key: stop recording, show the hotkey again.
-            if pendingTapVK == 0 {
+        case let field where field == idHotkeyField || field == idAutoHotkeyField:
+            let slot: HotkeySlot = field == idHotkeyField ? .retype : .autoToggle
+            if notification == 0 /* BN_CLICKED */ {
+                startRecording(hwnd, slot)
+            } else if notification == 7 /* BN_KILLFOCUS */, pendingTapVK == 0 {
+                // Focus left without a key: stop recording, show the hotkey again.
                 cancelHotkeyCapture()
-                setFieldText(hwnd, idHotkeyField, currentHotkeyDisplay())
+                setFieldText(hwnd, field, hotkeyDisplay(slot))
             }
         case idChkStartup:
             setStartup(isChecked(hwnd, idChkStartup))
             refreshSettingsStartup()   // shows a failed registry write as unchecked
         case idChkAuto:
-            let on = isChecked(hwnd, idChkAuto)
-            saveAutoMode(on)
-            reloadAutoMode()
-            enableCheck(hwnd, idChkAutoEnter, on)
-            enableCheck(hwnd, idChkAutoSimilar, on && similarAvailable())
-            refreshSettingsLearned()
+            setAutoMode(isChecked(hwnd, idChkAuto))
         case idChkAutoEnter:
             saveAutoEnter(isChecked(hwnd, idChkAutoEnter))
             reloadAutoMode()
@@ -503,8 +531,11 @@ private func settingsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lPa
         case idBtnLearnedView: openLearned(owner: hwnd)
         case idBtnExceptions: openExceptions(owner: hwnd)
         case idBtnReset:
-            cancelHotkeyCapture()
-            applyHotkey(hwnd, defaultHotkey.mods, defaultHotkey.vk, doubleTap: false)
+            stopRecording(hwnd)
+            assignHotkey(hwnd, .retype, defaultHotkey(.retype))
+        case idBtnAutoReset:
+            stopRecording(hwnd)
+            assignHotkey(hwnd, .autoToggle, defaultHotkey(.autoToggle))
         case idCancel: DestroyWindow(hwnd)
         default: break
         }
@@ -516,11 +547,9 @@ private func settingsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lPa
             }
         }
     case UINT(WM_DESTROY):
-        cancelHotkeyCapture()       // don't leave a capture targeting a dead window
-        KillTimer(hwnd, tapTimer)
+        stopRecording(hwnd)         // don't leave a capture targeting a dead window
         KillTimer(hwnd, layoutTimer)
         KillTimer(hwnd, themeTimer)
-        pendingTapVK = 0
         settingsHwnd = nil          // NB: do NOT PostQuitMessage — only this window closes
     case UINT(WM_NCDESTROY):        // children are gone: fonts, icon and tooltip are free
         freeResources()
@@ -537,6 +566,16 @@ func settingsWindow() -> HWND? { settingsHwnd }
 func refreshSettingsStartup() {
     guard let hwnd = settingsHwnd else { return }
     check(GetDlgItem(hwnd, Int32(idChkStartup)), startupEnabled())
+}
+
+/// Syncs the open Settings window's auto-correct checkbox and the options under it.
+func refreshSettingsAuto() {
+    refreshSettingsLearned()
+    guard let hwnd = settingsHwnd else { return }
+    let on = autoModeActive()
+    check(GetDlgItem(hwnd, Int32(idChkAuto)), on)
+    enableCheck(hwnd, idChkAutoEnter, on)
+    enableCheck(hwnd, idChkAutoSimilar, on && similarAvailable())
 }
 
 /// Syncs the open Settings window's learned-words count and View button, and the

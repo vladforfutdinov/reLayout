@@ -6,23 +6,34 @@ import WinSDK
 // combos (Ctrl+Alt+R). Detection runs inside the WH_KEYBOARD_LL hook; the actual
 // conversion is posted to the main thread (WM_RETYPE) so the hook stays cheap.
 //
-// The hotkey is (mods, vk). If vk is itself a modifier VK and mods == 0 it's a
-// modifier-tap hotkey; otherwise it's a combo.
+// A hotkey is (mods, vk). If vk is itself a modifier VK and mods == 0 it's a
+// modifier-tap hotkey; otherwise it's a combo. There are two: convert, and
+// auto-correct on/off, each detected by its own `HotkeyDetector`.
 
 let WM_RETYPE = UINT(WM_APP) + 10
+let WM_TOGGLE_AUTO = UINT(WM_APP) + 14
+
+/// A recorded hotkey; `vk` 0 is unset. `doubleTap` fires it on the second press only.
+struct Hotkey {
+    var mods: UINT
+    var vk: UINT
+    var doubleTap = false
+
+    static let none = Hotkey(mods: 0, vk: 0)
+    var isSet: Bool { vk != 0 }
+
+    /// Same keys as `other`, double tap or not: both would fire on one press.
+    func clashes(with other: Hotkey) -> Bool { isSet && mods == other.mods && vk == other.vk }
+}
+
+/// The app's hotkeys; the raw value indexes `detectors`.
+enum HotkeySlot: Int, CaseIterable {
+    case retype, autoToggle
+    var other: HotkeySlot { self == .retype ? .autoToggle : .retype }
+}
 
 private var llHook: HHOOK?
 private var mainThreadId: DWORD = 0
-
-private var hkMods: UINT = 0
-private var hkVK: UINT = 0
-
-// modifier-tap detection
-private var tapArmed = false
-private var tapArmTick: DWORD = 0
-private var tapInterrupted = false
-// combo: suppress auto-repeat (one fire per physical press)
-private var comboFired = false
 
 // capture mode (recording a new hotkey from the Settings window)
 private var capturing = false
@@ -60,51 +71,73 @@ private func currentMods() -> UINT {
     return m
 }
 
-private func postTrigger() {
-    _ = PostThreadMessageW(mainThreadId, WM_RETYPE, 0, 0)
-}
+/// One hotkey's detection state inside the hook.
+private struct HotkeyDetector {
+    let message: UINT   // posted to the main thread when the hotkey fires
+    var mods: UINT = 0
+    var vk: UINT = 0
+    // modifier-tap detection
+    var tapArmed = false
+    var tapArmTick: DWORD = 0
+    var tapInterrupted = false
+    // combo: suppress auto-repeat (one fire per physical press)
+    var comboFired = false
 
-/// - Returns: true if the key belongs to a matched combo and must not reach the app.
-private func handleDetect(_ vk: UINT, down: Bool, up: Bool) -> Bool {
-    guard hkVK != 0 else { return false }
+    init(message: UINT) { self.message = message }
 
-    if isModifierVK(hkVK) && hkMods == 0 {
-        // modifier-tap mode
-        if down {
-            if vk == hkVK {
-                if !tapArmed { tapArmed = true; tapInterrupted = false; tapArmTick = GetTickCount() }
-            } else if tapArmed {
-                tapInterrupted = true        // another key during the hold -> not a tap
+    mutating func set(_ hk: Hotkey) {
+        mods = hk.mods; vk = hk.vk
+        tapArmed = false; comboFired = false
+    }
+
+    private func fire() {
+        _ = PostThreadMessageW(mainThreadId, message, 0, 0)
+    }
+
+    /// - Returns: true if the key belongs to a matched combo and must not reach the app.
+    mutating func handle(_ key: UINT, down: Bool, up: Bool) -> Bool {
+        guard vk != 0 else { return false }
+
+        if isModifierVK(vk) && mods == 0 {
+            // modifier-tap mode
+            if down {
+                if key == vk {
+                    if !tapArmed { tapArmed = true; tapInterrupted = false; tapArmTick = GetTickCount() }
+                } else if tapArmed {
+                    tapInterrupted = true        // another key during the hold -> not a tap
+                }
+            } else if up, key == vk {
+                defer { tapArmed = false }
+                guard tapArmed, !tapInterrupted, GetTickCount() &- tapArmTick < 400 else { return false }
+                fire()
+                if altOrWinVKs.contains(key) {
+                    sendMaskedRelease(key)
+                    return true
+                }
             }
-        } else if up, vk == hkVK {
-            defer { tapArmed = false }
-            guard tapArmed, !tapInterrupted, GetTickCount() &- tapArmTick < 400 else { return false }
-            postTrigger()
-            if altOrWinVKs.contains(vk) {
-                sendMaskedRelease(vk)
+            return false
+        } else {
+            // combo mode (one fire per press; cleared on release)
+            if down, key == vk, modsHeldExact(mods) {
+                if !comboFired {
+                    comboFired = true
+                    // Only a lone Alt opens the menu bar on release, and Win opens Start;
+                    // with Ctrl held too (Ctrl+Alt+R) Alt goes up as a plain key, so no mask.
+                    let alt = mods & 1 /*MOD_ALT*/ != 0, ctrl = mods & 2 /*MOD_CONTROL*/ != 0
+                    if (alt && !ctrl) || mods & 8 /*MOD_WIN*/ != 0 { sendMaskKey() }
+                    fire()
+                }
                 return true
+            } else if up, key == vk {
+                defer { comboFired = false }
+                return comboFired
             }
+            return false
         }
-        return false
-    } else {
-        // combo mode (one fire per press; cleared on release)
-        if down, vk == hkVK, modsHeldExact(hkMods) {
-            if !comboFired {
-                comboFired = true
-                // Only a lone Alt opens the menu bar on release, and Win opens Start;
-                // with Ctrl held too (Ctrl+Alt+R) Alt goes up as a plain key, so no mask.
-                let alt = hkMods & 1 /*MOD_ALT*/ != 0, ctrl = hkMods & 2 /*MOD_CONTROL*/ != 0
-                if (alt && !ctrl) || hkMods & 8 /*MOD_WIN*/ != 0 { sendMaskKey() }
-                postTrigger()
-            }
-            return true
-        } else if up, vk == hkVK {
-            defer { comboFired = false }
-            return comboFired
-        }
-        return false
     }
 }
+
+private var detectors = [HotkeyDetector(message: WM_RETYPE), HotkeyDetector(message: WM_TOGGLE_AUTO)]
 
 private func endCapture() { capturing = false; captureDone = nil; captureLive = nil }
 
@@ -143,7 +176,12 @@ private let llProc: HOOKPROC = { nCode, wParam, lParam in
                 if !isModifierVK(vk) { return 1 }
                 return CallNextHookEx(nil, nCode, wParam, lParam)
             }
-            if handleDetect(vk, down: down, up: up) { return 1 }
+            // Every detector sees the key: a tap of one is interrupted by the other's keys.
+            var matched = false
+            for i in detectors.indices {
+                if detectors[i].handle(vk, down: down, up: up) { matched = true }
+            }
+            if matched { return 1 }
             // A real key (not a modifier, which may belong to the hotkey itself)
             // ends the undo window.
             if down, !isModifierVK(vk) { forgetConversion() }
@@ -169,8 +207,7 @@ private let llProc: HOOKPROC = { nCode, wParam, lParam in
 /// - Returns: false if Windows refused the hook.
 func installHotkeyHook() -> Bool {
     mainThreadId = GetCurrentThreadId()
-    let hk = loadHotkey()
-    hkMods = hk.mods; hkVK = hk.vk
+    for slot in HotkeySlot.allCases { detectors[slot.rawValue].set(loadHotkey(slot)) }
     llHook = SetWindowsHookExW(13 /* WH_KEYBOARD_LL */, llProc, GetModuleHandleW(nil), 0)
     return llHook != nil
 }
@@ -179,9 +216,8 @@ func uninstallHotkeyHook() {
     if let h = llHook { UnhookWindowsHookEx(h); llHook = nil }
 }
 
-func setHotkey(_ mods: UINT, _ vk: UINT) {
-    hkMods = mods; hkVK = vk
-    tapArmed = false; comboFired = false
+func setHotkey(_ slot: HotkeySlot, _ hk: Hotkey) {
+    detectors[slot.rawValue].set(hk)
 }
 
 // Enter capture: held modifiers are reported live via `onLive`; the final
@@ -197,9 +233,10 @@ func startHotkeyCapture(onLive: @escaping (String) -> Void,
 func cancelHotkeyCapture() { endCapture() }
 
 /// The saved hotkey as shown in Settings and the tray, "×2" for a double tap.
-func currentHotkeyDisplay() -> String {
-    let hk = loadHotkey()
-    return hotkeyLabel(hk.mods, hk.vk) + (loadDoubleTap() ? " ×2" : "")
+func hotkeyDisplay(_ slot: HotkeySlot) -> String {
+    let hk = loadHotkey(slot)
+    guard hk.isSet else { return L("shortcut.none") }
+    return hotkeyLabel(hk.mods, hk.vk) + (hk.doubleTap ? " ×2" : "")
 }
 
 // Human label, e.g. "Left Shift" (modifier-tap) or "Ctrl+Alt+R" (combo).

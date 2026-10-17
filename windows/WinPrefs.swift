@@ -2,14 +2,16 @@ import WinSDK
 import Foundation
 import ReLayoutCore
 
-// Small registry-backed preferences under HKCU\Software\reLayout. Currently the
-// convert hotkey (modifiers + virtual-key), stored as two REG_DWORD values.
+// Small registry-backed preferences under HKCU\Software\reLayout.
 
 private let prefsHKCU = HKEY(bitPattern: 0x8000_0001)!
 private let prefsSubKey   = "Software\\reLayout"
 private let keyHotkeyMods = "HotkeyMods"
 private let keyHotkeyVK   = "HotkeyVK"
 private let keyDoubleTap  = "DoubleTap"
+private let keyAutoHotkeyMods = "AutoHotkeyMods"
+private let keyAutoHotkeyVK   = "AutoHotkeyVK"
+private let keyAutoHotkeyDoubleTap = "AutoHotkeyDoubleTap"
 private let keyAutoMode   = "AutoCorrect"
 private let keyAutoEnter  = "AutoCorrectOnEnter"
 private let keyAutoSameScript = "AutoCorrectSameScript"
@@ -61,26 +63,37 @@ private func writeDword(_ key: HKEY, _ name: String, _ value: DWORD) {
     }
 }
 
-// Default convert hotkey: Ctrl+Alt+R.
-let defaultHotkey: (mods: UINT, vk: UINT) = (UINT(MOD_CONTROL) | UINT(MOD_ALT), UINT(0x52))
-
-func loadHotkey() -> (mods: UINT, vk: UINT) {
-    withPrefsKey(write: false) { key -> (UINT, UINT)? in
-        guard let m = readDword(key, keyHotkeyMods),
-              let v = readDword(key, keyHotkeyVK), v != 0 else { return nil }
-        return (UINT(m), UINT(v))
-    } ?? defaultHotkey
+private func hotkeyValueNames(_ slot: HotkeySlot) -> (mods: String, vk: String, doubleTap: String) {
+    switch slot {
+    case .retype:     return (keyHotkeyMods, keyHotkeyVK, keyDoubleTap)
+    case .autoToggle: return (keyAutoHotkeyMods, keyAutoHotkeyVK, keyAutoHotkeyDoubleTap)
+    }
 }
 
-func saveHotkey(mods: UINT, vk: UINT) {
+/// Convert: Ctrl+Alt+R. Auto-correct on/off: unset.
+func defaultHotkey(_ slot: HotkeySlot) -> Hotkey {
+    slot == .retype ? Hotkey(mods: UINT(MOD_CONTROL) | UINT(MOD_ALT), vk: UINT(0x52)) : Hotkey.none
+}
+
+func loadHotkey(_ slot: HotkeySlot) -> Hotkey {
+    let names = hotkeyValueNames(slot)
+    return withPrefsKey(write: false) { key -> Hotkey? in
+        guard let m = readDword(key, names.mods),
+              let v = readDword(key, names.vk), v != 0 else { return nil }
+        return Hotkey(mods: UINT(m), vk: UINT(v), doubleTap: (readDword(key, names.doubleTap) ?? 0) != 0)
+    } ?? defaultHotkey(slot)
+}
+
+func saveHotkey(_ slot: HotkeySlot, _ hk: Hotkey) {
+    let names = hotkeyValueNames(slot)
     _ = withPrefsKey(write: true) { key -> Bool in
-        writeDword(key, keyHotkeyMods, DWORD(mods))
-        writeDword(key, keyHotkeyVK, DWORD(vk))
+        writeDword(key, names.mods, DWORD(hk.mods))
+        writeDword(key, names.vk, DWORD(hk.vk))
+        writeDword(key, names.doubleTap, hk.doubleTap ? 1 : 0)
         return true
     }
 }
 
-// "Trigger on double-tap": fire only when the hotkey is pressed twice quickly.
 private func readString(_ key: HKEY, _ name: String) -> String? {
     var buf = [WCHAR](repeating: 0, count: 4096)
     while true {
@@ -172,10 +185,6 @@ func saveNotifiedUpdate(_ tag: String) {
     _ = withPrefsKey(write: true) { key -> Bool in writeString(key, "UpdateNotified", tag); return true }
 }
 
-func loadDoubleTap() -> Bool {
-    (withPrefsKey(write: false) { readDword($0, keyDoubleTap) } ?? 0) != 0
-}
-
 func loadAutoMode() -> Bool {
     (withPrefsKey(write: false) { readDword($0, keyAutoMode) } ?? 0) != 0
 }
@@ -258,11 +267,5 @@ func saveKept(_ words: [String]) {
 func saveAutoMode(_ on: Bool) {
     _ = withPrefsKey(write: true) { key -> Bool in
         writeDword(key, keyAutoMode, on ? 1 : 0); return true
-    }
-}
-
-func saveDoubleTap(_ on: Bool) {
-    _ = withPrefsKey(write: true) { key -> Bool in
-        writeDword(key, keyDoubleTap, on ? 1 : 0); return true
     }
 }

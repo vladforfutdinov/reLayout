@@ -2098,6 +2098,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     // The typed-word run (word, trail, previous word) lives in the engine: the same
     // state machine drives the Windows port, and its rules are tested there.
     fileprivate var autoRun = AutoRun()
+    fileprivate var revertWatch = RevertWatch()
 
     // Fast typing races the retype: the deletes + retype of a finished word land
     // in the middle of the characters typed since, producing mixed text and bogus
@@ -2183,6 +2184,12 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             // A click also ends the undo window: undo reselects from the caret, which
             // is no longer right after the text the conversion typed.
             if type != .keyDown { me.lastConversion = nil }
+            // Anything that may delete or select text arms learning by revert.
+            if !synth, type != .keyDown || event.flags.contains(.maskCommand) || event.flags.contains(.maskControl)
+                || [kVK_Delete, kVK_ForwardDelete, kVK_LeftArrow, kVK_RightArrow, kVK_UpArrow, kVK_DownArrow]
+                    .contains(Int(event.getIntegerValueField(.keyboardEventKeycode))) {
+                me.revertWatch.edit(at: ProcessInfo.processInfo.systemUptime)
+            }
             if type == .keyDown, !synth,
                event.getIntegerValueField(.keyboardEventKeycode) == Int64(kVK_Delete) {
                 // Backspace (bare, or Option/Cmd-wide) edits the word being typed —
@@ -2419,6 +2426,11 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             dbg("auto: skipped (word=\(word.debugDescription) excluded=\(isAutoExcluded()))")
             autoRun.noCandidate(); return false
         }
+        if revertWatch.reverted(word, at: ProcessInfo.processInfo.systemUptime) {
+            learnedKeep = Array(Set(learnedKeep + [learnedKey(word)])).sorted()
+            dbg("learned keep by revert: \(learnedKey(word).debugDescription)")
+            autoRun.noCandidate(); return false
+        }
         let enabled = Layout.enabledList()
         guard let cur = enabled.first(where: { $0.id == currentSourceID() }),
               let d = autoDecide(word, cur: cur, enabled: enabled) else {
@@ -2519,6 +2531,10 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         typeKey(boundary, flags: boundaryFlags)
         usleep(10_000)
         DispatchQueue.main.sync { self.selectLayout(target) }
+        if learn, let last = fix.original.split(separator: " ").last {
+            let t = ProcessInfo.processInfo.systemUptime
+            DispatchQueue.main.async { self.revertWatch.corrected(String(last), at: t) }
+        }
         lastConversion = Conversion(original: fix.original + boundary, typed: fix.text + boundary,
                                     srcSource: srcSource, time: ProcessInfo.processInfo.systemUptime,
                                     autoWords: learn ? fix.original.split(separator: " ").map { learnedKey(String($0)) } : [])

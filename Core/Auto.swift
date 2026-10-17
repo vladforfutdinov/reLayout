@@ -313,6 +313,39 @@ public func spellRepairedTarget<L: AutoLayout>(_ w: String, cur: L, enabled: [L]
     return plain
 }
 
+/// Learning by revert: right after an auto-correction the user deletes it
+/// (Backspace, Delete, a selection by mouse or keyboard, a Cmd/Ctrl edit) and types
+/// the same word again — the correction was wrong, so the word becomes a `keep`.
+public struct RevertWatch {
+    /// Seconds after a correction in which a retype counts as a revert.
+    public static let window = 15.0
+    private var original: String?
+    private var since = 0.0
+    private var edited = false
+
+    public init() {}
+
+    /// An auto-correction of `word` (as typed) landed at `t`.
+    public mutating func corrected(_ word: String, at t: Double) {
+        original = learnedKey(word); since = t; edited = false
+    }
+
+    /// A key or click that may delete text.
+    public mutating func edit(at t: Double) {
+        if original != nil, t - since <= Self.window { edited = true }
+    }
+
+    /// True (once) when `word`, at a word boundary at `t`, retypes the corrected
+    /// word after an edit within the window.
+    public mutating func reverted(_ word: String, at t: Double) -> Bool {
+        guard let o = original else { return false }
+        guard t - since <= Self.window else { original = nil; return false }
+        guard edited, learnedKey(word) == o else { return false }
+        original = nil
+        return true
+    }
+}
+
 // A hotkey miss is learned only when its conversion reads in the target
 // language: a real miss does ("exit" -2.41, "ок" -2.78, "сброс" -3.41), a
 // deliberate transliteration of correct text does not ("nf ot [fktgf" -10..-18),

@@ -20,6 +20,8 @@ private var autoSameScript = false
 private var autoSpell = false
 private var learnedConvert: [String: String] = [:]   // the user's verdicts, cached from the registry
 private var learnedKeep: Set<String> = []
+private var revertWatch = RevertWatch()
+private func uptime() -> Double { Double(GetTickCount64()) / 1000 }
 private var learnedCounts: [String: Int] = [:]
 private var learnedCandidates: [String: String] = [:]   // counted words and their conversions
 private var excludedApps: [String] = []
@@ -197,6 +199,8 @@ func autoFeed(vk: UINT, scan: WORD, shortcut: Bool, shift: Bool) -> Bool {
     if run.word.isEmpty && run.trail.isEmpty { passwordField = focusIsPasswordField() }
     if passwordField { run.reset(); return false }
 
+    // Anything that may delete or select text arms learning by revert.
+    if vk == vkBack || shortcut || navigationVKs.contains(vk) { revertWatch.edit(at: uptime()) }
     // Backspace edits the word; Ctrl+Backspace removes a word — nothing left to track.
     if vk == vkBack {
         if shortcut { held = [] }
@@ -235,6 +239,12 @@ private var chainTarget: WinLayout?   // layout of the last auto candidate, for 
 
 private func evaluate(word: String, trail: String, boundary: Int32, shift: Bool, cur: WinLayout) -> Bool {
     guard !word.isEmpty, !autoExcluded() else { run.noCandidate(); return false }
+    if revertWatch.reverted(word, at: uptime()) {
+        learnedKeep.insert(learnedKey(word))
+        saveLearnedWords()
+        dwatch("learned keep by revert")
+        run.noCandidate(); return false
+    }
     guard let decided = autoDecide(word, cur: cur, enabled: WinLayout.installedList()) else {
         // A short word the model reads as fine right after a chain word ("ot" in
         // "nf ot [fktgf") rides along with its reading in the chain's layout.
@@ -443,6 +453,7 @@ func runAutoFix() {
     let boundary = job.boundary == Int32(vkTab) ? "\t" : " "
     recordConversion(original: job.fix.original + boundary, typed: job.fix.text + boundary, src: job.src,
                      autoWords: job.learn ? job.fix.original.split(separator: " ").map { learnedKey(String($0)) } : [])
+    if job.learn, let last = job.fix.original.split(separator: " ").last { revertWatch.corrected(String(last), at: uptime()) }
 }
 
 /// Replays what was typed during the fix, feeding each key through the run first
@@ -483,6 +494,7 @@ private let mouseProc: HOOKPROC = { nCode, wParam, lParam in
         || wParam == WPARAM(WM_MBUTTONDOWN) {
         resetAutoBuffer()
         forgetConversion()
+        revertWatch.edit(at: uptime())
     }
     return CallNextHookEx(nil, nCode, wParam, lParam)
 }

@@ -236,4 +236,17 @@ final class AutoRunTests: XCTestCase {
         XCTAssertFalse(isNewerVersion("v2.0.0-beta", than: "1.2.27"))  // pre-release: never offered
         XCTAssertFalse(isNewerVersion("v9.9.9", than: "0.0.0-dev"))    // dev build: never checks
     }
+
+    func testRevertWatch() {
+        var w = RevertWatch()
+        w.corrected("ghbdtn", at: 0)
+        XCTAssertFalse(w.reverted("ghbdtn", at: 2))             // typed twice, nothing deleted
+        w.edit(at: 3)
+        XCTAssertFalse(w.reverted("ghbdtx", at: 4))             // another word
+        XCTAssertTrue(w.reverted("ghbdtn,", at: 5))             // deleted and retyped
+        XCTAssertFalse(w.reverted("ghbdtn", at: 6))             // once
+        w.corrected("ghbdtn", at: 10)
+        w.edit(at: 30)                                          // too late to count
+        XCTAssertFalse(w.reverted("ghbdtn", at: 31))
+    }
 }

@@ -4,6 +4,20 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.14 — learning by revert (both platforms)
+
+- Idea from Caramba Switcher ("erase a wrong switch with Backspace and retype
+  it — remembered"), widened on the owner's question: erasing may be letter by
+  letter, a selection deleted at once, or typing over a selection. reLayout
+  sees keys and clicks, not what is selected, so the signal is "an edit that
+  may delete text, then the same word typed again": engine `RevertWatch`
+  (15 s window; edits = Backspace, Delete, arrows/navigation, a click, a
+  Cmd/Ctrl shortcut; synthetic keys ignored). The retyped word is left and
+  stored as `keep`. Typing the same word twice with no edit between is not a
+  revert. Typo repairs never arm it (they are never learned).
+
+---
+
 ## After v1.3.14 — spell-check option on Windows (`autoSpell`, Windows)
 
 - The macOS `autoSpell` option ported: Windows Spell Checking API in a new C++

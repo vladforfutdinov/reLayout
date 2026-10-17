@@ -24,7 +24,7 @@
 "settings.autoCorrectSimilar" = "Entre disposições parecidas (experimental)";
 "settings.autoCorrectSimilar.tip" = "Converte uma palavra escrita na disposição russa que se lê como ucraniano, e vice-versa («ъжа» → «їжа»). As duas línguas só se distinguem pelas letras próprias: palavras comuns a ambas ficam como estão e alguns erros escapam. Pares como uk ↔ ru ou en ↔ de. Só disponível com duas disposições do mesmo alfabeto e de línguas diferentes ativadas, p. ex. ucraniano e russo.";
 "settings.autoCorrectSpell" = "Verificar com o dicionário do sistema (experimental)";
-"settings.autoCorrectSpell.tip" = "Consulta o dicionário ortográfico do sistema antes de converter: uma palavra real não é alterada mesmo que pareça estranha, e uma palavra que o dicionário só conhece no outro layout é convertida. Também remove uma letra duplicada (“ссборка” → “сборка”); palavras que começam com maiúscula não são alteradas. Disponível apenas se o sistema tiver um dicionário ortográfico para o idioma de um layout ativado.";
+"settings.autoCorrectSpell.tip" = "Consulta o dicionário ortográfico do sistema antes de converter: uma palavra real não é alterada mesmo que pareça estranha, e uma palavra que o dicionário só conhece no outro layout é convertida. Também remove uma letra duplicada (“obrigaddo” → “obrigado”); palavras que começam com maiúscula não são alteradas. Disponível apenas se o sistema tiver um dicionário ortográfico para o idioma de um layout ativado.";
 "settings.autoCorrectUnavailable" = "A correção automática precisa de layouts de alfabetos diferentes, por ex. inglês e qualquer cirílico. Layouts do mesmo alfabeto (%@) não se distinguem com fiabilidade — use o atalho.";
 
 // auto-correct exceptions

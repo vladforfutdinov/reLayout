@@ -24,7 +24,7 @@
 "settings.autoCorrectSimilar" = "Between similar layouts (experimental)";
 "settings.autoCorrectSimilar.tip" = "Converts a word typed on the Russian layout that reads as Ukrainian, and the other way round (“ъжа” → “їжа”). The two languages are told apart only by their distinctive letters, so words common to both are left alone and some wrong ones slip through. Pairs such as uk ↔ ru or en ↔ de. Available only when two layouts of one script and different languages are enabled, e.g. Ukrainian and Russian.";
 "settings.autoCorrectSpell" = "Check with the system dictionary (experimental)";
-"settings.autoCorrectSpell.tip" = "Asks the system spelling dictionary before converting: a real word is left alone even when it looks odd, and a word the dictionary knows only in the other layout is converted. Also fixes a doubled letter (“ссборка” → “сборка”); words starting with a capital are left alone. Available only when the system has a spelling dictionary for the language of an enabled layout.";
+"settings.autoCorrectSpell.tip" = "Asks the system spelling dictionary before converting: a real word is left alone even when it looks odd, and a word the dictionary knows only in the other layout is converted. Also fixes a doubled letter (“helllo” → “hello”); words starting with a capital are left alone. Available only when the system has a spelling dictionary for the language of an enabled layout.";
 "settings.autoCorrectUnavailable" = "Auto-correct needs keyboard layouts of different scripts, e.g. English and any Cyrillic one. Layouts of one script (%@) can't be told apart reliably — use the hotkey.";
 
 // auto-correct exceptions

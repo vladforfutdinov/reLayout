@@ -25,6 +25,8 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
   conversion, but undoing/reverting it stores the TYPED word as `keep`. The
   `learn:` flag is gone on both platforms; every auto-correction arms the
   revert watch.
+- macOS: a keep learned by revert did not show in an open Learned words
+  list until reopened (`64e0000`); Windows already refreshed on save.
 
 ---
 

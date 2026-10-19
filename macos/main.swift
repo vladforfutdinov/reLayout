@@ -2226,7 +2226,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             let me = Unmanaged<AppController>.fromOpaque(refcon).takeUnretainedValue()
             // Fully-off app: no key is read, buffered or held. Not while a correction
             // is in flight — its gate still owns the keys typed meanwhile.
-            if me.autoPending == 0, me.isFullyExcluded() {
+            if me.autoPending == 0, type != .tapDisabledByTimeout, type != .tapDisabledByUserInput,
+               me.isFullyExcluded() {
                 me.autoRun.reset(); me.lastConversion = nil
                 return Unmanaged.passUnretained(event)
             }

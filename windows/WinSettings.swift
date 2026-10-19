@@ -29,6 +29,7 @@ private let idCapHotkey:     Int = 121
 private let idVersion:       Int = 122
 private let idCopyright:     Int = 123
 private let idCapAutoHotkey: Int = 124
+private let idExcSection:    Int = 125
 private let secondaryIDs: Set<Int> = [idCapLanguage, idCapHotkey, idCapAutoHotkey, idVersion, idCopyright]
 
 private func hotkeyIDs(_ slot: HotkeySlot) -> (caption: Int, field: Int, reset: Int) {
@@ -163,6 +164,19 @@ private func textWidth(_ text: String, _ hwnd: HWND?) -> Int32 {
     return size.cx * 96 / uiDpi
 }
 
+/// Height of `text` in the UI font, wrapped at `width`, in 96-dpi units.
+private func textHeight(_ text: String, width: Int32, _ hwnd: HWND?) -> Int32 {
+    let dc = GetDC(hwnd)
+    defer { ReleaseDC(hwnd, dc) }
+    let old = SelectObject(dc, UnsafeMutableRawPointer(uiFont))
+    defer { SelectObject(dc, old) }
+    var r = RECT(left: 0, top: 0, right: sc(width), bottom: 0)
+    let units = Array(text.utf16)
+    DrawTextW(dc, units, Int32(units.count), &r, UINT(0x400 /* DT_CALCRECT */ | 0x10 /* DT_WORDBREAK */
+                                                      | 0x800 /* DT_NOPREFIX */))
+    return (r.bottom * 96 + uiDpi - 1) / uiDpi
+}
+
 private func setFieldText(_ hwnd: HWND?, _ id: Int, _ s: String) {
     s.withCString(encodedAs: UTF16.self) { _ = SetWindowTextW(GetDlgItem(hwnd, Int32(id)), $0) }
 }
@@ -267,8 +281,9 @@ private func finishRecording(_ hwnd: HWND?, _ mods: UINT, _ vk: UINT, doubleTap:
 private func buildControls(_ hwnd: HWND?) {
     L("settings.title").withCString(encodedAs: UTF16.self) { _ = SetWindowTextW(hwnd, $0) }
     applyTitleBarTheme(hwnd, dark: colors.dark)
-    // Widest row decides the width: auto-correct + ⓘ + Exceptions…, the indented
-    // options and learned words, the caption column + a usable field, the footer link.
+    // Widest row decides the width: auto-correct + ⓘ, the indented options and
+    // learned words, Exceptions… beside a few words of its (wrapping) label, the
+    // caption column + a usable field, the footer link.
     let captionW = ["settings.language", "settings.hotkey", "settings.autoHotkey"]
         .map { textWidth(L($0), hwnd) }.max()! + 4
     let autoTitle = L("settings.autoCorrect")
@@ -281,7 +296,8 @@ private func buildControls(_ hwnd: HWND?) {
     let learnedViewTitle = L("settings.learned.view")
     let learnedViewW = textWidth(learnedViewTitle, hwnd) + 24
     let rows: [Int32] = [
-        autoW + 24 + 16 + excW,
+        autoW + 24,
+        160 + 16 + excW,
         20 + textWidth(L("settings.autoCorrectEnter"), hwnd) + 24,
         20 + textWidth(similarTitle, hwnd) + 24 + 22,
         20 + textWidth(spellTitle, hwnd) + 24 + 22,
@@ -350,7 +366,7 @@ private func buildControls(_ hwnd: HWND?) {
     separator(hwnd, y, content)
     y += 14
 
-    // ── section C: auto-correct (ⓘ explains why it is off), Exceptions…, on Enter ──
+    // ── section C: auto-correct (ⓘ explains why it is off), on Enter, options ──
     // A sub-option the system rules out (no layouts for it) shows off; one disabled
     // only because auto-correct is off shows its stored state.
     builtForLayouts = installedLayouts()
@@ -363,9 +379,6 @@ private func buildControls(_ hwnd: HWND?) {
         let installed = WinLayout.installedList().map(\.displayName).joined(separator: ", ")
         addTooltip(&tooltip, hwnd, info, L("settings.autoCorrectUnavailable", installed), overWindow: true)
     }
-    let exceptions = makeControl("BUTTON", excTitle, Int32(WS_TABSTOP),
-                                 clientWidth - margin - excW, y - 2, excW, 26, hwnd, idBtnExceptions)
-    EnableWindow(exceptions, available)
     y += 28
     makeCheck(L("settings.autoCorrectEnter"), margin + 20, y, content - 20, hwnd, idChkAutoEnter,
               on: available && loadAutoEnter(), enabled: available && loadAutoMode())
@@ -394,11 +407,23 @@ private func buildControls(_ hwnd: HWND?) {
     // The count takes the View button's id + labelOffset, so it grays with the button.
     makeControl("STATIC", L("settings.learned", "\(learnedCount())"), 0,
                 margin + 20, y + 4, learnedW, 20, hwnd, idBtnLearnedView + labelOffset)
-    // Flush right, like Exceptions… above.
+    // Flush right, like the buttons of the other sections.
     let learnedView = makeControl("BUTTON", learnedViewTitle, Int32(WS_TABSTOP),
                                   clientWidth - margin - learnedViewW, y - 2, learnedViewW, 26, hwnd, idBtnLearnedView)
     EnableWindow(learnedView, available && loadAutoMode())
-    y += 42
+    y += 38
+    separator(hwnd, y, content)
+    y += 14
+
+    // ── section D: Exceptions… — always enabled, it covers the hotkey too ──
+    let excLabel = L("settings.exc.section")
+    let excLabelW = content - excW - 16
+    let excLabelH = textHeight(excLabel, width: excLabelW, hwnd)
+    let excRowH = max(excLabelH, 26)
+    makeControl("STATIC", excLabel, 0, margin, y + (excRowH - excLabelH) / 2, excLabelW, excLabelH, hwnd, idExcSection)
+    makeControl("BUTTON", excTitle, Int32(WS_TABSTOP),
+                clientWidth - margin - excW, y + (excRowH - 26) / 2, excW, 26, hwnd, idBtnExceptions)
+    y += excRowH + 16
 
     // ── footer: version, link, copyright — centered, secondary ──
     let version = L("win.version", appVersion)

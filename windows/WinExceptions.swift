@@ -1,10 +1,11 @@
 import WinSDK
 import Foundation
 
-// "Auto-correct exceptions" window, like the macOS sheet: a list of programs (icon
-// and name) where auto-correct stays off, "Exclude current app", "Choose…",
-// "Remove" and "Done". Every change is saved at once; there is nothing to cancel.
-// A program is stored by its executable name ("code.exe").
+// "Exceptions" window, like the macOS sheet: a list of programs (icon and name),
+// each with two check columns — auto-correct off, retype hotkey off — then
+// "Exclude current app", "Choose…", "Remove" and "Done". Every change is saved at
+// once; there is nothing to cancel. A program is stored by its executable name
+// ("code.exe") in two lists: the auto-correct one and the hotkey one.
 
 private let idExcList:   Int = 201
 private let idExcCurrent: Int = 202
@@ -13,6 +14,11 @@ private let idExcRemove: Int = 204
 private let idExcInfo:   Int = 205
 private let idExcDone:   Int = 206
 private let idExcTitle:  Int = 207
+private let idExcColAuto: Int = 208
+private let idExcColHotkey: Int = 209
+
+// Column 0 is the program; the check columns follow.
+private let colAuto: Int32 = 1, colHotkey: Int32 = 2
 
 private var exceptionsHwnd: HWND?
 private var exceptionsClassW = Array("ReLayoutExceptionsWnd".utf16) + [0]
@@ -20,7 +26,11 @@ private var exceptionsClassRegistered = false
 private var excDpi: Int32 = 96
 private var excTooltip: HWND?
 private var excGlyphFont: HFONT?
-private var shownApps: [String] = []   // row i shows shownApps[i]
+/// A program and what is off in it. A row with both cleared stays until the
+/// window closes; it is in neither list.
+private struct ExcRow { let exe: String; var auto: Bool; var hotkey: Bool }
+private var rows: [ExcRow] = []   // list row i shows rows[i]
+private var checkImages: (off: Int32, on: Int32)?   // in the list's small image list
 private var excColors = ThemeColors.current()
 private var excBrush: HBRUSH?
 private let excThemeTimer: UINT_PTR = 1
@@ -120,19 +130,17 @@ private func fillList(_ hwnd: HWND?) {
     let old = SendMessageW(list, UINT(0x1003 /* LVM_SETIMAGELIST */), WPARAM(1 /* LVSIL_SMALL */),
                            LPARAM(Int(bitPattern: UnsafeRawPointer(images))))
     if old != 0 { ImageList_Destroy(HIMAGELIST(bitPattern: Int(old))) }
+    checkImages = addCheckImages(hwnd, to: images)
 
-    shownApps = loadExcludedApps()
-    let rows = shownApps.map { exe -> (name: String, exe: String, path: String?) in
-        let path = locate(exe)
-        return (displayName(exe, path: path), exe, path)
-    }
     for (i, row) in rows.enumerated() {
+        let path = locate(row.exe)
+        let name = displayName(row.exe, path: path)
         var image: Int32 = -1
-        if let icon = smallIcon(row.path) {
+        if let icon = smallIcon(path) {
             image = ImageList_ReplaceIcon(images, -1, icon)
             DestroyIcon(icon)
         }
-        let text = row.name == row.exe ? row.exe : "\(row.name)  (\(row.exe))"
+        let text = name == row.exe ? row.exe : "\(name)  (\(row.exe))"
         text.withCString(encodedAs: UTF16.self) { txt in
             var item = LVITEMW()
             item.mask = UINT(0x1 /* LVIF_TEXT */ | 0x2 /* LVIF_IMAGE */)
@@ -143,8 +151,81 @@ private func fillList(_ hwnd: HWND?) {
                 SendMessageW(list, UINT(0x104D /* LVM_INSERTITEMW */), 0, LPARAM(Int(bitPattern: $0)))
             }
         }
+        setCheck(list, i, colAuto, row.auto)
+        setCheck(list, i, colHotkey, row.hotkey)
     }
     updateRemoveButton(hwnd)
+}
+
+/// Adds the list view's own check box images (clear, checked) in the current
+/// theme to `images`, taken from a hidden list view with check boxes: those draw
+/// only in column 0, the check columns show them as sub-item images.
+/// - Returns: their indexes, nil when they could not be made (a check mark is shown instead).
+private func addCheckImages(_ hwnd: HWND?, to images: HIMAGELIST?) -> (off: Int32, on: Int32)? {
+    let probe = "SysListView32".withCString(encodedAs: UTF16.self) {
+        CreateWindowExW(0, $0, nil, DWORD(WS_CHILD) | DWORD(0x1 /* LVS_REPORT */), 0, 0, 0, 0,
+                        hwnd, nil, GetModuleHandleW(nil), nil)
+    }
+    guard let probe else { return nil }
+    defer { DestroyWindow(probe) }   // and its state image list with it
+    applyControlTheme(probe, className: "SysListView32", dark: excColors.dark)
+    SendMessageW(probe, UINT(0x1036 /* LVM_SETEXTENDEDLISTVIEWSTYLE */), 0, LPARAM(0x4 /* LVS_EX_CHECKBOXES */))
+    let state = SendMessageW(probe, UINT(0x1002 /* LVM_GETIMAGELIST */), WPARAM(2 /* LVSIL_STATE */), 0)
+    guard state != 0 else { return nil }
+    var added: [Int32] = []
+    for i: Int32 in 0...1 {
+        guard let icon = ImageList_GetIcon(HIMAGELIST(bitPattern: Int(state)), i, UINT(0 /* ILD_NORMAL */))
+        else { return nil }
+        added.append(ImageList_ReplaceIcon(images, -1, icon))
+        DestroyIcon(icon)
+    }
+    return added.contains(-1) ? nil : (added[0], added[1])
+}
+
+private func setCheck(_ list: HWND?, _ row: Int, _ column: Int32, _ on: Bool) {
+    let mark = checkImages == nil && on ? "\u{2713}" : ""
+    mark.withCString(encodedAs: UTF16.self) { txt in
+        var item = LVITEMW()
+        item.mask = UINT(0x1 /* LVIF_TEXT */) | (checkImages == nil ? 0 : UINT(0x2 /* LVIF_IMAGE */))
+        item.iItem = Int32(row)
+        item.iSubItem = column
+        item.iImage = (on ? checkImages?.on : checkImages?.off) ?? -1
+        item.pszText = UnsafeMutablePointer(mutating: txt)
+        _ = withUnsafeMutablePointer(to: &item) {
+            SendMessageW(list, UINT(0x104C /* LVM_SETITEMW */), 0, LPARAM(Int(bitPattern: $0)))
+        }
+    }
+}
+
+private func loadRows() -> [ExcRow] {
+    let auto = loadExcludedApps(), hotkey = loadHotkeyExcludedApps()
+    return auto.map { ExcRow(exe: $0, auto: true, hotkey: hotkey.contains($0)) }
+        + hotkey.filter { !auto.contains($0) }.map { ExcRow(exe: $0, auto: false, hotkey: true) }
+}
+
+private func saveRows() {
+    saveExcludedApps(rows.filter(\.auto).map(\.exe))
+    saveHotkeyExcludedApps(rows.filter(\.hotkey).map(\.exe))
+    reloadAutoMode()
+}
+
+/// A click in a check column flips that cell.
+private func clickCell(_ hwnd: HWND?) {
+    let list = listView(hwnd)
+    let pos = GetMessagePos()
+    var hit = LVHITTESTINFO()
+    hit.pt = POINT(x: LONG(Int16(truncatingIfNeeded: pos & 0xFFFF)), y: LONG(Int16(truncatingIfNeeded: pos >> 16)))
+    ScreenToClient(list, &hit.pt)
+    _ = withUnsafeMutablePointer(to: &hit) {
+        SendMessageW(list, UINT(0x1039 /* LVM_SUBITEMHITTEST */), 0, LPARAM(Int(bitPattern: $0)))
+    }
+    let row = Int(hit.iItem)
+    guard rows.indices.contains(row), hit.iSubItem == colAuto || hit.iSubItem == colHotkey else { return }
+    let on: Bool
+    if hit.iSubItem == colAuto { rows[row].auto.toggle(); on = rows[row].auto }
+    else { rows[row].hotkey.toggle(); on = rows[row].hotkey }
+    setCheck(list, row, hit.iSubItem, on)
+    saveRows()
 }
 
 private func selectedRows(_ hwnd: HWND?) -> [Int] {
@@ -163,19 +244,21 @@ private func updateRemoveButton(_ hwnd: HWND?) {
     EnableWindow(GetDlgItem(hwnd, Int32(idExcRemove)), !selectedRows(hwnd).isEmpty)
 }
 
+/// An added program gets auto-correct off; the hotkey is its own tick.
 private func addApps(_ hwnd: HWND?, _ exes: [String]) {
-    var apps = loadExcludedApps()
-    for exe in exes where !apps.contains(exe) { apps.append(exe) }
-    saveExcludedApps(apps)
-    reloadAutoMode()
+    for exe in exes {
+        if let i = rows.firstIndex(where: { $0.exe == exe }) { rows[i].auto = true }
+        else { rows.append(ExcRow(exe: exe, auto: true, hotkey: false)) }
+    }
+    saveRows()
     fillList(hwnd)
 }
 
 private func removeSelected(_ hwnd: HWND?) {
-    let gone = Set(selectedRows(hwnd).compactMap { shownApps.indices.contains($0) ? shownApps[$0] : nil })
+    let gone = Set(selectedRows(hwnd).compactMap { rows.indices.contains($0) ? rows[$0].exe : nil })
     guard !gone.isEmpty else { return }
-    saveExcludedApps(loadExcludedApps().filter { !gone.contains($0) })
-    reloadAutoMode()
+    rows.removeAll { gone.contains($0.exe) }
+    saveRows()
     fillList(hwnd)
 }
 
@@ -236,7 +319,7 @@ private func excFont(_ face: String, points: Int32) -> HFONT? {
     }
 }
 
-private let clientW: Int32 = 424
+private let clientW: Int32 = 480
 private let clientH: Int32 = 322
 
 private func buildExceptions(_ hwnd: HWND?) {
@@ -256,23 +339,43 @@ private func buildExceptions(_ hwnd: HWND?) {
     excTooltip = nil
     addTooltip(&excTooltip, hwnd, info, L("settings.exc.info"), overWindow: true)
 
+    // Check column titles as labels over a header-less list (a list view's header
+    // does not follow the dark theme), as in Learned words: each starts where the
+    // list draws its column's content — list border (2) + the cell inset (4). The
+    // program column gives up the scroll bar's width, so the check columns stay
+    // under their titles.
+    let listW = clientW - 32
+    let autoTitle = L("settings.exc.auto"), hotkeyTitle = L("settings.exc.hotkey")
+    let autoW = max(textWidth(autoTitle, hwnd) + 12, 36), hotkeyW = max(textWidth(hotkeyTitle, hwnd) + 12, 36)
+    let nameCx = esc(listW - autoW - hotkeyW) - GetSystemMetrics(SM_CXVSCROLL) - 4
+    let autoX = 16 + 2 + nameCx * 96 / excDpi + 4
+    let autoLabel = makeExcControl("STATIC", autoTitle, 0, autoX, 44, autoW - 4, 18,
+                                   hwnd, idExcColAuto)
+    addTooltip(&excTooltip, hwnd, autoLabel, L("settings.exc.auto.tip"), overWindow: true)
+    let hotkeyLabel = makeExcControl("STATIC", hotkeyTitle, 0, autoX + autoW, 44,
+                                     hotkeyW - 4, 18, hwnd, idExcColHotkey)
+    addTooltip(&excTooltip, hwnd, hotkeyLabel, L("settings.exc.hotkey.tip"), overWindow: true)
+
     let list = makeExcControl("SysListView32", "",
                               Int32(0x1 /* LVS_REPORT */) | Int32(0x4000 /* LVS_NOCOLUMNHEADER */)
                               | Int32(0x8 /* LVS_SHOWSELALWAYS */) | Int32(WS_TABSTOP),
-                              16, 44, clientW - 32, 220, hwnd, idExcList, exStyle: DWORD(WS_EX_CLIENTEDGE))
+                              16, 64, listW, 200, hwnd, idExcList, exStyle: DWORD(WS_EX_CLIENTEDGE))
     SendMessageW(list, UINT(0x1036 /* LVM_SETEXTENDEDLISTVIEWSTYLE */), 0,
-                 LPARAM(0x20 /* LVS_EX_FULLROWSELECT */ | 0x10000 /* LVS_EX_DOUBLEBUFFER */))
+                 LPARAM(0x20 /* LVS_EX_FULLROWSELECT */ | 0x10000 /* LVS_EX_DOUBLEBUFFER */
+                        | 0x2 /* LVS_EX_SUBITEMIMAGES */))
     if excColors.dark {
         let bg = LPARAM(Int(excColors.background)), fg = LPARAM(Int(excColors.text))
         SendMessageW(list, UINT(0x1001 /* LVM_SETBKCOLOR */), 0, bg)
         SendMessageW(list, UINT(0x1026 /* LVM_SETTEXTBKCOLOR */), 0, bg)
         SendMessageW(list, UINT(0x1024 /* LVM_SETTEXTCOLOR */), 0, fg)
     }
-    var column = LVCOLUMNW()
-    column.mask = UINT(0x2 /* LVCF_WIDTH */)
-    column.cx = esc(clientW - 32) - GetSystemMetrics(SM_CXVSCROLL) - 4
-    _ = withUnsafeMutablePointer(to: &column) {
-        SendMessageW(list, UINT(0x1061 /* LVM_INSERTCOLUMNW */), 0, LPARAM(Int(bitPattern: $0)))
+    for (i, cx) in [nameCx, esc(autoW), esc(hotkeyW)].enumerated() {
+        var column = LVCOLUMNW()
+        column.mask = UINT(0x2 /* LVCF_WIDTH */)
+        column.cx = cx
+        _ = withUnsafeMutablePointer(to: &column) {
+            SendMessageW(list, UINT(0x1061 /* LVM_INSERTCOLUMNW */), WPARAM(i), LPARAM(Int(bitPattern: $0)))
+        }
     }
 
     // "+" (Choose…) / "−" (remove the selection), then "Exclude current app"; Done
@@ -305,6 +408,9 @@ private func exceptionsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ l
             let hdr = raw.assumingMemoryBound(to: NMHDR.self).pointee
             guard hdr.idFrom == UINT_PTR(idExcList) else { break }
             if hdr.code == UINT(bitPattern: -101) /* LVN_ITEMCHANGED */ { updateRemoveButton(hwnd) }
+            if hdr.code == UINT(bitPattern: -2) /* NM_CLICK */ || hdr.code == UINT(bitPattern: -3) /* NM_DBLCLK */ {
+                clickCell(hwnd)
+            }
             if hdr.code == UINT(bitPattern: -155) /* LVN_KEYDOWN */ {
                 let key = raw.assumingMemoryBound(to: NMLVKEYDOWN.self).pointee.wVKey
                 if key == WORD(VK_DELETE) { removeSelected(hwnd) }
@@ -312,7 +418,8 @@ private func exceptionsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ l
         }
     case UINT(WM_CTLCOLORSTATIC), UINT(WM_CTLCOLORBTN):
         let dc = HDC(bitPattern: UInt(wParam))
-        SetTextColor(dc, excColors.text)
+        let id = Int(GetDlgCtrlID(HWND(bitPattern: Int(lParam))))
+        SetTextColor(dc, id == idExcColAuto || id == idExcColHotkey ? excColors.secondary : excColors.text)
         SetBkColor(dc, excColors.background)
         SetBkMode(dc, TRANSPARENT)
         return LRESULT(Int(bitPattern: excBrush))
@@ -381,6 +488,7 @@ func openExceptions(owner: HWND?) {
     guard let hwnd = exceptionsHwnd else { return }
     let dpi = GetDpiForWindow(hwnd)
     excDpi = dpi > 0 ? Int32(dpi) : 96
+    rows = loadRows()
     buildExceptions(hwnd)
 
     // Size to the scaled client area, centered over the owner (Settings).

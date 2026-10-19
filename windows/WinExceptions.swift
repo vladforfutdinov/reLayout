@@ -18,7 +18,10 @@ private let idExcColAuto: Int = 208
 private let idExcColHotkey: Int = 209
 
 // Column 0 is the program; the check columns follow.
-private let colAuto: Int32 = 1, colHotkey: Int32 = 2
+// Columns: program (+ pad), auto, pad, hotkey, pad. A sub-item image is drawn at its
+// cell's left edge, so each check column is just wider than the box and the pads
+// around it centre it under its title.
+private let colAuto: Int32 = 1, colHotkey: Int32 = 3
 
 private var exceptionsHwnd: HWND?
 private var exceptionsClassW = Array("ReLayoutExceptionsWnd".utf16) + [0]
@@ -348,12 +351,12 @@ private func buildExceptions(_ hwnd: HWND?) {
     let autoTitle = L("settings.exc.auto"), hotkeyTitle = L("settings.exc.hotkey")
     let autoW = max(textWidth(autoTitle, hwnd) + 12, 36), hotkeyW = max(textWidth(hotkeyTitle, hwnd) + 12, 36)
     let nameCx = esc(listW - autoW - hotkeyW) - GetSystemMetrics(SM_CXVSCROLL) - 4
-    let autoX = 16 + 2 + nameCx * 96 / excDpi + 4
-    let autoLabel = makeExcControl("STATIC", autoTitle, 0, autoX, 44, autoW - 4, 18,
+    let autoX = 16 + 2 + nameCx * 96 / excDpi + 2   // titles centred over the boxes below
+    let autoLabel = makeExcControl("STATIC", autoTitle, Int32(0x0001 /* SS_CENTER */), autoX, 44, autoW, 18,
                                    hwnd, idExcColAuto)
     addTooltip(&excTooltip, hwnd, autoLabel, L("settings.exc.auto.tip"), overWindow: true)
-    let hotkeyLabel = makeExcControl("STATIC", hotkeyTitle, 0, autoX + autoW, 44,
-                                     hotkeyW - 4, 18, hwnd, idExcColHotkey)
+    let hotkeyLabel = makeExcControl("STATIC", hotkeyTitle, Int32(0x0001 /* SS_CENTER */), autoX + autoW, 44,
+                                     hotkeyW, 18, hwnd, idExcColHotkey)
     addTooltip(&excTooltip, hwnd, hotkeyLabel, L("settings.exc.hotkey.tip"), overWindow: true)
 
     let list = makeExcControl("SysListView32", "",
@@ -369,7 +372,10 @@ private func buildExceptions(_ hwnd: HWND?) {
         SendMessageW(list, UINT(0x1026 /* LVM_SETTEXTBKCOLOR */), 0, bg)
         SendMessageW(list, UINT(0x1024 /* LVM_SETTEXTCOLOR */), 0, fg)
     }
-    for (i, cx) in [nameCx, esc(autoW), esc(hotkeyW)].enumerated() {
+    let box = GetSystemMetrics(SM_CXSMICON) + esc(4)   // the check image plus the list's left inset
+    let autoPad = (esc(autoW) - box) / 2, hotkeyPad = (esc(hotkeyW) - box) / 2
+    let widths = [nameCx + autoPad, box, esc(autoW) - box - autoPad + hotkeyPad, box, esc(hotkeyW) - box - hotkeyPad]
+    for (i, cx) in widths.enumerated() {
         var column = LVCOLUMNW()
         column.mask = UINT(0x2 /* LVCF_WIDTH */)
         column.cx = cx

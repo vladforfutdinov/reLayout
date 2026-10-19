@@ -4,6 +4,15 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.16 — Windows exceptions: check boxes centred
+
+- Owner, comparing with macOS: the check images sat at the left of wide
+  columns. A list view draws a sub-item image at the cell's left edge, so the
+  check columns are now just the box wide, with pad columns around them, and
+  the titles above are centred (SS_CENTER) over the same span.
+
+---
+
 ## After v1.3.15 — exceptions follow Spotlight (macOS)
 
 - Issue #2 (per-app layout, lsl87Serhii) noted that Spotlight takes focus

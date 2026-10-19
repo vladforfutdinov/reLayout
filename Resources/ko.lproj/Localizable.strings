@@ -31,15 +31,18 @@
 
 // auto-correct exceptions
 "settings.exceptions" = "예외…";
-"settings.exc.title" = "자동 수정 예외";
+"settings.exc.title" = "예외";
 "settings.exc.addCurrent" = "현재 앱 제외";
 "settings.exc.choose" = "선택…";
 "settings.exc.remove" = "제거";
 "settings.exc.done" = "완료";
-"settings.exc.info" = "터미널, 코드 편집기, 가상 머신, 원격 데스크톱은 처음부터 목록에 있습니다. 여기서는 명령이나 코드를 입력하거나 자체 자판을 가진 다른 시스템이 키를 받으므로 자동 수정이 오히려 해가 됩니다. 항목을 제거하면 해당 앱에서 자동 수정이 켜집니다.";
-"settings.exc.hint" = "다음 프로그램에서는 자동 수정을 하지 않습니다:";
-"settings.exc.full" = "완전히 끄기";
-"settings.exc.full.tip" = "단축키도 꺼지며, 이 프로그램에서는 키 입력을 전혀 읽지 않습니다.";
+"settings.exc.info" = "터미널, 코드 편집기, 가상 머신, 원격 데스크톱은 처음부터 목록에 있습니다. 여기서는 명령이나 코드를 입력하거나 자체 자판을 가진 다른 시스템이 키를 받으므로 자동 수정이 오히려 해가 됩니다. 항목을 제거하면 해당 앱에서 자동 수정이 켜집니다. Figma는 단축키도 꺼진 상태로 목록에 있습니다. 캔버스가 입력한 글자를 도구 단축키로 받아들이기 때문입니다.";
+"settings.exc.hint" = "이 프로그램들에서 꺼짐:";
+"settings.exc.section" = "특정 프로그램에서 자동 수정이나 단축키 끄기";
+"settings.exc.auto" = "자동 수정";
+"settings.exc.auto.tip" = "체크: 이 프로그램에서는 자동 수정하지 않습니다.";
+"settings.exc.hotkey" = "단축키";
+"settings.exc.hotkey.tip" = "체크: 이 프로그램에서는 단축키가 아무것도 하지 않습니다. 둘 다 체크하면 reLayout은 여기서 키를 전혀 읽지 않습니다.";
 
 // learned words
 "settings.learned" = "학습한 단어: %@";

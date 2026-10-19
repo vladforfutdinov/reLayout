@@ -31,15 +31,18 @@
 
 // auto-correct exceptions
 "settings.exceptions" = "Exceptions…";
-"settings.exc.title" = "Exceptions de correction auto";
+"settings.exc.title" = "Exceptions";
 "settings.exc.addCurrent" = "Exclure l’app active";
 "settings.exc.choose" = "Choisir…";
 "settings.exc.remove" = "Retirer";
 "settings.exc.done" = "Terminé";
-"settings.exc.info" = "Les terminaux, éditeurs de code, machines virtuelles et bureaux à distance figurent d’emblée dans la liste : on y tape des commandes ou du code, ou un autre système avec sa propre disposition reçoit les touches, et la correction automatique y nuirait. Retirez-en un pour l’y activer.";
-"settings.exc.hint" = "La correction automatique est désactivée dans ces programmes :";
-"settings.exc.full" = "Totalement";
-"settings.exc.full.tip" = "Désactive aussi le raccourci : reLayout ne lit aucune touche dans ce programme.";
+"settings.exc.info" = "Les terminaux, éditeurs de code, machines virtuelles et bureaux à distance figurent d’emblée dans la liste : on y tape des commandes ou du code, ou un autre système avec sa propre disposition reçoit les touches, et la correction automatique y nuirait. Retirez-en un pour l’y activer. Figma figure aussi avec le raccourci désactivé : son canevas prend le texte saisi pour des raccourcis d’outils.";
+"settings.exc.hint" = "Désactivé dans ces programmes :";
+"settings.exc.section" = "Désactiver la correction auto ou le raccourci dans certains programmes";
+"settings.exc.auto" = "Correction auto";
+"settings.exc.auto.tip" = "Coché : pas de correction automatique dans ce programme.";
+"settings.exc.hotkey" = "Raccourci";
+"settings.exc.hotkey.tip" = "Coché : le raccourci ne fait rien dans ce programme. Les deux cochés, reLayout ne lit aucune touche ici.";
 
 // learned words
 "settings.learned" = "Mots appris : %@";

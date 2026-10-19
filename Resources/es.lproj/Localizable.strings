@@ -31,15 +31,18 @@
 
 // auto-correct exceptions
 "settings.exceptions" = "Excepciones…";
-"settings.exc.title" = "Excepciones de autocorrección";
+"settings.exc.title" = "Excepciones";
 "settings.exc.addCurrent" = "Excluir app actual";
 "settings.exc.choose" = "Elegir…";
 "settings.exc.remove" = "Quitar";
 "settings.exc.done" = "Listo";
-"settings.exc.info" = "Los terminales, editores de código, máquinas virtuales y escritorios remotos están en la lista desde el principio: allí se escriben comandos o código, u otro sistema con su propia distribución recibe las teclas, y la autocorrección haría daño. Quita uno para activarla en él.";
-"settings.exc.hint" = "La autocorrección no actúa en estos programas:";
-"settings.exc.full" = "Del todo";
-"settings.exc.full.tip" = "También desactiva el atajo: reLayout no lee ninguna tecla en este programa.";
+"settings.exc.info" = "Los terminales, editores de código, máquinas virtuales y escritorios remotos están en la lista desde el principio: allí se escriben comandos o código, u otro sistema con su propia distribución recibe las teclas, y la autocorrección haría daño. Quita uno para activarla en él. Figma figura también con el atajo desactivado: su lienzo toma el texto escrito por atajos de herramientas.";
+"settings.exc.hint" = "Desactivado en estos programas:";
+"settings.exc.section" = "Desactivar la autocorrección o el atajo en programas concretos";
+"settings.exc.auto" = "Autocorrección";
+"settings.exc.auto.tip" = "Marcado: sin autocorrección en este programa.";
+"settings.exc.hotkey" = "Atajo";
+"settings.exc.hotkey.tip" = "Marcado: el atajo no hace nada en este programa. Con ambos marcados, reLayout no lee ninguna tecla aquí.";
 
 // learned words
 "settings.learned" = "Palabras aprendidas: %@";

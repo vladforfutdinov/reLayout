@@ -31,15 +31,18 @@
 
 // auto-correct exceptions
 "settings.exceptions" = "Exceptions…";
-"settings.exc.title" = "Auto-correct exceptions";
+"settings.exc.title" = "Exceptions";
 "settings.exc.addCurrent" = "Exclude current app";
 "settings.exc.choose" = "Choose…";
 "settings.exc.remove" = "Remove";
 "settings.exc.done" = "Done";
-"settings.exc.info" = "Terminals, code editors, virtual machines and remote desktops are listed from the start: there you type commands or code, or another system with its own layout takes the keys, so auto-correct would do harm. Remove one to turn auto-correct on in it.";
-"settings.exc.hint" = "Auto-correct stays off in these programs:";
-"settings.exc.full" = "Fully off";
-"settings.exc.full.tip" = "Also turns off the hotkey: reLayout reads no keys in this program.";
+"settings.exc.info" = "Terminals, code editors, virtual machines and remote desktops are listed from the start: there you type commands or code, or another system with its own layout takes the keys, so auto-correct would do harm. Remove one to turn auto-correct on in it. Figma is listed with the hotkey off too: its canvas reads typed text as tool shortcuts.";
+"settings.exc.hint" = "Turned off in these programs:";
+"settings.exc.section" = "Turn auto-correct or the hotkey off in chosen programs";
+"settings.exc.auto" = "Auto-correct";
+"settings.exc.auto.tip" = "Ticked: no auto-correct in this program.";
+"settings.exc.hotkey" = "Hotkey";
+"settings.exc.hotkey.tip" = "Ticked: the hotkey does nothing in this program. With both ticked, reLayout reads no keys here.";
 
 // learned words
 "settings.learned" = "Learned words: %@";

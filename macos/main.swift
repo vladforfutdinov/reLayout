@@ -754,9 +754,31 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     private weak var autoInfo: NSImageView?
     private weak var excTable: NSTableView?
     private var lastActiveBundleID: String?   // last non-self frontmost app ("exclude current")
-    // Frontmost app right now (self included): the key tap checks it on every key,
-    // so it is cached here instead of asking NSWorkspace each time.
+    // The app that gets the keys (self included): the per-app exceptions check it, the
+    // key tap on every key, so it is cached (`refreshKeyApp`).
     private var frontBundleID: String? = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+
+    // Spotlight takes the keyboard without becoming frontmost, so NSWorkspace would
+    // apply the exceptions of the app under it: ask AX for the app with keyboard
+    // focus. An app that does not answer AX (Electron, until asked) falls back to
+    // the frontmost one, or to Spotlight while its panel is on screen.
+    private func refreshKeyApp() {
+        let front = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+        var v: CFTypeRef?
+        var pid: pid_t = 0
+        if AXUIElementCopyAttributeValue(AXUIElementCreateSystemWide(), kAXFocusedApplicationAttribute as CFString, &v)
+            == .success, let v, CFGetTypeID(v) == AXUIElementGetTypeID(),
+           AXUIElementGetPid(v as! AXUIElement, &pid) == .success,
+           let bid = NSRunningApplication(processIdentifier: pid)?.bundleIdentifier {
+            frontBundleID = bid
+        } else if let wins = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]],
+                  wins.contains(where: { ($0[kCGWindowOwnerName as String] as? String) == "Spotlight"
+                                         && ($0[kCGWindowLayer as String] as? Int ?? 0) > 0 }) {
+            frontBundleID = "com.apple.Spotlight"
+        } else {
+            frontBundleID = front
+        }
+    }
     private var shortcutFields: [HotkeySlot: ShortcutField] = [:]   // replaced when Settings is rebuilt
     private var conflictLabels: [HotkeySlot: NSTextField] = [:]
     private weak var loginCheckbox: NSButton?
@@ -943,6 +965,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             // Hotkey-off apps (#1): Figma's canvas reads the key code of our typed
             // Unicode events (0 = "A", the Frame tool) and its erase backspaces can
             // delete the selected layers.
+            refreshKeyApp()
             if isHotkeyExcluded() { dbg("retype hotkey: off in \(frontBundleID ?? "?")"); return }
             let pressAgain = hk.taps == 1
             beginCorrection { self.performRetype(typed: typed, pressAgain: pressAgain) }
@@ -2261,6 +2284,14 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             let me = Unmanaged<AppController>.fromOpaque(refcon).takeUnretainedValue()
             // Both auto-correct and the hotkey off in this app: no key is read, buffered or held. Not while a correction
             // is in flight — its gate still owns the keys typed meanwhile.
+            // Where the keys go may change on a click, a Cmd/Ctrl shortcut (Cmd+Space opens
+            // Spotlight) or Return/Esc/Tab (it closes): ask then, not on every key.
+            if type != .keyDown || event.flags.contains(.maskCommand) || event.flags.contains(.maskControl)
+                || [36, 48, 53].contains(event.getIntegerValueField(.keyboardEventKeycode)) {
+                me.refreshKeyApp()
+                // The panel opens or closes after the key: look again once it has.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { me.refreshKeyApp() }
+            }
             if me.autoPending == 0, type != .tapDisabledByTimeout, type != .tapDisabledByUserInput,
                me.isKeyReadingOff() {
                 me.autoRun.reset(); me.lastConversion = nil
@@ -2664,8 +2695,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     }
 
     private func isAutoExcluded() -> Bool {
-        if let bid = NSWorkspace.shared.frontmostApplication?.bundleIdentifier,
-           autoExcludedApps.contains(bid) { return true }   // user deny-list
+        refreshKeyApp()
+        if let bid = frontBundleID, autoExcludedApps.contains(bid) { return true }   // user deny-list
         return focusedIsSecureField()
     }
 

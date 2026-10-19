@@ -4,6 +4,25 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.15 — exceptions follow Spotlight (macOS)
+
+- Issue #2 (per-app layout, lsl87Serhii) noted that Spotlight takes focus
+  without becoming the frontmost app. Measured: with Finder in front, opening
+  Spotlight left `NSWorkspace.frontmostApplication` at Finder, while
+  `kAXFocusedApplicationAttribute` on the system-wide element flipped to
+  `com.apple.Spotlight` exactly with each open/close; the on-screen window list
+  showed the panel ~2-5 s longer (fade). Over an Electron app (Claude, Figma)
+  the attribute fails fast (-25204, 0-2 ms).
+- So the exceptions used the app UNDER Spotlight: over a terminal (auto
+  excluded) Spotlight had no auto-correct, over Figma no hotkey. Now
+  `refreshKeyApp` picks the app with keyboard focus (AX, else Spotlight's window,
+  else frontmost), refreshed on clicks, Cmd/Ctrl keys, Return/Esc/Tab (and 0.2 s
+  later), word boundaries and the hotkey.
+- The per-app layout itself is not taken: a forced layout fits Figma or a
+  terminal, not Spotlight, where the owner searches in Russian too.
+
+---
+
 ## After v1.3.15 — per-app exceptions for auto-correct and the hotkey (macOS)
 
 - First outside contribution: PR #3 by lsl87Serhii (`d13a6db`, issue #1). In

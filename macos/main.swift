@@ -611,21 +611,16 @@ final class SettingsWindow: NSWindow {
     }
 }
 
-// One row of the auto-correct exceptions table: app icon + name, and a "Fully off"
-// checkbox (hotkey off too, no key read). Removal is the list's ⊖, like Login Items.
+// The app cell of the exceptions table: icon + name. Removal is the list's ⊖, like
+// Login Items; the two flags are checkbox columns of their own.
 final class ExcRowView: NSTableCellView {
     private let icon = NSImageView()
     private let label = NSTextField(labelWithString: "")
-    let full = NSButton(checkboxWithTitle: L("settings.exc.full"), target: nil, action: nil)
 
     override init(frame: NSRect) {
         super.init(frame: frame)
-        for v in [icon, label, full] { v.translatesAutoresizingMaskIntoConstraints = false; addSubview(v) }
+        for v in [icon, label] { v.translatesAutoresizingMaskIntoConstraints = false; addSubview(v) }
         label.lineBreakMode = .byTruncatingTail
-        label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        full.controlSize = .small
-        full.font = .systemFont(ofSize: NSFont.systemFontSize(for: .small))
-        full.toolTip = L("settings.exc.full.tip")
         NSLayoutConstraint.activate([
             icon.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 2),
             icon.centerYAnchor.constraint(equalTo: centerYAnchor),
@@ -633,20 +628,14 @@ final class ExcRowView: NSTableCellView {
             icon.heightAnchor.constraint(equalToConstant: 16),
             label.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 6),
             label.centerYAnchor.constraint(equalTo: centerYAnchor),
-            label.trailingAnchor.constraint(lessThanOrEqualTo: full.leadingAnchor, constant: -6),
-            full.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -6),
-            full.centerYAnchor.constraint(equalTo: centerYAnchor),
+            label.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -6),
         ])
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    func configure(name: String, icon img: NSImage, fullyOff: Bool, row: Int, target: AnyObject, action: Selector) {
+    func configure(name: String, icon img: NSImage) {
         label.stringValue = name
         icon.image = img
-        full.state = fullyOff ? .on : .off
-        full.tag = row
-        full.target = target
-        full.action = action
     }
 }
 
@@ -888,7 +877,6 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         let ok = autoAvailable
         autoCb?.isEnabled = ok
         autoCb?.state = ok && autoMode ? .on : .off
-        autoExcBtn?.isEnabled = ok
         // Disabled by the system (no such layouts, no dictionary): shown off. Disabled only
         // because auto-correct is off: shows its stored state. The preference is kept.
         for (cb, possible, pref) in [(autoEnterCb, ok, autoEnterNewline),
@@ -952,10 +940,10 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         }
         switch slot {
         case .retype:
-            // Fully-off apps (#1): Figma's canvas reads the key code of our typed
+            // Hotkey-off apps (#1): Figma's canvas reads the key code of our typed
             // Unicode events (0 = "A", the Frame tool) and its erase backspaces can
             // delete the selected layers.
-            if isFullyExcluded() { dbg("retype hotkey: \(frontBundleID ?? "?") is fully off, ignored"); return }
+            if isHotkeyExcluded() { dbg("retype hotkey: off in \(frontBundleID ?? "?")"); return }
             let pressAgain = hk.taps == 1
             beginCorrection { self.performRetype(typed: typed, pressAgain: pressAgain) }
         case .autoToggle:
@@ -1302,7 +1290,15 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         func spacer() -> NSView {
             let v = NSView(); v.setContentHuggingPriority(.init(1), for: .horizontal); return v
         }
-        let autoRow = NSStackView(views: [label, spacer(), excBtn])
+        let autoRow = NSStackView(views: [label])
+        // Exceptions cover the hotkey as well as auto-correct: a section of their own.
+        let excLabel = NSTextField(labelWithString: L("settings.exc.section"))
+        excLabel.textColor = .secondaryLabelColor
+        excLabel.lineBreakMode = .byWordWrapping
+        excLabel.preferredMaxLayoutWidth = 240
+        excLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        let excRow = NSStackView(views: [excLabel, spacer(), excBtn])
+        excRow.orientation = .horizontal; excRow.spacing = 12; excRow.alignment = .centerY
         autoRow.orientation = .horizontal; autoRow.spacing = 12; autoRow.alignment = .centerY
         let enterCb = makeCheckbox(L("settings.autoCorrectEnter"), #selector(toggleAutoEnter(_:)), on: autoEnterNewline)
         let enterRow = NSStackView(views: [enterCb])
@@ -1380,7 +1376,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             b.translatesAutoresizingMaskIntoConstraints = false
             return b
         }
-        let sep1 = sep(), sep2 = sep(), sep3 = sep()
+        let sep1 = sep(), sep2 = sep(), sep3 = sep(), sep4 = sep()
 
         // Section A: login + auto-update + language. Section B: hotkey. Section C: auto-correct.
         var arranged: [NSView] = [logo, name, sep1, cb]
@@ -1389,7 +1385,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
                                         on: updater?.updater.automaticallyChecksForUpdates ?? true)
         arranged.append(autoUpdateCb)
 #endif
-        arranged += [langGrid, sep2, hkGrid, sep3, autoRow, enterRow, similarRow, spellRow, learnedRow, version, link, copyright]
+        arranged += [langGrid, sep2, hkGrid, sep3, autoRow, enterRow, similarRow, spellRow, learnedRow,
+                     sep4, excRow, version, link, copyright]
 
         let stack = NSStackView(views: arranged)
         stack.orientation = .vertical
@@ -1402,7 +1399,9 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         stack.setCustomSpacing(14, after: sep2)
         stack.setCustomSpacing(14, after: hkGrid)     // before sep3
         stack.setCustomSpacing(14, after: sep3)
-        stack.setCustomSpacing(20, after: learnedRow)   // footer
+        stack.setCustomSpacing(14, after: learnedRow)   // before sep4
+        stack.setCustomSpacing(14, after: sep4)
+        stack.setCustomSpacing(20, after: excRow)       // footer
         content.addSubview(stack)
         NSLayoutConstraint.activate([
             // No fixed width: the stack is pinned on both sides, so the content (and
@@ -1413,10 +1412,11 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             stack.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -20),
             sep1.widthAnchor.constraint(equalTo: stack.widthAnchor),
             sep2.widthAnchor.constraint(equalTo: stack.widthAnchor),
-            // Learned-words buttons flush with Exceptions…: the rows share a width,
-            // their spacers absorb it. Activated here: both rows are in the stack now.
-            learnedRow.widthAnchor.constraint(equalTo: autoRow.widthAnchor),
+            // Rows with a right-hand button span the width; their spacers absorb it.
+            learnedRow.widthAnchor.constraint(equalTo: stack.widthAnchor),
+            excRow.widthAnchor.constraint(equalTo: stack.widthAnchor),
             sep3.widthAnchor.constraint(equalTo: stack.widthAnchor),
+            sep4.widthAnchor.constraint(equalTo: stack.widthAnchor),
             hkRow.widthAnchor.constraint(equalTo: langPopup.widthAnchor),   // hotkey field == language popup width
             autoHkRow.widthAnchor.constraint(equalTo: langPopup.widthAnchor),
             // span full width so their centered content stays centered while the
@@ -1819,7 +1819,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     @objc private func openExceptions() {
         guard let parent = settingsWindow else { return }
         let w = excWindow ?? buildExceptionsWindow()
-        excTable?.reloadData()
+        reloadExceptionRows()
         present(w, over: parent)
     }
 
@@ -1840,7 +1840,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     }
 
     private func buildExceptionsWindow() -> NSWindow {
-        let w = SettingsWindow(contentRect: NSRect(x: 0, y: 0, width: 380, height: 300),
+        let w = SettingsWindow(contentRect: NSRect(x: 0, y: 0, width: 440, height: 300),
                                styleMask: [.titled, .closable], backing: .buffered, defer: false)
         w.title = L("settings.exc.title")
         w.isReleasedWhenClosed = false
@@ -1860,13 +1860,23 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         hint.translatesAutoresizingMaskIntoConstraints = false
 
         let table = NSTableView()
-        table.headerView = nil
         table.rowHeight = 24
         table.usesAlternatingRowBackgroundColors = true
         table.allowsMultipleSelection = true
         let col = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("app"))
+        col.title = ""
         col.resizingMask = .autoresizingMask
         table.addTableColumn(col)
+        // Ticked = that feature is off in the app.
+        for (id, key) in [("auto", "settings.exc.auto"), ("hotkey", "settings.exc.hotkey")] {
+            let c = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(id))
+            c.title = L(key)
+            c.headerToolTip = L(key + ".tip")
+            c.headerCell.alignment = .center
+            c.width = max(70, (L(key) as NSString).size(withAttributes: [.font: NSFont.systemFont(ofSize: 11)]).width + 20)
+            c.resizingMask = []
+            table.addTableColumn(c)
+        }
         table.dataSource = self
         table.delegate = self
         excTable = table
@@ -1897,7 +1907,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         content.addSubview(info); content.addSubview(hint)
         content.addSubview(box); content.addSubview(bar)
         NSLayoutConstraint.activate([
-            content.widthAnchor.constraint(equalToConstant: 380),
+            content.widthAnchor.constraint(equalToConstant: 440),
             hint.topAnchor.constraint(equalTo: content.topAnchor, constant: 16),
             hint.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 16),
             info.leadingAnchor.constraint(equalTo: hint.trailingAnchor, constant: 4),
@@ -1921,21 +1931,31 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         addExcluded(b)
     }
 
+    // The table's rows: apps with either flag. A row whose flags are both cleared stays
+    // until the list is rebuilt (reopened, an app added or removed).
+    private var excRows: [String] = []
+    private func reloadExceptionRows() {
+        excRows = autoExcludedApps + hotkeyExcludedApps.filter { !autoExcludedApps.contains($0) }
+        excTable?.reloadData()
+    }
+
     @objc private func excMinusAction() {
         guard let t = excTable else { return }
-        let gone = t.selectedRowIndexes.map { autoExcludedApps[$0] }
+        let gone = t.selectedRowIndexes.map { excRows[$0] }
         autoExcludedApps = autoExcludedApps.filter { !gone.contains($0) }
-        fullyExcludedApps = fullyExcludedApps.filter { !gone.contains($0) }
-        t.reloadData()
+        hotkeyExcludedApps = hotkeyExcludedApps.filter { !gone.contains($0) }
+        reloadExceptionRows()
         excMinus?.isEnabled = false
     }
 
-    @objc private func excToggleFull(_ sender: NSButton) {
-        guard autoExcludedApps.indices.contains(sender.tag) else { return }
-        let bid = autoExcludedApps[sender.tag]
-        var list = fullyExcludedApps.filter { $0 != bid }
-        if sender.state == .on { list.append(bid) }
-        fullyExcludedApps = list
+    @objc private func excToggleFlag(_ sender: NSButton) {
+        guard excRows.indices.contains(sender.tag) else { return }
+        let bid = excRows[sender.tag], on = sender.state == .on
+        if sender.identifier?.rawValue == "hotkey" {
+            hotkeyExcludedApps = hotkeyExcludedApps.filter { $0 != bid } + (on ? [bid] : [])
+        } else {
+            autoExcludedApps = autoExcludedApps.filter { $0 != bid } + (on ? [bid] : [])
+        }
     }
 
     @objc private func excChoose() {
@@ -1949,12 +1969,11 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     }
 
 
+    // A new exception turns auto-correct off; the hotkey flag is the user's call.
     private func addExcluded(_ bid: String) {
-        var list = autoExcludedApps
-        guard !list.contains(bid) else { return }
-        list.append(bid)
-        autoExcludedApps = list
-        excTable?.reloadData()
+        guard !excRows.contains(bid) else { return }
+        autoExcludedApps = autoExcludedApps + [bid]
+        reloadExceptionRows()
     }
 
     // Resolve a bundle id to a display name + icon (generic fallback if not installed).
@@ -1969,18 +1988,30 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     }
 
     func numberOfRows(in tableView: NSTableView) -> Int {
-        tableView === learnedTable ? learnedRows.count : autoExcludedApps.count
+        tableView === learnedTable ? learnedRows.count : excRows.count
     }
 
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
         if tableView === learnedTable { return learnedCell(tableView, column: tableColumn, row: row) }
-        let bid = autoExcludedApps[row]
+        let bid = excRows[row]
+        if let flag = tableColumn?.identifier.rawValue, flag != "app" {
+            let box = NSButton(checkboxWithTitle: "", target: self, action: #selector(excToggleFlag(_:)))
+            box.identifier = NSUserInterfaceItemIdentifier(flag)
+            box.tag = row
+            box.state = (flag == "hotkey" ? hotkeyExcludedApps : autoExcludedApps).contains(bid) ? .on : .off
+            box.toolTip = L("settings.exc.\(flag).tip")
+            let cell = NSView()
+            box.translatesAutoresizingMaskIntoConstraints = false
+            cell.addSubview(box)
+            NSLayoutConstraint.activate([box.centerXAnchor.constraint(equalTo: cell.centerXAnchor),
+                                         box.centerYAnchor.constraint(equalTo: cell.centerYAnchor)])
+            return cell
+        }
         let info = appInfo(bid)
         let id = NSUserInterfaceItemIdentifier("exc")
         let cell = (tableView.makeView(withIdentifier: id, owner: self) as? ExcRowView) ?? ExcRowView(frame: .zero)
         cell.identifier = id
-        cell.configure(name: info.name, icon: info.icon, fullyOff: fullyExcludedApps.contains(bid),
-                       row: row, target: self, action: #selector(excToggleFull(_:)))
+        cell.configure(name: info.name, icon: info.icon)
         return cell
     }
 
@@ -2180,17 +2211,21 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         "org.virtualbox.app.VirtualBoxVM", "com.microsoft.rdc.macos",
         "com.figma.Desktop",
     ]
-    // Exceptions marked "Fully off": the hotkey does nothing there either and the
-    // key tap reads no key. Always a subset of autoExcludedApps.
-    private static let defaultFullyExcludedApps: [String] = ["com.figma.Desktop"]
-    var fullyExcludedApps: [String] {
-        get { UserDefaults.standard.array(forKey: "fullyExcludedApps") as? [String]
-                ?? AppController.defaultFullyExcludedApps }
-        set { UserDefaults.standard.set(newValue, forKey: "fullyExcludedApps") }
+    // Apps where the retype hotkey does nothing (#1). In one listed in both, the key
+    // tap reads no key at all.
+    private static let defaultHotkeyExcludedApps: [String] = ["com.figma.Desktop"]
+    var hotkeyExcludedApps: [String] {
+        get { UserDefaults.standard.array(forKey: "hotkeyExcludedApps") as? [String]
+                ?? AppController.defaultHotkeyExcludedApps }
+        set { UserDefaults.standard.set(newValue, forKey: "hotkeyExcludedApps") }
     }
-    fileprivate func isFullyExcluded() -> Bool {
+    private func isHotkeyExcluded() -> Bool {
         guard let bid = frontBundleID, bid != Bundle.main.bundleIdentifier else { return false }
-        return fullyExcludedApps.contains(bid) && autoExcludedApps.contains(bid)
+        return hotkeyExcludedApps.contains(bid)
+    }
+    fileprivate func isKeyReadingOff() -> Bool {
+        guard let bid = frontBundleID, bid != Bundle.main.bundleIdentifier else { return false }
+        return hotkeyExcludedApps.contains(bid) && autoExcludedApps.contains(bid)
     }
     // The defaults before the "seen" record existed — what a list saved back then
     // already reflects (entries removed from it stay removed).
@@ -2224,10 +2259,10 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         let cb: CGEventTapCallBack = { _, type, event, refcon in
             guard let refcon else { return Unmanaged.passUnretained(event) }
             let me = Unmanaged<AppController>.fromOpaque(refcon).takeUnretainedValue()
-            // Fully-off app: no key is read, buffered or held. Not while a correction
+            // Both auto-correct and the hotkey off in this app: no key is read, buffered or held. Not while a correction
             // is in flight — its gate still owns the keys typed meanwhile.
             if me.autoPending == 0, type != .tapDisabledByTimeout, type != .tapDisabledByUserInput,
-               me.isFullyExcluded() {
+               me.isKeyReadingOff() {
                 me.autoRun.reset(); me.lastConversion = nil
                 return Unmanaged.passUnretained(event)
             }

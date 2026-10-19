@@ -4,6 +4,25 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.15 — per-app exceptions for auto-correct and the hotkey (macOS)
+
+- First outside contribution: PR #3 by lsl87Serhii (`d13a6db`, issue #1). In
+  Figma a released Option fired the retype hotkey; the exceptions applied to
+  auto-correct only, and our Unicode events carry key code 0 ("A", the Frame
+  tool) while the erase backspaces delete layers. The PR added a "Fully off"
+  checkbox per exception and Figma as a default. Merged as is, authorship kept.
+- Fixed on top (`be3c552`): the PR's early return in the key tap also passed the
+  tap-disabled notices through, so a tap disabled while such an app was
+  frontmost would never be re-enabled.
+- Owner's extension: two flags instead of "Fully off" — auto-correct and hotkey
+  (`autoExcludedApps`, new `hotkeyExcludedApps`; both = no key read at all);
+  table rows are the union, checkbox columns with header tooltips; a new app
+  gets auto-correct off only. The Exceptions… button moved from the
+  auto-correct row into its own Settings section, enabled regardless of
+  auto-correct availability (it covers the hotkey too).
+
+---
+
 ## After v1.3.14 — Windows spell-check timing, suggestion budget
 
 - Measured in the VM (clang++ bench over the same COM API, ~2000 words per

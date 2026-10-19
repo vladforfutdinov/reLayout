@@ -516,6 +516,23 @@ final class EngineTests: XCTestCase {
         XCTAssertEqual(e.boundary("привет", verdict: nil), [])           // no edit: moved on
     }
 
+    func testAppExceptions() {
+        var e = AppExceptions(auto: ["term", "figma"], hotkey: ["figma", "sketch"])
+        XCTAssertEqual(e.rows, ["term", "figma", "sketch"])
+        XCTAssertTrue(e.keysOff("figma"))
+        XCTAssertFalse(e.keysOff("sketch"))                      // hotkey only: keys still read
+        XCTAssertTrue(e.hotkeyOff("sketch") && !e.autoOff("sketch"))
+        e.add("sketch")                                           // auto-correct off too now
+        XCTAssertTrue(e.keysOff("sketch"))
+        XCTAssertEqual(e.rows, ["term", "figma", "sketch"])
+        e.setHotkey("figma", off: false)
+        XCTAssertFalse(e.keysOff("figma"))
+        e.remove(["figma", "sketch"])
+        XCTAssertEqual(e, AppExceptions(auto: ["term"], hotkey: []))
+        e.setAuto("term", off: false)
+        XCTAssertEqual(e.rows, [])
+    }
+
     func testAutoDecideWithoutAModelDoesNothing() {
         let (latin, cyr) = makeLayouts()
         XCTAssertNil(decideAutoTarget("ghbdtn", cur: latin, enabled: [latin, cyr], model: { _ in nil }))

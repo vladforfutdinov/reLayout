@@ -1958,15 +1958,13 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     // until the list is rebuilt (reopened, an app added or removed).
     private var excRows: [String] = []
     private func reloadExceptionRows() {
-        excRows = autoExcludedApps + hotkeyExcludedApps.filter { !autoExcludedApps.contains($0) }
+        excRows = exceptions.rows
         excTable?.reloadData()
     }
 
     @objc private func excMinusAction() {
         guard let t = excTable else { return }
-        let gone = t.selectedRowIndexes.map { excRows[$0] }
-        autoExcludedApps = autoExcludedApps.filter { !gone.contains($0) }
-        hotkeyExcludedApps = hotkeyExcludedApps.filter { !gone.contains($0) }
+        exceptions.remove(Set(t.selectedRowIndexes.map { excRows[$0] }))
         reloadExceptionRows()
         excMinus?.isEnabled = false
     }
@@ -1974,11 +1972,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     @objc private func excToggleFlag(_ sender: NSButton) {
         guard excRows.indices.contains(sender.tag) else { return }
         let bid = excRows[sender.tag], on = sender.state == .on
-        if sender.identifier?.rawValue == "hotkey" {
-            hotkeyExcludedApps = hotkeyExcludedApps.filter { $0 != bid } + (on ? [bid] : [])
-        } else {
-            autoExcludedApps = autoExcludedApps.filter { $0 != bid } + (on ? [bid] : [])
-        }
+        if sender.identifier?.rawValue == "hotkey" { exceptions.setHotkey(bid, off: on) }
+        else { exceptions.setAuto(bid, off: on) }
     }
 
     @objc private func excChoose() {
@@ -1992,10 +1987,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     }
 
 
-    // A new exception turns auto-correct off; the hotkey flag is the user's call.
     private func addExcluded(_ bid: String) {
-        guard !excRows.contains(bid) else { return }
-        autoExcludedApps = autoExcludedApps + [bid]
+        exceptions.add(bid)
         reloadExceptionRows()
     }
 
@@ -2021,7 +2014,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             let box = NSButton(checkboxWithTitle: "", target: self, action: #selector(excToggleFlag(_:)))
             box.identifier = NSUserInterfaceItemIdentifier(flag)
             box.tag = row
-            box.state = (flag == "hotkey" ? hotkeyExcludedApps : autoExcludedApps).contains(bid) ? .on : .off
+            box.state = (flag == "hotkey" ? exceptions.hotkeyOff(bid) : exceptions.autoOff(bid)) ? .on : .off
             box.toolTip = L("settings.exc.\(flag).tip")
             let cell = NSView()
             box.translatesAutoresizingMaskIntoConstraints = false
@@ -2242,13 +2235,18 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
                 ?? AppController.defaultHotkeyExcludedApps }
         set { UserDefaults.standard.set(newValue, forKey: "hotkeyExcludedApps") }
     }
+    // Both stored lists as the engine's rules (rows, flags, keys off).
+    var exceptions: AppExceptions {
+        get { AppExceptions(auto: autoExcludedApps, hotkey: hotkeyExcludedApps) }
+        set { autoExcludedApps = newValue.auto; hotkeyExcludedApps = newValue.hotkey }
+    }
     private func isHotkeyExcluded() -> Bool {
         guard let bid = frontBundleID, bid != Bundle.main.bundleIdentifier else { return false }
-        return hotkeyExcludedApps.contains(bid)
+        return exceptions.hotkeyOff(bid)
     }
     fileprivate func isKeyReadingOff() -> Bool {
         guard let bid = frontBundleID, bid != Bundle.main.bundleIdentifier else { return false }
-        return hotkeyExcludedApps.contains(bid) && autoExcludedApps.contains(bid)
+        return exceptions.keysOff(bid)
     }
     // The defaults before the "seen" record existed — what a list saved back then
     // already reflects (entries removed from it stay removed).

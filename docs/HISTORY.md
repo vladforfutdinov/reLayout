@@ -10,6 +10,9 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
   columns. A list view draws a sub-item image at the cell's left edge, so the
   check columns are now just the box wide, with pad columns around them, and
   the titles above are centred (SS_CENTER) over the same span.
+- Exception rules moved into engine `AppExceptions` (rows = auto then
+  hotkey-only, keys off = both, add turns auto-correct off, remove drops both),
+  tested once; both platforms only store the two lists and draw the window.
 
 ---
 

@@ -25,8 +25,7 @@ private var edits = EditLearning<WinLayout>()
 private let guessBudgetMs: UInt64 = 50
 private var learnedCounts: [String: Int] = [:]
 private var learnedCandidates: [String: String] = [:]   // counted words and their conversions
-private var excludedApps: Set<String> = []
-private var hotkeyExcludedApps: Set<String> = []
+private var exceptions = AppExceptions(auto: [], hotkey: [])
 private var passwordField = false
 private var run = AutoRun()     // the typed-word state machine, shared with macOS (engine)
 private var lastFocus: HWND?
@@ -58,21 +57,20 @@ private let vkBack = UINT(0x08), vkTab = UINT(0x09), vkReturn = UINT(0x0D), vkSp
 /// only the typed word in consoles — a selection read would send Ctrl+C).
 private func autoExcluded() -> Bool {
     if passwordField { return true }
-    guard !excludedApps.isEmpty else { return false }
-    return excludedApps.contains(foregroundProcessName())
+    guard !exceptions.auto.isEmpty else { return false }
+    return exceptions.autoOff(foregroundProcessName())
 }
 
 /// The retype hotkey does nothing in the foreground app.
 func hotkeyExcluded() -> Bool {
-    !hotkeyExcludedApps.isEmpty && hotkeyExcludedApps.contains(foregroundProcessName())
+    !exceptions.hotkey.isEmpty && exceptions.hotkeyOff(foregroundProcessName())
 }
 
 /// Both auto-correct and the hotkey are off in the foreground app: the hook reads
 /// none of its keys. Asked on every key, hence the per-window cache below.
 private func keysOffInForeground() -> Bool {
-    guard !hotkeyExcludedApps.isEmpty else { return false }
-    let exe = foregroundProcessName()
-    return hotkeyExcludedApps.contains(exe) && excludedApps.contains(exe)
+    guard !exceptions.hotkey.isEmpty else { return false }
+    return exceptions.keysOff(foregroundProcessName())
 }
 
 private var foregroundHwnd: HWND?
@@ -153,8 +151,7 @@ func reloadAutoMode() {
     learnedKeep = Set(loadKept())
     learnedCounts = loadLearnCounts()
     learnedCandidates = loadLearnCandidates()
-    excludedApps = Set(loadExcludedApps())
-    hotkeyExcludedApps = Set(loadHotkeyExcludedApps())
+    exceptions = AppExceptions(auto: loadExcludedApps(), hotkey: loadHotkeyExcludedApps())
     run.reset()
 }
 

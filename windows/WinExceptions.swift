@@ -1,5 +1,6 @@
 import WinSDK
 import Foundation
+import ReLayoutCore
 
 // "Exceptions" window, like the macOS sheet: a list of programs (icon and name),
 // each with two check columns — auto-correct off, retype hotkey off — then
@@ -201,9 +202,8 @@ private func setCheck(_ list: HWND?, _ row: Int, _ column: Int32, _ on: Bool) {
 }
 
 private func loadRows() -> [ExcRow] {
-    let auto = loadExcludedApps(), hotkey = loadHotkeyExcludedApps()
-    return auto.map { ExcRow(exe: $0, auto: true, hotkey: hotkey.contains($0)) }
-        + hotkey.filter { !auto.contains($0) }.map { ExcRow(exe: $0, auto: false, hotkey: true) }
+    let e = AppExceptions(auto: loadExcludedApps(), hotkey: loadHotkeyExcludedApps())
+    return e.rows.map { ExcRow(exe: $0, auto: e.autoOff($0), hotkey: e.hotkeyOff($0)) }
 }
 
 private func saveRows() {

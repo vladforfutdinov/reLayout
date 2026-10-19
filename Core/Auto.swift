@@ -811,6 +811,42 @@ public func awaitSettledField(before: FieldSnapshot, read: () -> FieldSnapshot?,
 
 // MARK: - Exceptions list
 
+/// Per-app exceptions, the same rules on both platforms: apps (bundle id or exe
+/// name) where auto-correct is off, and where the retype hotkey is off.
+public struct AppExceptions: Equatable {
+    public var auto: [String]
+    public var hotkey: [String]
+
+    public init(auto: [String], hotkey: [String]) { self.auto = auto; self.hotkey = hotkey }
+
+    /// The list's rows: auto-correct exceptions in order, then hotkey-only apps.
+    public var rows: [String] { auto + hotkey.filter { !auto.contains($0) } }
+
+    public func autoOff(_ app: String) -> Bool { auto.contains(app) }
+    public func hotkeyOff(_ app: String) -> Bool { hotkey.contains(app) }
+    /// Both off: no key of the app is read at all.
+    public func keysOff(_ app: String) -> Bool { autoOff(app) && hotkeyOff(app) }
+
+    /// A new (or re-added) exception turns auto-correct off; the hotkey flag is the user's call.
+    public mutating func add(_ app: String) { setAuto(app, off: true) }
+
+    public mutating func setAuto(_ app: String, off: Bool) {
+        auto.removeAll { $0 == app }
+        if off { auto.append(app) }
+    }
+
+    public mutating func setHotkey(_ app: String, off: Bool) {
+        hotkey.removeAll { $0 == app }
+        if off { hotkey.append(app) }
+    }
+
+    /// Removing a row drops the app from both lists.
+    public mutating func remove(_ apps: Set<String>) {
+        auto.removeAll { apps.contains($0) }
+        hotkey.removeAll { apps.contains($0) }
+    }
+}
+
 /// The user's saved exceptions plus any default introduced since they last saw the
 /// defaults. Each new default is offered once: one the user removed stays removed.
 /// - Parameters:

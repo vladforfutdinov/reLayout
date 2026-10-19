@@ -13,6 +13,7 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 - Exception rules moved into engine `AppExceptions` (rows = auto then
   hotkey-only, keys off = both, add turns auto-correct off, remove drops both),
   tested once; both platforms only store the two lists and draw the window.
+- v1.3.16 re-released from this state (the first upload had 0 downloads).
 
 ---
 

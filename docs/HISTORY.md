@@ -4,6 +4,25 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.15 — per-app exceptions: auto-correct and hotkey (Windows)
+
+- Issue #1 (Figma: the hotkey's backspaces and typed letters act as canvas
+  tool commands) on Windows, with the macOS semantics: two flags per program
+  instead of the earlier "Fully off". `AutoCorrectExcluded` keeps its meaning
+  (auto-correct off); new `HotkeyExcludedApps` turns the retype hotkey off.
+  Both off → the hook feeds no key to auto mode (never while a fix is in
+  flight); the auto-correct on/off hotkey still works everywhere.
+- `figma.exe` joins both default lists, merged once into saved lists like
+  earlier defaults.
+- Exceptions window: two check columns titled like Learned words (labels
+  over a header-less list). Sub-item check images are copied from a hidden
+  list view with `LVS_EX_CHECKBOXES`, so they follow the dark theme.
+  Settings: Exceptions… moves to its own section, always enabled.
+- The foreground exe name is cached per foreground HWND: the "both off" check
+  runs on every key inside the hook.
+
+---
+
 ## After v1.3.14 — Windows spell-check timing, suggestion budget
 
 - Measured in the VM (clang++ bench over the same COM API, ~2000 words per

@@ -4,6 +4,16 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.16 — undo and the press-again cycle erase instead of reselecting
+
+- Trace from Terminal: the hotkey converted two letters, the second press
+  (undo) left them and appended `;2D;2D` plus the original. Undo and the
+  layout cycle selected the typed text with Shift+Left and typed over it; a
+  terminal has no selection, so zsh got each arrow's `ESC[1;2D` and inserted
+  its tail. Both now erase with Backspace (the caret is right after the typed
+  text, as the undo window already guarantees), like the conversion itself —
+  macOS `eraseBack`, Windows `sendBackspaces`; Windows `selectLeft` is gone.
+
 ## After v1.3.16 — Windows exceptions: check boxes centred
 
 - Owner, comparing with macOS: the check images sat at the left of wide

@@ -676,7 +676,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     private func definition(_ slot: HotkeySlot) -> Hotkey? { slot == .retype ? hotkey : autoHotkey }
 
     // Last conversion, for press-again undo: the next hotkey press reverses it
-    // (reselects the typed text, restores the original, flips the input source
+    // (erases the typed text, restores the original, flips the input source
     // back) until any other key or click (`startUndoWatch`) — the caret may have
     // moved past it.
     private struct Conversion {
@@ -2315,7 +2315,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             if type != .keyDown || (!synth && (event.flags.contains(.maskCommand) || event.flags.contains(.maskControl))) {
                 me.autoRun.reset()
             }
-            // A click also ends the undo window: undo reselects from the caret, which
+            // A click also ends the undo window: undo erases back from the caret, which
             // is no longer right after the text the conversion typed.
             if type != .keyDown { me.lastConversion = nil }
             // Anything that may delete or select text arms learning by revert.
@@ -2879,13 +2879,12 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
                                     alternatives: r.alternatives, suffix: spaces)
     }
 
-    // The next reading of the original: reselect what was just typed, type the
+    // The next reading of the original: erase what was just typed, type the
     // alternative, switch to its layout; the remaining readings stay in the record.
     private func performRetarget(_ last: Conversion, to next: (out: String, dst: Layout)) {
         waitModifiersReleased()
         dbg("retarget: \(next.out.debugDescription) -> \(next.dst.id)")
-        for _ in 0..<last.typed.count { postKey(CGKeyCode(kVK_LeftArrow), .maskShift) }
-        usleep(20_000)
+        eraseBack(last.typed.count)
         typeUnicode(next.out + last.suffix)
         usleep(20_000)
         DispatchQueue.main.sync { self.autoRun.remember(next.out + last.suffix); self.selectLayout(next.dst) }
@@ -2895,17 +2894,14 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         lastConversion = again
     }
 
-    // Reverse the last conversion: reselect the text we just typed (Shift+Left
-    // once per character, since the caret sits right after it), replace it with
-    // the original, and flip the input source back to the source layout.
+    // Reverse the last conversion: erase the text we just typed (the caret sits
+    // right after it; Backspace, not Shift+Left: a terminal has no selection and
+    // gets the arrow's escape sequence), type the original, flip the source back.
     private func performUndo(_ last: Conversion) {
         waitModifiersReleased()
         dbg("undo: restore \(last.original.debugDescription)")
         if autoMode { unlearn(last) }
-        for _ in 0..<last.typed.count {
-            postKey(CGKeyCode(kVK_LeftArrow), .maskShift)
-        }
-        usleep(20_000)
+        eraseBack(last.typed.count)
         // A Return/Tab boundary goes back as the real key, like it was typed.
         if let b = last.original.last, "\r\n\t".contains(b) {
             typeUnicode(String(last.original.dropLast()))

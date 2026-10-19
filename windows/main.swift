@@ -27,7 +27,7 @@ func recordConversion(original: String, typed: String, src: WinLayout,
 }
 
 /// Any real keystroke or click moves on from the last conversion: the caret is no
-/// longer right after the typed text, so undo would reselect the wrong characters.
+/// longer right after the typed text, so undo would erase the wrong characters.
 func forgetConversion() {
     lastConversion = nil
 }
@@ -120,12 +120,12 @@ private func alternatives(_ replaced: String, first: String, src: WinLayout,
     } ?? []
 }
 
-/// Reselects what the conversion typed and types the next reading of the original
+/// Erases what the conversion typed and types the next reading of the original
 /// in its layout; the remaining readings stay in the record.
 private func performRetarget(_ last: Conversion, to next: (out: String, dst: WinLayout)) {
     guard waitModifiersReleased() else { return }
     resetAutoBuffer()
-    selectLeft(last.typed.count)
+    sendBackspaces(last.typed.count)
     guard typeText(next.out + last.suffix, in: next.dst) else { return }   // also leaves dst active
     rememberSelection(next.out + last.suffix)
     var again = last
@@ -134,13 +134,13 @@ private func performRetarget(_ last: Conversion, to next: (out: String, dst: Win
     lastConversion = again
 }
 
-/// Reselects what the conversion typed (the caret sits right after it), types the
+/// Erases what the conversion typed (the caret sits right after it), types the
 /// original back and returns to the source layout.
 private func performUndo(_ last: Conversion) {
     guard waitModifiersReleased() else { return }
     unlearn(last)
     resetAutoBuffer()
-    selectLeft(last.typed.count)
+    sendBackspaces(last.typed.count)
     // The original goes back in its own layout, which also stays active. A Tab
     // boundary goes back as the real key, like it was typed.
     if last.original.last == "\t" {

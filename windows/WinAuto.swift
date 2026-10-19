@@ -25,7 +25,8 @@ private var edits = EditLearning<WinLayout>()
 private let guessBudgetMs: UInt64 = 50
 private var learnedCounts: [String: Int] = [:]
 private var learnedCandidates: [String: String] = [:]   // counted words and their conversions
-private var excludedApps: [String] = []
+private var excludedApps: Set<String> = []
+private var hotkeyExcludedApps: Set<String> = []
 private var passwordField = false
 private var run = AutoRun()     // the typed-word state machine, shared with macOS (engine)
 private var lastFocus: HWND?
@@ -61,9 +62,31 @@ private func autoExcluded() -> Bool {
     return excludedApps.contains(foregroundProcessName())
 }
 
-/// Executable name of the foreground window's process, lowercased ("code.exe").
+/// The retype hotkey does nothing in the foreground app.
+func hotkeyExcluded() -> Bool {
+    !hotkeyExcludedApps.isEmpty && hotkeyExcludedApps.contains(foregroundProcessName())
+}
+
+/// Both auto-correct and the hotkey are off in the foreground app: the hook reads
+/// none of its keys. Asked on every key, hence the per-window cache below.
+private func keysOffInForeground() -> Bool {
+    guard !hotkeyExcludedApps.isEmpty else { return false }
+    let exe = foregroundProcessName()
+    return hotkeyExcludedApps.contains(exe) && excludedApps.contains(exe)
+}
+
+private var foregroundHwnd: HWND?
+private var foregroundExe = ""
+
+/// Executable name of the foreground window's process, lowercased ("code.exe"); ""
+/// for reLayout's own windows.
 private func foregroundProcessName() -> String {
-    processImagePath(of: GetForegroundWindow()).map(exeName) ?? ""
+    let fg = GetForegroundWindow()
+    if fg != foregroundHwnd {
+        foregroundHwnd = fg
+        foregroundExe = processImagePath(of: fg).map(exeName) ?? ""
+    }
+    return foregroundExe
 }
 
 // MARK: - trigram models (shipped next to the exe as trigram/<lang>.txt)
@@ -130,7 +153,8 @@ func reloadAutoMode() {
     learnedKeep = Set(loadKept())
     learnedCounts = loadLearnCounts()
     learnedCandidates = loadLearnCandidates()
-    excludedApps = loadExcludedApps()
+    excludedApps = Set(loadExcludedApps())
+    hotkeyExcludedApps = Set(loadHotkeyExcludedApps())
     run.reset()
 }
 
@@ -186,6 +210,7 @@ func autoFeed(vk: UINT, scan: WORD, shortcut: Bool, shift: Bool) -> Bool {
             return true
         }
     }
+    if !correcting, keysOffInForeground() { run.reset(); return false }
 
     // A different window may hold other text.
     let focus = focusWindow()

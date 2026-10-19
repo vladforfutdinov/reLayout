@@ -3,23 +3,20 @@
     <channel>
         <title>ReLayout</title>
         <item>
-            <title>1.3.15</title>
-            <pubDate>Sat, 17 Oct 2026 21:43:29 +0000</pubDate>
-            <sparkle:version>424</sparkle:version>
-            <sparkle:shortVersionString>1.3.15</sparkle:shortVersionString>
+            <title>1.3.16</title>
+            <pubDate>Mon, 19 Oct 2026 22:22:18 +0000</pubDate>
+            <sparkle:version>433</sparkle:version>
+            <sparkle:shortVersionString>1.3.16</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
-            <description><![CDATA[<h2>What's new in v1.3.15 — macOS</h2>
+            <description><![CDATA[<h2>What's new in v1.3.16 — macOS</h2>
 <ul>
-<li>Auto-correct on/off hotkey: record one in Settings (none by default); a dot on the menu-bar icon shows when auto-correct is on.</li>
-<li>New experimental option "Check with the system dictionary" (off by default): a real word is no longer converted into junk, a word the old rules missed is converted when the dictionary knows it ("учше" → "exit"), and one typo in a word typed in the wrong layout is fixed too ("ghbddtn" → "привет").</li>
-<li>Learns from your edits: erase a wrong correction and type the word again — it is left alone from now on; erase and retype a word it left alone — it is fixed again; fix a missed word by hand ("учше", then "exit") — it is remembered.</li>
-<li>Abbreviations typed in capitals (IBM, МФЦ) are never auto-corrected.</li>
-<li>Pressing the hotkey again undoes the last conversion until you type or click something else — no more 1.5-second limit.</li>
-<li>Fixed: after switching the layout with Globe, a delayed key could make a correction erase one character too many ("anthropic оум" → "anthropicооум").</li>
-<li>Fixed: while a hotkey field in Settings stayed selected, both hotkeys and auto-correct were paused.</li>
-<li>Settings: an option unavailable on this Mac shows unchecked; one disabled only because auto-correct is off keeps its state.</li>
+<li>Per-app exceptions now cover the hotkey too: each program in Settings → Exceptions… has two boxes, Auto-correct and Hotkey; with both ticked reLayout reads no keys there at all.</li>
+<li>Figma is in the exceptions by default with both boxes ticked: releasing Option there no longer fires the hotkey and spawns frames on the canvas.</li>
+<li>Exceptions follow Spotlight: it used to inherit the app underneath it (no auto-correct in Spotlight opened over a terminal); now Spotlight is treated as its own app.</li>
+<li>The Exceptions… button moved to its own section in Settings.</li>
+<li>Thanks to <a class="user-mention notranslate" data-hovercard-type="user" data-hovercard-url="/users/lsl87Serhii/hovercard" data-octo-click="hovercard-link-click" data-octo-dimensions="link_type:self" href="https://github.com/lsl87Serhii">@lsl87Serhii</a> for the first outside contribution — the per-app hotkey exception and the Figma fix (#1, #3) — and for the Spotlight hint (#2).</li>
 </ul>]]></description>
-            <link>https://github.com/vladforfutdinov/reLayout/releases/tag/v1.3.15</link><sparkle:informationalUpdate><sparkle:belowVersion>1.3.8</sparkle:belowVersion></sparkle:informationalUpdate><enclosure url="https://github.com/vladforfutdinov/reLayout/releases/download/v1.3.15/reLayout.zip" length="1897954" type="application/octet-stream" sparkle:edSignature="jraxQGy8w6RIvskU6RQoHFHgvayGdWyI3gzlMIWDF1uOz91OjrZ6HEB1+0YoChjPlgAds318MowYhlfGHDZjBQ=="/>
+            <link>https://github.com/vladforfutdinov/reLayout/releases/tag/v1.3.16</link><sparkle:informationalUpdate><sparkle:belowVersion>1.3.8</sparkle:belowVersion></sparkle:informationalUpdate><enclosure url="https://github.com/vladforfutdinov/reLayout/releases/download/v1.3.16/reLayout.zip" length="1906134" type="application/octet-stream" sparkle:edSignature="SmI59Z4R9ciHUFe9gUInW+nq080DT3SgkX448rJP2Snjxl2sfzcOoYK6G/7xYJpeLE5bNPI9KCeCm6E3iygUDA=="/>
         </item>
     </channel>
 </rss>

@@ -38,6 +38,8 @@
 "settings.exc.done" = "Terminé";
 "settings.exc.info" = "Les terminaux, éditeurs de code, machines virtuelles et bureaux à distance figurent d’emblée dans la liste : on y tape des commandes ou du code, ou un autre système avec sa propre disposition reçoit les touches, et la correction automatique y nuirait. Retirez-en un pour l’y activer.";
 "settings.exc.hint" = "La correction automatique est désactivée dans ces programmes :";
+"settings.exc.full" = "Totalement";
+"settings.exc.full.tip" = "Désactive aussi le raccourci : reLayout ne lit aucune touche dans ce programme.";
 
 // learned words
 "settings.learned" = "Mots appris : %@";

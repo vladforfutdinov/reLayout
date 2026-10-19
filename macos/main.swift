@@ -611,16 +611,21 @@ final class SettingsWindow: NSWindow {
     }
 }
 
-// One row of the auto-correct exceptions table: app icon + name. Removal is the
-// list's ⊖, like Login Items.
+// One row of the auto-correct exceptions table: app icon + name, and a "Fully off"
+// checkbox (hotkey off too, no key read). Removal is the list's ⊖, like Login Items.
 final class ExcRowView: NSTableCellView {
     private let icon = NSImageView()
     private let label = NSTextField(labelWithString: "")
+    let full = NSButton(checkboxWithTitle: L("settings.exc.full"), target: nil, action: nil)
 
     override init(frame: NSRect) {
         super.init(frame: frame)
-        for v in [icon, label] { v.translatesAutoresizingMaskIntoConstraints = false; addSubview(v) }
+        for v in [icon, label, full] { v.translatesAutoresizingMaskIntoConstraints = false; addSubview(v) }
         label.lineBreakMode = .byTruncatingTail
+        label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        full.controlSize = .small
+        full.font = .systemFont(ofSize: NSFont.systemFontSize(for: .small))
+        full.toolTip = L("settings.exc.full.tip")
         NSLayoutConstraint.activate([
             icon.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 2),
             icon.centerYAnchor.constraint(equalTo: centerYAnchor),
@@ -628,14 +633,20 @@ final class ExcRowView: NSTableCellView {
             icon.heightAnchor.constraint(equalToConstant: 16),
             label.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 6),
             label.centerYAnchor.constraint(equalTo: centerYAnchor),
-            label.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -6),
+            label.trailingAnchor.constraint(lessThanOrEqualTo: full.leadingAnchor, constant: -6),
+            full.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -6),
+            full.centerYAnchor.constraint(equalTo: centerYAnchor),
         ])
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    func configure(name: String, icon img: NSImage) {
+    func configure(name: String, icon img: NSImage, fullyOff: Bool, row: Int, target: AnyObject, action: Selector) {
         label.stringValue = name
         icon.image = img
+        full.state = fullyOff ? .on : .off
+        full.tag = row
+        full.target = target
+        full.action = action
     }
 }
 
@@ -754,6 +765,9 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     private weak var autoInfo: NSImageView?
     private weak var excTable: NSTableView?
     private var lastActiveBundleID: String?   // last non-self frontmost app ("exclude current")
+    // Frontmost app right now (self included): the key tap checks it on every key,
+    // so it is cached here instead of asking NSWorkspace each time.
+    private var frontBundleID: String? = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
     private var shortcutFields: [HotkeySlot: ShortcutField] = [:]   // replaced when Settings is rebuilt
     private var conflictLabels: [HotkeySlot: NSTextField] = [:]
     private weak var loginCheckbox: NSButton?
@@ -780,8 +794,9 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
         ) { [weak self] note in
-            if let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
-               let bid = app.bundleIdentifier, bid != Bundle.main.bundleIdentifier {
+            let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
+            self?.frontBundleID = app?.bundleIdentifier
+            if let app, let bid = app.bundleIdentifier, bid != Bundle.main.bundleIdentifier {
                 self?.lastActiveBundleID = bid
             }
         }
@@ -937,6 +952,10 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         }
         switch slot {
         case .retype:
+            // Fully-off apps (#1): Figma's canvas reads the key code of our typed
+            // Unicode events (0 = "A", the Frame tool) and its erase backspaces can
+            // delete the selected layers.
+            if isFullyExcluded() { dbg("retype hotkey: \(frontBundleID ?? "?") is fully off, ignored"); return }
             let pressAgain = hk.taps == 1
             beginCorrection { self.performRetype(typed: typed, pressAgain: pressAgain) }
         case .autoToggle:
@@ -1906,8 +1925,17 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         guard let t = excTable else { return }
         let gone = t.selectedRowIndexes.map { autoExcludedApps[$0] }
         autoExcludedApps = autoExcludedApps.filter { !gone.contains($0) }
+        fullyExcludedApps = fullyExcludedApps.filter { !gone.contains($0) }
         t.reloadData()
         excMinus?.isEnabled = false
+    }
+
+    @objc private func excToggleFull(_ sender: NSButton) {
+        guard autoExcludedApps.indices.contains(sender.tag) else { return }
+        let bid = autoExcludedApps[sender.tag]
+        var list = fullyExcludedApps.filter { $0 != bid }
+        if sender.state == .on { list.append(bid) }
+        fullyExcludedApps = list
     }
 
     @objc private func excChoose() {
@@ -1951,7 +1979,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         let id = NSUserInterfaceItemIdentifier("exc")
         let cell = (tableView.makeView(withIdentifier: id, owner: self) as? ExcRowView) ?? ExcRowView(frame: .zero)
         cell.identifier = id
-        cell.configure(name: info.name, icon: info.icon)
+        cell.configure(name: info.name, icon: info.icon, fullyOff: fullyExcludedApps.contains(bid),
+                       row: row, target: self, action: #selector(excToggleFull(_:)))
         return cell
     }
 
@@ -2149,7 +2178,20 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         "net.kovidgoyal.kitty", "com.github.wez.wezterm",
         "com.utmapp.UTM", "com.parallels.desktop.console", "com.vmware.fusion",
         "org.virtualbox.app.VirtualBoxVM", "com.microsoft.rdc.macos",
+        "com.figma.Desktop",
     ]
+    // Exceptions marked "Fully off": the hotkey does nothing there either and the
+    // key tap reads no key. Always a subset of autoExcludedApps.
+    private static let defaultFullyExcludedApps: [String] = ["com.figma.Desktop"]
+    var fullyExcludedApps: [String] {
+        get { UserDefaults.standard.array(forKey: "fullyExcludedApps") as? [String]
+                ?? AppController.defaultFullyExcludedApps }
+        set { UserDefaults.standard.set(newValue, forKey: "fullyExcludedApps") }
+    }
+    fileprivate func isFullyExcluded() -> Bool {
+        guard let bid = frontBundleID, bid != Bundle.main.bundleIdentifier else { return false }
+        return fullyExcludedApps.contains(bid) && autoExcludedApps.contains(bid)
+    }
     // The defaults before the "seen" record existed — what a list saved back then
     // already reflects (entries removed from it stay removed).
     private static let firstDefaultExcludedApps: [String] = Array(defaultExcludedApps.prefix(8))
@@ -2182,6 +2224,12 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         let cb: CGEventTapCallBack = { _, type, event, refcon in
             guard let refcon else { return Unmanaged.passUnretained(event) }
             let me = Unmanaged<AppController>.fromOpaque(refcon).takeUnretainedValue()
+            // Fully-off app: no key is read, buffered or held. Not while a correction
+            // is in flight — its gate still owns the keys typed meanwhile.
+            if me.autoPending == 0, me.isFullyExcluded() {
+                me.autoRun.reset(); me.lastConversion = nil
+                return Unmanaged.passUnretained(event)
+            }
             let synth = event.getIntegerValueField(.eventSourceUserData) == AppController.synthMarker
             let tapCode = event.getIntegerValueField(.keyboardEventKeycode)
             dbg("tap type=\(type.rawValue) code=\(dbgKeyNames.contains(Int(tapCode)) ? String(tapCode) : "·") "

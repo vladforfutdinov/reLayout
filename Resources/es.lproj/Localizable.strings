@@ -38,6 +38,8 @@
 "settings.exc.done" = "Listo";
 "settings.exc.info" = "Los terminales, editores de código, máquinas virtuales y escritorios remotos están en la lista desde el principio: allí se escriben comandos o código, u otro sistema con su propia distribución recibe las teclas, y la autocorrección haría daño. Quita uno para activarla en él.";
 "settings.exc.hint" = "La autocorrección no actúa en estos programas:";
+"settings.exc.full" = "Del todo";
+"settings.exc.full.tip" = "También desactiva el atajo: reLayout no lee ninguna tecla en este programa.";
 
 // learned words
 "settings.learned" = "Palabras aprendidas: %@";

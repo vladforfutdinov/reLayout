@@ -38,6 +38,8 @@
 "settings.exc.done" = "Gotowe";
 "settings.exc.info" = "Terminale, edytory kodu, maszyny wirtualne i pulpity zdalne są na liście od początku: wpisuje się tam polecenia lub kod albo klawisze trafiają do innego systemu z własnym układem, więc autokorekta by szkodziła. Usuń program z listy, aby ją w nim włączyć.";
 "settings.exc.hint" = "W tych programach autokorekta jest wyłączona:";
+"settings.exc.full" = "Całkowicie";
+"settings.exc.full.tip" = "Wyłącza też skrót: reLayout nie czyta żadnych klawiszy w tym programie.";
 
 // learned words
 "settings.learned" = "Nauczone słowa: %@";

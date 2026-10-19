@@ -38,6 +38,8 @@
 "settings.exc.done" = "Done";
 "settings.exc.info" = "Terminals, code editors, virtual machines and remote desktops are listed from the start: there you type commands or code, or another system with its own layout takes the keys, so auto-correct would do harm. Remove one to turn auto-correct on in it.";
 "settings.exc.hint" = "Auto-correct stays off in these programs:";
+"settings.exc.full" = "Fully off";
+"settings.exc.full.tip" = "Also turns off the hotkey: reLayout reads no keys in this program.";
 
 // learned words
 "settings.learned" = "Learned words: %@";

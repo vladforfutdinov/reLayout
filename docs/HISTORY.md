@@ -4,6 +4,25 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.16 — Windows batch: foreign keys, held-key replay, installer autostart
+
+- Keys reLayout sends now carry `ownInputMarker` in `dwExtraInfo`. Any other
+  injected key-down (a remapper, an on-screen keyboard, a password manager's
+  autotype) resets the run and ends the undo window: before, it was skipped,
+  so the run no longer matched the screen and a fix erased the wrong text.
+- Held keys (typed while a fix runs) were captured as text in the old layout
+  but fed to the run in the new one at replay, so the screen said "rfr" and
+  the run "как". Held keys now keep scan code and Shift; at replay one string
+  is worked out in the layout the fix left and both fed and typed.
+- Installer: the Startup shortcut (invisible to the app's "Launch at login"
+  switch, so unchecking it did nothing) is gone, also on upgrade
+  (`[InstallDelete]`); a default-on task writes the same Run value the app
+  manages.
+- e2e: +2 scenarios (an unmarked key mid-word leaves the word alone; keys
+  typed during a fix land in the new layout), 14/14. The second also passes
+  when no key happens to be held, so it guards the fix only partly.
+- Not exercised: the installer itself (no Inno Setup in the VM).
+
 ## After v1.3.16 — Sparkle 2.6.4 -> 2.10.0
 
 - 2.6.4 was simply the version pinned when Sparkle was added (`cb61f8f`).

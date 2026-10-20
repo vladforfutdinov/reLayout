@@ -206,7 +206,7 @@ jobs:
   #   * portable single .exe — a 7-Zip self-extracting archive (unpacks to a
   #     temp dir and launches ReLayoutWin.exe). One file, download and run.
   #   * Inno Setup installer (setup.exe) — per-user install, Start Menu +
-  #     Startup shortcut, uninstaller.
+  #     launch-at-login Run value (a task), uninstaller.
   build-windows:
     # On manual dispatch (artifacts only) and on tag releases, where the installer
     # and the portable exe are attached to the Release the macOS job creates.

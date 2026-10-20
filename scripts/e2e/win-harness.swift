@@ -187,6 +187,17 @@ func runScenarios() -> Int32 {
     type("rfr"); hotkey()   // "как", typed after the fix: the hotkey converts it, not undo
     expect("hotkey after typing: new word converts", hello.1 + " rfr", cyrillic: false)
 
+    // Another program types mid-word (an unmarked injected key): the app's buffer no
+    // longer matches the screen, so the word is left alone instead of misfixed.
+    reset(); type(String(hello.0.prefix(3)))
+    if let sc = scans[Array(hello.0)[3]] { key(sc, down: true, extra: 0); key(sc, down: false, extra: 0) }
+    type(String(hello.0.dropFirst(4)) + " ")
+    expect("auto: a key from another program resets the word", hello.0 + " ", settle: 800)
+
+    // Keys typed while a fix runs are held, then replayed in the layout the fix left.
+    reset(); type(hello.0 + " rfr ")
+    expect("auto: keys typed during a fix land in the new layout", hello.1 + " как ")
+
     reset(); type("d\t" + book.0 + " ")   // a Tab may move focus: no fix reaches back across it
     expect("auto: short word before a Tab is left alone", "d\t" + book.1 + " ")
 

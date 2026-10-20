@@ -225,6 +225,13 @@ private let llProc: HOOKPROC = { nCode, wParam, lParam in
 #if DEBUG
         if !typed, info.dwExtraInfo == e2eKeyMarker { typed = true }
 #endif
+        // Another program typed (a remapper, an on-screen keyboard, a password
+        // manager): text changed that the run did not see, so it no longer matches.
+        if !typed, info.dwExtraInfo != ownInputMarker,
+           wParam == WPARAM(WM_KEYDOWN) || wParam == WPARAM(WM_SYSKEYDOWN) {
+            resetAutoBuffer()
+            forgetConversion()
+        }
         if typed {
             let vk = UINT(info.vkCode)
             let m  = UINT(wParam)

@@ -4,10 +4,14 @@ import ReLayoutCore
 // Win32 input glue: read the selection (clipboard via Ctrl+C), write text
 // (SendInput Unicode), and switch the foreground layout.
 
+/// Tags every key reLayout sends, so the hook tells its own input from another
+/// program's (`dwExtraInfo` is ours to set; the hook reads it back).
+let ownInputMarker: ULONG_PTR = 0x524C_4F57
+
 private func keyEvent(vk: WORD, scan: WORD, flags: DWORD) -> INPUT {
     var i = INPUT()
     i.type = DWORD(INPUT_KEYBOARD)
-    i.ki = KEYBDINPUT(wVk: vk, wScan: scan, dwFlags: flags, time: 0, dwExtraInfo: 0)
+    i.ki = KEYBDINPUT(wVk: vk, wScan: scan, dwFlags: flags, time: 0, dwExtraInfo: ownInputMarker)
     return i
 }
 

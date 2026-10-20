@@ -1,6 +1,6 @@
 ; Inno Setup script for reLayout (Windows).
 ; Installs the portable, statically-linked single exe per-user (no admin),
-; adds a Start Menu shortcut and a Startup shortcut (the tray app autostarts),
+; adds a Start Menu shortcut and the "Launch at login" Run value (a task, on by default),
 ; and offers to launch on finish.
 ;
 ; Driven entirely by ISCC /D defines from CI (scripts/windows nothing else needed):
@@ -50,15 +50,24 @@ WizardStyle=modern
 [Files]
 Source: "{#SrcDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
+[Tasks]
+Name: autostart; Description: "Launch reLayout at login"
+
 [Icons]
 Name: "{autoprograms}\reLayout"; Filename: "{app}\ReLayoutWin.exe"
-Name: "{userstartup}\reLayout"; Filename: "{app}\ReLayoutWin.exe"
+
+; Earlier installers autostarted through a Startup shortcut, which the app's
+; "Launch at login" switch does not see; the Run value below replaces it.
+[InstallDelete]
+Type: files; Name: "{userstartup}\reLayout.lnk"
 
 [Run]
 Filename: "{app}\ReLayoutWin.exe"; Description: "Launch reLayout"; Flags: nowait postinstall skipifsilent
 
-; Uninstall removes what the app wrote: its settings, which hold words the user
-; typed (learned auto-correct lists), and the "Launch at login" Run value.
+; The Run value is the one the app's "Launch at login" switch reads and writes
+; (WinTray.swift: name "reLayout", the quoted exe path). Uninstall removes it and
+; the app's settings, which hold words the user typed (learned auto-correct lists).
 [Registry]
-Root: HKCU; Subkey: "Software\reLayout"; Flags: uninsdeletekey dontcreatekey
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "reLayout"; ValueData: """{app}\ReLayoutWin.exe"""; Tasks: autostart; Flags: uninsdeletevalue
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: none; ValueName: "reLayout"; Flags: uninsdeletevalue dontcreatekey
+Root: HKCU; Subkey: "Software\reLayout"; Flags: uninsdeletekey dontcreatekey

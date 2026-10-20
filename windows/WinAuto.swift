@@ -35,7 +35,7 @@ private var lastFocus: HWND?
 private var correcting = false
 private var gateSince: DWORD = 0
 private let gateMaxHoldMs: DWORD = 3000
-private var held: [(vk: UINT, text: String, shift: Bool)] = []
+private var held: [(vk: UINT, scan: WORD, shift: Bool)] = []
 
 private struct QueuedFix {
     let fix: AutoRun.Fix
@@ -101,13 +101,17 @@ func trigram(_ lang: String) -> TrigramModel? {
 
 /// The character this key produces under the live keyboard state (Shift, AltGr,
 /// CapsLock, and the layout of the focused app). Empty for keys that type nothing.
-private func character(_ vk: UINT, _ scan: WORD, _ layout: WinLayout) -> String {
+/// - Parameter shift: Shift as it was when the key was pressed; nil reads it live.
+private func character(_ vk: UINT, _ scan: WORD, _ layout: WinLayout, shift: Bool? = nil) -> String {
     var state = [BYTE](repeating: 0, count: 256)
     GetKeyboardState(&state)
     // GetKeyboardState is the hook thread's own queue state, not the user's: Shift
     // showed up as released and "Ybrmt" buffered as "ybrmt". Overlay the live keys.
     for vk in [VK_SHIFT, VK_LSHIFT, VK_RSHIFT, VK_CONTROL, VK_LCONTROL, VK_RCONTROL, VK_MENU, VK_LMENU, VK_RMENU] {
         state[Int(vk)] = (Int(GetAsyncKeyState(vk)) & 0x8000) != 0 ? 0x80 : 0
+    }
+    if let shift {
+        state[Int(VK_SHIFT)] = shift ? 0x80 : 0; state[Int(VK_LSHIFT)] = state[Int(VK_SHIFT)]; state[Int(VK_RSHIFT)] = 0
     }
     state[Int(VK_CAPITAL)] = BYTE(Int(GetKeyState(VK_CAPITAL)) & 1)
     var buf = [WCHAR](repeating: 0, count: 8)
@@ -194,7 +198,8 @@ private func mapsToCyrillic(_ ch: Character, cur: WinLayout) -> Bool {
 ///   - shift: Shift is held, so a re-sent boundary keeps it.
 /// - Returns: true when the key must not reach the app — it is either held while a
 ///   fix is in flight, or the boundary key that the fix will retype itself.
-func autoFeed(vk: UINT, scan: WORD, shortcut: Bool, shift: Bool) -> Bool {
+///   - typed: what the key types, when already worked out (a replayed held key).
+func autoFeed(vk: UINT, scan: WORD, shortcut: Bool, shift: Bool, typed: String? = nil) -> Bool {
     if correcting {
         if GetTickCount() &- gateSince > gateMaxHoldMs {   // watchdog: never freeze the keyboard
             correcting = false
@@ -203,9 +208,8 @@ func autoFeed(vk: UINT, scan: WORD, shortcut: Bool, shift: Bool) -> Bool {
             held.removeLast()   // un-type a held key instead of reaching the app out of order
             return true
         } else if let cur = WinLayout.current() {
-            let text = character(vk, scan, cur)
-            guard !text.isEmpty || vk == vkSpace || vk == vkTab else { return false }
-            held.append((vk, text, shift))
+            guard !character(vk, scan, cur).isEmpty || vk == vkSpace || vk == vkTab else { return false }
+            held.append((vk, scan, shift))
             return true
         }
     }
@@ -245,7 +249,7 @@ func autoFeed(vk: UINT, scan: WORD, shortcut: Bool, shift: Bool) -> Bool {
     case vkReturn: text = "\r"
     case vkTab:    text = "\t"
     case vkSpace:  text = " "
-    default:       text = character(vk, scan, cur)
+    default:       text = typed ?? character(vk, scan, cur)
     }
     let event = run.feed(text, mapsToCyrillic: { mapsToCyrillic($0, cur: cur) })
     guard autoEnabled else { return false }   // the run still serves the hotkey
@@ -522,15 +526,18 @@ private func finishFix() {
             sendKeyTap(Int32(vkReturn), shift: key.shift)
             continue
         }
-        let scan = WORD(truncatingIfNeeded: MapVirtualKeyW(key.vk, 0 /* MAPVK_VK_TO_VSC */))
-        if autoFeed(vk: key.vk, scan: scan, shortcut: false, shift: key.shift) {
+        // Read in the layout the fix left active, once: the run is fed and the
+        // screen typed the same text (the fix may have switched layout under the keys).
+        let cur = WinLayout.current()
+        let text = cur.map { character(key.vk, key.scan, $0, shift: key.shift) } ?? ""
+        if autoFeed(vk: key.vk, scan: key.scan, shortcut: false, shift: key.shift, typed: text) {
             held = Array(replay[(i + 1)...])   // that key started another fix; it replays the rest
             return
         }
-        if key.text.isEmpty || key.vk == vkSpace || key.vk == vkTab {
+        if text.isEmpty || key.vk == vkSpace || key.vk == vkTab {
             sendKeyTap(Int32(key.vk), shift: key.shift)   // apps act on these keys, not on their text
-        } else {
-            if let cur = WinLayout.current() { _ = typeText(key.text, in: cur) } else { _ = sendUnicode(key.text) }
+        } else if let cur {
+            _ = typeText(text, in: cur)
         }
     }
 }

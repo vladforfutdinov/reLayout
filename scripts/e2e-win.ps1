@@ -59,7 +59,8 @@ try {
     Write-Output $out
     if ($out -notmatch '(?m)^all passed') {
         $failed = $true
-        if ($Trace -and (Test-Path $keyLog)) { "--- key log ---"; Get-Content $keyLog -Encoding utf8 | Select-Object -Last 400 }
+        if ($Trace -and (Test-Path $keyLog)) { "--- key log ---"; $lines = Get-Content $keyLog -Encoding utf8
+            $lines | Select-Object -First 200; "..."; $lines | Select-Object -Last 300 }
     }
 } finally {
     Get-Process ReLayoutWin, e2e-harness -ErrorAction SilentlyContinue | Stop-Process -Force

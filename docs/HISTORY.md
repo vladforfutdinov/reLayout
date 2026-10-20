@@ -4,6 +4,23 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.16 — macOS end-to-end harness
+
+- `scripts/e2e.sh` + `scripts/e2e/harness.swift`: drives the real dev build
+  with synthetic physical keys into a test window and checks the text and
+  the layout. Nine scenarios: auto-fix, right word kept, hotkey on a
+  selection, press-again undo, undo of an auto-fix, hotkey after typing on
+  converts the new word (the stale-undo bug from the audit), Enter follow-up.
+- Words depend on the Cyrillic layout found (ru "ghbdtn", uk "ghbdsn"); the
+  first run assumed Russian and skipped on an ABC + Ukrainian-PC machine.
+- The first real run lost its first two scenarios: the window was not yet
+  key, so the keys went to whichever app had focus. The harness now waits
+  for focus before each scenario and aborts instead of typing elsewhere.
+- Prefs isolation: the dev domain is exported, the app's keys reset, and the
+  export re-imported on exit; whichever reLayout was running is relaunched.
+- Not covered: a click during a running retype (timing-dependent), Windows
+  (its hook drops all injected keys, so SendInput cannot drive it).
+
 ## After v1.3.16 — audit fixes: parser crash, stale undo, cut selection, hook timeouts
 
 - A repo audit (Core, macOS, Windows+CI) found four must-fix defects.

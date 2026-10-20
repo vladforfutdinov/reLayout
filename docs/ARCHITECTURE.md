@@ -31,6 +31,7 @@ Platform-free Swift. **No** AppKit/Carbon/WinSDK imports. Shared verbatim by:
 - macOS app — compiled together with `macos/main.swift` by `scripts/build.sh`.
 - Windows port — imported as the `ReLayoutCore` SwiftPM module (`Package.swift`).
 - Tests — both `scripts/run-tests.sh` (links into the macOS binary with `-DTESTING`) and `swift test` (uses `Tests/ReLayoutCoreTests`).
+- End-to-end — `scripts/e2e.sh` relaunches the built dev app with known prefs (auto-correct on, default hotkey, nothing learned), runs `scripts/e2e/harness.swift` — a window with an `NSTextView` that posts physical-key CGEvents and checks the field and the current layout — then restores the dev app's prefs and whatever reLayout was running. Local only: it needs a GUI session, Accessibility for the terminal, ABC/U.S. plus a Russian or Ukrainian layout. The harness stops if its window loses focus, so it never types into another app.
 
 The core algorithm is **not** a character→character table. It is:
 

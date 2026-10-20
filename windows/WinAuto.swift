@@ -33,6 +33,7 @@ private var exceptions = AppExceptions(auto: [], hotkey: [])
 private var passwordField = false
 private var passwordPending = false   // not known for the focused control: nothing is corrected
 private var passwordInFlight = false  // a check is on its way back from the UI thread
+private var passwordAsk = 0           // bumped per question: only the latest one's answer counts
 private var run = AutoRun()     // the typed-word state machine, shared with macOS (engine)
 private var lastFocus: HWND?
 
@@ -286,12 +287,22 @@ func autoFeed(vk: UINT, scan: WORD, shortcut: Bool, shift: Bool, typed: String? 
 /// Asks the UI thread whether the focused control is a password field; the answer
 /// lands in `passwordField`. One question at a time.
 private func checkPasswordField() {
-    guard !passwordInFlight else { return }
+    passwordAsk &+= 1
+    passwordPending = true
+    guard !passwordInFlight else { return }   // the answer on its way asks again when it lands
+    askPasswordField()
+}
+
+private func askPasswordField() {
+    let ask = passwordAsk
     passwordInFlight = postToUI {
         let password = focusIsPasswordField()
-        onHook { passwordField = password; passwordPending = false; passwordInFlight = false }
+        onHook {
+            passwordInFlight = false
+            // Asked for an earlier word, maybe in another field: ask again for this one.
+            if ask == passwordAsk { passwordField = password; passwordPending = false } else { askPasswordField() }
+        }
     }
-    passwordPending = true
 }
 
 /// Word boundary: decide, and queue the fix for the UI thread.
@@ -549,8 +560,8 @@ func runAutoEnter() {
 // MARK: - the fix (runs on the UI thread, off the hook)
 
 func runAutoFix() {
-    defer { finishFix() }
-    guard let job = onHook({ () -> QueuedFix? in defer { queued = nil }; return queued }) else { return }
+    guard let job = onHook({ () -> QueuedFix? in defer { queued = nil }; return queued }) else { return finishFix() }
+    defer { finishFix(afterTab: job.boundary == Int32(vkTab)) }
     let mark = conversionMark()
     dwatch("auto fix erase=\(job.fix.erase) len=\(job.fix.text.count)")
     sendBackspaces(job.fix.erase)
@@ -565,13 +576,20 @@ func runAutoFix() {
 /// so a word typed across the correction is still judged as one word. The gate
 /// stays shut until the queue is empty, so keys typed during the replay queue up
 /// behind it instead of overtaking it.
-private func finishFix() {
+/// - Parameter afterTab: the fix ended by re-sending Tab, so focus may have moved.
+private func finishFix(afterTab: Bool = false) {
     // Keys typed during the fix land after it: the caret has moved past the fix.
     // They may have gone to another field (the fix ended on Tab): ask now, on this
     // thread, before any of them is fed.
     if onHook({ () -> Bool in if !held.isEmpty { forgetConversion() }; return !held.isEmpty }) {
-        let password = focusIsPasswordField()
-        onHook { passwordField = password; passwordPending = false }
+        if afterTab {
+            // A read right after the Tab could still see the old field: unknown until
+            // the next typed word asks.
+            onHook { passwordAsk &+= 1; passwordPending = true }
+        } else {
+            let password = focusIsPasswordField()
+            onHook { passwordAsk &+= 1; passwordField = password; passwordPending = false }
+        }
     }
     while let key = onHook({ () -> HeldKey? in
         // A fix queued meanwhile (a replayed key started one, or the watchdog let
@@ -598,7 +616,7 @@ private func finishFix() {
             sendKeyTap(Int32(key.vk), shift: key.shift)   // apps act on these keys, not on their text
             // Focus may move with a Tab, and a read right after it could still see the
             // old field: unknown until the next typed word asks again.
-            if key.vk == vkTab { onHook { passwordPending = true } }
+            if key.vk == vkTab { onHook { passwordAsk &+= 1; passwordPending = true } }
         } else if let cur {
             _ = typeText(text, in: cur)
         }

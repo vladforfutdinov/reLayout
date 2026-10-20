@@ -31,6 +31,11 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
   version, which passed an object pointer in `lParam` that any process could
   forge). The hook thread is woken through a message-only window (a COM wait
   drops thread messages) and runs one queued item per wake.
+- A second security-review pass: an in-flight password answer asked for one
+  field could clear the block for the next; answers now count only for the
+  latest question (`passwordAsk`), a stale one asks again, and keys held over
+  a fix that ended on Tab leave the field unknown instead of trusting a read
+  taken before focus settled.
 - Settings' hotkey capture results are dropped if the capture was cancelled
   before they reached the UI thread.
 - Startup: tray first (the hook thread posts to it), then the hook thread.

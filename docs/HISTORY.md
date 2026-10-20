@@ -4,6 +4,26 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.16 — Sparkle 2.6.4 -> 2.10.0
+
+- 2.6.4 was simply the version pinned when Sparkle was added (`cb61f8f`).
+  2.10.0 hash = the release asset's GitHub digest (the user had it too).
+- Release notes 2.7-2.10: appcast changes are additive; no change to EdDSA or
+  `SUPublicEDKey`; framework minimum macOS 12.0 (app is 13.0); main-thread
+  use enforced since 2.8 (the app creates and calls the updater on main);
+  several security fixes (2.7.2, 2.9.2, 2.9.5, 2.9.6).
+- Checked locally: a WITH_SPARKLE build signs and passes `codesign --verify
+  --deep --strict`; 2.10's `generate_appcast` with a throwaway key signs the
+  item, `appcast-informational.py` still patches it, and 2.6.4's `sign_update
+  --verify` accepts the signature — so installed 2.6.4 clients can verify it.
+  It now also emits `<sparkle:hardwareRequirements>arm64` (the CI build is
+  arm64-only); 2.6.4 clients ignore it, as before.
+- 2.9+ reads `.md` release notes; the `/markdown` render step still works and
+  was left alone.
+- `resign-appcast.yml` fetched Sparkle with `curl | tar` and ran `sign_update`
+  with the private key; it now uses the same pinned version and hash.
+- Not verified: a real update from an installed 1.3.x to a 2.10.0 build.
+
 ## After v1.3.16 — audit security batch: Sparkle pin, update key, uninstall, CI token
 
 - `build.sh`: the Sparkle tarball is cached as a file and checked against a

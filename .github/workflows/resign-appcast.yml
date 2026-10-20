@@ -32,9 +32,13 @@ jobs:
         run: |
           set -euo pipefail
           [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "bad tag $TAG"; exit 1; }
-          SPARKLE_VERSION="2.6.4"
+          # Same pin as scripts/build.sh: sign_update runs with the private key.
+          SPARKLE_VERSION="2.10.0"
+          SPARKLE_SHA256="c2bf58aa8387266ac179357b1415d6f2635f044da8be41042af32425dae6da0c"
           mkdir -p sparkle
-          curl -fsSL "https://github.com/sparkle-project/Sparkle/releases/download/$SPARKLE_VERSION/Sparkle-$SPARKLE_VERSION.tar.xz" | tar -xJ -C sparkle
+          curl -fsSL -o sparkle.tar.xz "https://github.com/sparkle-project/Sparkle/releases/download/$SPARKLE_VERSION/Sparkle-$SPARKLE_VERSION.tar.xz"
+          echo "$SPARKLE_SHA256  sparkle.tar.xz" | shasum -a 256 -c -
+          tar -xJf sparkle.tar.xz -C sparkle
           gh release download "$TAG" -R "$GITHUB_REPOSITORY" -p reLayout.zip -D rel
           printf '%s' "$SPARKLE_ED_PRIVATE_KEY" > "$RUNNER_TEMP/ed_priv"
           SIG="$(sparkle/bin/sign_update --ed-key-file "$RUNNER_TEMP/ed_priv" -p rel/reLayout.zip)"

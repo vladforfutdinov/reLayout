@@ -120,7 +120,8 @@ func reset(_ s: String = "", selectAll: Bool = false) {
     select(latin)
 }
 
-func expect(_ name: String, _ want: String, cyrillic: Bool? = nil, timeout: Int = 3000, settle: DWORD = 0) {
+func expect(_ name: String, _ want: String, cyrillic: Bool? = nil, language: Int? = nil,
+            timeout: Int = 3000, settle: DWORD = 0) {
     if settle > 0 { pause(settle) }
     var got = ""
     for _ in 0..<(timeout / 50) {
@@ -130,13 +131,14 @@ func expect(_ name: String, _ want: String, cyrillic: Bool? = nil, timeout: Int 
     }
     pause(200)
     let lay = currentLayout().map(lang) ?? 0
-    let layOK = cyrillic.map { $0 == (lay != lang(latin)) } ?? true
+    let layOK = cyrillic.map { $0 == (lay != lang(latin)) } ?? true && language.map { $0 == lay } ?? true
     if got == want, layOK {
         say("PASS  \(name)")
     } else {
         failures += 1
         say("FAIL  \(name)\n      want \(want.debugDescription)"
               + (cyrillic.map { $0 ? " on Cyrillic" : " on Latin" } ?? "")
+              + (language.map { " on \(String($0, radix: 16))" } ?? "")
               + "\n      got  \(got.debugDescription) on \(String(lay, radix: 16))")
     }
 }
@@ -165,6 +167,16 @@ func runScenarios() -> Int32 {
 
     reset(hello.0, selectAll: true); hotkey()
     expect("hotkey: selection is converted", hello.1, cyrillic: true)
+
+    if hasRu, all.contains(where: { lang($0) == 0x0422 }) {
+        // Three layouts: each press takes the next reading, and the press after the last undoes.
+        reset("ghbdsn", selectAll: true); hotkey()
+        expect("hotkey: best reading first", "привіт", language: 0x0422)
+        hotkey()
+        expect("hotkey again: next reading", "привыт", language: 0x0419)
+        hotkey()
+        expect("hotkey third time: conversion is undone", "ghbdsn", cyrillic: false)
+    }
 
     reset(); type(word.0 + " "); expect("auto: fix before the undo", word.1 + " ")
     hotkey()

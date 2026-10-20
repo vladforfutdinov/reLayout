@@ -7,7 +7,8 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 ## After v1.3.16 — Windows end-to-end harness; Ctrl+Alt+R kept the typed word
 
 - `scripts/e2e-win.ps1` + `scripts/e2e/win-harness.swift`: the macOS
-  scenarios on Windows (minus press-again undo: three layouts cycle first).
+  scenarios on Windows, plus the three-layout press-again cycle with ru + uk
+  installed ("ghbdsn": привіт on uk -> привыт on ru -> ghbdsn on en); 12/12.
   Keys go in with SendInput scan codes marked in `dwExtraInfo`; only DEBUG
   builds' hook accepts the marker. Interception (driver-level keys, no
   injected flag) was the first choice and was dropped: x86/x64 drivers only,

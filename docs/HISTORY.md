@@ -4,6 +4,28 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.16 — Windows end-to-end harness; Ctrl+Alt+R kept the typed word
+
+- `scripts/e2e-win.ps1` + `scripts/e2e/win-harness.swift`: the macOS
+  scenarios on Windows (minus press-again undo: three layouts cycle first).
+  Keys go in with SendInput scan codes marked in `dwExtraInfo`; only DEBUG
+  builds' hook accepts the marker. Interception (driver-level keys, no
+  injected flag) was the first choice and was dropped: x86/x64 drivers only,
+  and the VM is Windows 11 on ARM64.
+- Found by it: with nothing selected, the default hotkey Ctrl+Alt+R never
+  converted the typed word. Alt's keydown arrives with Ctrl already down,
+  reads as a shortcut, and `autoFeed` reset the run before R fired the
+  hotkey. A modifier alone now returns early: it types nothing.
+- A plain EDIT has no UI Automation text, so the selection read fell back to
+  Ctrl+C and the Enter follow-up (UIA snapshot) never ran. The harness uses
+  RichEdit, as Notepad does.
+- The VM build script fetched the bundle into `audit-fixes` while that branch
+  was checked out in its worktree; git refused and the build ran the old
+  commit — so the earlier "builds in the VM" for audit batch 1 checked stale
+  code. The script now removes the worktree first and checks HEAD.
+- First run: scenario 1 failed once and passed on every rerun (warm-up).
+- PowerShell variable names ignore case: `$trace` overwrote the `-Trace` switch.
+
 ## After v1.3.16 — audit batch 1: AX timeout, Tab, CRLF, clipboard, Dvorak
 
 - macOS: a global AX messaging timeout (0.1 s, set on the system-wide element)

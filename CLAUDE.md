@@ -24,7 +24,7 @@ macos/       macOS app — main.swift, tests.swift, Info.plist
 windows/     Windows port (preview) — Win*.swift + main.swift, native/ (C++: UI Automation, WinHTTP, theme)
 Resources/   macOS bundle resources — <lang>.lproj + icon PNGs + trigram/<lang>.txt
 Tests/       SwiftPM engine tests
-scripts/     build.sh, run-tests.sh, e2e.sh (+ e2e/), make-cert.sh, make-dmg.sh, notarize.sh, trigram/
+scripts/     build.sh, run-tests.sh, e2e.sh / e2e-win.ps1 (+ e2e/), make-cert.sh, make-dmg.sh, notarize.sh, trigram/
 packaging/   Homebrew cask template + tap-push script, windows/relayout.iss (Inno Setup installer)
 docs/        ARCHITECTURE.md, RELEASING.md, HISTORY.md, SNAPSHOT.md, BACKLOG.md, release-notes/
 assets/      source art (rL-logo.svg) — not bundled
@@ -39,6 +39,7 @@ dist/        build output (.app/.dmg/.zip) — gitignored
 ./scripts/build.sh       # -> ReLayout.app (or "ReLayout (dev).app" for non-tag builds)
 ./scripts/run-tests.sh   # build & run unit tests (-DTESTING; entry point swaps to macos/tests.swift)
 ./scripts/e2e.sh         # macOS end-to-end: types into a test window against the dev build (hands off; needs Accessibility for the terminal)
+scripts/e2e-win.ps1      # on Windows: the same against dist\win built with -DebugLog (-Trace prints the key log on failure)
 ./scripts/make-dmg.sh    # -> reLayout.dmg drag-to-Applications installer
 swift test               # cross-platform engine tests via SwiftPM (Tests/ReLayoutCoreTests)
 scripts/build-windows.ps1  # on Windows: release build of the port into dist\win (exe + trigram/ + lang/)

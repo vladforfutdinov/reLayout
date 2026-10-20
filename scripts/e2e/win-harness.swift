@@ -1,0 +1,242 @@
+// Windows end-to-end harness: a window with a RichEdit (what Notepad uses; it has
+// native UI Automation text, a plain EDIT has none), typed into with
+// SendInput scan codes that carry the dev build's e2e marker (the hook drops other
+// injected keys), checked by reading the control back. Run by scripts/e2e-win.ps1
+// in the interactive session; keep in step with scripts/e2e/harness.swift (macOS).
+import WinSDK
+import Foundation
+
+let marker: ULONG_PTR = 0x524C_4532   // e2eKeyMarker in windows/WinHotkey.swift
+
+// Set-1 scan codes of the US keyboard; with KEYEVENTF_SCANCODE Windows maps them
+// through the foreground layout, like a physical key.
+let scans: [Character: WORD] = [
+    "q": 0x10, "w": 0x11, "e": 0x12, "r": 0x13, "t": 0x14, "y": 0x15, "u": 0x16, "i": 0x17, "o": 0x18,
+    "p": 0x19, "[": 0x1A, "a": 0x1E, "s": 0x1F, "d": 0x20, "f": 0x21, "g": 0x22, "h": 0x23, "j": 0x24,
+    "k": 0x25, "l": 0x26, ";": 0x27, "'": 0x28, "z": 0x2C, "x": 0x2D, "c": 0x2E, "v": 0x2F, "b": 0x30,
+    "n": 0x31, "m": 0x32, ",": 0x33, ".": 0x34, " ": 0x39, "\t": 0x0F, "\r": 0x1C,
+]
+let scanCtrl: WORD = 0x1D, scanAlt: WORD = 0x38, scanR: WORD = 0x13
+
+var mainWindow: HWND?
+var edit: HWND?
+var uiThread: DWORD = 0
+
+func pause(_ ms: DWORD) { Sleep(ms) }
+/// Unbuffered: the process ends with ExitProcess, which would drop buffered output.
+func say(_ s: String) { FileHandle.standardOutput.write(Data((s + "\n").utf8)) }
+
+func key(_ scan: WORD, down: Bool, extra: ULONG_PTR = marker) {
+    var i = INPUT()
+    i.type = DWORD(INPUT_KEYBOARD)
+    i.ki = KEYBDINPUT(wVk: 0, wScan: scan,
+                      dwFlags: DWORD(KEYEVENTF_SCANCODE) | (down ? 0 : DWORD(KEYEVENTF_KEYUP)),
+                      time: 0, dwExtraInfo: extra)
+    SendInput(1, &i, Int32(MemoryLayout<INPUT>.size))
+    pause(down ? 10 : 35)
+}
+
+func type(_ s: String) {
+    for c in s {
+        guard let sc = scans[c] else { fatalError("no scan code for \(c.debugDescription)") }
+        key(sc, down: true); key(sc, down: false)
+    }
+}
+
+/// The default retype hotkey, Ctrl+Alt+R.
+func hotkey() {
+    key(scanCtrl, down: true); key(scanAlt, down: true)
+    key(scanR, down: true); key(scanR, down: false)
+    key(scanAlt, down: false); key(scanCtrl, down: false)
+    pause(100)
+}
+
+/// A click in the field: the app's mouse hook ends its word buffer and undo window.
+func click() {
+    var r = RECT()
+    GetWindowRect(edit, &r)
+    SetCursorPos((r.left + r.right) / 2, (r.top + r.bottom) / 2)
+    for flag in [MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP] {
+        var i = INPUT()
+        i.type = DWORD(INPUT_MOUSE)
+        i.mi.dwFlags = DWORD(flag)
+        SendInput(1, &i, Int32(MemoryLayout<INPUT>.size))
+        pause(40)
+    }
+}
+
+/// Line breaks read as "\n": RichEdit keeps "\r" internally.
+func fieldText() -> String {
+    let n = Int(SendMessageW(edit, UINT(WM_GETTEXTLENGTH), 0, 0))
+    var buf = [WCHAR](repeating: 0, count: n + 1)
+    _ = buf.withUnsafeMutableBufferPointer {
+        SendMessageW(edit, UINT(WM_GETTEXT), WPARAM(n + 1), LPARAM(Int(bitPattern: $0.baseAddress)))
+    }
+    return String(decoding: buf.prefix(n), as: UTF16.self)
+        .replacingOccurrences(of: "\r\n", with: "\n").replacingOccurrences(of: "\r", with: "\n")
+}
+
+func setField(_ s: String, selectAll: Bool) {
+    s.withCString(encodedAs: UTF16.self) { _ = SendMessageW(edit, UINT(WM_SETTEXT), 0, LPARAM(Int(bitPattern: $0))) }
+    let n = s.utf16.count
+    _ = SendMessageW(edit, UINT(EM_SETSEL), WPARAM(selectAll ? 0 : n), LPARAM(n))
+}
+
+func layouts() -> [HKL] {
+    var list = [HKL?](repeating: nil, count: 16)
+    let n = Int(GetKeyboardLayoutList(16, &list))
+    return list.prefix(n).compactMap { $0 }
+}
+func lang(_ h: HKL) -> Int { Int(UInt(bitPattern: Int(bitPattern: UnsafeRawPointer(h))) & 0xFFFF) }
+func currentLayout() -> HKL? { GetKeyboardLayout(uiThread) }
+
+func select(_ h: HKL) {
+    _ = PostMessageW(edit, UINT(WM_INPUTLANGCHANGEREQUEST), 0, LPARAM(Int(bitPattern: UnsafeRawPointer(h))))
+    for _ in 0..<30 where currentLayout() != h { pause(10) }
+    pause(50)
+}
+
+var latin: HKL!
+var failures = 0
+
+/// Stops the run rather than type into whatever window has focus instead.
+func requireFocus() {
+    for _ in 0..<40 {
+        if GetForegroundWindow() == mainWindow { return }
+        // A process may take the foreground right after it sent input; this Alt is
+        // unmarked, so the app's hook ignores it.
+        key(scanAlt, down: true, extra: 0); key(scanAlt, down: false, extra: 0)
+        SetForegroundWindow(mainWindow)
+        pause(50)
+    }
+    say("ABORT the test window is not in the foreground; nothing more is typed")
+    ExitProcess(3)
+}
+
+func reset(_ s: String = "", selectAll: Bool = false) {
+    requireFocus()
+    click()
+    setField(s, selectAll: selectAll)
+    select(latin)
+}
+
+func expect(_ name: String, _ want: String, cyrillic: Bool? = nil, timeout: Int = 3000, settle: DWORD = 0) {
+    if settle > 0 { pause(settle) }
+    var got = ""
+    for _ in 0..<(timeout / 50) {
+        got = fieldText()
+        if got == want { break }
+        pause(50)
+    }
+    pause(200)
+    let lay = currentLayout().map(lang) ?? 0
+    let layOK = cyrillic.map { $0 == (lay != lang(latin)) } ?? true
+    if got == want, layOK {
+        say("PASS  \(name)")
+    } else {
+        failures += 1
+        say("FAIL  \(name)\n      want \(want.debugDescription)"
+              + (cyrillic.map { $0 ? " on Cyrillic" : " on Latin" } ?? "")
+              + "\n      got  \(got.debugDescription) on \(String(lay, radix: 16))")
+    }
+}
+
+func runScenarios() -> Int32 {
+    pause(500)
+    let all = layouts()
+    guard let l = all.first(where: { lang($0) == 0x0409 }),
+          all.contains(where: { [0x0419, 0x0422].contains(lang($0)) }) else {
+        say("SKIP  need en-US and a Russian or Ukrainian layout; have \(all.map { String(lang($0), radix: 16) })")
+        return 1
+    }
+    latin = l
+    let hasRu = all.contains { lang($0) == 0x0419 }
+    say("layouts \(all.map { String(lang($0), radix: 16) })")
+    // (typed on Latin keys, what it reads as in the Cyrillic layout)
+    let hello = hasRu ? ("ghbdtn", "привет") : ("ghbdsn", "привіт")
+    let word = ("ckjdj", "слово")   // its undo below learns it as kept: later scenarios use `book`
+    let book = ("rybuf", "книга")
+
+    reset(); type(hello.0 + " ")
+    expect("auto: wrong-layout word is fixed", hello.1 + " ", cyrillic: true)
+
+    reset(); type("hello ")
+    expect("auto: right-layout word stays", "hello ", cyrillic: false, settle: 800)
+
+    reset(hello.0, selectAll: true); hotkey()
+    expect("hotkey: selection is converted", hello.1, cyrillic: true)
+
+    reset(); type(word.0 + " "); expect("auto: fix before the undo", word.1 + " ")
+    hotkey()
+    expect("hotkey after auto-fix: fix is undone", word.0 + " ", cyrillic: false)
+
+    reset(); type(hello.0 + " ")
+    expect("auto: fix before typing on", hello.1 + " ")
+    type("rfr"); hotkey()   // "как", typed after the fix: the hotkey converts it, not undo
+    expect("hotkey after typing: new word converts", hello.1 + " rfr", cyrillic: false)
+
+    reset(); type("d\t" + book.0 + " ")   // a Tab may move focus: no fix reaches back across it
+    expect("auto: short word before a Tab is left alone", "d\t" + book.1 + " ")
+
+    reset(); type(hello.0 + "\r")
+    expect("enter: word above the new line is fixed", hello.1 + "\n", cyrillic: true)
+
+    say(failures == 0 ? "\nall passed" : "\n\(failures) failed")
+    return Int32(failures)
+}
+
+// MARK: - window
+
+let wndProc: WNDPROC = { hwnd, msg, wParam, lParam in
+    switch Int32(msg) {
+    case WM_SIZE:
+        var r = RECT()
+        GetClientRect(hwnd, &r)
+        MoveWindow(edit, 0, 0, r.right, r.bottom, true)
+        return 0
+    case WM_SETFOCUS:
+        SetFocus(edit)
+        return 0
+    case WM_DESTROY:
+        PostQuitMessage(0)
+        return 0
+    default:
+        return DefWindowProcW(hwnd, msg, wParam, lParam)
+    }
+}
+
+uiThread = GetCurrentThreadId()
+let className = Array("reLayoutE2E".utf16) + [0]
+var wc = WNDCLASSW()
+wc.lpfnWndProc = wndProc
+wc.hInstance = GetModuleHandleW(nil)
+wc.hbrBackground = HBRUSH(bitPattern: UInt(COLOR_WINDOW + 1))
+className.withUnsafeBufferPointer { wc.lpszClassName = $0.baseAddress; RegisterClassW(&wc) }
+mainWindow = className.withUnsafeBufferPointer { cls in
+    "reLayout e2e - hands off the keyboard".withCString(encodedAs: UTF16.self) { title in
+        CreateWindowExW(DWORD(WS_EX_TOPMOST), cls.baseAddress, title, DWORD(WS_OVERLAPPEDWINDOW) | DWORD(WS_VISIBLE),
+                        200, 200, 560, 200, nil, nil, wc.hInstance, nil)
+    }
+}
+LoadLibraryW(Array("Msftedit.dll".utf16) + [0])
+edit = "RICHEDIT50W".withCString(encodedAs: UTF16.self) { cls in
+    CreateWindowExW(0, cls, nil, DWORD(WS_CHILD) | DWORD(WS_VISIBLE) | DWORD(WS_VSCROLL) | DWORD(ES_MULTILINE) | DWORD(ES_AUTOVSCROLL),
+                    0, 0, 540, 160, mainWindow, nil, wc.hInstance, nil)
+}
+SendMessageW(edit, UINT(WM_SETFONT), WPARAM(UInt(bitPattern: Int(bitPattern: UnsafeRawPointer(GetStockObject(DEFAULT_GUI_FONT))))), 1)
+ShowWindow(mainWindow, SW_SHOW)
+SetForegroundWindow(mainWindow)
+SetFocus(edit)
+
+var worker: HANDLE? = CreateThread(nil, 0, { _ in
+    let code = runScenarios()
+    ExitProcess(UINT(bitPattern: code))
+    return 0
+}, nil, 0, nil)
+_ = worker
+
+var msg = MSG()
+while GetMessageW(&msg, nil, 0, 0) {
+    TranslateMessage(&msg)
+    DispatchMessageW(&msg)
+}

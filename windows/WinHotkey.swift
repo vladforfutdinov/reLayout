@@ -208,6 +208,12 @@ private func handleCapture(_ vk: UINT, down: Bool, up: Bool) {
     }
 }
 
+#if DEBUG
+/// Keys the end-to-end harness (scripts/e2e/win-harness.swift) injects carry this in
+/// `dwExtraInfo`; dev builds treat them as typed. Must match the harness.
+let e2eKeyMarker: ULONG_PTR = 0x524C_4532
+#endif
+
 // C-compatible (capture-free) hook proc.
 private let llProc: HOOKPROC = { nCode, wParam, lParam in
     if nCode == 0 /* HC_ACTION */, let p = UnsafeRawPointer(bitPattern: Int(lParam)) {
@@ -215,7 +221,11 @@ private let llProc: HOOKPROC = { nCode, wParam, lParam in
         dlogHook(vk: info.vkCode, scan: info.scanCode, flags: info.flags, message: UInt(wParam))
         // Ignore our own synthesized input (Ctrl+C / typing) — else it would feed
         // back into detection and loop.
-        if (info.flags & 0x10 /* LLKHF_INJECTED */) == 0 {
+        var typed = (info.flags & 0x10 /* LLKHF_INJECTED */) == 0
+#if DEBUG
+        if !typed, info.dwExtraInfo == e2eKeyMarker { typed = true }
+#endif
+        if typed {
             let vk = UINT(info.vkCode)
             let m  = UINT(wParam)
             let down = (m == UINT(WM_KEYDOWN) || m == UINT(WM_SYSKEYDOWN))

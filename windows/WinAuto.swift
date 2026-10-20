@@ -223,6 +223,10 @@ func autoFeed(vk: UINT, scan: WORD, shortcut: Bool, shift: Bool) -> Bool {
     if run.word.isEmpty && run.trail.isEmpty { passwordField = focusIsPasswordField() }
     if passwordField { run.reset(); return false }
 
+    // A modifier alone types nothing. Alt pressed with Ctrl already down reads as a
+    // shortcut, and Ctrl+Alt+R would end the very word the hotkey is about to convert.
+    if isModifierVK(vk) { return false }
+
     // Anything that may delete or select text arms learning by revert.
     if vk == vkBack || shortcut || navigationVKs.contains(vk) {
         edits.edit()

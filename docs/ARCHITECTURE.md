@@ -32,6 +32,7 @@ Platform-free Swift. **No** AppKit/Carbon/WinSDK imports. Shared verbatim by:
 - Windows port — imported as the `ReLayoutCore` SwiftPM module (`Package.swift`).
 - Tests — both `scripts/run-tests.sh` (links into the macOS binary with `-DTESTING`) and `swift test` (uses `Tests/ReLayoutCoreTests`).
 - End-to-end — `scripts/e2e.sh` relaunches the built dev app with known prefs (auto-correct on, default hotkey, nothing learned), runs `scripts/e2e/harness.swift` — a window with an `NSTextView` that posts physical-key CGEvents and checks the field and the current layout — then restores the dev app's prefs and whatever reLayout was running. Local only: it needs a GUI session, Accessibility for the terminal, ABC/U.S. plus a Russian or Ukrainian layout. The harness stops if its window loses focus, so it never types into another app.
+- Windows end-to-end — `scripts/e2e-win.ps1` does the same with `scripts/e2e/win-harness.swift` (a RichEdit window; SendInput scan codes). The hook drops injected keys, so DEBUG builds (`build-windows.ps1 -DebugLog`) accept those carrying `e2eKeyMarker` in `dwExtraInfo`; release builds do not. Both programs start as interactive scheduled tasks, so it runs from SSH. A kernel-level virtual keyboard (Interception) was the alternative: it has no ARM64 driver, and the dev VM is ARM64.
 
 The core algorithm is **not** a character→character table. It is:
 

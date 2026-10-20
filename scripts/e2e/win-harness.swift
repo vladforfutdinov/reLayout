@@ -20,6 +20,7 @@ let scanCtrl: WORD = 0x1D, scanAlt: WORD = 0x38, scanR: WORD = 0x13
 
 var mainWindow: HWND?
 var edit: HWND?
+var password: HWND?   // an ES_PASSWORD EDIT below the RichEdit
 var uiThread: DWORD = 0
 
 func pause(_ ms: DWORD) { Sleep(ms) }
@@ -51,10 +52,10 @@ func hotkey() {
     pause(100)
 }
 
-/// A click in the field: the app's mouse hook ends its word buffer and undo window.
-func click() {
+/// A click in a field: the app's mouse hook ends its word buffer and undo window.
+func click(_ control: HWND? = edit) {
     var r = RECT()
-    GetWindowRect(edit, &r)
+    GetWindowRect(control, &r)
     SetCursorPos((r.left + r.right) / 2, (r.top + r.bottom) / 2)
     for flag in [MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP] {
         var i = INPUT()
@@ -66,20 +67,20 @@ func click() {
 }
 
 /// Line breaks read as "\n": RichEdit keeps "\r" internally.
-func fieldText() -> String {
-    let n = Int(SendMessageW(edit, UINT(WM_GETTEXTLENGTH), 0, 0))
+func fieldText(_ control: HWND? = edit) -> String {
+    let n = Int(SendMessageW(control, UINT(WM_GETTEXTLENGTH), 0, 0))
     var buf = [WCHAR](repeating: 0, count: n + 1)
     _ = buf.withUnsafeMutableBufferPointer {
-        SendMessageW(edit, UINT(WM_GETTEXT), WPARAM(n + 1), LPARAM(Int(bitPattern: $0.baseAddress)))
+        SendMessageW(control, UINT(WM_GETTEXT), WPARAM(n + 1), LPARAM(Int(bitPattern: $0.baseAddress)))
     }
     return String(decoding: buf.prefix(n), as: UTF16.self)
         .replacingOccurrences(of: "\r\n", with: "\n").replacingOccurrences(of: "\r", with: "\n")
 }
 
-func setField(_ s: String, selectAll: Bool) {
-    s.withCString(encodedAs: UTF16.self) { _ = SendMessageW(edit, UINT(WM_SETTEXT), 0, LPARAM(Int(bitPattern: $0))) }
+func setField(_ s: String, selectAll: Bool, in control: HWND? = edit) {
+    s.withCString(encodedAs: UTF16.self) { _ = SendMessageW(control, UINT(WM_SETTEXT), 0, LPARAM(Int(bitPattern: $0))) }
     let n = s.utf16.count
-    _ = SendMessageW(edit, UINT(EM_SETSEL), WPARAM(selectAll ? 0 : n), LPARAM(n))
+    _ = SendMessageW(control, UINT(EM_SETSEL), WPARAM(selectAll ? 0 : n), LPARAM(n))
 }
 
 func layouts() -> [HKL] {
@@ -121,11 +122,11 @@ func reset(_ s: String = "", selectAll: Bool = false) {
 }
 
 func expect(_ name: String, _ want: String, cyrillic: Bool? = nil, language: Int? = nil,
-            timeout: Int = 3000, settle: DWORD = 0) {
+            timeout: Int = 3000, settle: DWORD = 0, in control: HWND? = edit) {
     if settle > 0 { pause(settle) }
     var got = ""
     for _ in 0..<(timeout / 50) {
-        got = fieldText()
+        got = fieldText(control)
         if got == want { break }
         pause(50)
     }
@@ -201,6 +202,14 @@ func runScenarios() -> Int32 {
     reset(); type("d\t" + book.0 + " ")   // a Tab may move focus: no fix reaches back across it
     expect("auto: short word before a Tab is left alone", "d\t" + book.1 + " ")
 
+    // A password field: the app asks UI Automation off its hook thread and keeps the
+    // word out of auto-correct while the answer is on its way and after.
+    reset(); click(password); setField("", selectAll: false, in: password); select(latin)
+    type(hello.0 + " ")
+    pause(400)   // the second word comes after the answer, not while it is pending
+    type(hello.0 + " ")
+    expect("auto: nothing in a password field", hello.0 + " " + hello.0 + " ", settle: 800, in: password)
+
     reset(); type(hello.0 + "\r")
     expect("enter: word above the new line is fixed", hello.1 + "\n", cyrillic: true)
 
@@ -215,7 +224,8 @@ let wndProc: WNDPROC = { hwnd, msg, wParam, lParam in
     case WM_SIZE:
         var r = RECT()
         GetClientRect(hwnd, &r)
-        MoveWindow(edit, 0, 0, r.right, r.bottom, true)
+        MoveWindow(edit, 0, 0, r.right, r.bottom - 34, true)
+        MoveWindow(password, 0, r.bottom - 30, r.right, 30, true)
         return 0
     case WM_SETFOCUS:
         SetFocus(edit)
@@ -238,13 +248,17 @@ className.withUnsafeBufferPointer { wc.lpszClassName = $0.baseAddress; RegisterC
 mainWindow = className.withUnsafeBufferPointer { cls in
     "reLayout e2e - hands off the keyboard".withCString(encodedAs: UTF16.self) { title in
         CreateWindowExW(DWORD(WS_EX_TOPMOST), cls.baseAddress, title, DWORD(WS_OVERLAPPEDWINDOW) | DWORD(WS_VISIBLE),
-                        200, 200, 560, 200, nil, nil, wc.hInstance, nil)
+                        200, 200, 560, 240, nil, nil, wc.hInstance, nil)
     }
 }
 LoadLibraryW(Array("Msftedit.dll".utf16) + [0])
 edit = "RICHEDIT50W".withCString(encodedAs: UTF16.self) { cls in
     CreateWindowExW(0, cls, nil, DWORD(WS_CHILD) | DWORD(WS_VISIBLE) | DWORD(WS_VSCROLL) | DWORD(ES_MULTILINE) | DWORD(ES_AUTOVSCROLL),
                     0, 0, 540, 160, mainWindow, nil, wc.hInstance, nil)
+}
+password = "EDIT".withCString(encodedAs: UTF16.self) { cls in
+    CreateWindowExW(DWORD(WS_EX_CLIENTEDGE), cls, nil, DWORD(WS_CHILD) | DWORD(WS_VISIBLE) | DWORD(ES_PASSWORD) | DWORD(ES_AUTOHSCROLL),
+                    0, 170, 540, 30, mainWindow, nil, wc.hInstance, nil)
 }
 SendMessageW(edit, UINT(WM_SETFONT), WPARAM(UInt(bitPattern: Int(bitPattern: UnsafeRawPointer(GetStockObject(DEFAULT_GUI_FONT))))), 1)
 ShowWindow(mainWindow, SW_SHOW)

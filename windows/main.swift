@@ -17,20 +17,29 @@ struct Conversion {
     var alternatives: [(out: String, dst: WinLayout)] = []   // the other readings, next press first
     var suffix = ""              // spaces after a typed word, kept on retarget
 }
+// Hook-thread state. `conversionEpoch` counts forgetConversion calls: a conversion
+// is recorded only if none came while it was typed (a click mid-retype).
 private var lastConversion: Conversion?
+private var conversionEpoch = 0
 
-func recordConversion(original: String, typed: String, src: WinLayout,
+/// The point a conversion starts from; pass it to `recordConversion`.
+func conversionMark() -> Int { onHook { conversionEpoch } }
+
+func recordConversion(original: String, typed: String, src: WinLayout, since mark: Int,
                       learned: [String] = [], autoWords: [String] = [],
                       alternatives: [(out: String, dst: WinLayout)] = [], suffix: String = "") {
-    lastConversion = Conversion(original: original, typed: typed, src: src,
-                                learned: learned, autoWords: autoWords, alternatives: alternatives, suffix: suffix)
+    let c = Conversion(original: original, typed: typed, src: src,
+                       learned: learned, autoWords: autoWords, alternatives: alternatives, suffix: suffix)
+    onHook { if conversionEpoch == mark { lastConversion = c } }
 }
 
 /// Any real keystroke or click moves on from the last conversion: the caret is no
 /// longer right after the typed text, so undo would erase the wrong characters.
 func forgetConversion() {
-    lastConversion = nil
+    onHook { lastConversion = nil; conversionEpoch &+= 1 }
 }
+
+private var retypeMark = 0   // UI thread: conversionMark() when this hotkey press began
 
 // "Trigger on double-tap": fire only on the second hotkey press within the window.
 private var lastTriggerTick = [DWORD](repeating: 0, count: HotkeySlot.allCases.count)
@@ -59,8 +68,8 @@ func performRetype() {
     if hotkeyExcluded() { dwatch("hotkey: off in this app"); return }
     // Press-again: the next reading, then undo; a double-tap hotkey counts once
     // per completed double tap.
-    if let last = lastConversion {
-        lastConversion = nil
+    retypeMark = conversionMark()
+    if let last = onHook({ () -> Conversion? in defer { lastConversion = nil }; return lastConversion }) {
         if let next = last.alternatives.first { return performRetarget(last, to: next) }
         return performUndo(last)
     }
@@ -90,7 +99,7 @@ private func retypeTyped(_ typed: (text: String, spaces: Int), cur: WinLayout) {
     sendBackspaces(plan.replaced.count + typed.spaces)
     guard typeText(plan.out + spaces, in: plan.dst) else { return }
     resetAutoBuffer()
-    recordConversion(original: plan.replaced + spaces, typed: plan.out + spaces, src: plan.src,
+    recordConversion(original: plan.replaced + spaces, typed: plan.out + spaces, src: plan.src, since: retypeMark,
                      learned: learnHotkeyMisses(replaced: plan.replaced, out: plan.out, src: plan.src, dst: plan.dst),
                      alternatives: alternatives(plan.replaced, first: plan.out, src: plan.src, enabled: enabled),
                      suffix: spaces)
@@ -105,7 +114,7 @@ private func retype(_ text: String, cur: WinLayout) {
           let plan = planRetype(text, enabled: enabled, curIdx: curIdx, model: trigram) else { return }
     guard typeText(plan.out, in: plan.dst) else { return }   // also leaves dst active
     resetAutoBuffer()
-    recordConversion(original: plan.replaced, typed: plan.out, src: plan.src,
+    recordConversion(original: plan.replaced, typed: plan.out, src: plan.src, since: retypeMark,
                      learned: learnHotkeyMisses(replaced: plan.replaced, out: plan.out, src: plan.src, dst: plan.dst),
                      alternatives: plan.replaced == text
                         ? alternatives(plan.replaced, first: plan.out, src: plan.src, enabled: enabled) : [])
@@ -131,7 +140,7 @@ private func performRetarget(_ last: Conversion, to next: (out: String, dst: Win
     var again = last
     again.typed = next.out + last.suffix
     again.alternatives = Array(last.alternatives.dropFirst())
-    lastConversion = again
+    onHook { if conversionEpoch == retypeMark { lastConversion = again } }
 }
 
 /// Erases what the conversion typed (the caret sits right after it), types the
@@ -179,9 +188,13 @@ if alreadyRunning { ExitProcess(0) }
 WinLoc.load()
 dlogStartup()
 
+// The tray window first: the hook thread posts fixes and UI work to it.
+_ = setupTray()
+
 // Global hotkey via a low-level keyboard hook (see WinHotkey.swift) so a bare
 // modifier (e.g. Left Shift) can be a hotkey, which RegisterHotKey can't do.
-// The hook posts WM_RETYPE / WM_TOGGLE_AUTO to this thread; we act on them here.
+// The hook (on its own thread, with the mouse hook) posts WM_RETYPE / WM_TOGGLE_AUTO
+// to this thread; we act on them here.
 if !installHotkeyHook() {
     let err = GetLastError()
     let text = L("win.hookFailed", "\(err)")
@@ -190,12 +203,12 @@ if !installHotkeyHook() {
             _ = MessageBoxW(nil, t, c, UINT(MB_ICONERROR))
         }
     }
+    removeTray()
     ExitProcess(1)
 }
 reloadAutoMode()
-installAutoMouseHook()   // a click moves the caret: the typed-word buffer resets
+refreshTrayIcon()        // drawn before the settings were read
 trackForegroundApps()    // for "Exclude current app"
-_ = setupTray()
 
 var msg = MSG()
 while GetMessageW(&msg, nil, 0, 0) {
@@ -213,5 +226,4 @@ while GetMessageW(&msg, nil, 0, 0) {
 }
 
 removeTray()
-uninstallAutoMouseHook()
 uninstallHotkeyHook()

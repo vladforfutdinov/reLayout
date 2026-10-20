@@ -10,6 +10,10 @@ import ReLayoutCore
 // word is never touched.
 //
 // The buffer lives in memory only and is never written to disk.
+//
+// All of this file's state belongs to the hook thread (WinHotkey.swift): the hooks
+// run there, and the UI thread reaches the state only through `onHook`. UI
+// Automation is called on the UI thread only; the spell checker on the hook thread.
 
 let WM_AUTOFIX = UINT(WM_APP) + 11
 let WM_AUTOENTER = UINT(WM_APP) + 12
@@ -27,6 +31,8 @@ private var learnedCounts: [String: Int] = [:]
 private var learnedCandidates: [String: String] = [:]   // counted words and their conversions
 private var exceptions = AppExceptions(auto: [], hotkey: [])
 private var passwordField = false
+private var passwordPending = false   // not known for the focused control: nothing is corrected
+private var passwordInFlight = false  // a check is on its way back from the UI thread
 private var run = AutoRun()     // the typed-word state machine, shared with macOS (engine)
 private var lastFocus: HWND?
 
@@ -35,7 +41,8 @@ private var lastFocus: HWND?
 private var correcting = false
 private var gateSince: DWORD = 0
 private let gateMaxHoldMs: DWORD = 3000
-private var held: [(vk: UINT, scan: WORD, shift: Bool)] = []
+private typealias HeldKey = (vk: UINT, scan: WORD, shift: Bool)
+private var held: [HeldKey] = []
 
 private struct QueuedFix {
     let fix: AutoRun.Fix
@@ -56,14 +63,14 @@ private let vkBack = UINT(0x08), vkTab = UINT(0x09), vkReturn = UINT(0x0D), vkSp
 /// window, so a user who removes one gets auto-correct there (the hotkey converts
 /// only the typed word in consoles — a selection read would send Ctrl+C).
 private func autoExcluded() -> Bool {
-    if passwordField { return true }
+    if passwordField || passwordPending { return true }
     guard !exceptions.auto.isEmpty else { return false }
     return exceptions.autoOff(foregroundProcessName())
 }
 
 /// The retype hotkey does nothing in the foreground app.
 func hotkeyExcluded() -> Bool {
-    !exceptions.hotkey.isEmpty && exceptions.hotkeyOff(foregroundProcessName())
+    onHook { !exceptions.hotkey.isEmpty && exceptions.hotkeyOff(foregroundProcessName()) }
 }
 
 /// Both auto-correct and the hotkey are off in the foreground app: the hook reads
@@ -92,10 +99,12 @@ private func foregroundProcessName() -> String {
 private var models: [String: TrigramModel?] = [:]
 
 func trigram(_ lang: String) -> TrigramModel? {
-    if let cached = models[lang] { return cached }
+    if let cached = onHook({ models[lang] }) { return cached }
+    // Not inside the hook: the file is read on the UI thread; this word goes without.
+    if onHookThread() { postToUI { _ = trigram(lang) }; return nil }
     let model = (try? String(contentsOfFile: "\(exeDirectory())\\trigram\\\(lang).txt", encoding: .utf8))
         .flatMap(TrigramModel.init(text:))
-    models[lang] = model
+    onHook { models[lang] = model }
     return model
 }
 
@@ -126,39 +135,42 @@ private func character(_ vk: UINT, _ scan: WORD, _ layout: WinLayout, shift: Boo
 /// Ends the run: the caret may have moved, so what we remember is no longer what
 /// is on screen.
 func resetAutoBuffer() {
-    run.reset()
+    onHook { run.reset() }
 }
 
 /// What an undo or a retarget just put before the caret stays the hotkey's
 /// target as a whole (engine `remember`).
 func rememberSelection(_ s: String) {
-    run.remember(s)
+    onHook { run.remember(s) }
 }
 
 /// The word typed before the caret and the spaces after it, for the hotkey with
 /// nothing selected.
 func typedWord() -> (text: String, spaces: Int) {
-    run.hotkeyTarget
+    onHook { run.hotkeyTarget }
 }
 
 /// Re-reads the preferences (at startup and whenever Settings changes them).
 func reloadAutoMode() {
-    autoEnabled = loadAutoMode()
-    autoEnterEnabled = loadAutoEnter()
-    autoSameScript = loadAutoSameScript()
-    autoSpell = loadAutoSpell()
-    // Loaded here, not lazily on the first word: that runs inside the keyboard hook.
-    for lang in WinLayout.installedList().compactMap(\.languageCode) { _ = trigram(lang) }
-    if autoSpell {
-        let all = WinLayout.installedList()
-        warmSpellCheckers(scriptLanguages(cyrillic: true, enabled: all) + scriptLanguages(cyrillic: false, enabled: all))
+    let all = WinLayout.installedList()
+    // Loaded here, on the calling thread, not lazily on the first word inside the hook.
+    for lang in all.compactMap(\.languageCode) { _ = trigram(lang) }
+    let enabled = loadAutoMode(), enter = loadAutoEnter(), same = loadAutoSameScript(), spell = loadAutoSpell()
+    let convert = loadLearned(), keep = Set(loadKept()), counts = loadLearnCounts(), candidates = loadLearnCandidates()
+    let exc = AppExceptions(auto: loadExcludedApps(), hotkey: loadHotkeyExcludedApps())
+    onHook {
+        autoEnabled = enabled; autoEnterEnabled = enter; autoSameScript = same; autoSpell = spell
+        learnedConvert = convert; learnedKeep = keep; learnedCounts = counts; learnedCandidates = candidates
+        exceptions = exc
+        run.reset()
     }
-    learnedConvert = loadLearned()
-    learnedKeep = Set(loadKept())
-    learnedCounts = loadLearnCounts()
-    learnedCandidates = loadLearnCandidates()
-    exceptions = AppExceptions(auto: loadExcludedApps(), hotkey: loadHotkeyExcludedApps())
-    run.reset()
+    // The checkers live on the hook thread, which uses them. Opening a dictionary is
+    // slow: one language per queued step, so keys are served in between.
+    if spell {
+        for lang in scriptLanguages(cyrillic: true, enabled: all) + scriptLanguages(cyrillic: false, enabled: all) {
+            postToHook { warmSpellCheckers([lang]) }
+        }
+    }
 }
 
 /// Turns auto-correct on or off as the Settings checkbox does: saves it, re-reads
@@ -180,7 +192,7 @@ func toggleAutoMode() {
 }
 
 /// Auto-correct is on and can act — what the Settings checkbox shows checked.
-func autoModeActive() -> Bool { autoEnabled && WinLayout.crossScriptAvailable() }
+func autoModeActive() -> Bool { onHook { autoEnabled } && WinLayout.crossScriptAvailable() }
 
 /// True when the character is a letter on an installed Cyrillic layout while a
 /// Latin one is active ("," is б), so ",skj" buffers as "было".
@@ -199,8 +211,9 @@ private func mapsToCyrillic(_ ch: Character, cur: WinLayout) -> Bool {
 /// - Returns: true when the key must not reach the app — it is either held while a
 ///   fix is in flight, or the boundary key that the fix will retype itself.
 ///   - typed: what the key types, when already worked out (a replayed held key).
-func autoFeed(vk: UINT, scan: WORD, shortcut: Bool, shift: Bool, typed: String? = nil) -> Bool {
-    if correcting {
+///   - replayed: a held key fed after its fix: it is not held again.
+func autoFeed(vk: UINT, scan: WORD, shortcut: Bool, shift: Bool, typed: String? = nil, replayed: Bool = false) -> Bool {
+    if correcting, !replayed {
         if GetTickCount() &- gateSince > gateMaxHoldMs {   // watchdog: never freeze the keyboard
             correcting = false
             held = []
@@ -213,7 +226,7 @@ func autoFeed(vk: UINT, scan: WORD, shortcut: Bool, shift: Bool, typed: String? 
             return true
         }
     }
-    if !correcting, keysOffInForeground() { run.reset(); return false }
+    if !correcting || replayed, keysOffInForeground() { run.reset(); return false }
 
     // A different window may hold other text.
     let focus = focusWindow()
@@ -223,9 +236,14 @@ func autoFeed(vk: UINT, scan: WORD, shortcut: Bool, shift: Bool, typed: String? 
     }
     // Password check once per word, as it starts: a browser page is one window, so
     // moving from the login field to the password field changes no focus window.
-    // One UI Automation call per word, not per key; a password never reaches the run.
-    if run.word.isEmpty && run.trail.isEmpty { passwordField = focusIsPasswordField() }
-    if passwordField { run.reset(); return false }
+    // UI Automation can block, so the UI thread asks and the answer comes back;
+    // until it does, nothing is corrected (autoExcluded).
+    // While the answer is pending the last one may be stale (another field): keys
+    // are kept, in memory only, and the next key after a "yes" drops them.
+    // Replayed keys are checked by finishFix itself: the UI thread, busy replaying,
+    // could not answer a queued question until the replay ends.
+    if run.word.isEmpty && run.trail.isEmpty, !replayed { checkPasswordField() }
+    if passwordField, !passwordPending { run.reset(); return false }
 
     // A modifier alone types nothing. Alt pressed with Ctrl already down reads as a
     // shortcut, and Ctrl+Alt+R would end the very word the hotkey is about to convert.
@@ -259,11 +277,21 @@ func autoFeed(vk: UINT, scan: WORD, shortcut: Bool, shift: Bool, typed: String? 
     case .enter(let word, let trail):
         // Return submits: never correct before it lands (a launcher query, a
         // message). Only once the field shows a new line is the word fixed above it.
-        enterFollowUp(word: word, trail: trail, cur: cur)
-        return false
+        return enterFollowUp(word: word, trail: trail, cur: cur, shift: shift)
     case .boundary(let word, let trail):
         return evaluate(word: word, trail: trail, boundary: Int32(vk), shift: shift, cur: cur)
     }
+}
+
+/// Asks the UI thread whether the focused control is a password field; the answer
+/// lands in `passwordField`. One question at a time.
+private func checkPasswordField() {
+    guard !passwordInFlight else { return }
+    passwordInFlight = postToUI {
+        let password = focusIsPasswordField()
+        onHook { passwordField = password; passwordPending = false; passwordInFlight = false }
+    }
+    passwordPending = true
 }
 
 /// Word boundary: decide, and queue the fix for the UI thread.
@@ -354,18 +382,25 @@ private func autoDecide(_ w: String, cur: WinLayout, enabled: [WinLayout])
 // MARK: - learned words (the user's verdicts; see the engine's hotkeyMisses)
 
 func learnedVerdict(_ key: String) -> LearnedVerdict? {
-    if learnedConvert[key] != nil { return .convert }
-    return learnedKeep.contains(key) ? .keep : nil
+    onHook {
+        if learnedConvert[key] != nil { return .convert }
+        return learnedKeep.contains(key) ? .keep : nil
+    }
 }
 
-func learnedCount() -> Int { learnedConvert.count + learnedKeep.count }
+func learnedCount() -> Int { onHook { learnedConvert.count + learnedKeep.count } }
 
 /// Learns, as `.convert`, the words of a hotkey conversion that auto-correct would
 /// have left alone. Only with auto-correct on, never in a password field or an
 /// excluded app: nothing typed there is persisted.
 /// - Returns: the learned keys, so the press-again undo can forget them.
 func learnHotkeyMisses(replaced: String, out: String, src: WinLayout, dst: WinLayout) -> [String] {
-    guard autoEnabled, !focusIsPasswordField(), !autoExcluded() else { return [] }
+    guard !focusIsPasswordField() else { return [] }   // UI Automation: on the calling (UI) thread
+    return onHook { learnMisses(replaced: replaced, out: out, src: src, dst: dst) }
+}
+
+private func learnMisses(replaced: String, out: String, src: WinLayout, dst: WinLayout) -> [String] {
+    guard autoEnabled, !autoExcluded() else { return [] }
     let misses = hotkeyMisses(replaced: replaced, out: out, src: src, dst: dst, enabled: WinLayout.installedList(),
                               model: trigram)
     guard !misses.isEmpty else { return [] }
@@ -384,7 +419,9 @@ func learnHotkeyMisses(replaced: String, out: String, src: WinLayout, dst: WinLa
 
 /// Undo takes back what the conversion taught: its hotkey misses are forgotten, the
 /// words of an undone auto-correction are learned as `.keep`.
-func unlearn(_ last: Conversion) {
+func unlearn(_ last: Conversion) { onHook { unlearnOnHook(last) } }
+
+private func unlearnOnHook(_ last: Conversion) {
     guard autoEnabled, !(last.learned.isEmpty && last.autoWords.isEmpty) else { return }
     for w in last.learned {
         // The press being undone either promoted the word or counted toward it.
@@ -398,7 +435,7 @@ func unlearn(_ last: Conversion) {
 }
 
 func learnedWords() -> (convert: [String: String], keep: Set<String>, candidates: [String: String]) {
-    (learnedConvert, learnedKeep, learnedCandidates)
+    onHook { (learnedConvert, learnedKeep, learnedCandidates) }
 }
 
 private func promote(_ key: String, to out: String?) {
@@ -410,29 +447,37 @@ private func promote(_ key: String, to out: String?) {
 /// Makes `key` a verdict (a checked candidate, a word added by hand): `.convert`
 /// to `out`, or `.keep` when `out` is empty (a keep candidate's conversion).
 func promoteLearned(_ key: String, to out: String) {
-    promote(key, to: out.isEmpty ? nil : out)
-    if out.isEmpty { learnedKeep.insert(key) } else { learnedKeep.remove(key) }
-    saveLearnedWords()
+    onHook {
+        promote(key, to: out.isEmpty ? nil : out)
+        if out.isEmpty { learnedKeep.insert(key) } else { learnedKeep.remove(key) }
+        saveLearnedWords()
+    }
 }
 
 /// Turns a verdict back into a candidate counted once; a `.keep` becomes one with
 /// an empty conversion.
 func demoteLearned(_ key: String) {
-    learnedCandidates[key] = learnedConvert.removeValue(forKey: key) ?? ""
-    learnedKeep.remove(key)
-    learnedCounts[key] = 1
-    saveLearnedWords()
+    onHook {
+        learnedCandidates[key] = learnedConvert.removeValue(forKey: key) ?? ""
+        learnedKeep.remove(key)
+        learnedCounts[key] = 1
+        saveLearnedWords()
+    }
 }
 
 /// Drops the candidates and their counts; no verdict is touched.
 func cleanLearnCandidates() {
-    learnedCandidates = [:]
-    learnedCounts = [:]
-    saveLearnedWords()
+    onHook {
+        learnedCandidates = [:]
+        learnedCounts = [:]
+        saveLearnedWords()
+    }
 }
 
 /// Forgets `keys` from every store, or everything learned when nil.
-func forgetLearned(_ keys: Set<String>? = nil) {
+func forgetLearned(_ keys: Set<String>? = nil) { onHook { forgetLearnedOnHook(keys) } }
+
+private func forgetLearnedOnHook(_ keys: Set<String>?) {
     if let keys {
         for k in keys { learnedConvert[k] = nil; learnedCounts[k] = nil; learnedCandidates[k] = nil }
         learnedKeep.subtract(keys)
@@ -450,49 +495,54 @@ private func saveLearnedWords() {
     saveKept(learnedKeep.sorted())
     saveLearnCounts(learnedCounts)
     saveLearnCandidates(learnedCandidates)
-    refreshSettingsLearned()
+    postToUI { refreshSettingsLearned() }   // its windows belong to the UI thread
 }
 
 // MARK: - Enter follow-up
 
 private struct EnterJob {
-    let before: FieldSnapshot
     let word: String        // word + trail, as typed
     let text: String        // its conversion
     let target: WinLayout
     let src: WinLayout      // for undo
+    let shift: Bool         // Shift+Return stays Shift+Return when re-sent
 }
 private var enterJob: EnterJob?
 
-/// Return is never swallowed. If the word looks wrong, snapshot the field now and
-/// let the UI thread see where Return took it: a new line means the word is still
-/// there to fix, a submitted field means it is gone.
-private func enterFollowUp(word: String, trail: String, cur: WinLayout) {
+/// If the word looks wrong, Return is held back for the UI thread: it reads the
+/// field (UI Automation, which must not run in the hook), re-sends Return, and sees
+/// where it took the field — a new line means the word is still there to fix, a
+/// submitted field means it is gone.
+/// - Returns: true when Return was held back.
+private func enterFollowUp(word: String, trail: String, cur: WinLayout, shift: Bool) -> Bool {
     guard autoEnterEnabled, !correcting, wordBody(word) >= 3, !autoExcluded(), !foregroundIsConsole(),
-          let decided = autoDecide(word, cur: cur, enabled: WinLayout.installedList()),
-          !decided.ambiguous, let before = readFieldSnapshot(), before.tail.hasSuffix(word + trail)
-    else { return }
+          let decided = autoDecide(word, cur: cur, enabled: WinLayout.installedList()), !decided.ambiguous
+    else { return false }
     let outTrail = trail.isEmpty ? "" : transliterate(trail, from: cur, to: decided.target)
-    enterJob = EnterJob(before: before, word: word + trail,
-                        text: decided.out + outTrail, target: decided.target, src: cur)
+    enterJob = EnterJob(word: word + trail, text: decided.out + outTrail, target: decided.target, src: cur,
+                        shift: shift)
     correcting = true
     gateSince = GetTickCount()
     PostMessageW(trayWindow(), WM_AUTOENTER, 0, 0)
+    return true
 }
 
 /// Fixes the word above the new line once the field has settled.
 func runAutoEnter() {
     defer { finishFix() }
-    guard let job = enterJob else { return }
-    enterJob = nil
+    guard let job = onHook({ () -> EnterJob? in defer { enterJob = nil }; return enterJob }) else { return }
+    let mark = conversionMark()
+    let before = readFieldSnapshot()
+    sendKeyTap(Int32(vkReturn), shift: job.shift)   // the held-back Return, now that the field is read
+    guard let before, before.tail.hasSuffix(job.word) else { return }
     dwatch("enter fix")
-    guard let after = awaitSettledField(before: job.before, read: readFieldSnapshot,
+    guard let after = awaitSettledField(before: before, read: readFieldSnapshot,
                                         wait: { pumpWait(DWORD($0)) }),
-          enterOutcome(before: job.before, after: after, word: job.word) == .newline else { return }
+          enterOutcome(before: before, after: after, word: job.word) == .newline else { return }
     sendBackspaces(job.word.count + 1)   // the word and the line break
     guard typeText(job.text, in: job.target) else { return }   // also leaves target active
     sendKeyTap(Int32(vkReturn))
-    recordConversion(original: job.word + "\r", typed: job.text + "\r", src: job.src,
+    recordConversion(original: job.word + "\r", typed: job.text + "\r", src: job.src, since: mark,
                      autoWords: [learnedKey(job.word)])
 }
 
@@ -500,29 +550,40 @@ func runAutoEnter() {
 
 func runAutoFix() {
     defer { finishFix() }
-    guard let job = queued else { return }
-    queued = nil
+    guard let job = onHook({ () -> QueuedFix? in defer { queued = nil }; return queued }) else { return }
+    let mark = conversionMark()
     dwatch("auto fix erase=\(job.fix.erase) len=\(job.fix.text.count)")
     sendBackspaces(job.fix.erase)
     guard typeText(job.fix.text, in: job.target) else { return }   // also leaves target active
     sendKeyTap(job.boundary, shift: job.shift)
     let boundary = job.boundary == Int32(vkTab) ? "\t" : " "
-    recordConversion(original: job.fix.original + boundary, typed: job.fix.text + boundary, src: job.src,
+    recordConversion(original: job.fix.original + boundary, typed: job.fix.text + boundary, src: job.src, since: mark,
                      autoWords: job.fix.original.split(separator: " ").map { learnedKey(String($0)) })
 }
 
 /// Replays what was typed during the fix, feeding each key through the run first
-/// so a word typed across the correction is still judged as one word.
+/// so a word typed across the correction is still judged as one word. The gate
+/// stays shut until the queue is empty, so keys typed during the replay queue up
+/// behind it instead of overtaking it.
 private func finishFix() {
-    correcting = false
-    let replay = held
-    held = []
     // Keys typed during the fix land after it: the caret has moved past the fix.
-    if !replay.isEmpty { forgetConversion() }
-    for (i, key) in replay.enumerated() {
+    // They may have gone to another field (the fix ended on Tab): ask now, on this
+    // thread, before any of them is fed.
+    if onHook({ () -> Bool in if !held.isEmpty { forgetConversion() }; return !held.isEmpty }) {
+        let password = focusIsPasswordField()
+        onHook { passwordField = password; passwordPending = false }
+    }
+    while let key = onHook({ () -> HeldKey? in
+        // A fix queued meanwhile (a replayed key started one, or the watchdog let
+        // a new word through) replays what is held after it runs.
+        guard queued == nil, enterJob == nil else { return nil }
+        guard !held.isEmpty else { correcting = false; return nil }
+        gateSince = GetTickCount()   // the watchdog counts from the last replayed key
+        return held.removeFirst()
+    }) {
         if key.vk == vkReturn {
             // No Enter follow-up here: its "before" read would race this very key.
-            run.reset()
+            resetAutoBuffer()
             sendKeyTap(Int32(vkReturn), shift: key.shift)
             continue
         }
@@ -530,12 +591,14 @@ private func finishFix() {
         // screen typed the same text (the fix may have switched layout under the keys).
         let cur = WinLayout.current()
         let text = cur.map { character(key.vk, key.scan, $0, shift: key.shift) } ?? ""
-        if autoFeed(vk: key.vk, scan: key.scan, shortcut: false, shift: key.shift, typed: text) {
-            held = Array(replay[(i + 1)...])   // that key started another fix; it replays the rest
-            return
+        if onHook({ autoFeed(vk: key.vk, scan: key.scan, shortcut: false, shift: key.shift, typed: text, replayed: true) }) {
+            return   // that key started another fix; the rest stays held for it to replay
         }
         if text.isEmpty || key.vk == vkSpace || key.vk == vkTab {
             sendKeyTap(Int32(key.vk), shift: key.shift)   // apps act on these keys, not on their text
+            // Focus may move with a Tab, and a read right after it could still see the
+            // old field: unknown until the next typed word asks again.
+            if key.vk == vkTab { onHook { passwordPending = true } }
         } else if let cur {
             _ = typeText(text, in: cur)
         }
@@ -566,8 +629,8 @@ func uninstallAutoMouseHook() {
 }
 
 /// Whether "Between similar layouts" can fire with the installed layouts.
-func similarAvailable() -> Bool { hasSimilarLayouts(WinLayout.installedList(), model: trigram) }
+func similarAvailable() -> Bool { onHook { hasSimilarLayouts(WinLayout.installedList(), model: trigram) } }
 
 /// Whether the spell-check option can act: a system dictionary for an installed
 /// layout's language.
-func spellAvailable() -> Bool { hasSpellDictionary(WinLayout.installedList()) }
+func spellAvailable() -> Bool { onHook { hasSpellDictionary(WinLayout.installedList()) } }

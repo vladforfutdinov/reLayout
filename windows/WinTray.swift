@@ -18,6 +18,20 @@ private var trayHwnd: HWND?
 
 /// The app's hidden window; owns the clipboard when it is restored.
 func trayWindow() -> HWND? { trayHwnd }
+
+private let WM_RUN_ON_UI = UINT(WM_APP) + 41
+private let uiQueue = CallQueue()
+
+/// Queues `body` on the UI thread (through the tray window, whose messages modal
+/// loops still dispatch).
+/// - Returns: false before the tray window exists; `body` is then dropped.
+@discardableResult
+func postToUI(_ body: @escaping () -> Void) -> Bool {
+    guard let hwnd = trayHwnd else { return false }
+    uiQueue.push(body)
+    PostMessageW(hwnd, WM_RUN_ON_UI, 0, 0)
+    return true
+}
 private var nid = NOTIFYICONDATAW()
 private var classNameW = Array("ReLayoutTrayWnd".utf16) + [0]
 
@@ -158,6 +172,9 @@ private func trayWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lParam:
     case trayCallback:
         let ev = UINT(truncatingIfNeeded: lParam) & 0xFFFF
         if ev == UINT(WM_RBUTTONUP) || ev == UINT(WM_LBUTTONUP) { showTrayMenu(hwnd) }
+    case WM_RUN_ON_UI:
+        uiQueue.drain()
+        return 0
     case WM_AUTOFIX:
         runAutoFix()
     case WM_AUTOENTER:

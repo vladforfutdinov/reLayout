@@ -22,7 +22,8 @@ ISpellCheckerFactory *factory() {
     static bool tried = false;
     if (!tried) {
         tried = true;
-        // The app's UI thread, the same apartment the UI Automation reader joins.
+        // The hook thread (WinHotkey.swift), the only one that checks spelling; its
+        // message loop serves the apartment.
         CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
         if (FAILED(CoCreateInstance(kSpellCheckerFactory, nullptr, CLSCTX_INPROC_SERVER,
                                     IID_PPV_ARGS(&cached)))) cached = nullptr;

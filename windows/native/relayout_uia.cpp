@@ -15,11 +15,11 @@ namespace {
 IUIAutomation *automation() {
     static IUIAutomation *cached = nullptr;
     if (!cached) {
-        CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);   // the app's UI thread
+        CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);   // the UI thread, the only caller
         CoCreateInstance(CLSID_CUIAutomation, nullptr, CLSCTX_INPROC_SERVER,
                          IID_PPV_ARGS(&cached));
-        // Calls run inside the low-level keyboard hook: a hung app must not hold it
-        // past LowLevelHooksTimeout, or Windows silently removes the hook.
+        // A hung app must not freeze the UI thread (and the fix or hotkey waiting
+        // on it) for the ~6 s default.
         IUIAutomation2 *tuned = nullptr;
         if (cached && SUCCEEDED(cached->QueryInterface(IID_PPV_ARGS(&tuned))) && tuned) {
             tuned->put_ConnectionTimeout(100);

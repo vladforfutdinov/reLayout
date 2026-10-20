@@ -4,6 +4,45 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.16 — Windows hooks on their own thread
+
+- The keyboard and mouse hooks ran on the UI thread, so any slow UI work (a
+  UIA read, typing a fix, the clipboard) delayed keys, and UIA calls sat in
+  the hook itself (the password check per word, the Enter snapshot) — past
+  LowLevelHooksTimeout Windows silently drops the hook. They now run on a
+  dedicated thread that owns all hotkey/auto-correct state and the spell
+  checker; the UI thread reaches it through `onHook` (synchronous), the hook
+  thread hands work back through `postToUI`. The hook thread never waits for
+  the UI thread.
+- UIA left the hook: the password check is asked on the UI thread at each
+  word start (`passwordPending` blocks corrections until the answer; a stale
+  "yes" from another field does not drop keys meanwhile — the first e2e run
+  lost the "g" of "ghbdtn" that way); Return is held back when a follow-up
+  is likely, the UI thread reads the field, re-sends Return, then fixes.
+- Held-key replay keeps the gate shut until the queue is empty (new keys
+  queue behind it), stops when another fix is queued (also after the
+  watchdog), and re-checks the field for a password first; after a replayed
+  Tab the field counts as unknown (no corrections) until a typed word asks.
+- `conversionEpoch` guards the undo record like macOS's `undoEpoch`: a click
+  during a retype is no longer overwritten by the retype's record.
+- Re-sent keys take Shift as it was when typed, whatever is held now.
+- Cross-thread closures go through an in-process `CallQueue`; the window
+  message carries no pointer (an automated security review flagged the first
+  version, which passed an object pointer in `lParam` that any process could
+  forge). The hook thread is woken through a message-only window (a COM wait
+  drops thread messages) and runs one queued item per wake.
+- Settings' hotkey capture results are dropped if the capture was cancelled
+  before they reached the UI thread.
+- Startup: tray first (the hook thread posts to it), then the hook thread.
+- e2e: a password-field scenario (two words, the second after the answer);
+  the runner waits for the app's process — the "first scenario fails now and
+  then" flake was the harness typing before the app had started. 15/15 twice.
+- An Opus review of the diff found two must-fix defects (an escaping-closure
+  trap in `onHook`; replayed words never corrected because the password
+  answer could not come back mid-replay) and four should-fix ones; all fixed.
+- Not verified: hook removal under a really hung app (no such app in the VM),
+  the spell-check option on the new thread (off in e2e).
+
 ## After v1.3.16 — Windows batch: foreign keys, held-key replay, installer autostart
 
 - Keys reLayout sends now carry `ownInputMarker` in `dwExtraInfo`. Any other

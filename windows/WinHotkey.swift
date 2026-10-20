@@ -6,6 +6,11 @@ import WinSDK
 // combos (Ctrl+Alt+R). Detection runs inside the WH_KEYBOARD_LL hook; the actual
 // conversion is posted to the main thread (WM_RETYPE) so the hook stays cheap.
 //
+// The hooks run on a thread of their own, which owns the hotkey and auto-correct
+// state: the UI thread's slow work (typing a fix, UI Automation, the clipboard)
+// never delays a key past LowLevelHooksTimeout, after which Windows silently drops
+// the hook. The UI thread touches that state only through `onHook`.
+//
 // A hotkey is (mods, vk). If vk is itself a modifier VK and mods == 0 it's a
 // modifier-tap hotkey; vk `chordVK` is a tap of the modifiers in `mods` together
 // (Ctrl+Shift); otherwise it's a combo. There are two: convert, and
@@ -35,6 +40,107 @@ enum HotkeySlot: Int, CaseIterable {
 
 private var llHook: HHOOK?
 private var mainThreadId: DWORD = 0
+private var hookThreadId: DWORD = 0
+private let WM_HOOK_RUN = UINT(WM_APP) + 40
+
+/// Closures for another thread of this process. The message that wakes that thread
+/// carries no pointer — any process can post to a window or thread — it only says
+/// "drain the queue", which is harmless to fake.
+final class CallQueue {
+    private var items: [() -> Void] = []
+    private let lock: UnsafeMutablePointer<SRWLOCK> = {
+        let p = UnsafeMutablePointer<SRWLOCK>.allocate(capacity: 1)
+        InitializeSRWLock(p)
+        return p
+    }()
+
+    func push(_ item: @escaping () -> Void) {
+        AcquireSRWLockExclusive(lock); items.append(item); ReleaseSRWLockExclusive(lock)
+    }
+
+    func drain() {
+        AcquireSRWLockExclusive(lock)
+        let batch = items
+        items = []
+        ReleaseSRWLockExclusive(lock)
+        for item in batch { item() }
+    }
+
+    /// Runs the oldest item only: the thread gets back to its message loop (and its
+    /// hooks) between items.
+    func runOne() {
+        AcquireSRWLockExclusive(lock)
+        let item = items.isEmpty ? nil : items.removeFirst()
+        ReleaseSRWLockExclusive(lock)
+        item?()
+    }
+}
+
+private let hookQueue = CallQueue()
+
+// Woken through a message-only window, not a thread message: a modal loop on the
+// thread (a COM wait) dispatches window messages but drops thread messages.
+private var hookWindow: HWND?
+private let hookWndProc: WNDPROC = { hwnd, msg, wParam, lParam in
+    if msg == WM_HOOK_RUN { hookQueue.runOne(); return 0 }
+    return DefWindowProcW(hwnd, msg, wParam, lParam)
+}
+
+/// Queues `item` and wakes the hook thread; runs the queue inline when the thread
+/// is gone (shutdown), so no caller waits forever.
+private func wakeHook(_ item: @escaping () -> Void) {
+    hookQueue.push(item)
+    if !PostMessageW(hookWindow, WM_HOOK_RUN, 0, 0) { hookQueue.drain() }
+}
+
+/// True on the hook thread.
+func onHookThread() -> Bool { hookThreadId != 0 && GetCurrentThreadId() == hookThreadId }
+
+/// Runs `body` on the hook thread and waits for its result; inline on the hook
+/// thread itself and before that thread exists. The hook thread never waits for
+/// the UI thread, so the wait cannot deadlock.
+func onHook<T>(_ body: @escaping () -> T) -> T {
+    guard hookWindow != nil, !onHookThread() else { return body() }
+    var result: T?
+    let done = CreateEventW(nil, true, false, nil)
+    defer { CloseHandle(done) }
+    wakeHook { result = body(); SetEvent(done) }
+    WaitForSingleObject(done, INFINITE)
+    return result!
+}
+
+/// Queues `body` on the hook thread without waiting.
+func postToHook(_ body: @escaping () -> Void) {
+    guard hookWindow != nil else { return body() }
+    wakeHook(body)
+}
+
+private var hookReady: HANDLE?
+
+private let hookThreadMain: LPTHREAD_START_ROUTINE = { _ in
+    hookThreadId = GetCurrentThreadId()
+    let hInst = GetModuleHandleW(nil)
+    hookWindow = (Array("reLayoutHookThread".utf16) + [0]).withUnsafeBufferPointer { name in
+        var wc = WNDCLASSW()
+        wc.lpfnWndProc = hookWndProc
+        wc.hInstance = hInst
+        wc.lpszClassName = name.baseAddress
+        RegisterClassW(&wc)
+        return CreateWindowExW(0, name.baseAddress, nil, 0, 0, 0, 0, 0,
+                               HWND(bitPattern: -3) /* HWND_MESSAGE */, nil, hInst, nil)
+    }
+    llHook = SetWindowsHookExW(13 /* WH_KEYBOARD_LL */, llProc, GetModuleHandleW(nil), 0)
+    installAutoMouseHook()
+    SetEvent(hookReady)
+    var msg = MSG()
+    while GetMessageW(&msg, nil, 0, 0) {
+        TranslateMessage(&msg)
+        DispatchMessageW(&msg)
+    }
+    uninstallAutoMouseHook()
+    if let h = llHook { UnhookWindowsHookEx(h); llHook = nil }
+    return 0
+}
 
 // capture mode (recording a new hotkey from the Settings window)
 private var capturing = false
@@ -180,6 +286,15 @@ private struct HotkeyDetector {
 private var detectors = [HotkeyDetector(message: WM_RETYPE), HotkeyDetector(message: WM_TOGGLE_AUTO)]
 
 private var captureHeld: UINT = 0, capturePeak: UINT = 0
+// Bumped by each start and cancel: a result posted to the UI thread from an earlier
+// capture (Settings closed meanwhile) is dropped, not saved.
+private var captureSession = 0
+
+/// Hands a capture result to the UI thread, unless that capture was cancelled first.
+private func deliverCapture(_ body: @escaping () -> Void) {
+    let session = captureSession
+    postToUI { if onHook({ captureSession }) == session { body() } }
+}
 
 private func endCapture() {
     capturing = false; captureDone = nil; captureLive = nil; captureHeld = 0; capturePeak = 0
@@ -189,11 +304,14 @@ private func handleCapture(_ vk: UINT, down: Bool, up: Bool) {
     if down {
         if !isModifierVK(vk) {
             // a real key -> combo with whatever modifiers are held
-            let cb = captureDone; endCapture(); cb?(currentMods(), vk)
+            let cb = captureDone, mods = currentMods()
+            endCapture()
+            deliverCapture { cb?(mods, vk) }
         } else {
             captureHeld |= modFlag(vk); capturePeak |= captureHeld
             // live hint, e.g. "Left Shift" or "Ctrl+Shift" — just release to set it
-            captureLive?(capturePeak.nonzeroBitCount > 1 ? hotkeyLabel(capturePeak, chordVK) : keyName(vk))
+            let live = captureLive, label = capturePeak.nonzeroBitCount > 1 ? hotkeyLabel(capturePeak, chordVK) : keyName(vk)
+            deliverCapture { live?(label) }
         }
     } else if up, isModifierVK(vk) {
         // modifiers released with no real key in between (else we'd have finalized
@@ -204,7 +322,7 @@ private func handleCapture(_ vk: UINT, down: Bool, up: Bool) {
         guard captureHeld == 0 else { return }
         let peak = capturePeak, cb = captureDone
         endCapture()
-        if peak.nonzeroBitCount > 1 { cb?(peak, chordVK) } else { cb?(0, vk) }
+        deliverCapture { if peak.nonzeroBitCount > 1 { cb?(peak, chordVK) } else { cb?(0, vk) } }
     }
 }
 
@@ -219,6 +337,7 @@ private let llProc: HOOKPROC = { nCode, wParam, lParam in
     if nCode == 0 /* HC_ACTION */, let p = UnsafeRawPointer(bitPattern: Int(lParam)) {
         let info = p.assumingMemoryBound(to: KBDLLHOOKSTRUCT.self).pointee
         dlogHook(vk: info.vkCode, scan: info.scanCode, flags: info.flags, message: UInt(wParam))
+        if info.dwExtraInfo == ownInputMarker { return CallNextHookEx(nil, nCode, wParam, lParam) }
         // Ignore our own synthesized input (Ctrl+C / typing) — else it would feed
         // back into detection and loop.
         var typed = (info.flags & 0x10 /* LLKHF_INJECTED */) == 0
@@ -227,8 +346,7 @@ private let llProc: HOOKPROC = { nCode, wParam, lParam in
 #endif
         // Another program typed (a remapper, an on-screen keyboard, a password
         // manager): text changed that the run did not see, so it no longer matches.
-        if !typed, info.dwExtraInfo != ownInputMarker,
-           wParam == WPARAM(WM_KEYDOWN) || wParam == WPARAM(WM_SYSKEYDOWN) {
+        if !typed, wParam == WPARAM(WM_KEYDOWN) || wParam == WPARAM(WM_SYSKEYDOWN) {
             resetAutoBuffer()
             forgetConversion()
         }
@@ -271,21 +389,28 @@ private let llProc: HOOKPROC = { nCode, wParam, lParam in
 
 // MARK: - public API
 
-/// Installs the low-level keyboard hook on the calling thread.
-/// - Returns: false if Windows refused the hook.
+/// Starts the hook thread, which installs the keyboard and mouse hooks; hotkeys are
+/// posted back to the calling (UI) thread.
+/// - Returns: false if Windows refused the keyboard hook.
 func installHotkeyHook() -> Bool {
     mainThreadId = GetCurrentThreadId()
     for slot in HotkeySlot.allCases { detectors[slot.rawValue].set(loadHotkey(slot)) }
-    llHook = SetWindowsHookExW(13 /* WH_KEYBOARD_LL */, llProc, GetModuleHandleW(nil), 0)
+    hookReady = CreateEventW(nil, true, false, nil)
+    defer { CloseHandle(hookReady); hookReady = nil }
+    guard let thread = CreateThread(nil, 0, hookThreadMain, nil, 0, nil) else { return false }
+    CloseHandle(thread)
+    WaitForSingleObject(hookReady, INFINITE)
     return llHook != nil
 }
 
+/// Stops the hook thread; it removes both hooks on its way out.
 func uninstallHotkeyHook() {
-    if let h = llHook { UnhookWindowsHookEx(h); llHook = nil }
+    if hookThreadId != 0 { PostThreadMessageW(hookThreadId, UINT(WM_QUIT), 0, 0) }
+    hookWindow = nil
 }
 
 func setHotkey(_ slot: HotkeySlot, _ hk: Hotkey) {
-    detectors[slot.rawValue].set(hk)
+    onHook { detectors[slot.rawValue].set(hk) }
 }
 
 // Enter capture: held modifiers are reported live via `onLive`; the final
@@ -293,12 +418,15 @@ func setHotkey(_ slot: HotkeySlot, _ hk: Hotkey) {
 // the main thread.
 func startHotkeyCapture(onLive: @escaping (String) -> Void,
                         onDone: @escaping (UINT, UINT) -> Void) {
-    captureLive = onLive
-    captureDone = onDone
-    capturing = true
+    onHook {
+        captureSession &+= 1
+        captureLive = onLive
+        captureDone = onDone
+        capturing = true
+    }
 }
 
-func cancelHotkeyCapture() { endCapture() }
+func cancelHotkeyCapture() { onHook { captureSession &+= 1; endCapture() } }
 
 /// The saved hotkey as shown in Settings and the tray, "×2" for a double tap.
 func hotkeyDisplay(_ slot: HotkeySlot) -> String {

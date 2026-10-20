@@ -47,7 +47,12 @@ try {
     if ($Trace) { & reg add $prefs /v DebugLog /t REG_DWORD /d 1 /f | Out-Null }
 
     Start-Interactive 'relayout-e2e-app' "start `"`" `"$app`""
-    Start-Sleep -Seconds 3
+    # The scheduler may take seconds to start it: typing before its hook is in place
+    # made the first scenario fail now and then.
+    $deadline = (Get-Date).AddSeconds(30)
+    while (-not (Get-Process ReLayoutWin -ErrorAction SilentlyContinue) -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 200 }
+    if (-not (Get-Process ReLayoutWin -ErrorAction SilentlyContinue)) { throw 'ReLayoutWin did not start' }
+    Start-Sleep -Seconds 2
     Remove-Item $log -ErrorAction SilentlyContinue
     Start-Interactive 'relayout-e2e' "`"$harness`" > `"$log`" 2>&1"
 

@@ -41,9 +41,8 @@ private func tap(_ vk: Int32, with mod: Int32) -> [INPUT] {
     [vkEvent(mod), vkEvent(vk), vkEvent(vk, up: true), vkEvent(mod, up: true)]
 }
 
-/// Waits `ms` while still dispatching the low-level hook, which runs on this thread:
-/// a plain `Sleep` stalls every key (our own Ctrl+C too) and Windows drops a hook
-/// that keeps timing out.
+/// Waits `ms` while serving messages sent to this thread's windows (PeekMessage
+/// dispatches those): a plain `Sleep` would leave their senders blocked.
 func pumpWait(_ ms: DWORD) {
     let start = GetTickCount()
     var msg = MSG()
@@ -144,10 +143,15 @@ func sendBackspaces(_ count: Int) {
 }
 
 /// Presses one key, as the app expects it (Space/Tab act on the key, not on text).
-/// - Parameter shift: hold Shift around it (Shift+Tab, Shift+Enter).
+/// - Parameter shift: Shift as it was when the key was typed (Shift+Tab, Shift+Enter),
+///   whatever the user holds now; a Shift held now is pressed again afterwards.
 func sendKeyTap(_ vk: Int32, shift: Bool = false) {
     let tap = [vkEvent(vk), vkEvent(vk, up: true)]
-    send(shift ? [vkEvent(VK_SHIFT)] + tap + [vkEvent(VK_SHIFT, up: true)] : tap)
+    switch (shift, (Int(GetAsyncKeyState(VK_SHIFT)) & 0x8000) != 0) {
+    case (true, false): send([vkEvent(VK_SHIFT)] + tap + [vkEvent(VK_SHIFT, up: true)])
+    case (false, true): send([vkEvent(VK_SHIFT, up: true)] + tap + [vkEvent(VK_SHIFT)])
+    default:            send(tap)
+    }
 }
 
 private let maskKey = [keyEvent(vk: 0xE8, scan: 0, flags: 0), keyEvent(vk: 0xE8, scan: 0, flags: DWORD(KEYEVENTF_KEYUP))]

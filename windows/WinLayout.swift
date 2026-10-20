@@ -41,15 +41,28 @@ final class WinLayout: AutoLayout {
         return m > 1 ? String(decoding: disp.prefix(Int(m - 1)), as: UTF16.self) : id
     }
 
-    // Maps are built once per HKL: ~900 ToUnicodeEx calls each, on the hook's thread.
+    // Maps are built once per HKL: ~900 ToUnicodeEx calls each. Both the hook thread
+    // and the UI thread ask, so the cache is locked; a layout is built outside the
+    // lock (two threads may both build one, and the first stored wins).
     private static var cache: [UInt: WinLayout] = [:]
+    private static let cacheLock: UnsafeMutablePointer<SRWLOCK> = {
+        let p = UnsafeMutablePointer<SRWLOCK>.allocate(capacity: 1)
+        InitializeSRWLock(p)
+        return p
+    }()
 
     private static func of(_ hkl: HKL) -> WinLayout {
         let key = UInt(bitPattern: hkl)
+        AcquireSRWLockShared(cacheLock)
+        let hit = cache[key]
+        ReleaseSRWLockShared(cacheLock)
+        if let hit { return hit }
+        let built = WinLayout(hkl)
+        AcquireSRWLockExclusive(cacheLock)
+        defer { ReleaseSRWLockExclusive(cacheLock) }
         if let l = cache[key] { return l }
-        let l = WinLayout(hkl)
-        cache[key] = l
-        return l
+        cache[key] = built
+        return built
     }
 
     /// True when layouts of both scripts are installed — auto mode needs the pair.

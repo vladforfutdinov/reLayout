@@ -24,6 +24,11 @@ jobs:
   resign:
     runs-on: macos-latest
     steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: scripts/sparkle.env
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
       - name: Sign the release zip and patch appcast.xml
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -32,9 +37,8 @@ jobs:
         run: |
           set -euo pipefail
           [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "bad tag $TAG"; exit 1; }
-          # Same pin as scripts/build.sh: sign_update runs with the private key.
-          SPARKLE_VERSION="2.10.0"
-          SPARKLE_SHA256="c2bf58aa8387266ac179357b1415d6f2635f044da8be41042af32425dae6da0c"
+          # Pinned and hash-checked like build.sh: sign_update runs with the private key.
+          . scripts/sparkle.env
           mkdir -p sparkle
           curl -fsSL -o sparkle.tar.xz "https://github.com/sparkle-project/Sparkle/releases/download/$SPARKLE_VERSION/Sparkle-$SPARKLE_VERSION.tar.xz"
           echo "$SPARKLE_SHA256  sparkle.tar.xz" | shasum -a 256 -c -

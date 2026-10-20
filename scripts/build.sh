@@ -153,8 +153,7 @@ LINK_FLAGS=(-framework Cocoa -framework Carbon)
 # the #if SPARKLE code, and rpath-link to the embedded framework.
 # The tarball is checked against a pinned SHA-256 on every build, cached or not,
 # and extracted fresh: what gets signed with Developer ID is exactly that release.
-SPARKLE_VERSION="2.10.0"
-SPARKLE_SHA256="c2bf58aa8387266ac179357b1415d6f2635f044da8be41042af32425dae6da0c"
+. scripts/sparkle.env
 if [ "${WITH_SPARKLE:-0}" = "1" ]; then
     SPARKLE_TAR=".sparkle/Sparkle-$SPARKLE_VERSION.tar.xz"
     SPARKLE_DIR=".sparkle/$SPARKLE_VERSION"

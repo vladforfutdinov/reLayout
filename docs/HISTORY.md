@@ -21,7 +21,8 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 - 2.9+ reads `.md` release notes; the `/markdown` render step still works and
   was left alone.
 - `resign-appcast.yml` fetched Sparkle with `curl | tar` and ran `sign_update`
-  with the private key; it now uses the same pinned version and hash.
+  with the private key; it now uses the same pinned version and hash, read
+  from `scripts/sparkle.env` (sparse checkout) like `build.sh` — one place.
 - Not verified: a real update from an installed 1.3.x to a 2.10.0 build.
 
 ## After v1.3.16 — audit security batch: Sparkle pin, update key, uninstall, CI token

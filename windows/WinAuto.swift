@@ -143,6 +143,8 @@ func reloadAutoMode() {
     autoEnterEnabled = loadAutoEnter()
     autoSameScript = loadAutoSameScript()
     autoSpell = loadAutoSpell()
+    // Loaded here, not lazily on the first word: that runs inside the keyboard hook.
+    for lang in WinLayout.installedList().compactMap(\.languageCode) { _ = trigram(lang) }
     if autoSpell {
         let all = WinLayout.installedList()
         warmSpellCheckers(scriptLanguages(cyrillic: true, enabled: all) + scriptLanguages(cyrillic: false, enabled: all))

@@ -4,6 +4,29 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.16 — audit fixes: parser crash, stale undo, cut selection, hook timeouts
+
+- A repo audit (Core, macOS, Windows+CI) found four must-fix defects.
+- `parseStrings` trapped on a key with no closing quote at end of file
+  (`removeFirst` on an empty slice); the Windows app reads `lang/*.strings`
+  at launch, so one truncated translation crashed it.
+- macOS: `lastConversion` was cleared by the taps on main and written by the
+  worker with no ordering. A click during a retype was overwritten by the
+  worker's record, so the next hotkey "undid" at the new caret and erased
+  text that was never converted; keys replayed after a correction skipped
+  `autoFeed` when auto mode was off and never ended the window. Now main-only:
+  user input bumps `undoEpoch`, the worker records only if the epoch is the
+  one its correction began with. A key in the undo watch does not bump (it
+  may be the boundary that began the correction; replay ends the window).
+- Windows: a selection longer than 4095 UTF-16 units was cut to its tail and
+  the retype overwrote the whole selection with the tail's conversion. The
+  native read now returns the needed length and Swift retries.
+- Windows: UI Automation calls inside the low-level hook had no timeout, so a
+  hung app could hold the hook past LowLevelHooksTimeout and Windows silently
+  removed it. UIA connection/transaction timeouts are 100 ms; trigram models
+  load in `reloadAutoMode` instead of on the first word inside the hook.
+  Open: the Enter snapshot still makes ~10 UIA calls in the hook.
+
 ## After v1.3.16 — press-again: erase instead of reselect, multi-tap hotkeys
 
 - Trace from Terminal: the hotkey converted two letters, the second press

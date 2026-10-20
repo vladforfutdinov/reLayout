@@ -27,6 +27,10 @@ final class StringsTests: XCTestCase {
         XCTAssertNil(table["broken"])
     }
 
+    func testUnterminatedKeyIsNotFatal() {
+        XCTAssertEqual(parseStrings("\"ok\" = \"yes\";\n\"abc"), ["ok": "yes"])
+    }
+
     func testEveryShippedTableHasTheEnglishKeys() throws {
         // Missing keys fall back to English on Windows but ship visibly broken UI
         // on macOS, so every language must carry every key.

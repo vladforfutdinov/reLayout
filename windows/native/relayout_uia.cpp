@@ -18,6 +18,14 @@ IUIAutomation *automation() {
         CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);   // the app's UI thread
         CoCreateInstance(CLSID_CUIAutomation, nullptr, CLSCTX_INPROC_SERVER,
                          IID_PPV_ARGS(&cached));
+        // Calls run inside the low-level keyboard hook: a hung app must not hold it
+        // past LowLevelHooksTimeout, or Windows silently removes the hook.
+        IUIAutomation2 *tuned = nullptr;
+        if (cached && SUCCEEDED(cached->QueryInterface(IID_PPV_ARGS(&tuned))) && tuned) {
+            tuned->put_ConnectionTimeout(100);
+            tuned->put_TransactionTimeout(100);
+            tuned->Release();
+        }
     }
     return cached;
 }
@@ -63,7 +71,15 @@ int32_t relayout_uia_read_selection(uint16_t *buf, int32_t cap) {
             BSTR selected = nullptr;
             // An empty range is the caret, not a selection: 0 units, and the
             // caller does nothing — the hotkey never guesses at a word.
-            if (SUCCEEDED(range->GetText(-1, &selected))) result = copyTail(selected, buf, cap);
+            if (SUCCEEDED(range->GetText(-1, &selected))) {
+                int32_t len = selected ? (int32_t)SysStringLen(selected) : 0;
+                if (len < cap) {
+                    result = copyTail(selected, buf, cap);
+                } else {
+                    SysFreeString(selected);   // too long: never hand back a part of it
+                    result = len;
+                }
+            }
             range->Release();
         }
         ranges->Release();

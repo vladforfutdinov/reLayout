@@ -13,7 +13,8 @@ extern "C" {
 /// buf: caller's UTF-16 buffer, cap: its size in UTF-16 units (terminator included).
 /// Returns the number of units written, 0 when nothing is selected, and a negative
 /// value when UI Automation has no text for this control — the caller then falls
-/// back to the clipboard.
+/// back to the clipboard. A selection of `cap` units or more is not copied: the
+/// return value is then its length, and the caller retries with a bigger buffer.
 int32_t relayout_uia_read_selection(uint16_t *buf, int32_t cap);
 
 /// Reads the focused field for the Enter follow-up: total length, caret offset,

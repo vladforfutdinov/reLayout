@@ -49,7 +49,7 @@ public func parseStrings(_ text: String) -> [String: String] {
     while true {
         skipSpaceAndComments()
         guard !chars.isEmpty else { break }
-        guard let key = quoted() else { chars.removeFirst(); continue }
+        guard let key = quoted() else { _ = chars.popFirst(); continue }
         skipSpaceAndComments()
         guard chars.first == "=" else { continue }
         chars.removeFirst()

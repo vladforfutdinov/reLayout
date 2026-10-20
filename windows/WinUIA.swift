@@ -8,12 +8,16 @@ import ReLayoutCore
 /// - Returns: nil when the control exposes no UI Automation text (the caller falls
 ///   back to the clipboard); "" when nothing is selected.
 func readSelectedText() -> String? {
-    var buf = [UInt16](repeating: 0, count: 4096)
-    let n = buf.withUnsafeMutableBufferPointer {
-        relayout_uia_read_selection($0.baseAddress, Int32($0.count))
+    var cap = 4096
+    while true {
+        var buf = [UInt16](repeating: 0, count: cap)
+        let n = buf.withUnsafeMutableBufferPointer {
+            relayout_uia_read_selection($0.baseAddress, Int32($0.count))
+        }
+        guard n >= 0 else { return nil }
+        if Int(n) < cap { return String(decoding: buf.prefix(Int(n)), as: UTF16.self) }
+        cap = Int(n) + 1   // the selection did not fit: read it again whole
     }
-    guard n >= 0 else { return nil }
-    return String(decoding: buf.prefix(Int(n)), as: UTF16.self)
 }
 
 /// The focused field as the Enter follow-up needs it (`FieldSnapshot` from the

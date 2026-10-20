@@ -690,7 +690,16 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         var alternatives: [(out: String, dst: Layout)] = []
         var suffix = ""
     }
+    // Main thread only. `undoEpoch` counts user input that ended the undo window; a
+    // retype records its conversion only if no such input arrived while it ran.
     private var lastConversion: Conversion?
+    private var undoEpoch = 0
+    private var workEpoch = 0   // worker only: `undoEpoch` when the running correction began
+    fileprivate func endUndoWindow() { lastConversion = nil; undoEpoch &+= 1 }
+    // Worker.
+    private func recordConversion(_ c: Conversion) {
+        DispatchQueue.main.sync { if undoEpoch == workEpoch { lastConversion = c } }
+    }
     private var undoTap: CFMachPort?
     private var undoTapSource: CFRunLoopSource?
 
@@ -707,7 +716,10 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             } else if event.getIntegerValueField(.eventSourceUserData) != AppController.synthMarker,
                       type != .keyDown || ![me.hotkey, me.autoHotkey].contains(where: {
                           $0?.isCombo(code: event.getIntegerValueField(.keyboardEventKeycode), flags: event.flags) == true }) {
-                me.lastConversion = nil
+                // A key may be the boundary that just began an auto-correction (the key tap
+                // runs first): no epoch bump, or that correction could not be undone. Keys
+                // typed during a correction end the window on replay (`autoFeed`).
+                if type == .keyDown { me.lastConversion = nil } else { me.endUndoWindow() }
             }
             return Unmanaged.passUnretained(event)
         }
@@ -2291,7 +2303,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             }
             if me.autoPending == 0, type != .tapDisabledByTimeout, type != .tapDisabledByUserInput,
                me.isKeyReadingOff() {
-                me.autoRun.reset(); me.lastConversion = nil
+                me.autoRun.reset(); me.endUndoWindow()
                 return Unmanaged.passUnretained(event)
             }
             let synth = event.getIntegerValueField(.eventSourceUserData) == AppController.synthMarker
@@ -2316,7 +2328,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             }
             // A click also ends the undo window: undo erases back from the caret, which
             // is no longer right after the text the conversion typed.
-            if type != .keyDown { me.lastConversion = nil }
+            if type != .keyDown { me.endUndoWindow() }
             // Anything that may delete or select text arms learning by revert.
             if !synth, type != .keyDown || event.flags.contains(.maskCommand) || event.flags.contains(.maskControl)
                 || [kVK_Delete, kVK_ForwardDelete, kVK_LeftArrow, kVK_RightArrow, kVK_UpArrow, kVK_DownArrow]
@@ -2425,7 +2437,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         // window — the caret has moved on, so a later hotkey press should CONVERT
         // the new word, not revert the old fix. The undo hotkey itself is a
         // modifier/Cmd-combo (filtered above), so it never reaches here.
-        lastConversion = nil
+        endUndoWindow()
         dbg("feed \(s.debugDescription) buf=\(autoRun.word.debugDescription) "
             + "app=\(NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "?")")
         let event = autoRun.feed(s, mapsToCyrillic: { self.feedsAsCyr(String($0)) })
@@ -2496,9 +2508,9 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         typeKey("\r", flags: flags)
         usleep(10_000)
         DispatchQueue.main.sync { self.selectLayout(target) }
-        lastConversion = Conversion(original: word + trail + "\r", typed: out + outTrail + "\r",
+        recordConversion(Conversion(original: word + trail + "\r", typed: out + outTrail + "\r",
                                     srcSource: srcSource,
-                                    autoWords: [learnedKey(word)])
+                                    autoWords: [learnedKey(word)]))
     }
 
     private func focusedTextElement() -> AXUIElement? {
@@ -2624,7 +2636,9 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     func beginCorrection(_ body: @escaping () -> Void) {
         if autoPending == 0 { gateSince = ProcessInfo.processInfo.systemUptime }
         autoPending += 1
+        let epoch = undoEpoch
         worker.async {
+            self.workEpoch = epoch
             body()
             DispatchQueue.main.async { self.finishCorrection() }
         }
@@ -2651,7 +2665,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             if k.s == "\r" || k.s == "\n" {
                 // No Return follow-up here: its "before" read would race this very key.
                 autoRun.reset()
-            } else if autoMode, autoFeed(k.s, flags: k.flags) { autoHeld = Array(rest); break }
+            } else if autoFeed(k.s, flags: k.flags) { autoHeld = Array(rest); break }
             worker.async { self.typeKey(k.s, flags: k.flags) }
         }
         worker.async { DispatchQueue.main.async { self.finishCorrection() } }
@@ -2679,9 +2693,9 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         typeKey(boundary, flags: boundaryFlags)
         usleep(10_000)
         DispatchQueue.main.sync { self.selectLayout(target) }
-        lastConversion = Conversion(original: fix.original + boundary, typed: fix.text + boundary,
+        recordConversion(Conversion(original: fix.original + boundary, typed: fix.text + boundary,
                                     srcSource: srcSource,
-                                    autoWords: fix.original.split(separator: " ").map { learnedKey(String($0)) })
+                                    autoWords: fix.original.split(separator: " ").map { learnedKey(String($0)) }))
     }
 
     /// True when the event was posted by macOS's TextInputSwitcher (the Globe HUD).
@@ -2786,8 +2800,10 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         // original into the next layout (three or more enabled), and once the
         // readings are exhausted it reverses the conversion. A multi-tap hotkey
         // counts once per completed sequence.
-        if let last = lastConversion {
-            lastConversion = nil
+        if let last = DispatchQueue.main.sync(execute: { () -> Conversion? in
+            defer { lastConversion = nil }
+            return lastConversion
+        }) {
             if let next = last.alternatives.first { performRetarget(last, to: next) } else { performUndo(last) }
             return
         }
@@ -2839,24 +2855,21 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         // token). The head is untouched text: collapse the selection to its right
         // edge and re-select just the converted run, so nothing else is retyped.
         let head = String(text.dropLast(r.replaced.count))
-        let typed = r.out
         if !head.isEmpty {
             postKey(CGKeyCode(kVK_RightArrow), [])
             usleep(20_000)
             for _ in 0..<r.replaced.count { postKey(CGKeyCode(kVK_LeftArrow), .maskShift) }
             usleep(20_000)
         }
-        dbg("type: \(typed.debugDescription) replacing \(r.replaced.debugDescription)")
-        typeUnicode(typed)
+        dbg("type: \(r.out.debugDescription) replacing \(r.replaced.debugDescription)")
+        typeUnicode(r.out)
         usleep(20_000)
         DispatchQueue.main.sync { self.autoRun.reset(); self.selectLayout(r.dst) }
         // restore clipboard only if the Cmd+C read fallback dirtied it
         if clipboardTouched { restoreClipboard(clipboardSaved) }
         // remember it so a quick second hotkey can undo
-        lastConversion = Conversion(original: typed == r.out ? r.replaced : text, typed: typed,
-                                    srcSource: r.src.source,
-                                    learned: r.learned,
-                                    alternatives: typed == r.out ? r.alternatives : [])
+        recordConversion(Conversion(original: r.replaced, typed: r.out, srcSource: r.src.source,
+                                    learned: r.learned, alternatives: r.alternatives))
     }
 
     // No selection: erase the word just typed (and the spaces after it), type its
@@ -2871,9 +2884,9 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         typeUnicode(r.out + spaces)
         usleep(20_000)
         DispatchQueue.main.sync { self.autoRun.reset(); self.selectLayout(r.dst) }
-        lastConversion = Conversion(original: r.replaced + spaces, typed: r.out + spaces, srcSource: r.src.source,
+        recordConversion(Conversion(original: r.replaced + spaces, typed: r.out + spaces, srcSource: r.src.source,
                                     learned: r.learned,
-                                    alternatives: r.alternatives, suffix: spaces)
+                                    alternatives: r.alternatives, suffix: spaces))
     }
 
     // The next reading of the original: erase what was just typed, type the
@@ -2888,7 +2901,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         var again = last
         again.typed = next.out + last.suffix
         again.alternatives = Array(last.alternatives.dropFirst())
-        lastConversion = again
+        recordConversion(again)
     }
 
     // Reverse the last conversion: erase the text we just typed (the caret sits

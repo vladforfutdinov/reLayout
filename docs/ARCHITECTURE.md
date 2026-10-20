@@ -6,7 +6,7 @@ Deep reference. For day-one orientation read [`CLAUDE.md`](../CLAUDE.md) first; 
 
 - `RELAYOUT_VERSION` — override version string.
 - `RELAYOUT_RELEASE=1` / `RELAYOUT_DEV=1` — force release vs dev bundle id/name.
-- `WITH_SPARKLE=1` — fetch & embed Sparkle 2.6.4 framework, compile with `-D SPARKLE`. CI uses this for releases.
+- `WITH_SPARKLE=1` — fetch & embed Sparkle 2.6.4 framework, compile with `-D SPARKLE`. CI uses this for releases. The tarball (cached as `.sparkle/Sparkle-<ver>.tar.xz`) must match `SPARKLE_SHA256` in `build.sh` on every build; bumping `SPARKLE_VERSION` means updating that hash too.
 - `RELAYOUT_DEBUG=1` — compile with `-D DEBUG`: `dbg()` traces to `/tmp/relayout.log` (`scripts/run.sh` sets it).
 - `SIGN_IDENTITY` — Developer ID Application identity. Triggers Hardened Runtime + secure timestamp (notarization-ready). Without it, uses `ReLayout Self Signed` if present, else ad-hoc.
 
@@ -16,7 +16,7 @@ Owner identity — **no owner values are hardcoded in the repo.** Resolution ord
 - `RELAYOUT_DISPLAY_NAME` — app display name (dev appends ` (dev)`).
 - `RELAYOUT_REPO_SLUG` — GitHub `owner/repo` for the About link (injected into the bundle as `RLRepoSlug`; empty hides the link) and the Homebrew cask.
 - `RELAYOUT_FEED_URL` — Sparkle `SUFeedURL`. Empty → Sparkle keys removed from the bundle, automatic checks disabled.
-- `RELAYOUT_SU_PUBLIC_KEY` — Sparkle `SUPublicEDKey`; **pairs with the `SPARKLE_ED_PRIVATE_KEY` secret** — replace both together.
+- `RELAYOUT_SU_PUBLIC_KEY` — Sparkle `SUPublicEDKey`; **pairs with the `SPARKLE_ED_PRIVATE_KEY` secret** — replace both together. The build fails when a feed is set without a key, when the feed is not `https://`, or for a release with `WITH_SPARKLE=1` and no feed.
 - `RELAYOUT_TAP_REPO` — Homebrew tap `owner/name` (read by `packaging/homebrew/update-cask.sh`, not build.sh).
 
 ## Release flow

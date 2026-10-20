@@ -35,6 +35,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0          # build number = commit count
+          persist-credentials: false   # the write token stays out of .git/config; steps pass it explicitly
 
       - name: Show toolchain
         run: swiftc --version && sw_vers
@@ -224,6 +225,8 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          persist-credentials: false   # third-party installers run in this job
 
       - name: Install Swift toolchain
         uses: compnerd/gha-setup-swift@397094e75494a93fa8d81db0268dbc8f5d6cf7c6 # main, pinned: the job holds a write token
@@ -312,7 +315,7 @@ jobs:
           $sevenZip = Get-ChildItem 'C:\Program Files\7-Zip\7z.exe',
                                     'C:\Program Files (x86)\7-Zip\7z.exe' -ErrorAction SilentlyContinue |
                       Select-Object -First 1
-          if (-not $sevenZip) { choco install 7zip -y --no-progress | Out-Null
+          if (-not $sevenZip) { choco install 7zip --version 26.4.0 -y --no-progress | Out-Null
             $sevenZip = Get-ChildItem 'C:\Program Files\7-Zip\7z.exe' -ErrorAction SilentlyContinue | Select-Object -First 1 }
           if (-not $sevenZip) { throw '7z.exe not found' }
           $sdk = "dist/lzma-sdk.7z"
@@ -356,7 +359,7 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $arch = '${{ matrix.arch }}'
-          choco install innosetup -y --no-progress | Out-Null
+          choco install innosetup --version 6.7.1 -y --no-progress | Out-Null
           $iscc = Get-ChildItem 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe',
                                  'C:\Program Files\Inno Setup 6\ISCC.exe' -ErrorAction SilentlyContinue |
                   Select-Object -First 1

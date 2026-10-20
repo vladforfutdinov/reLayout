@@ -56,3 +56,9 @@ Name: "{userstartup}\reLayout"; Filename: "{app}\ReLayoutWin.exe"
 
 [Run]
 Filename: "{app}\ReLayoutWin.exe"; Description: "Launch reLayout"; Flags: nowait postinstall skipifsilent
+
+; Uninstall removes what the app wrote: its settings, which hold words the user
+; typed (learned auto-correct lists), and the "Launch at login" Run value.
+[Registry]
+Root: HKCU; Subkey: "Software\reLayout"; Flags: uninsdeletekey dontcreatekey
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: none; ValueName: "reLayout"; Flags: uninsdeletevalue dontcreatekey

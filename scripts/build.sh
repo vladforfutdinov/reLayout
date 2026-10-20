@@ -122,6 +122,16 @@ cp Resources/for-dark-text-1024.png Resources/for-light-text-1024.png "$APP/Cont
 # the Sparkle keys are removed and automatic checks disabled, so a keyless local
 # WITH_SPARKLE build can't phone nowhere or crash the updater.
 /usr/libexec/PlistBuddy -c "Set :RLRepoSlug $RELAYOUT_REPO_SLUG" "$APP/Contents/Info.plist"
+# A feed without its key ships an updater that rejects every update (users stay
+# on this version); a plain-http feed can be swapped in transit.
+if [ -n "$RELAYOUT_FEED_URL" ]; then
+    case "$RELAYOUT_FEED_URL" in https://*) ;; *) echo "ERROR: RELAYOUT_FEED_URL must be https://" >&2; exit 1 ;; esac
+    if [ -z "$RELAYOUT_SU_PUBLIC_KEY" ]; then
+        echo "ERROR: RELAYOUT_FEED_URL is set but RELAYOUT_SU_PUBLIC_KEY is empty" >&2; exit 1
+    fi
+elif [ "$IS_RELEASE" = "1" ] && [ "${WITH_SPARKLE:-0}" = "1" ]; then
+    echo "ERROR: release with WITH_SPARKLE=1 needs RELAYOUT_FEED_URL and RELAYOUT_SU_PUBLIC_KEY" >&2; exit 1
+fi
 if [ -n "$RELAYOUT_FEED_URL" ]; then
     /usr/libexec/PlistBuddy -c "Set :SUFeedURL $RELAYOUT_FEED_URL" "$APP/Contents/Info.plist"
     /usr/libexec/PlistBuddy -c "Set :SUPublicEDKey $RELAYOUT_SU_PUBLIC_KEY" "$APP/Contents/Info.plist"
@@ -141,15 +151,25 @@ LINK_FLAGS=(-framework Cocoa -framework Carbon)
 # Sparkle auto-update is opt-in (WITH_SPARKLE=1, set by release CI) so local/test
 # builds stay framework-free. Fetch a pinned Sparkle, embed the framework, compile
 # the #if SPARKLE code, and rpath-link to the embedded framework.
+# The tarball is checked against a pinned SHA-256 on every build, cached or not,
+# and extracted fresh: what gets signed with Developer ID is exactly that release.
 SPARKLE_VERSION="2.6.4"
+SPARKLE_SHA256="50612a06038abc931f16011d7903b8326a362c1074dabccb718404ce8e585f0b"
 if [ "${WITH_SPARKLE:-0}" = "1" ]; then
+    SPARKLE_TAR=".sparkle/Sparkle-$SPARKLE_VERSION.tar.xz"
     SPARKLE_DIR=".sparkle/$SPARKLE_VERSION"
-    if [ ! -d "$SPARKLE_DIR/Sparkle.framework" ]; then
+    mkdir -p .sparkle
+    if [ ! -f "$SPARKLE_TAR" ]; then
         echo "fetching Sparkle ${SPARKLE_VERSION}..."
-        mkdir -p "$SPARKLE_DIR"
-        curl -fsSL "https://github.com/sparkle-project/Sparkle/releases/download/$SPARKLE_VERSION/Sparkle-$SPARKLE_VERSION.tar.xz" \
-            | tar -xJ -C "$SPARKLE_DIR"
+        curl -fsSL -o "$SPARKLE_TAR.part" \
+            "https://github.com/sparkle-project/Sparkle/releases/download/$SPARKLE_VERSION/Sparkle-$SPARKLE_VERSION.tar.xz"
+        mv "$SPARKLE_TAR.part" "$SPARKLE_TAR"
     fi
+    if ! echo "$SPARKLE_SHA256  $SPARKLE_TAR" | shasum -a 256 -c - >/dev/null 2>&1; then
+        echo "ERROR: $SPARKLE_TAR does not match the pinned SHA-256 — delete it to re-fetch" >&2; exit 1
+    fi
+    rm -rf "$SPARKLE_DIR" && mkdir -p "$SPARKLE_DIR"
+    tar -xJf "$SPARKLE_TAR" -C "$SPARKLE_DIR"
     mkdir -p "$APP/Contents/Frameworks"
     cp -R "$SPARKLE_DIR/Sparkle.framework" "$APP/Contents/Frameworks/"
     SWIFT_FLAGS+=(-D SPARKLE)

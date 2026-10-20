@@ -4,6 +4,24 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.16 — audit security batch: Sparkle pin, update key, uninstall, CI token
+
+- `build.sh`: the Sparkle tarball is cached as a file and checked against a
+  pinned SHA-256 on every build, then extracted fresh — before, `curl | tar`
+  ran unchecked and the extracted cache was trusted, then signed with
+  Developer ID. Hash taken from the official 2.6.4 release asset (GitHub
+  gives no digest for it); its framework binary matches the copy the local
+  cache already held.
+- `build.sh` fails on a feed with no EdDSA key (the updater would reject
+  every update and users would stay on that version), a non-https feed, or
+  a release with Sparkle and no feed (was a warning).
+- Inno Setup: uninstall deletes `HKCU\Software\reLayout` (learned lists hold
+  words the user typed) and the `reLayout` Run value.
+- CI: checkouts no longer persist the write token in `.git/config` (no step
+  relied on it: releases use `gh` with GH_TOKEN, gh-pages a token URL, the
+  tap an SSH key); choco installs pinned (innosetup 6.7.1, 7zip 26.4.0).
+- Not exercised: a real tagged release, the installer's uninstall, a CI run.
+
 ## After v1.3.16 — Windows end-to-end harness; Ctrl+Alt+R kept the typed word
 
 - `scripts/e2e-win.ps1` + `scripts/e2e/win-harness.swift`: the macOS

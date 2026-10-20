@@ -282,8 +282,9 @@ public func enterOutcome(before: FieldSnapshot, after: FieldSnapshot, word: Stri
     let w = word.lowercased()
     guard !w.isEmpty, before.selected == 0, before.tail.lowercased().hasSuffix(w) else { return .unknown }
     if before.count > 0, after.count == 0 { return .submitted }
-    guard after.count == before.count + 1, after.caret == before.caret + 1, after.selected == 0,
-          let brk = after.tail.last, brk == "\n" || brk == "\r",
+    guard let brk = after.tail.last, ["\n", "\r", "\r\n"].contains(brk) else { return .unknown }
+    let width = brk.utf16.count   // "\r\n" is one Character but two UTF-16 units
+    guard after.count == before.count + width, after.caret == before.caret + width, after.selected == 0,
           after.tail.dropLast().lowercased().hasSuffix(w)
     else { return .unknown }
     return .newline

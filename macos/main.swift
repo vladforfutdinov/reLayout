@@ -807,6 +807,9 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         updater = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: self, userDriverDelegate: nil)
 #endif
         promptAccessibilityIfNeeded()
+        // Global for every AX call (default ~6 s): the key taps ask AX inline, and a hung
+        // app would otherwise stall all input until macOS disables the tap.
+        AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), 0.1)
         loadHotkey()
         installHotKeyHandler()
         applyHotkey()
@@ -2773,8 +2776,13 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     // DeepL's watcher needs a Cmd+C-Cmd+C pair, so one synthetic press is safe.
     private func copySelection(_ pb: NSPasteboard) -> String? {
         let before = pb.changeCount
-        postKey(CGKeyCode(kVK_ANSI_C), .maskCommand)
-        usleep(120_000)
+        // Cmd+C is the key that types "c" in the current layout (Dvorak: kVK_ANSI_I);
+        // a layout with no "c" (Cyrillic) keeps the ANSI position, as macOS does.
+        let c = DispatchQueue.main.sync { Layout.enabledList().first { $0.id == currentSourceID() }?.charToStroke["c"] }
+        postKey(CGKeyCode(c.flatMap { $0.mods == 0 ? $0.keyCode : nil } ?? UInt16(kVK_ANSI_C)), .maskCommand)
+        // Wait for the copy, not a fixed time: a copy landing after the restore would
+        // stay on the clipboard for good.
+        for _ in 0..<20 where pb.changeCount == before { usleep(20_000) }
         guard pb.changeCount != before, let c = pb.string(forType: .string), !c.isEmpty else { return nil }
         // VS Code (Monaco) copies the whole caret line when nothing is selected and
         // says so in its clipboard metadata; the hotkey converts only a selection.

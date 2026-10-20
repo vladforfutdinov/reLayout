@@ -20,6 +20,11 @@ final class EnterOutcomeTests: XCTestCase {
         XCTAssertEqual(enterOutcome(before: snap(4, 4, "test"), after: snap(5, 5, "test\r"), word: "test"), .newline)
     }
 
+    func testCRLFCountsAsNewline() {
+        XCTAssertEqual(enterOutcome(before: snap(4, 4, "test"), after: snap(6, 6, "test\r\n"), word: "test"), .newline)
+        XCTAssertEqual(enterOutcome(before: snap(4, 4, "test"), after: snap(5, 5, "test\r\n"), word: "test"), .unknown)
+    }
+
     func testNewlineInsideText() {
         XCTAssertEqual(enterOutcome(before: snap(30, 12, "notes: ghbdtn"), after: snap(31, 13, "notes: ghbdtn\n"),
                                     word: "ghbdtn"), .newline)

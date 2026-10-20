@@ -647,6 +647,8 @@ public struct AutoRun {
     // The last word (+ trail) and the spaces typed after it: still the hotkey's
     // target until any other key.
     private var spacedWord = "", spacedTrail = "", spaces = 0
+    // A Tab was typed since the last word: it may have moved focus to another field.
+    private var crossedTab = false
 
     public init() {}
 
@@ -665,7 +667,7 @@ public struct AutoRun {
 
     /// Ends the run; the previous word can no longer join a correction.
     public mutating func reset() {
-        word = ""; trail = ""; previous = nil; bridged = []
+        word = ""; trail = ""; previous = nil; bridged = []; crossedTab = false
         dropSpacedWord()
     }
 
@@ -690,6 +692,7 @@ public struct AutoRun {
         if s == " " || s == "\t" {
             if s == "\t" {
                 dropSpacedWord()   // Tab may move focus: nothing to erase across it
+                crossedTab = true
             } else if !word.isEmpty || !trail.isEmpty {
                 spacedWord = word; spacedTrail = trail; spaces = 1
             } else if spaces > 0 || !spacedWord.isEmpty {
@@ -701,6 +704,9 @@ public struct AutoRun {
         }
         guard s.count == 1, let c = s.first else { reset(); return .none }
         dropSpacedWord()
+        // The word before the Tab was judged at it; no chain reaches past it into what
+        // may be another field.
+        if crossedTab { previous = nil; bridged = []; crossedTab = false }
         if c.isLetter || (trail.isEmpty && (mapsToCyrillic(c) || (isWordConnector(c) && !word.isEmpty))) {
             if !trail.isEmpty { reset() }   // "a?b": a new run
             word.append(c)

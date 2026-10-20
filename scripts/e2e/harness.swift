@@ -9,7 +9,7 @@ let keyCodes: [Character: CGKeyCode] = [
     "a": 0, "s": 1, "d": 2, "f": 3, "h": 4, "g": 5, "z": 6, "x": 7, "c": 8, "v": 9, "b": 11,
     "q": 12, "w": 13, "e": 14, "r": 15, "y": 16, "t": 17, "o": 31, "u": 32, "[": 33, "i": 34,
     "p": 35, "l": 37, "j": 38, "'": 39, "k": 40, ";": 41, ",": 43, "n": 45, "m": 46, ".": 47,
-    " ": 49, "\r": 36,
+    " ": 49, "\r": 36, "\t": 48,
 ]
 let kOption: CGKeyCode = 58
 let leftAltDeviceBit = CGEventFlags(rawValue: 0x20)   // NX_DEVICELALTKEYMASK: the app tells left from right
@@ -171,7 +171,8 @@ func runScenarios(_ h: Harness) -> Int {
     latin = l; cyrillic = c
     // (typed on Latin keys, what it reads as in the Cyrillic layout)
     let hello = c.contains("Russian") ? ("ghbdtn", "привет") : ("ghbdsn", "привіт")
-    let word = ("ckjdj", "слово")
+    let word = ("ckjdj", "слово")   // its undo below learns it as kept: later scenarios use `book`
+    let book = ("rybuf", "книга")
     print("using \(l) + \(c)")
 
     reset(h); type(hello.0 + " ")
@@ -193,6 +194,9 @@ func runScenarios(_ h: Harness) -> Int {
     expect(h, "auto: fix before typing on", hello.1 + " ")
     type("rfr"); tapOption()   // "как", typed after the fix: the hotkey converts it, not undo
     expect(h, "hotkey after typing: new word converts", hello.1 + " rfr", layout: latin)
+
+    reset(h); type("d\t" + book.0 + " ")   // a Tab may move focus: no fix reaches back across it
+    expect(h, "auto: short word before a Tab is left alone", "d\t" + book.1 + " ")
 
     reset(h); type(hello.0 + "\r")
     expect(h, "enter: word above the new line is fixed", hello.1 + "\n", layout: cyrillic)

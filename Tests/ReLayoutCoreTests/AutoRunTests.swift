@@ -48,6 +48,16 @@ final class AutoRunTests: XCTestCase {
         XCTAssertNotNil(run.plan(raw: "рук", out: "her", cyrillic: false, trusted: true, ambiguous: true))
     }
 
+    func testTabBreaksTheShortWordChain() {
+        // "d", Tab to the next field, "ljhjut": the fix must not erase across the Tab.
+        var run = AutoRun()
+        _ = type("d\t", into: &run)
+        XCTAssertNil(run.plan(raw: "d", out: "в", cyrillic: true))
+        _ = type("ljhjut ", into: &run)
+        XCTAssertEqual(run.plan(raw: "ljhjut", out: "дорогу", cyrillic: true),
+                       AutoRun.Fix(erase: 6, text: "дорогу", original: "ljhjut"))
+    }
+
     func testBackspacingTheSpacesRejoinsTheWord() {
         var run = AutoRun()
         _ = type("ghbdtn  ", into: &run)

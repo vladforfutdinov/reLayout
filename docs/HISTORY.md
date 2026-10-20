@@ -4,6 +4,24 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.16 — audit batch 1: AX timeout, Tab, CRLF, clipboard, Dvorak
+
+- macOS: a global AX messaging timeout (0.1 s, set on the system-wide element)
+  so the key taps' inline AX calls cannot stall all input on a hung app.
+- Engine: a Tab breaks the short-word chain. "d", Tab to the next field,
+  "ljhjut " erased 8 characters there (2 never typed) and typed "в дорогу".
+  The word before the Tab is still judged at it; only the chain past it ends.
+- Engine: `enterOutcome` accepts "\r\n" (one Character, two UTF-16 units),
+  so the Enter follow-up works in Windows CRLF controls.
+- macOS Cmd+C fallback: waits up to 400 ms for the pasteboard to change
+  instead of a fixed 120 ms (a late copy otherwise stayed on the clipboard
+  after the restore), and posts the key that types "c" in the current layout
+  (Dvorak sent Cmd+J). An empty probe now costs up to 400 ms.
+- Windows Settings: `where colors.dark` covered only WM_CTLCOLOREDIT, so the
+  language list was themed dark-path in light mode too.
+- e2e gains a Tab scenario. Its first run failed on the word itself: the
+  earlier undo scenario had learned it as kept, so it uses its own word.
+
 ## After v1.3.16 — macOS end-to-end harness
 
 - `scripts/e2e.sh` + `scripts/e2e/harness.swift`: drives the real dev build

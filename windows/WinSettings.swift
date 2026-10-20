@@ -511,7 +511,7 @@ private func settingsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lPa
         SetBkColor(dc, colors.background)
         SetBkMode(dc, TRANSPARENT)
         return LRESULT(Int(bitPattern: backgroundBrush))
-    case UINT(WM_CTLCOLORLISTBOX), UINT(WM_CTLCOLOREDIT) where colors.dark:   // the language list
+    case UINT(WM_CTLCOLORLISTBOX) where colors.dark, UINT(WM_CTLCOLOREDIT) where colors.dark:   // the language list
         let dc = HDC(bitPattern: UInt(wParam))
         SetTextColor(dc, colors.text)
         SetBkColor(dc, colors.background)

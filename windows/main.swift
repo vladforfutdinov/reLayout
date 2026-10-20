@@ -57,9 +57,9 @@ func performRetype() {
     dwatch("hotkey")
     // Figma's canvas takes the erase backspaces and typed letters as tool commands.
     if hotkeyExcluded() { dwatch("hotkey: off in this app"); return }
-    // Press-again: the next reading, then undo. Off in double-tap mode, where a
-    // second press is the trigger.
-    if !loadHotkey(.retype).doubleTap, let last = lastConversion {
+    // Press-again: the next reading, then undo; a double-tap hotkey counts once
+    // per completed double tap.
+    if let last = lastConversion {
         lastConversion = nil
         if let next = last.alternatives.first { return performRetarget(last, to: next) }
         return performUndo(last)

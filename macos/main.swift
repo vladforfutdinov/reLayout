@@ -727,7 +727,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     private var keyTapSource: CFRunLoopSource?
     // Per-hotkey press cycle. Multi-tap hotkeys require N activations within
     // doubleTapWindow (e.g. double-tap Shift); the count is part of the recorded
-    // hotkey (`taps`). While the retype hotkey's taps > 1, press-again-undo is off.
+    // hotkey (`taps`); press-again counts a whole sequence as one press.
     private struct TapCycle {
         var armed = false, armTime = 0.0
         var interrupted = false   // a key/mouse press during the hold
@@ -967,8 +967,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             // delete the selected layers.
             refreshKeyApp()
             if isHotkeyExcluded() { dbg("retype hotkey: off in \(frontBundleID ?? "?")"); return }
-            let pressAgain = hk.taps == 1
-            beginCorrection { self.performRetype(typed: typed, pressAgain: pressAgain) }
+            beginCorrection { self.performRetype(typed: typed) }
         case .autoToggle:
             toggleAutoModeFromHotkey()
         }
@@ -2777,8 +2776,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     /// - Parameters:
     ///   - typed: the word typed before the caret and the spaces after it
     ///     (`AutoRun.hotkeyTarget`), converted when nothing is selected.
-    ///   - pressAgain: a press right after a conversion cycles/undoes it.
-    func performRetype(typed: (text: String, spaces: Int) = ("", 0), pressAgain: Bool = true) {
+    func performRetype(typed: (text: String, spaces: Int) = ("", 0)) {
         guard AXIsProcessTrusted() else {
             DispatchQueue.main.async { self.promptAccessibilityIfNeeded() }
             return
@@ -2786,10 +2784,9 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
 
         // Press-again: right after a conversion, the next press retypes the
         // original into the next layout (three or more enabled), and once the
-        // readings are exhausted it reverses the conversion. Disabled when
-        // "Trigger on double-tap" is on — a second double-tap would be ambiguous
-        // with the trigger itself.
-        if pressAgain, let last = lastConversion {
+        // readings are exhausted it reverses the conversion. A multi-tap hotkey
+        // counts once per completed sequence.
+        if let last = lastConversion {
             lastConversion = nil
             if let next = last.alternatives.first { performRetarget(last, to: next) } else { performUndo(last) }
             return

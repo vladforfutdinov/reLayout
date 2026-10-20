@@ -4,7 +4,7 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
-## After v1.3.16 — undo and the press-again cycle erase instead of reselecting
+## After v1.3.16 — press-again: erase instead of reselect, multi-tap hotkeys
 
 - Trace from Terminal: the hotkey converted two letters, the second press
   (undo) left them and appended `;2D;2D` plus the original. Undo and the
@@ -13,6 +13,10 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
   its tail. Both now erase with Backspace (the caret is right after the typed
   text, as the undo window already guarantees), like the conversion itself —
   macOS `eraseBack`, Windows `sendBackspaces`; Windows `selectLeft` is gone.
+- Press-again now works with multi-tap hotkeys too (owner: double Shift on
+  Windows converted once and never undid). It was off there for fear of
+  ambiguity with the trigger, but each completed sequence is one press, and
+  the taps of a sequence never end the undo window.
 
 ## After v1.3.16 — Windows exceptions: check boxes centred
 

@@ -2183,7 +2183,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     // Main-thread-only state: the tap callback runs on the main run loop and the
     // worker hands completion back with DispatchQueue.main.async.
     fileprivate var autoPending = 0     // retypes in flight (auto-correct or hotkey)
-    fileprivate var autoHeld: [(s: String, flags: CGEventFlags)] = []   // keys swallowed while retyping
+    fileprivate var autoHeld: [(s: String, flags: CGEventFlags, layout: String)] = []   // keys swallowed while retyping
     fileprivate var dbgLastCode: Int64 = -1
     // A retype that hangs (unresponsive app, AX call stuck) must never freeze the
     // keyboard: past this the gate passes keys through even while in flight.
@@ -2351,7 +2351,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
                 // by a correction that hangs.
                 if me.autoPending > 0, !s.isEmpty,
                    ProcessInfo.processInfo.systemUptime - me.gateSince < me.gateMaxHold {
-                    me.autoHeld.append((s, event.flags.intersection([.maskShift, .maskAlternate])))
+                    me.autoHeld.append((s, event.flags.intersection([.maskShift, .maskAlternate]), me.currentSourceID()))
                     dbg("hold \(s.debugDescription) held=\(me.autoHeld.count)")
                     return nil
                 }
@@ -2627,7 +2627,14 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         var rest = autoHeld[...]
         autoHeld = []
         autoPending += 1
-        while let k = rest.popFirst() {
+        let enabled = Layout.enabledList()
+        let cur = enabled.first { $0.id == currentSourceID() }
+        while var k = rest.popFirst() {
+            // Typed blind in the layout the correction just switched away from: the
+            // keys mean what they type in the new one, like Windows' replay by key code.
+            if let cur, k.layout != cur.id, let src = enabled.first(where: { $0.id == k.layout }) {
+                k.s = transliterate(k.s, from: src, to: cur)
+            }
             dbg("replay \(k.s.debugDescription)")
             if k.s == "\r" || k.s == "\n" {
                 // No Return follow-up here: its "before" read would race this very key.

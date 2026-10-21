@@ -4,6 +4,15 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.16 — macOS replays held keys in the layout the fix switched to
+
+- Owner typed `rkjl` + space and, while the fix ran, `j,`: the result was
+  `клод j,новлен`. macOS held the keys as the text they typed in ABC and replayed
+  that text after the fix had switched to Ukrainian. Keys typed during a fix are
+  typed blind in the layout the fix just called wrong, so they now replay
+  transliterated into the new one (`об`), as Windows already did by replaying
+  key codes in the active layout.
+
 ## After v1.3.16 — Windows spell check never ran while typing; e2e with it on
 
 - `scripts/e2e-win.ps1 -Spell` runs the whole suite with the spell-check option

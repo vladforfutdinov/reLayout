@@ -95,6 +95,9 @@ func dbg(_ s: @autoclosure () -> String) {
 /// Masks every quoted string in a trace line (typed keys, words, selections):
 /// letters become "a" (Latin) or "я" (Cyrillic), digits "0", other symbols "·";
 /// spaces and escapes (`\r`, `\u{1C}`) stay. Text outside quotes is kept.
+/// Monotonic clock in milliseconds, for trace timings.
+func uptimeMs() -> Double { ProcessInfo.processInfo.systemUptime * 1000 }
+
 func dbgRedact(_ line: String) -> String {
     var out = "", quoted = false
     var it = line.makeIterator()
@@ -2138,9 +2141,13 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
 
     private func spellGuesses(_ w: String, _ lang: String) -> [String] {
         guard let id = spellLanguages[lang] else { return [] }
+        let t = uptimeMs()
+        defer { spellTime.guesses += 1; spellTime.guessMs += uptimeMs() - t }
         return NSSpellChecker.shared.guesses(forWordRange: NSRange(location: 0, length: (w as NSString).length),
                                              in: w, language: id, inSpellDocumentWithTag: 0) ?? []
     }
+    // Trace only: spell calls of the current decision, reset per word.
+    private var spellTime = (checks: 0, checkMs: 0.0, guesses: 0, guessMs: 0.0)
 
     // Layout language code -> the spell checker's identifier for it ("pt" -> "pt_BR"
     // when there is no bare "pt"); an exact match wins.
@@ -2157,6 +2164,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     // that stall is felt.
     private func isWord(_ w: String, _ lang: String) -> Bool? {
         guard let id = spellLanguages[lang] else { return nil }
+        let t = uptimeMs()
+        defer { spellTime.checks += 1; spellTime.checkMs += uptimeMs() - t }
         return NSSpellChecker.shared.checkSpelling(of: w, startingAt: 0, language: id, wrap: false,
                                                    inSpellDocumentWithTag: 0, wordCount: nil).location == NSNotFound
     }
@@ -2535,10 +2544,12 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     private func autoEvaluate(word: String, trail: String, boundary: String, flags: CGEventFlags) -> Bool {
         // Any non-word event (empty word from a double space, excluded app) breaks
         // the run so a stale short candidate can't attach across the gap.
+        let t0 = uptimeMs()
         guard !word.isEmpty, !isAutoExcluded() else {
             dbg("auto: skipped (word=\(word.debugDescription) excluded=\(isAutoExcluded()))")
             autoRun.noCandidate(); return false
         }
+        let tExcluded = uptimeMs()
         let enabled = Layout.enabledList()
         for lesson in edits.boundary(word, verdict: learnedVerdict(learnedKey(word))) {
             switch lesson {
@@ -2557,8 +2568,16 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
                 refreshLearnedUI()
             }
         }
-        guard let cur = enabled.first(where: { $0.id == currentSourceID() }),
-              let d = autoDecide(word, cur: cur, enabled: enabled) else {
+        let tLearn = uptimeMs()
+        spellTime = (0, 0, 0, 0)
+        let decision = enabled.first(where: { $0.id == currentSourceID() }).flatMap { cur in
+            autoDecide(word, cur: cur, enabled: enabled).map { (cur, $0) }
+        }
+        let tDecide = uptimeMs()
+        dbg(String(format: "timing: excluded=%.1f learn=%.1f decide=%.1f (spell check %d× %.1f, guesses %d× %.1f) ms",
+                   tExcluded - t0, tLearn - tExcluded, tDecide - tLearn,
+                   spellTime.checks, spellTime.checkMs, spellTime.guesses, spellTime.guessMs))
+        guard let (cur, d) = decision else {
             if let cur = enabled.first(where: { $0.id == currentSourceID() }) {
                 edits.leftAlone(word, cur: cur, enabled: enabled)
             }
@@ -2660,13 +2679,19 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     // hotkey undo reverts.
     private func autoCorrect(_ fix: AutoRun.Fix, boundary: String, boundaryFlags: CGEventFlags,
                              target: Layout, srcSource: TISInputSource) {
+        let t0 = uptimeMs()
         waitModifiersReleased()
         dbg("fix: erase=\(fix.erase) type=\(fix.text.debugDescription) -> \(target.id)")
+        let t1 = uptimeMs()
         eraseBack(fix.erase)
+        let t2 = uptimeMs()
         typeUnicode(fix.text)
         typeKey(boundary, flags: boundaryFlags)
         usleep(10_000)
+        let t3 = uptimeMs()
         DispatchQueue.main.sync { self.selectLayout(target) }
+        dbg(String(format: "timing fix: modifiers+trace=%.1f erase=%.1f type=%.1f select=%.1f ms",
+                   t1 - t0, t2 - t1, t3 - t2, uptimeMs() - t3))
         recordConversion(Conversion(original: fix.original + boundary, typed: fix.text + boundary,
                                     srcSource: srcSource,
                                     autoWords: fix.original.split(separator: " ").map { learnedKey(String($0)) }))

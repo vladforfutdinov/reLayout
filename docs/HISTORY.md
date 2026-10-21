@@ -4,6 +4,32 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.16 — macOS e2e in a test VM over SSH
+
+- Why: `e2e.sh` posts real key events and holds focus, so on the owner's Mac it
+  takes the keyboard and screen. Ways that do not: the CI runner (only pushed
+  code) and a local VM. Posting to a pid (`postToPid`) skips the session tap
+  reLayout listens on; a second login session gets no input.
+- `scripts/e2e-mac-vm.sh` → `scripts/e2e/vm-run.sh` in the VM; TCC grants moved
+  to `scripts/e2e/grant-tcc.sh`, shared with the CI workflow; one-time setup in
+  `scripts/e2e/vm-setup.sh`. VM: macOS 26.6.2 arm64, ssh alias `relayout-mac`,
+  SIP off, passwordless sudo.
+- Found on the way:
+  - `softwareupdate` lists Command Line Tools 27.0 on macOS 26.6; installed,
+    its compiler (6.3.3) refused its own SDK 27 (built with 6.4). The SDK of
+    the VM's macOS major in the same tools works; vm-run picks it, vm-setup
+    installs the tools for the VM's major. The 26.6 download crawled (~100 KB/s)
+    and was stopped.
+  - Started over SSH the harness counts as `sshd-keygen-wrapper`'s for TCC —
+    the GitHub image grants that binary for the same reason. Grants carry each
+    binary's real designated requirement now, not NULL.
+  - `sudo` drops the environment: `SDKROOT` is passed to `e2e.sh` explicitly.
+  - The VM has ABC + Ukrainian + Russian, so press-again cycles before it undoes;
+    the macOS harness now checks that ("ghbdsn": привіт → привыт → back), as the
+    Windows one does.
+- Result: 12/12 in the VM, this Mac untouched. Not run: the CI workflow with
+  `grant-tcc.sh` (needs a push), `vm-setup.sh` end to end (its steps ran by hand).
+
 ## After v1.3.16 — boundary step, press-again and Windows modifier taps in Core
 
 - 1: Windows' `HotkeyDetector` uses `ModifierTap` for modifier-only hotkeys:

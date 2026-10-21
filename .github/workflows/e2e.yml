@@ -35,24 +35,9 @@ jobs:
         run: RELAYOUT_DEV=1 RELAYOUT_DEBUG=1 ./scripts/build.sh
 
       - name: Grant the app Accessibility
-        # The event tap needs it; there is no one to click the prompt. The row
-        # carries the build's own designated requirement (an ad-hoc cdhash), as
-        # the image's own grants do. Writing the system TCC.db needs SIP off.
-        run: |
-          set -euo pipefail
-          APP="dist/ReLayout (dev).app"
-          ID=$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$APP/Contents/Info.plist")
-          # An ad-hoc signature's requirement is implicit: printed as "# designated => cdhash H\"…\"".
-          codesign -d -r- "$APP" 2>&1 | sed -n 's/^#* *designated => //p' > "$RUNNER_TEMP/req.txt"
-          cat "$RUNNER_TEMP/req.txt"
-          csreq -r "$RUNNER_TEMP/req.txt" -b "$RUNNER_TEMP/req.bin"
-          HEX=$(xxd -p "$RUNNER_TEMP/req.bin" | tr -d '\n')
-          NOW=$(date +%s)
-          ROW="'kTCCServiceAccessibility','$ID',0,2,4,1,X'$HEX',NULL,0,'UNUSED',NULL,0,$NOW,NULL,NULL,'UNUSED',$NOW"
-          sudo sqlite3 "/Library/Application Support/com.apple.TCC/TCC.db" "INSERT OR REPLACE INTO access VALUES($ROW);"
-          sqlite3 "$HOME/Library/Application Support/com.apple.TCC/TCC.db" "INSERT OR REPLACE INTO access VALUES($ROW);" || true
-          sudo sqlite3 "/Library/Application Support/com.apple.TCC/TCC.db" \
-            "SELECT service, client, auth_value FROM access WHERE client='$ID';"
+        # The event tap needs it and there is no one to click the prompt; the
+        # runner agent that starts the harness is pre-granted by the image.
+        run: scripts/e2e/grant-tcc.sh "dist/ReLayout (dev).app"
 
       - name: e2e
         run: ./scripts/e2e.sh

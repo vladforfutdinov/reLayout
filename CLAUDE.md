@@ -39,6 +39,7 @@ dist/        build output (.app/.dmg/.zip) — gitignored
 ./scripts/build.sh       # -> ReLayout.app (or "ReLayout (dev).app" for non-tag builds)
 ./scripts/run-tests.sh   # build & run unit tests (-DTESTING; entry point swaps to macos/tests.swift)
 ./scripts/e2e.sh         # macOS end-to-end: types into a test window against the dev build (hands off; needs Accessibility for the terminal)
+./scripts/e2e-mac-vm.sh  # the same in a macOS test VM over SSH (keyboard stays free; setup in docs/ARCHITECTURE.md)
 scripts/e2e-win.ps1      # on Windows: the same against dist\win built with -DebugLog (-Trace prints the key log on failure)
 ./scripts/make-dmg.sh    # -> reLayout.dmg drag-to-Applications installer
 swift test               # cross-platform engine tests via SwiftPM (Tests/ReLayoutCoreTests)

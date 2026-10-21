@@ -186,6 +186,12 @@ func runScenarios(_ h: Harness) -> Int {
 
     reset(h, hello.0, selectAll: true); tapOption()
     expect(h, "hotkey: selection is converted", hello.1, layout: cyrillic)
+    // With Russian enabled too, Ukrainian "ghbdsn" has a second reading: the press
+    // after the conversion types it, and the next one undoes (three layouts cycle).
+    if c.contains("Ukrainian"), let ru = ids.first(where: { $0.contains("Russian") }) {
+        tapOption()
+        expect(h, "hotkey again: next reading", "привыт", layout: ru)
+    }
     tapOption()
     expect(h, "hotkey again: conversion is undone", hello.0, layout: latin)
 

@@ -4,6 +4,32 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.16 — Windows spell check never ran while typing; e2e with it on
+
+- `scripts/e2e-win.ps1 -Spell` runs the whole suite with the spell-check option
+  on, plus two scenarios only the dictionary decides (a doubled letter and
+  swapped letters in a wrong-layout word: "ghbddtn", "gbhdtn" -> "привет").
+- They failed: the trigrams converted as typed ("приввет", "пирвет") and no
+  repair came. A probe showed the factory and all three checkers created fine
+  on the hook thread, but every `Check`/`Suggest` returned 0x8001010D,
+  RPC_E_CANTCALLOUT_ININPUTSYNCCALL: the checker is an out-of-process COM
+  server, and an outgoing COM call from inside a low-level hook callback (an
+  input-synchronous call) is refused. That was true before the hook moved to
+  its own thread too — the option never acted while typing on Windows; only
+  the warm-up, outside a callback, ever succeeded (the "2-7 ms" measurement in
+  WinAuto was presumably taken there).
+- Fix: `relayout_spell.cpp` runs every call on a COM worker thread of its own
+  (MTA) that owns all spell objects; callers hand a request over (inputs
+  copied, refcounted, so a caller that stops waiting leaves nothing dangling)
+  and wait 40 ms for a check or suggestions (then "unknown"), 5 s to open a
+  dictionary. One request at a time: while the worker is busy, a call returns
+  "unknown" at once. The hook thread makes no COM call at all now.
+- Runs (each after a fresh VM build): spell mode 3/3 (17 scenarios); plain
+  mode 2/3. The failed plain run stalled the UI thread ~2.5 s right after
+  start: the first word went uncorrected (password answer pending — fail
+  closed, by design) and the Enter fix had erased the word but not retyped it
+  when the harness stopped waiting. Not reproduced since; cause not found.
+
 ## After v1.3.16 — audit 17/20 and the small items: shared Core rules, stragglers
 
 - 17: `Core/Learned.swift` holds what both apps did twice — the auto decision

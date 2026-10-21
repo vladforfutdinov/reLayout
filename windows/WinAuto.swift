@@ -13,7 +13,8 @@ import ReLayoutCore
 //
 // All of this file's state belongs to the hook thread (WinHotkey.swift): the hooks
 // run there, and the UI thread reaches the state only through `onHook`. UI
-// Automation is called on the UI thread only; the spell checker on the hook thread.
+// Automation is called on the UI thread only; the spell checker on a thread of its
+// own (relayout_spell.cpp), since COM calls out of a hook callback fail.
 
 let WM_AUTOFIX = UINT(WM_APP) + 11
 let WM_AUTOENTER = UINT(WM_APP) + 12
@@ -163,8 +164,8 @@ func reloadAutoMode() {
         exceptions = exc
         run.reset()
     }
-    // The checkers live on the hook thread, which uses them. Opening a dictionary is
-    // slow: one language per queued step, so keys are served in between.
+    // Opening a dictionary is slow: one language per queued step on the hook thread
+    // (which waits for the spell thread), so keys are served in between.
     if spell {
         for lang in scriptLanguages(cyrillic: true, enabled: all) + scriptLanguages(cyrillic: false, enabled: all) {
             postToHook { warmSpellCheckers([lang]) }

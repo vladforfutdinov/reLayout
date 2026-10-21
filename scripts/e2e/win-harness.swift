@@ -154,7 +154,8 @@ func runScenarios() -> Int32 {
     }
     latin = l
     let hasRu = all.contains { lang($0) == 0x0419 }
-    say("layouts \(all.map { String(lang($0), radix: 16) })")
+    let spell = CommandLine.arguments.contains("spell")   // the app runs with the spell-check option on
+    say("layouts \(all.map { String(lang($0), radix: 16) })" + (spell ? ", spell check on" : ""))
     // (typed on Latin keys, what it reads as in the Cyrillic layout)
     let hello = hasRu ? ("ghbdtn", "привет") : ("ghbdsn", "привіт")
     let word = ("ckjdj", "слово")   // its undo below learns it as kept: later scenarios use `book`
@@ -209,6 +210,17 @@ func runScenarios() -> Int32 {
     pause(400)   // the second word comes after the answer, not while it is pending
     type(hello.0 + " ")
     expect("auto: nothing in a password field", hello.0 + " " + hello.0 + " ", settle: 800, in: password)
+
+    if spell {
+        // Typos in a wrong-layout word: the trigrams alone leave them or convert them
+        // as typed; the dictionary repairs the conversion (one edit away).
+        let doubled = String(hello.0.prefix(4)) + String(Array(hello.0)[3]) + String(hello.0.dropFirst(4))
+        reset(); type(doubled + " ")
+        expect("spell: a doubled letter is repaired", hello.1 + " ", cyrillic: true)
+        let a = Array(hello.0), swapped = String([a[0], a[2], a[1]] + a[3...])
+        reset(); type(swapped + " ")
+        expect("spell: swapped letters are repaired", hello.1 + " ", cyrillic: true)
+    }
 
     reset(); type(hello.0 + "\r")
     expect("enter: word above the new line is fixed", hello.1 + "\n", cyrillic: true)

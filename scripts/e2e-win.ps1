@@ -4,7 +4,9 @@
 # session, then restores HKCU\Software\reLayout and whatever reLayout was running.
 # Works from an SSH session: both programs start as interactive scheduled tasks.
 # Hands off the VM's keyboard and mouse while it runs.
-param([switch]$Trace)   # also turn on the dev build's key log and print it on failure
+# -Trace: also turn on the dev build's key log and print it on failure.
+# -Spell: run with the spell-check option on, plus the scenarios only it decides.
+param([switch]$Trace, [switch]$Spell)
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
 Set-Location (Split-Path $PSScriptRoot)
@@ -42,6 +44,7 @@ try {
         & reg delete $prefs /v $v /f 2>$null | Out-Null
     }
     & reg add $prefs /v AutoCorrect /t REG_DWORD /d 1 /f | Out-Null
+    if ($Spell) { & reg add $prefs /v AutoCorrectSpell /t REG_DWORD /d 1 /f | Out-Null }
     $keyLog = "$env:TEMP\relayout-debug.log"
     Remove-Item $keyLog -ErrorAction SilentlyContinue
     if ($Trace) { & reg add $prefs /v DebugLog /t REG_DWORD /d 1 /f | Out-Null }
@@ -54,7 +57,8 @@ try {
     if (-not (Get-Process ReLayoutWin -ErrorAction SilentlyContinue)) { throw 'ReLayoutWin did not start' }
     Start-Sleep -Seconds 2
     Remove-Item $log -ErrorAction SilentlyContinue
-    Start-Interactive 'relayout-e2e' "`"$harness`" > `"$log`" 2>&1"
+    $mode = if ($Spell) { ' spell' } else { '' }
+    Start-Interactive 'relayout-e2e' "`"$harness`"$mode > `"$log`" 2>&1"
 
     $deadline = (Get-Date).AddSeconds(180)
     do {

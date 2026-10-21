@@ -4,7 +4,7 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
-## After v1.3.16 — e2e workflow for GitHub-hosted runners (untried)
+## After v1.3.16 — e2e workflow for GitHub-hosted runners
 
 - `.github/workflows/e2e.yml`: manual, non-blocking, `contents: read`. Both
   jobs first print what the machine allows, so a failure tells the runner
@@ -20,8 +20,20 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
   interactive scheduled tasks (built for SSH into the VM); whether that works
   in the runner's session is part of what the first run shows. Spell mode is
   left out (no ru/uk dictionaries on the image).
-- Not run: it needs the workflow on GitHub's default branch to be
-  dispatchable, i.e. a push the user makes.
+- Pushed by the user's request and run (runs 39629346137, 39629695175,
+  39630166651). What the runners turned out to be:
+  - macOS 15 arm64 VM, user `runner`, **SIP disabled**, so a TCC row written
+    in the job takes: the dev app got Accessibility and macOS e2e passed
+    11/11 (US + Russian picked; the image already had US enabled).
+  - Windows Server x64, `runneradmin` in an **active console session 2**,
+    high integrity, interactive; `schtasks /it` works there unchanged.
+    Windows e2e passed 15/15 — the first x64 run of the port at all.
+- First-run fixes: an ad-hoc signature prints its requirement as
+  `# designated => cdhash …` (the `sed` expected no `#`); `query session`
+  exits 1 even when it prints, and GitHub's pwsh wrapper exits with the last
+  native code; `e2e.sh`'s restore trap returned 1 when no reLayout had been
+  running (`[ -n "" ] && open` under `set -e`), failing a green run.
+- Run 39630166651: both jobs green.
 
 ## After v1.3.16 — macOS replays held keys in the layout the fix switched to
 

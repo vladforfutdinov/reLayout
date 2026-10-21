@@ -165,38 +165,6 @@ final class EngineTests: XCTestCase {
         XCTAssertFalse(textHasScript("123", cyrillic: true))
     }
 
-    // MARK: - caretWord (implicit caret-line grab)
-
-    private func word(_ s: String) -> String? {
-        caretWord(s).map { String(s[$0...]) }
-    }
-
-    func testCaretWordLastWordOnly() {
-        XCTAssertEqual(word("привіт ghbdsn"), "ghbdsn")
-        XCTAssertEqual(word("hello ghbdsn привіт"), "привіт")
-        XCTAssertEqual(word("ghbdsn"), "ghbdsn")
-    }
-
-    func testCaretWordKeepsMidWordPunctuation() {
-        // Hyphens, dots, apostrophes are word material — a word is a run of
-        // non-whitespace.
-        XCTAssertEqual(word("щось rjt-xnj"), "rjt-xnj")
-        XCTAssertEqual(word("пиши e-mail"), "e-mail")
-        XCTAssertEqual(word("це d'jhl"), "d'jhl")
-        XCTAssertEqual(word("тест ghbdsn!!"), "ghbdsn!!")
-    }
-
-    func testCaretWordTrailingWhitespaceKept() {
-        // Trailing whitespace belongs to the window (retyped verbatim).
-        XCTAssertEqual(word("привіт ghbdsn "), "ghbdsn ")
-        XCTAssertEqual(word("привіт ghbdsn\t"), "ghbdsn\t")
-    }
-
-    func testCaretWordNothingToGrab() {
-        XCTAssertNil(word(""))
-        XCTAssertNil(word("   "))
-    }
-
     func testHyphenScoredPerPart() {
         // Every trigram spanning a hyphen is unseen, so a whole-word score is
         // floor-dominated; parts are scored separately and length-weighted.
@@ -223,14 +191,6 @@ final class EngineTests: XCTestCase {
         XCTAssertFalse(mapsToConnector("g", src: latin, dst: cyr))
         XCTAssertTrue(mapsToWordChar("d\\", src: latin, dst: cyr, connectors: true))
         XCTAssertTrue(autoWordCore("gh\\bd", src: latin, dst: cyr) == "gh\\bd")
-    }
-
-    func testCaretWordConvertsOnlyThatWord() {
-        let (latin, cyr) = makeLayouts()
-        let text = "привіт ghbdsn"
-        guard let start = caretWord(text) else { return XCTFail("expected a word") }
-        XCTAssertEqual(convertWrong(String(text[start...]), src: latin, dst: cyr), "привіт")
-        XCTAssertEqual(String(text[..<start]), "привіт ")   // head untouched
     }
 
     // MARK: - decideAutoTarget (auto-mode decision)
@@ -597,6 +557,25 @@ final class EngineTests: XCTestCase {
     func testFixMixedWordFixesTheTailWhenThatReadsBetter() {
         // "прbdtn": the Latin tail was typed after forgetting to switch back.
         XCTAssertEqual(fixMixed("прbdtn", cyrKnows: ["привет"], latinKnows: [], curIsCyrillic: false), "привет")
+    }
+
+    func testFixMixedWordReadsPunctuationKeysAsLetters() {
+        // "хлеб": "[k" typed on Latin ("[" is х), then the switch and "еб".
+        XCTAssertEqual(fixMixed("[kеб", cyrKnows: ["хлеб"], latinKnows: [], curIsCyrillic: true), "хлеб")
+    }
+
+    func testConvertScriptRunsKeepsPunctuationAwayFromTheRun() {
+        let (latin, cyr) = makeLayouts()
+        XCTAssertEqual(convertScriptRuns("ghbвет,", src: latin, dst: cyr), "привет,")
+        XCTAssertEqual(convertScriptRuns("[kеб", src: latin, dst: cyr), "хлеб")
+    }
+
+    func testPlanFixesAMixedWordSelectedWithItsSpace() {
+        let (latin, cyr) = makeLayouts()
+        let models = ["en": model(knowing: []), "uk": model(knowing: ["привет"])]
+        let p = planRetype("ghbвет ", enabled: [latin, cyr], curIdx: 1, model: { models[$0] })
+        XCTAssertEqual(p?.out, "привет ")
+        XCTAssertEqual(p?.replaced, "ghbвет ")
     }
 
     func testFixMixedWordIgnoresSingleScriptWords() {

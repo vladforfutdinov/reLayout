@@ -4,6 +4,24 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.16 — audit 18/19: mixed words on punctuation keys, dead code
+
+- A mixed word whose Latin half was typed on punctuation keys ("[jh" is
+  "хор" before the switch, "ошо" after) was rejected by both the hotkey
+  (`fixMixedWord`) and auto mode (`mixed` required pure letters).
+  `isMixedWordMaterial` accepts keys that type a letter on an enabled
+  Cyrillic layout; `convertScriptRuns` lets such a key join a run it touches,
+  so a comma after the Cyrillic half stays a comma.
+- `planRetype` fixed a mixed word only when the selection was exactly that
+  word: a double-click that also took the trailing space ("ghjшто ") went to
+  whole-text conversion ("ghjinj "). It now looks at the one word and retypes
+  the surrounding whitespace as it was.
+- Deleted `caretWord` (no caller since the hotkey converts only a selection)
+  and its tests, and the engine tests duplicated in `macos/tests.swift`
+  (`Tests/ReLayoutCoreTests` has each); macOS run-tests keeps its own 39.
+- macOS e2e gains the held-key replay scenario; not run yet — the Mac's
+  screen was locked (the harness aborted on focus, as designed).
+
 ## After v1.3.16 — Windows hooks on their own thread
 
 - The keyboard and mouse hooks ran on the UI thread, so any slow UI work (a

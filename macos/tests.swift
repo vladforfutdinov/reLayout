@@ -1,9 +1,8 @@
-// Unit tests for reLayout's pure logic (conversion engine + hotkey model and display helpers).
+// Unit tests for the macOS app's own logic (hotkey model and display helpers, trace
+// redaction). The engine is tested in Tests/ReLayoutCoreTests (`swift test`).
 //
 // Built only under -DTESTING, where main.swift's GUI bootstrap is compiled out and
-// this file supplies the entry point. Run via ./scripts/run-tests.sh. Hermetic: the
-// transliteration engine is exercised with injected fixture layouts (FakeLayout),
-// so no installed keyboard layout is required.
+// this file supplies the entry point. Run via ./scripts/run-tests.sh.
 
 import Cocoa
 import Carbon.HIToolbox
@@ -21,128 +20,13 @@ func eq<T: Equatable>(_ got: T, _ want: T, _ msg: String) {
     check(got == want, "\(msg) — got \(String(reflecting: got)), want \(String(reflecting: want))")
 }
 
-// MARK: - fixture layouts
+// MARK: - tests
 
-struct FakeLayout: LayoutMaps {
-    var charToStroke: [String: KeyStroke]
-    var strokeToChar: [KeyStroke: String]
-    var isCyrillic: Bool
-}
-
-// A Latin layout and a Ukrainian-Cyrillic layout sharing the same physical keys, so
-// a key that types `g` in Latin types `п` in Cyrillic, etc. The last two rows live on
-// an Option layer (mods != 0) to exercise the modifier path (an Option-layer char
-// mapping to a Cyrillic letter, like the real ß/æ overlap).
 func testDbgRedact() {
     eq(dbgRedact(#"feed "п" buf="Пароль1!" app=com.apple.Terminal"#),
        #"feed "я" buf="яяяяяя0·" app=com.apple.Terminal"#, "redact: letters/digits/symbols masked, rest kept")
     eq(dbgRedact(#"type: "ab c\r" "\u{1C}" "x\"y""#), #"type: "aa a\r" "\u{1C}" "a\"a""#, "redact: spaces and escapes kept")
     eq(dbgRedact(#"learned: ["ghb"]"#), #"learned: ["aaa"]"#, "redact: arrays")
-}
-
-func makeLayouts() -> (latin: FakeLayout, cyr: FakeLayout) {
-    // (keyCode, mods, latinChar, cyrChar)
-    let rows: [(UInt16, UInt32, String, String)] = [
-        (10, 0, "g", "п"), (11, 0, "h", "р"), (12, 0, "b", "и"), (13, 0, "d", "в"),
-        (14, 0, "t", "е"), (15, 0, "n", "т"), (16, 0, "e", "у"), (17, 0, "l", "д"),
-        (18, 0, "o", "щ"), (19, 0, "q", "й"), (20, 0, "s", "і"), (21, 0, "k", "л"),
-        (22, 0, "a", "ф"), (23, 0, "i", "ш"),
-        (100, 1, "ß", "є"), (101, 1, "æ", "ї"),
-        (43, 0, ",", "б"), (47, 0, ".", "ю"),
-    ]
-    var lC2S = [String: KeyStroke](), lS2C = [KeyStroke: String]()
-    var cC2S = [String: KeyStroke](), cS2C = [KeyStroke: String]()
-    for (kc, m, lat, cyr) in rows {
-        let st = KeyStroke(keyCode: kc, mods: m)
-        lC2S[lat] = st; lS2C[st] = lat
-        cC2S[cyr] = st; cS2C[st] = cyr
-    }
-    return (FakeLayout(charToStroke: lC2S, strokeToChar: lS2C, isCyrillic: false),
-            FakeLayout(charToStroke: cC2S, strokeToChar: cS2C, isCyrillic: true))
-}
-
-// MARK: - tests
-
-func testTransliterate() {
-    let (latin, cyr) = makeLayouts()
-    eq(transliterate("ghbdsn", from: latin, to: cyr), "привіт", "translit latin->cyr full word")
-    eq(transliterate("привіт", from: cyr, to: latin), "ghbdsn", "translit cyr->latin full word")
-    // Unmapped chars pass through verbatim.
-    eq(transliterate("g!g", from: latin, to: cyr), "п!п", "translit keeps unmapped chars")
-    eq(transliterate("ßæ", from: latin, to: cyr), "єї", "translit option layer ß/æ -> є/ї")
-}
-
-func testConvertWrongLatinSource() {
-    let (latin, cyr) = makeLayouts()
-    // Latin "wrong" word converts; Cyrillic words pass through untouched.
-    eq(convertWrong("ghbdsn", src: latin, dst: cyr), "привіт", "convert latin word")
-    eq(convertWrong("я сказав ghbdsn", src: latin, dst: cyr), "я сказав привіт",
-       "convert only the latin word, keep cyrillic words")
-    eq(convertWrong("я написав ßæ", src: latin, dst: cyr), "я написав єї",
-       "convert option-layer latin word")
-    // Already-correct (all-Cyrillic) text -> no change -> nil.
-    check(convertWrong("привіт світ", src: latin, dst: cyr) == nil,
-          "latin-src: all-cyrillic input returns nil")
-}
-
-func testConvertWrongCyrillicSource() {
-    let (latin, cyr) = makeLayouts()
-    eq(convertWrong("руддщ", src: cyr, dst: latin), "hello", "convert cyr word -> latin")
-    eq(convertWrong("I said привіт", src: cyr, dst: latin), "I said ghbdsn",
-       "cyr-src: convert only the cyrillic word, keep latin words")
-    check(convertWrong("hello world", src: cyr, dst: latin) == nil,
-          "cyr-src: all-latin input returns nil")
-}
-
-func testConvertWrongWhitespace() {
-    let (latin, cyr) = makeLayouts()
-    // Whitespace runs (incl. multiple spaces / tabs / newlines) preserved exactly.
-    eq(convertWrong("ghbdsn\t\nghbdsn", src: latin, dst: cyr), "привіт\t\nпривіт",
-       "whitespace runs preserved")
-    eq(convertWrong("  ghbdsn  ", src: latin, dst: cyr), "  привіт  ",
-       "leading/trailing spaces preserved")
-}
-
-func testConvertWrongPunctuationAsLetters() {
-    let (latin, cyr) = makeLayouts()
-    // ',' is б on the Cyrillic side: a leading comma converts with the word.
-    eq(convertWrong(",tkb", src: latin, dst: cyr), "бели", "leading ',' converts as б")
-    // The reported shape: leading mapped punctuation + an Option-layer letter.
-    eq(convertWrong(",ßkb", src: latin, dst: cyr), "бєли", "',ßkb' converts whole, incl. б")
-}
-
-func testConvertWrongMixedToken() {
-    let (latin, cyr) = makeLayouts()
-    eq(convertWrong("ghbвіт", src: latin, dst: cyr), "привіт", "mixed token: latin run converts")
-    eq(convertWrong("ghbвіт", src: cyr, dst: latin), "ghbdsn", "mixed token: cyr run converts")
-    eq(convertWrong("я сказав ghbвіт", src: latin, dst: cyr), "я сказав привіт",
-       "mixed token inside a line")
-}
-
-func testConvertScriptRuns() {
-    let (latin, cyr) = makeLayouts()
-    eq(convertScriptRuns("ghbвіт", src: latin, dst: cyr), "привіт",
-       "mid-word switch: latin prefix converts")
-    eq(convertScriptRuns("ghbвіт", src: cyr, dst: latin), "ghbdsn",
-       "mid-word switch: cyrillic tail converts")
-    eq(convertScriptRuns("gh-b1", src: latin, dst: cyr), "пр-и1", "non-letters stay verbatim")
-    check(convertScriptRuns("привіт", src: latin, dst: cyr) == nil, "no latin run -> nil")
-}
-
-func testAutoWordCore() {
-    let (latin, cyr) = makeLayouts()
-    eq(autoWordCore(",ghb", src: latin, dst: cyr), "ghb", "leading mapped punct strips into core")
-    eq(autoWordCore(",ßhb", src: latin, dst: cyr), "ßhb", "option-layer letter counts as letter")
-    eq(autoWordCore("g,hb", src: latin, dst: cyr), "g,hb", "interior mapped punct stays in core")
-    eq(autoWordCore("ghb", src: latin, dst: cyr), "ghb", "letters-only word passes whole")
-    eq(autoWordCore("ghb,", src: latin, dst: cyr), "ghb", "trailing mapped punct strips from core")
-    eq(autoWordCore("gh.", src: latin, dst: cyr), "gh", "trailing '.' strips from core")
-    check(autoWordCore(",.g", src: latin, dst: cyr) == nil, "fewer than two letters -> nil")
-    check(autoWordCore(",,,", src: latin, dst: cyr) == nil, "no letters -> nil")
-    check(autoWordCore("g!b", src: latin, dst: cyr) == nil, "unmapped char -> nil")
-    check(autoWordCore("g1b", src: latin, dst: cyr) == nil, "digit -> nil")
-    check(autoWordCore(",пр", src: cyr, dst: latin) == nil, "cyr source: punct never maps to cyr")
-    eq(autoWordCore("rjt-xnj", src: latin, dst: cyr), "rjt-xnj", "hyphen is a word connector, not punct")
 }
 
 func testFourCharCode() {
@@ -237,14 +121,6 @@ func testHotkeyPersistence() {
 @main
 struct ReLayoutTests {
     static func main() {
-        testTransliterate()
-        testConvertWrongLatinSource()
-        testConvertWrongCyrillicSource()
-        testConvertWrongWhitespace()
-        testConvertWrongPunctuationAsLetters()
-        testConvertWrongMixedToken()
-        testConvertScriptRuns()
-        testAutoWordCore()
         testFourCharCode()
         testKeyName()
         testComboDisplay()

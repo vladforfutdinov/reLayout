@@ -80,10 +80,6 @@ func mapsToCyr(_ w: Substring, src: LayoutMaps, dst: LayoutMaps) -> Bool {
     mapsToWordChar(w, src: src, dst: dst, connectors: false)
 }
 
-// True if any char of `w` becomes word material when retyped src -> dst: a
-// Cyrillic letter, or — with `connectors` — an intra-word connector. The
-// Ukrainian apostrophe has no key of its own on a Latin layout, so "мʼяко" is
-// typed "v\\zrj" and the "\\" must not read as punctuation.
 // True if `ch`, retyped src -> dst, becomes an intra-word connector.
 public func mapsToConnector(_ ch: Character, src: LayoutMaps, dst: LayoutMaps) -> Bool {
     guard let st = src.charToStroke[String(ch)], let m = dst.strokeToChar[st],
@@ -91,6 +87,10 @@ public func mapsToConnector(_ ch: Character, src: LayoutMaps, dst: LayoutMaps) -
     return isWordConnector(Character(m))
 }
 
+// True if any char of `w` becomes word material when retyped src -> dst: a
+// Cyrillic letter, or — with `connectors` — an intra-word connector. The
+// Ukrainian apostrophe has no key of its own on a Latin layout, so "мʼяко" is
+// typed "v\\zrj" and the "\\" must not read as punctuation.
 public func mapsToWordChar(_ w: Substring, src: LayoutMaps, dst: LayoutMaps,
                            connectors: Bool) -> Bool {
     for ch in w {
@@ -117,15 +117,15 @@ public func tokenize(_ text: String) -> [Substring] {
     return tokens
 }
 
-// Majority script across the letter-bearing word tokens of `text`.
-// true = Cyrillic dominates, false = Latin dominates, nil = no letters or a tie.
-// Used to detect the "wrong" layout from the text itself when the system's
-// current layout no longer matches what was typed (user switched after mistyping).
 // Non-whitespace tokens (the "words") of `text`.
 func wordTokens(_ text: String) -> [Substring] {
     tokenize(text).filter { !($0.first?.isWhitespace ?? true) }
 }
 
+// Majority script across the letter-bearing word tokens of `text`.
+// true = Cyrillic dominates, false = Latin dominates, nil = no letters or a tie.
+// Used to detect the "wrong" layout from the text itself when the system's
+// current layout no longer matches what was typed (user switched after mistyping).
 public func dominantScript(_ text: String) -> Bool? {
     var cyr = 0, lat = 0
     for t in wordTokens(text) {
@@ -143,29 +143,6 @@ public func textHasScript(_ text: String, cyrillic: Bool) -> Bool {
         if cyrillic ? hasCyr(t) : (hasLatin(t) && !hasCyr(t)) { return true }
     }
     return false
-}
-
-// MARK: - Implicit-selection window (caret-line grab)
-//
-// With nothing selected the platform layer grabs the whole line back to the line
-// start, but only the word at the caret is ever converted: the rest of the line is
-// text the user is not thinking about, and any "which part is wrong" heuristic
-// guesses wrong on some lines. A word is a run of non-whitespace, so mid-word
-// punctuation ("кое-что", "e-mail") stays inside it.
-//
-// Returns the start of that word (window = text[start...], trailing whitespace
-// included so it is retyped verbatim), or nil when the line has no word.
-public func caretWord(_ text: String) -> String.Index? {
-    var end = text.endIndex
-    while end > text.startIndex, text[text.index(before: end)].isWhitespace {
-        end = text.index(before: end)
-    }
-    guard end > text.startIndex else { return nil }
-    var start = end
-    while start > text.startIndex, !text[text.index(before: start)].isWhitespace {
-        start = text.index(before: start)
-    }
-    return start
 }
 
 // MARK: - Auto-mode word shape
@@ -232,15 +209,22 @@ public func convertWrong(_ text: String, src: LayoutMaps, dst: LayoutMaps) -> St
 // Converts every maximal run of `src`-script letters through `src` -> `dst` and
 // leaves the rest verbatim, so both readings of a mixed word are expressible:
 // src = the pre-switch layout fixes the prefix ("ghjсто" -> "просто"), src = the
-// current layout fixes the tail. Returns nil if nothing changed.
+// current layout fixes the tail. A key that types a letter in `dst` (on Latin,
+// "[" is х) belongs to a run it touches ("[jhошо" -> "хорошо"); away from one it
+// stays punctuation ("ghjсто," keeps its comma). Returns nil if nothing changed.
 public func convertScriptRuns(_ text: String, src: LayoutMaps, dst: LayoutMaps) -> String? {
     var acc = "", run = ""
     func flush() {
         if !run.isEmpty { acc += transliterate(run, from: src, to: dst); run = "" }
     }
-    for ch in text {
-        let inSrc = ch.unicodeScalars.contains(where: src.isCyrillic ? isCyrLetter : isLatinLetter)
-        if inSrc { run.append(ch) } else { flush(); acc.append(ch) }
+    func isSrcLetter(_ ch: Character) -> Bool {
+        ch.unicodeScalars.contains(where: src.isCyrillic ? isCyrLetter : isLatinLetter)
+    }
+    let chars = Array(text)
+    for (i, ch) in chars.enumerated() {
+        let joins = !ch.isLetter && mapsToWordChar(String(ch)[...], src: src, dst: dst, connectors: false)
+            && (!run.isEmpty || (i + 1 < chars.count && isSrcLetter(chars[i + 1])))
+        if isSrcLetter(ch) || joins { run.append(ch) } else { flush(); acc.append(ch) }
     }
     flush()
     return acc == text ? nil : acc

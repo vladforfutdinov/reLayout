@@ -121,10 +121,11 @@ public func decideAutoTarget<L: AutoLayout>(_ w: String, cur: L, enabled: [L],
     // "какого-то"), and carries no layout ambiguity, so such a word is gated
     // like a pure-letter one.
     let pure = w.allSatisfy { $0.isLetter || isWordConnector($0) }
-    // Mid-word layout switch leaves ONE word carrying both scripts ("ghjсто").
-    // Punctuation-bearing mixed words are left alone — the shape gates below
+    // Mid-word layout switch leaves ONE word carrying both scripts ("ghjсто"),
+    // its Latin half maybe typed on punctuation keys ("[jhошо"). Other
+    // punctuation-bearing mixed words are left alone — the shape gates below
     // reason about a single-script word.
-    let mixed = pure && hasCyr(w[...]) && hasLatin(w[...])
+    let mixed = hasCyr(w[...]) && hasLatin(w[...]) && isMixedWordMaterial(w, enabled: enabled)
     var best: (L, String, Float, ambiguous: Bool)?
     for t in targets {
         if mixed {
@@ -461,7 +462,7 @@ public func hotkeyMisses<L: AutoLayout>(replaced: String, out: String, src: L, d
 ///   half was typed in (`src`); nil when `w` is not a pure-letter mixed-script word.
 public func fixMixedWord<L: AutoLayout>(_ w: String, cur: L, enabled: [L],
                                         model: (String) -> TrigramModel?) -> (out: String, dst: L, src: L)? {
-    guard w.allSatisfy(\.isLetter), hasCyr(w[...]), hasLatin(w[...]) else { return nil }
+    guard hasCyr(w[...]), hasLatin(w[...]), isMixedWordMaterial(w, enabled: enabled) else { return nil }
     var best: (out: String, dst: L, src: L, score: Float)?
     func offer(_ out: String?, dst: L, src: L) {
         guard let out, out != w, let lang = dst.languageCode, let m = model(lang) else { return }
@@ -478,6 +479,18 @@ public func fixMixedWord<L: AutoLayout>(_ w: String, cur: L, enabled: [L],
 }
 
 // MARK: - Hotkey: which layouts a selection converts between
+
+/// True when every char of `w` can be part of a word: a letter, a connector, or a
+/// key that types a letter on an enabled Cyrillic layout when typed on an enabled
+/// Latin one ("[" is х, "," is б).
+func isMixedWordMaterial<L: AutoLayout>(_ w: String, enabled: [L]) -> Bool {
+    let latin = enabled.filter { !$0.isCyrillic }, cyrillic = enabled.filter(\.isCyrillic)
+    return w.allSatisfy { ch in
+        ch.isLetter || isWordConnector(ch) || latin.contains { l in
+            cyrillic.contains { mapsToWordChar(String(ch)[...], src: l, dst: $0, connectors: true) }
+        }
+    }
+}
 
 /// Plans the hotkey conversion of a selection.
 ///
@@ -498,10 +511,12 @@ public func planRetype<L: AutoLayout>(_ text: String, enabled: [L], curIdx: Int,
     guard enabled.count >= 2, enabled.indices.contains(curIdx) else { return nil }
     let cur = enabled[curIdx]
 
-    let toks = tokenize(text)
-    if toks.count == 1, let word = toks.first, !(word.first?.isWhitespace ?? true),
+    // One word, whatever whitespace the selection caught around it (a double-click
+    // takes the trailing space in some apps): that space is retyped as it was.
+    let words = wordTokens(text)
+    if words.count == 1, let word = words.first,
        let fix = fixMixedWord(String(word), cur: cur, enabled: enabled, model: model) {
-        return (fix.out, fix.dst, fix.src, String(word))
+        return (String(text[..<word.startIndex]) + fix.out + String(text[word.endIndex...]), fix.dst, fix.src, text)
     }
 
     // Switched after typing: the wrong layout is the text's, the target the current.

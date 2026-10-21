@@ -195,6 +195,10 @@ func runScenarios(_ h: Harness) -> Int {
     type("rfr"); tapOption()   // "как", typed after the fix: the hotkey converts it, not undo
     expect(h, "hotkey after typing: new word converts", hello.1 + " rfr", layout: latin)
 
+    // Keys typed while a fix runs are held, then replayed through the word buffer.
+    reset(h); type(hello.0 + " rfr ")
+    expect(h, "auto: keys typed during a fix land in the new layout", hello.1 + " как ")
+
     reset(h); type("d\t" + book.0 + " ")   // a Tab may move focus: no fix reaches back across it
     expect(h, "auto: short word before a Tab is left alone", "d\t" + book.1 + " ")
 

@@ -4,6 +4,33 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.16 — boundary step, press-again and Windows modifier taps in Core
+
+- 1: Windows' `HotkeyDetector` uses `ModifierTap` for modifier-only hotkeys:
+  600 ms like macOS (a single modifier had 400), and a click now cancels the
+  tap (the mouse hook calls `interruptHotkeyTaps`), so Shift+click to extend
+  a selection no longer fires a Shift-tap hotkey. A bare modifier keeps its
+  side on Windows (Left Shift), as before; macOS matches either side.
+  e2e: the auto-correct toggle bound to a Right Ctrl tap — a tap turns it off
+  and on, a tap with a click inside does nothing.
+- 2: `Core/Boundary.swift` `evaluateBoundary`: edit lessons, the decision, the
+  short-word chain and bridge, switch-only, the fix plan — the ~45 lines both
+  apps had. The decision now sees verdicts as updated by this boundary's
+  lessons (it read the stored ones; same result, since both apps wrote them
+  first). 6 tests, incl. the bridge rule, which had none.
+- 3: `Core/PressAgain.swift`: `Conversion`, the record, retarget-vs-undo and
+  the epoch guard (`mark`/`record`/`forget`; `drop` for the macOS key that may
+  be starting a correction). 4 tests.
+- The intermittent "first scenario fails" on Windows: the first UI Automation
+  call of a fresh process is slow, so the first word's password answer came
+  after its boundary and the word was left (nothing is corrected while it is
+  pending). The app now makes that call at startup. Two consecutive VM runs
+  green since (15+3 plain, 17+3 spell).
+- macOS pauses around synthetic input are named (`landPause`,
+  `autoLandPause`, `pollInterval`, `keyGap`) instead of repeated literals.
+- Checked: `swift test` 151, macOS run-tests 39, Windows e2e plain and spell
+  twice. Not run: macOS e2e after these changes.
+
 ## After v1.3.16 — tests split by layer; keystroke gate and hotkey taps in Core
 
 - Test layers written down in ARCHITECTURE: unit (Core, corner cases), e2e

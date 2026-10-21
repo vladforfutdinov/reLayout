@@ -682,26 +682,22 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     // (erases the typed text, restores the original, flips the input source
     // back) until any other key or click (`startUndoWatch`) — the caret may have
     // moved past it.
-    private struct Conversion {
-        let original: String
-        var typed: String
-        let srcSource: TISInputSource
-        var learned: [String] = []   // hotkey misses recorded by this conversion: undo forgets them
-        var autoWords: [String] = [] // words an auto-correction fixed: undo learns them as `keep`
-        // Press-again cycle (engine retypeAlternatives): the next readings of
-        // `original`, typed in turn; `suffix` (spaces after a typed word) is kept.
-        var alternatives: [(out: String, dst: Layout)] = []
-        var suffix = ""
-    }
-    // Main thread only. `undoEpoch` counts user input that ended the undo window; a
-    // retype records its conversion only if no such input arrived while it ran.
-    private var lastConversion: Conversion?
-    private var undoEpoch = 0
-    private var workEpoch = 0   // worker only: `undoEpoch` when the running correction began
-    fileprivate func endUndoWindow() { lastConversion = nil; undoEpoch &+= 1 }
+    // The press-again record (engine `PressAgain`), main thread only.
+    private typealias Conv = Conversion<TISInputSource, Layout>
+    // Pauses around synthetic input, in microseconds. `landPause`: typed text gets
+    // to land in the app before the next step (a layout switch, a reselect); auto
+    // mode waits less, where typing speed shows. `pollInterval`: one step of a wait
+    // loop. `keyGap`: between posted keys, so slow apps drop none.
+    private let landPause: useconds_t = 20_000
+    private let autoLandPause: useconds_t = 10_000
+    private let pollInterval: useconds_t = 20_000
+    private let keyGap: useconds_t = 1500
+    private var pressAgain = PressAgain<TISInputSource, Layout>()
+    private var workMark = 0   // worker only: `pressAgain.mark` when the running correction began
+    fileprivate func endUndoWindow() { pressAgain.forget() }
     // Worker.
-    private func recordConversion(_ c: Conversion) {
-        DispatchQueue.main.sync { if undoEpoch == workEpoch { lastConversion = c } }
+    private func recordConversion(_ c: Conv) {
+        DispatchQueue.main.sync { pressAgain.record(c, since: workMark) }
     }
     private var undoTap: CFMachPort?
     private var undoTapSource: CFRunLoopSource?
@@ -722,7 +718,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
                 // A key may be the boundary that just began an auto-correction (the key tap
                 // runs first): no epoch bump, or that correction could not be undone. Keys
                 // typed during a correction end the window on replay (`autoFeed`).
-                if type == .keyDown { me.lastConversion = nil } else { me.endUndoWindow() }
+                if type == .keyDown { me.pressAgain.drop() } else { me.endUndoWindow() }
             }
             return Unmanaged.passUnretained(event)
         }
@@ -1485,7 +1481,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     private func refreshLearnedUI() {
         DispatchQueue.main.async { self.updateAutoAvailability(); if self.learnedWindow?.isVisible == true { self.reloadLearnedRows() } }
     }
-    private func unlearn(_ last: Conversion) {
+    private func unlearn(_ last: Conv) {
         learned.unlearn(learned: last.learned, autoWords: last.autoWords)
         if !last.autoWords.isEmpty { dbg("learned keep: \(last.autoWords)") }
         refreshLearnedUI()
@@ -2026,7 +2022,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             let f = CGEventSource.flagsState(.combinedSessionState)
             if !f.contains(.maskCommand), !f.contains(.maskControl),
                !f.contains(.maskShift), !f.contains(.maskAlternate) { return }
-            usleep(20_000)
+            usleep(pollInterval)
         }
     }
 
@@ -2052,7 +2048,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     // Electron/Chromium (VS Code) can apply a burst of deletes after text posted
     // right behind it, leaving the old word half-erased; pace them and let them land.
     private func eraseBack(_ n: Int) {
-        for _ in 0..<n { postKey(CGKeyCode(kVK_Delete), []); usleep(1500) }
+        for _ in 0..<n { postKey(CGKeyCode(kVK_Delete), []); usleep(keyGap) }
         usleep(30_000)
     }
 
@@ -2096,9 +2092,10 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     // Cross-script trigram decision lives in the engine (Core/Auto.swift); this
     // only feeds it the cached models.
     /// - Returns: the decision; `repaired` = a typo in the conversion was fixed too.
-    func autoDecide(_ w: String, cur: Layout, enabled: [Layout])
+    /// - Parameter verdict: the user's verdicts; the stored ones when nil.
+    func autoDecide(_ w: String, cur: Layout, enabled: [Layout], verdict: ((String) -> LearnedVerdict?)? = nil)
         -> (target: Layout, out: String, ambiguous: Bool, repaired: Bool)? {
-        let r = autoDecision(w, cur: cur, enabled: enabled, model: trigram, learned: learnedVerdict,
+        let r = autoDecision(w, cur: cur, enabled: enabled, model: trigram, learned: verdict ?? learnedVerdict,
                              sameScript: autoSameScript, spell: autoSpell ? (isWord, { self.spellGuesses($0, $1) }) : nil)
         if r?.repaired == true { dbg("typo: \(w.debugDescription) -> \(r!.out.debugDescription)") }
         return r
@@ -2457,10 +2454,10 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         eraseBack(word.count + trail.count + 1)
         typeUnicode(out + outTrail)
         typeKey("\r", flags: flags)
-        usleep(10_000)
+        usleep(autoLandPause)
         DispatchQueue.main.sync { self.selectLayout(target) }
-        recordConversion(Conversion(original: word + trail + "\r", typed: out + outTrail + "\r",
-                                    srcSource: srcSource,
+        recordConversion(Conv(original: word + trail + "\r", typed: out + outTrail + "\r",
+                                    src: srcSource,
                                     autoWords: [learnedKey(word)]))
     }
 
@@ -2515,78 +2512,45 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
 
     @discardableResult
     private func autoEvaluate(word: String, trail: String, boundary: String, flags: CGEventFlags) -> Bool {
-        // Any non-word event (empty word from a double space, excluded app) breaks
-        // the run so a stale short candidate can't attach across the gap.
-        let t0 = uptimeMs()
-        guard !word.isEmpty, !isAutoExcluded() else {
-            dbg("auto: skipped (word=\(word.debugDescription) excluded=\(isAutoExcluded()))")
-            autoRun.noCandidate(); return false
-        }
-        let tExcluded = uptimeMs()
         let enabled = Layout.enabledList()
-        for lesson in edits.boundary(word, verdict: learnedVerdict(learnedKey(word))) {
-            switch lesson {
-            case .keep(let key):
-                learned.keep.insert(key)
-                dbg("learned keep by revert: \(key.debugDescription)")
-                refreshLearnedUI()
-                autoRun.noCandidate(); return false
-            case .dropKeep(let key):
-                learned.keep.remove(key)
-                dbg("keep dropped by revert: \(key.debugDescription)")
-                refreshLearnedUI()
-            case .convert(let key, let out):
-                learned.promote(key, to: out)
-                dbg("learned convert by hand: \(key.debugDescription) -> \(out.debugDescription)")
-                refreshLearnedUI()
-            }
+        guard let cur = enabled.first(where: { $0.id == currentSourceID() }) else {
+            dbg("auto: no current layout \(currentSourceID())"); autoRun.noCandidate(); return false
         }
-        let tLearn = uptimeMs()
+        let t0 = uptimeMs()
+        var tExcluded = t0, tLearn = t0
         spellTime = (0, 0, 0, 0)
-        let decision = enabled.first(where: { $0.id == currentSourceID() }).flatMap { cur in
-            autoDecide(word, cur: cur, enabled: enabled).map { (cur, $0) }
+        var words = learned
+        let before = words
+        let (action, lessons) = evaluateBoundary(
+            word: word, trail: trail, cur: cur, enabled: enabled,
+            run: &autoRun, edits: &edits, learned: &words, chainTarget: &autoChainTarget,
+            excluded: { let x = self.isAutoExcluded(); tExcluded = uptimeMs(); return x },
+            decide: { w, verdict in
+                tLearn = uptimeMs()
+                return self.autoDecide(w, cur: cur, enabled: enabled, verdict: verdict)
+            })
+        if words != before { learned = words; refreshLearnedUI() }
+        for lesson in lessons { dbg("learned by edit: \(lesson)") }
+        if tLearn > t0 {
+            dbg(String(format: "timing: excluded=%.1f learn=%.1f decide=%.1f (spell check %d× %.1f, guesses %d× %.1f) ms",
+                       tExcluded - t0, tLearn - tExcluded, uptimeMs() - tLearn,
+                       spellTime.checks, spellTime.checkMs, spellTime.guesses, spellTime.guessMs))
         }
-        let tDecide = uptimeMs()
-        dbg(String(format: "timing: excluded=%.1f learn=%.1f decide=%.1f (spell check %d× %.1f, guesses %d× %.1f) ms",
-                   tExcluded - t0, tLearn - tExcluded, tDecide - tLearn,
-                   spellTime.checks, spellTime.checkMs, spellTime.guesses, spellTime.guessMs))
-        guard let (cur, d) = decision else {
-            if let cur = enabled.first(where: { $0.id == currentSourceID() }) {
-                edits.leftAlone(word, cur: cur, enabled: enabled)
-            }
-            // A short word the model reads as fine right after a chain word ("ot"
-            // in "nf ot [fktgf") rides along with its reading in the chain's layout.
-            if wordBody(word) <= 2, autoRun.previous != nil, let t = autoChainTarget,
-               let cur = enabled.first(where: { $0.id == currentSourceID() }) {
-                dbg("auto: no candidate for \(word.debugDescription), bridged")
-                autoRun.bridge(raw: word + trail, out: transliterate(word + trail, from: cur, to: t))
-            } else {
-                dbg("auto: no candidate for \(word.debugDescription) cur=\(currentSourceID())")
-                autoRun.noCandidate()
-            }
+        switch action {
+        case .none:
+            dbg("auto: \(word.debugDescription) left (excluded/learned/no candidate/waits)")
             return false
-        }
-        autoChainTarget = d.target
-        dbg("auto: \(word.debugDescription) -> \(d.out.debugDescription) [\(d.target.id)] cur=\(cur.id)")
-        if d.out == word {
-            // Right text, wrong layout (uk word on the ru layout): switch only, no retype.
-            guard wordBody(word) >= 3 else { return false }
-            autoRun.noCandidate()
-            selectLayout(d.target)
+        case .switchLayout(let target):
+            selectLayout(target)
             return false
+        case .fix(let fix, let target):
+            dbg("auto: \(word.debugDescription) -> \(fix.text.debugDescription) [\(target.id)] cur=\(cur.id)")
+            let srcSource = cur.source
+            beginCorrection {
+                self.autoCorrect(fix, boundary: boundary, boundaryFlags: flags, target: target, srcSource: srcSource)
+            }
+            return true
         }
-        let srcSource = cur.source
-        let outTrail = transliterate(trail, from: cur, to: d.target)
-        // The short-word rule (engine): a 1-2 letter word waits for a neighbour.
-        guard let fix = autoRun.plan(raw: word + trail, out: d.out + outTrail, cyrillic: d.target.isCyrillic,
-                                     trusted: learnedVerdict(learnedKey(word)) == .convert, ambiguous: d.ambiguous)
-        else { dbg("auto: short or ambiguous word waits for a neighbour"); return false }
-        edits.corrected(word, into: d.out, from: cur, to: d.target)
-        dbg("revert watch: armed")
-        beginCorrection {
-            self.autoCorrect(fix, boundary: boundary, boundaryFlags: flags, target: d.target, srcSource: srcSource)
-        }
-        return true
     }
 
     // Run one retype on `worker` with the keystroke gate held: everything the user
@@ -2595,9 +2559,9 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     func beginCorrection(_ body: @escaping () -> Void) {
         gate.close(at: ProcessInfo.processInfo.systemUptime)
         autoPending += 1
-        let epoch = undoEpoch
+        let mark = pressAgain.mark
         worker.async {
-            self.workEpoch = epoch
+            self.workMark = mark
             body()
             DispatchQueue.main.async { self.finishCorrection() }
         }
@@ -2661,13 +2625,13 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         let t2 = uptimeMs()
         typeUnicode(fix.text)
         typeKey(boundary, flags: boundaryFlags)
-        usleep(10_000)
+        usleep(autoLandPause)
         let t3 = uptimeMs()
         DispatchQueue.main.sync { self.selectLayout(target) }
         dbg(String(format: "timing fix: modifiers+trace=%.1f erase=%.1f type=%.1f select=%.1f ms",
                    t1 - t0, t2 - t1, t3 - t2, uptimeMs() - t3))
-        recordConversion(Conversion(original: fix.original + boundary, typed: fix.text + boundary,
-                                    srcSource: srcSource,
+        recordConversion(Conv(original: fix.original + boundary, typed: fix.text + boundary,
+                                    src: srcSource,
                                     autoWords: fix.original.split(separator: " ").map { learnedKey(String($0)) }))
     }
 
@@ -2752,7 +2716,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         postKey(CGKeyCode(c.flatMap { $0.mods == 0 ? $0.keyCode : nil } ?? UInt16(kVK_ANSI_C)), .maskCommand)
         // Wait for the copy, not a fixed time: a copy landing after the restore would
         // stay on the clipboard for good.
-        for _ in 0..<20 where pb.changeCount == before { usleep(20_000) }
+        for _ in 0..<20 where pb.changeCount == before { usleep(pollInterval) }
         guard pb.changeCount != before, let c = pb.string(forType: .string), !c.isEmpty else { return nil }
         // VS Code (Monaco) copies the whole caret line when nothing is selected and
         // says so in its clipboard metadata; the hotkey converts only a selection.
@@ -2778,12 +2742,10 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         // original into the next layout (three or more enabled), and once the
         // readings are exhausted it reverses the conversion. A multi-tap hotkey
         // counts once per completed sequence.
-        if let last = DispatchQueue.main.sync(execute: { () -> Conversion? in
-            defer { lastConversion = nil }
-            return lastConversion
-        }) {
-            if let next = last.alternatives.first { performRetarget(last, to: next) } else { performUndo(last) }
-            return
+        switch DispatchQueue.main.sync(execute: { pressAgain.next() }) {
+        case .retarget(let erase, let text, let dst, let then)?: return performRetarget(erase: erase, type: text, in: dst, then: then)
+        case .undo(let last)?: return performUndo(last)
+        case nil: break
         }
 
         waitModifiersReleased()
@@ -2835,18 +2797,18 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         let head = String(text.dropLast(r.replaced.count))
         if !head.isEmpty {
             postKey(CGKeyCode(kVK_RightArrow), [])
-            usleep(20_000)
+            usleep(landPause)
             for _ in 0..<r.replaced.count { postKey(CGKeyCode(kVK_LeftArrow), .maskShift) }
-            usleep(20_000)
+            usleep(landPause)
         }
         dbg("type: \(r.out.debugDescription) replacing \(r.replaced.debugDescription)")
         typeUnicode(r.out)
-        usleep(20_000)
+        usleep(landPause)
         DispatchQueue.main.sync { self.autoRun.reset(); self.selectLayout(r.dst) }
         // restore clipboard only if the Cmd+C read fallback dirtied it
         if clipboardTouched { restoreClipboard(clipboardSaved) }
         // remember it so a quick second hotkey can undo
-        recordConversion(Conversion(original: r.replaced, typed: r.out, srcSource: r.src.source,
+        recordConversion(Conv(original: r.replaced, typed: r.out, src: r.src.source,
                                     learned: r.learned, alternatives: r.alternatives))
     }
 
@@ -2860,32 +2822,29 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         dbg("type: \(r.out.debugDescription) replacing typed \(r.replaced.debugDescription) +\(typed.spaces) spaces")
         eraseBack(r.replaced.count + typed.spaces)
         typeUnicode(r.out + spaces)
-        usleep(20_000)
+        usleep(landPause)
         DispatchQueue.main.sync { self.autoRun.reset(); self.selectLayout(r.dst) }
-        recordConversion(Conversion(original: r.replaced + spaces, typed: r.out + spaces, srcSource: r.src.source,
+        recordConversion(Conv(original: r.replaced + spaces, typed: r.out + spaces, src: r.src.source,
                                     learned: r.learned,
                                     alternatives: r.alternatives, suffix: spaces))
     }
 
     // The next reading of the original: erase what was just typed, type the
     // alternative, switch to its layout; the remaining readings stay in the record.
-    private func performRetarget(_ last: Conversion, to next: (out: String, dst: Layout)) {
+    private func performRetarget(erase: Int, type text: String, in dst: Layout, then: Conv) {
         waitModifiersReleased()
-        dbg("retarget: \(next.out.debugDescription) -> \(next.dst.id)")
-        eraseBack(last.typed.count)
-        typeUnicode(next.out + last.suffix)
-        usleep(20_000)
-        DispatchQueue.main.sync { self.autoRun.remember(next.out + last.suffix); self.selectLayout(next.dst) }
-        var again = last
-        again.typed = next.out + last.suffix
-        again.alternatives = Array(last.alternatives.dropFirst())
-        recordConversion(again)
+        dbg("retarget: \(text.debugDescription) -> \(dst.id)")
+        eraseBack(erase)
+        typeUnicode(text)
+        usleep(landPause)
+        DispatchQueue.main.sync { self.autoRun.remember(text); self.selectLayout(dst) }
+        recordConversion(then)
     }
 
     // Reverse the last conversion: erase the text we just typed (the caret sits
     // right after it; Backspace, not Shift+Left: a terminal has no selection and
     // gets the arrow's escape sequence), type the original, flip the source back.
-    private func performUndo(_ last: Conversion) {
+    private func performUndo(_ last: Conv) {
         waitModifiersReleased()
         dbg("undo: restore \(last.original.debugDescription)")
         DispatchQueue.main.sync { if self.autoMode { self.unlearn(last) } }   // UserDefaults: main thread
@@ -2897,10 +2856,10 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         } else {
             typeUnicode(last.original)
         }
-        usleep(20_000)
+        usleep(landPause)
         // The restored text stays the hotkey's target as a whole (engine `remember`:
         // not fed through the word buffer, which would split it at punctuation).
-        DispatchQueue.main.sync { _ = TISSelectInputSource(last.srcSource); self.autoRun.remember(last.original) }
+        DispatchQueue.main.sync { _ = TISSelectInputSource(last.src); self.autoRun.remember(last.original) }
     }
 
     // Insert a string by synthesizing per-character Unicode key events. A line
@@ -2930,7 +2889,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
                 markSynth(up)
                 up.post(tap: .cgSessionEventTap)
             }
-            usleep(1500)   // small gap so slow apps don't drop characters
+            usleep(keyGap)
         }
     }
 

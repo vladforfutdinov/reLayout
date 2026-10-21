@@ -6,37 +6,26 @@ import ReLayoutCore
 // Pressing the hotkey again right after a conversion retypes the original into the
 // next layout (three or more enabled), and once those readings run out undoes it.
 
-/// The last conversion (hotkey or auto mode), kept briefly so a second hotkey
-/// press can retarget it or put the original back.
-struct Conversion {
-    let original: String
-    var typed: String
-    let src: WinLayout
-    var learned: [String] = []   // hotkey misses this conversion learned: undo forgets them
-    var autoWords: [String] = [] // words an auto-correction fixed: undo learns them as `keep`
-    var alternatives: [(out: String, dst: WinLayout)] = []   // the other readings, next press first
-    var suffix = ""              // spaces after a typed word, kept on retarget
-}
-// Hook-thread state. `conversionEpoch` counts forgetConversion calls: a conversion
-// is recorded only if none came while it was typed (a click mid-retype).
-private var lastConversion: Conversion?
-private var conversionEpoch = 0
+/// The last conversion (hotkey or auto mode), for press-again (engine `PressAgain`).
+typealias WinConversion = Conversion<WinLayout, WinLayout>
+// Hook-thread state: any key or click forgets the record (`forgetConversion`).
+private var pressAgain = PressAgain<WinLayout, WinLayout>()
 
 /// The point a conversion starts from; pass it to `recordConversion`.
-func conversionMark() -> Int { onHook { conversionEpoch } }
+func conversionMark() -> Int { onHook { pressAgain.mark } }
 
 func recordConversion(original: String, typed: String, src: WinLayout, since mark: Int,
                       learned: [String] = [], autoWords: [String] = [],
                       alternatives: [(out: String, dst: WinLayout)] = [], suffix: String = "") {
-    let c = Conversion(original: original, typed: typed, src: src,
-                       learned: learned, autoWords: autoWords, alternatives: alternatives, suffix: suffix)
-    onHook { if conversionEpoch == mark { lastConversion = c } }
+    let c = WinConversion(original: original, typed: typed, src: src,
+                          learned: learned, autoWords: autoWords, alternatives: alternatives, suffix: suffix)
+    onHook { pressAgain.record(c, since: mark) }
 }
 
 /// Any real keystroke or click moves on from the last conversion: the caret is no
 /// longer right after the typed text, so undo would erase the wrong characters.
 func forgetConversion() {
-    onHook { lastConversion = nil; conversionEpoch &+= 1 }
+    onHook { pressAgain.forget() }
 }
 
 private var retypeMark = 0   // UI thread: conversionMark() when this hotkey press began
@@ -62,9 +51,10 @@ func performRetype() {
     // Press-again: the next reading, then undo; a double-tap hotkey counts once
     // per completed double tap.
     retypeMark = conversionMark()
-    if let last = onHook({ () -> Conversion? in defer { lastConversion = nil }; return lastConversion }) {
-        if let next = last.alternatives.first { return performRetarget(last, to: next) }
-        return performUndo(last)
+    switch onHook({ pressAgain.next() }) {
+    case .retarget(let erase, let text, let dst, let then)?: return performRetarget(erase: erase, type: text, in: dst, then: then)
+    case .undo(let last)?: return performUndo(last)
+    case nil: break
     }
     guard let cur = WinLayout.current() else { return }
     guard waitModifiersReleased() else { return }
@@ -124,21 +114,19 @@ private func alternatives(_ replaced: String, first: String, src: WinLayout,
 
 /// Erases what the conversion typed and types the next reading of the original
 /// in its layout; the remaining readings stay in the record.
-private func performRetarget(_ last: Conversion, to next: (out: String, dst: WinLayout)) {
+private func performRetarget(erase: Int, type text: String, in dst: WinLayout, then: WinConversion) {
     guard waitModifiersReleased() else { return }
     resetAutoBuffer()
-    sendBackspaces(last.typed.count)
-    guard typeText(next.out + last.suffix, in: next.dst) else { return }   // also leaves dst active
-    rememberSelection(next.out + last.suffix)
-    var again = last
-    again.typed = next.out + last.suffix
-    again.alternatives = Array(last.alternatives.dropFirst())
-    onHook { if conversionEpoch == retypeMark { lastConversion = again } }
+    sendBackspaces(erase)
+    guard typeText(text, in: dst) else { return }   // also leaves dst active
+    rememberSelection(text)
+    let mark = retypeMark
+    onHook { pressAgain.record(then, since: mark) }
 }
 
 /// Erases what the conversion typed (the caret sits right after it), types the
 /// original back and returns to the source layout.
-private func performUndo(_ last: Conversion) {
+private func performUndo(_ last: WinConversion) {
     guard waitModifiersReleased() else { return }
     unlearn(last)
     resetAutoBuffer()
@@ -201,6 +189,10 @@ if !installHotkeyHook() {
 }
 reloadAutoMode()
 refreshTrayIcon()        // drawn before the settings were read
+// The first UI Automation call of a process takes long (COM, the client proxies):
+// made now, not on the first typed word, whose password answer would come too late
+// and leave that word uncorrected (nothing is corrected while it is pending).
+_ = focusIsPasswordField()
 trackForegroundApps()    // for "Exclude current app"
 
 var msg = MSG()

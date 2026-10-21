@@ -306,67 +306,43 @@ private func askPasswordField() {
     }
 }
 
-/// Word boundary: decide, and queue the fix for the UI thread.
+/// Word boundary: the engine's `evaluateBoundary`, then the fix is queued for the
+/// UI thread.
 /// - Returns: true when a fix was queued, so the boundary key is swallowed — the
 ///   fix retypes it after the correction.
 private var chainTarget: WinLayout?   // layout of the last auto candidate, for bridged words
 
 private func evaluate(word: String, trail: String, boundary: Int32, shift: Bool, cur: WinLayout) -> Bool {
-    guard !word.isEmpty, !autoExcluded() else { run.noCandidate(); return false }
-    for lesson in edits.boundary(word, verdict: learnedVerdict(learnedKey(word))) {
-        switch lesson {
-        case .keep(let key):
-            learned.keep.insert(key)
-            saveLearnedWords()
-            dwatch("learned keep by revert")
-            run.noCandidate(); return false
-        case .dropKeep(let key):
-            learned.keep.remove(key)
-            saveLearnedWords()
-            dwatch("keep dropped by revert")
-        case .convert(let key, let out):
-            promoteLearned(key, to: out)
-            dwatch("learned convert by hand")
-        }
-    }
-    guard let decided = autoDecide(word, cur: cur, enabled: WinLayout.installedList()) else {
-        edits.leftAlone(word, cur: cur, enabled: WinLayout.installedList())
-        // A short word the model reads as fine right after a chain word ("ot" in
-        // "nf ot [fktgf") rides along with its reading in the chain's layout.
-        if wordBody(word) <= 2, run.previous != nil, let t = chainTarget {
-            run.bridge(raw: word + trail, out: transliterate(word + trail, from: cur, to: t))
-        } else {
-            run.noCandidate()
-        }
+    let before = learned
+    let (action, lessons) = evaluateBoundary(
+        word: word, trail: trail, cur: cur, enabled: WinLayout.installedList(),
+        run: &run, edits: &edits, learned: &learned, chainTarget: &chainTarget,
+        excluded: { autoExcluded() },
+        decide: { w, verdict in autoDecide(w, cur: cur, enabled: WinLayout.installedList(), verdict: verdict) })
+    if learned != before { saveLearnedWords() }
+    if !lessons.isEmpty { dwatch("learned by edit: \(lessons.count)") }
+    switch action {
+    case .none:
         return false
-    }
-    chainTarget = decided.target
-    if decided.out == word {
-        // Right text, wrong layout (uk word on the ru layout): switch only, no retype.
-        guard wordBody(word) >= 3 else { return false }
-        run.noCandidate()
-        switchLayout(to: decided.target)
+    case .switchLayout(let target):
+        switchLayout(to: target)
         return false
+    case .fix(let fix, let target):
+        queued = QueuedFix(fix: fix, boundary: boundary, shift: shift, target: target, src: cur)
+        gate.close(at: seconds())
+        PostMessageW(trayWindow(), WM_AUTOFIX, 0, 0)
+        return true
     }
-    let outTrail = trail.isEmpty ? "" : transliterate(trail, from: cur, to: decided.target)
-    // The short-word rule (engine): a 1-2 letter word waits for a neighbour.
-    guard let fix = run.plan(raw: word + trail, out: decided.out + outTrail, cyrillic: decided.target.isCyrillic,
-                             trusted: learnedVerdict(learnedKey(word)) == .convert,
-                             ambiguous: decided.ambiguous) else { return false }
-    queued = QueuedFix(fix: fix, boundary: boundary, shift: shift, target: decided.target, src: cur)
-    edits.corrected(word, into: decided.out, from: cur, to: decided.target)
-    gate.close(at: seconds())
-    PostMessageW(trayWindow(), WM_AUTOFIX, 0, 0)
-    return true
 }
 
 /// The engine's `autoDecision` with this app's models, verdicts and dictionary.
-private func autoDecide(_ w: String, cur: WinLayout, enabled: [WinLayout])
+/// - Parameter verdict: the user's verdicts; the stored ones when nil.
+private func autoDecide(_ w: String, cur: WinLayout, enabled: [WinLayout], verdict: ((String) -> LearnedVerdict?)? = nil)
     -> (target: WinLayout, out: String, ambiguous: Bool, repaired: Bool)? {
     // Suggestions run inside the keyboard hook, which Windows drops when it runs
     // long: past the budget the remaining languages are skipped.
     let deadline = GetTickCount64() + guessBudgetMs
-    let r = autoDecision(w, cur: cur, enabled: enabled, model: trigram, learned: learnedVerdict,
+    let r = autoDecision(w, cur: cur, enabled: enabled, model: trigram, learned: verdict ?? learnedVerdict,
                          sameScript: autoSameScript, spell: autoSpell ? (isWord, { word, lang in
         GetTickCount64() < deadline ? spellGuesses(word, lang) : nil
     }) : nil)
@@ -398,7 +374,7 @@ func learnHotkeyMisses(replaced: String, out: String, src: WinLayout, dst: WinLa
 }
 
 /// Undo takes back what the conversion taught (engine `LearnedWords.unlearn`).
-func unlearn(_ last: Conversion) {
+func unlearn(_ last: WinConversion) {
     onHook {
         guard autoEnabled, !(last.learned.isEmpty && last.autoWords.isEmpty) else { return }
         learned.unlearn(learned: last.learned, autoWords: last.autoWords)
@@ -558,6 +534,7 @@ private let mouseProc: HOOKPROC = { nCode, wParam, lParam in
         resetAutoBuffer()
         forgetConversion()
         edits.edit()
+        interruptHotkeyTaps()
     }
     return CallNextHookEx(nil, nCode, wParam, lParam)
 }

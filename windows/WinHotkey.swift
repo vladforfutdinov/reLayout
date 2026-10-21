@@ -1,4 +1,5 @@
 import WinSDK
+import ReLayoutCore
 
 // Low-level keyboard-hook hotkey engine. Unlike RegisterHotKey it can use a bare
 // modifier (e.g. Left Shift) as the hotkey via tap detection — press & release
@@ -198,88 +199,66 @@ private struct HotkeyDetector {
     let message: UINT   // posted to the main thread when the hotkey fires
     var mods: UINT = 0
     var vk: UINT = 0
-    // modifier-tap detection
-    var tapArmed = false
-    var tapArmTick: DWORD = 0
-    var tapInterrupted = false
+    // Modifier-only hotkeys (a bare modifier, or a `chordVK` chord): engine
+    // `ModifierTap`, as on macOS. A bare modifier keeps its side (Left Shift).
+    var tap = ModifierTap<UINT>()
+    var down: Set<UINT> = []   // modifier keys held now
     // combo: suppress auto-repeat (one fire per physical press)
     var comboFired = false
-    // chord tap: modifiers held now, and all held during this press
-    var held: UINT = 0
-    var peak: UINT = 0
 
     init(message: UINT) { self.message = message }
 
     mutating func set(_ hk: Hotkey) {
         mods = hk.mods; vk = hk.vk
-        tapArmed = false; comboFired = false; held = 0; peak = 0
+        tap = ModifierTap(); down = []; comboFired = false
     }
 
     private func fire() {
         _ = PostThreadMessageW(mainThreadId, message, 0, 0)
     }
 
+    /// A click while modifiers are held: no tap.
+    mutating func interrupt() { tap.interrupt() }
+
     /// - Returns: true if the key belongs to a matched combo and must not reach the app.
-    mutating func handle(_ key: UINT, down: Bool, up: Bool) -> Bool {
+    mutating func handle(_ key: UINT, down isDown: Bool, up: Bool) -> Bool {
         guard vk != 0 else { return false }
 
-        if vk == chordVK {
-            let flag = modFlag(key)
-            guard flag != 0 else {
-                if down { tapInterrupted = true }   // another key during the hold -> not a tap
+        let chord = vk == chordVK
+        if chord || (isModifierVK(vk) && mods == 0) {
+            guard isModifierVK(key) else {
+                if isDown { tap.interrupt() }   // another key during the hold -> not a tap
                 return false
             }
-            if down {
-                if held == 0 { tapArmed = true; tapInterrupted = false; tapArmTick = GetTickCount(); peak = 0 }
-                held |= flag; peak |= held
-            } else if up {
-                held &= ~flag
-                guard held == 0, tapArmed else { return false }
-                tapArmed = false
-                guard !tapInterrupted, peak == mods, GetTickCount() &- tapArmTick < 600 else { return false }
-                fire()
-                if mods & (1 | 8) != 0 {   // Alt/Win released alone would open the menu or Start
-                    sendMaskedRelease(key)
-                    return true
-                }
-            }
-            return false
-        } else if isModifierVK(vk) && mods == 0 {
-            // modifier-tap mode
-            if down {
-                if key == vk {
-                    if !tapArmed { tapArmed = true; tapInterrupted = false; tapArmTick = GetTickCount() }
-                } else if tapArmed {
-                    tapInterrupted = true        // another key during the hold -> not a tap
-                }
-            } else if up, key == vk {
-                defer { tapArmed = false }
-                guard tapArmed, !tapInterrupted, GetTickCount() &- tapArmTick < 400 else { return false }
-                fire()
-                if altOrWinVKs.contains(key) {
-                    sendMaskedRelease(key)
-                    return true
-                }
-            }
-            return false
-        } else {
-            // combo mode (one fire per press; cleared on release)
-            if down, key == vk, modsHeldExact(mods) {
-                if !comboFired {
-                    comboFired = true
-                    // Only a lone Alt opens the menu bar on release, and Win opens Start;
-                    // with Ctrl held too (Ctrl+Alt+R) Alt goes up as a plain key, so no mask.
-                    let alt = mods & 1 /*MOD_ALT*/ != 0, ctrl = mods & 2 /*MOD_CONTROL*/ != 0
-                    if (alt && !ctrl) || mods & 8 /*MOD_WIN*/ != 0 { sendMaskKey() }
-                    fire()
-                }
+            if isDown { down.insert(key) } else if up { down.remove(key) } else { return false }
+            // A chord is matched by modifier kind (either side), a bare modifier by its key.
+            let held = chord ? Set(down.map(modFlag)) : down
+            let target: Set<UINT> = chord ? Set([1, 2, 4, 8].filter { mods & $0 != 0 }) : [vk]
+            guard tap.changed(held: held, chord: target, at: Double(GetTickCount64()) / 1000) else { return false }
+            fire()
+            // Alt/Win released alone would open the menu bar or Start.
+            if chord ? mods & (1 | 8) != 0 : altOrWinVKs.contains(key) {
+                sendMaskedRelease(key)
                 return true
-            } else if up, key == vk {
-                defer { comboFired = false }
-                return comboFired
             }
             return false
         }
+        // combo mode (one fire per press; cleared on release)
+        if isDown, key == vk, modsHeldExact(mods) {
+            if !comboFired {
+                comboFired = true
+                // Only a lone Alt opens the menu bar on release, and Win opens Start;
+                // with Ctrl held too (Ctrl+Alt+R) Alt goes up as a plain key, so no mask.
+                let alt = mods & 1 /*MOD_ALT*/ != 0, ctrl = mods & 2 /*MOD_CONTROL*/ != 0
+                if (alt && !ctrl) || mods & 8 /*MOD_WIN*/ != 0 { sendMaskKey() }
+                fire()
+            }
+            return true
+        } else if up, key == vk {
+            defer { comboFired = false }
+            return comboFired
+        }
+        return false
     }
 }
 
@@ -407,6 +386,12 @@ func installHotkeyHook() -> Bool {
 func uninstallHotkeyHook() {
     if hookThreadId != 0 { PostThreadMessageW(hookThreadId, UINT(WM_QUIT), 0, 0) }
     hookWindow = nil
+}
+
+/// A click: a modifier-only hotkey being held is no tap (Shift+click extends a
+/// selection). Called from the mouse hook, on the hook thread.
+func interruptHotkeyTaps() {
+    for i in detectors.indices { detectors[i].interrupt() }
 }
 
 func setHotkey(_ slot: HotkeySlot, _ hk: Hotkey) {

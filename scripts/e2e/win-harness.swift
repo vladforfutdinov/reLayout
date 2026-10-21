@@ -27,11 +27,12 @@ func pause(_ ms: DWORD) { Sleep(ms) }
 /// Unbuffered: the process ends with ExitProcess, which would drop buffered output.
 func say(_ s: String) { FileHandle.standardOutput.write(Data((s + "\n").utf8)) }
 
-func key(_ scan: WORD, down: Bool, extra: ULONG_PTR = marker) {
+func key(_ scan: WORD, down: Bool, extra: ULONG_PTR = marker, extended: Bool = false) {
     var i = INPUT()
     i.type = DWORD(INPUT_KEYBOARD)
     i.ki = KEYBDINPUT(wVk: 0, wScan: scan,
-                      dwFlags: DWORD(KEYEVENTF_SCANCODE) | (down ? 0 : DWORD(KEYEVENTF_KEYUP)),
+                      dwFlags: DWORD(KEYEVENTF_SCANCODE) | (down ? 0 : DWORD(KEYEVENTF_KEYUP))
+                          | (extended ? DWORD(KEYEVENTF_EXTENDEDKEY) : 0),
                       time: 0, dwExtraInfo: extra)
     SendInput(1, &i, Int32(MemoryLayout<INPUT>.size))
     pause(down ? 10 : 35)
@@ -160,6 +161,10 @@ func runScenarios() -> Int32 {
     let hello = hasRu ? ("ghbdtn", "привет") : ("ghbdsn", "привіт")
     let word = ("ckjdj", "слово")   // its undo below learns it as kept: later scenarios use `book`
     let book = ("rybuf", "книга")
+    // Fresh words for scenarios after those: retyping a just-fixed word after a click
+    // reads as reverting the fix (learning by revert, by design) and is then kept.
+    let world = hasRu ? ("cdtn", "свет") : ("cdsn", "світ")
+    let milk = ("vjkjrj", "молоко")
 
     reset(); type(hello.0 + " ")
     expect("auto: wrong-layout word is fixed", hello.1 + " ", cyrillic: true)
@@ -210,6 +215,21 @@ func runScenarios() -> Int32 {
     pause(400)   // the second word comes after the answer, not while it is pending
     type(hello.0 + " ")
     expect("auto: nothing in a password field", hello.0 + " " + hello.0 + " ", settle: 800, in: password)
+
+    // The auto-correct on/off hotkey is a tap of Right Ctrl (set by the runner): a tap
+    // turns auto-correct off; a tap with a click in the middle is no tap.
+    func tapRightCtrl(clickInside: Bool = false) {
+        key(scanCtrl, down: true, extended: true)
+        if clickInside { click() }
+        key(scanCtrl, down: false, extended: true)
+        pause(300)
+    }
+    reset(); tapRightCtrl(clickInside: true); type(world.0 + " ")
+    expect("modifier tap: a click inside it is no tap", world.1 + " ", cyrillic: true)
+    reset(); tapRightCtrl(); type(milk.0 + " ")
+    expect("modifier tap: Right Ctrl turns auto-correct off", milk.0 + " ", settle: 800)
+    reset(); tapRightCtrl(); type(milk.0 + " ")
+    expect("modifier tap: and on again", milk.1 + " ", cyrillic: true)
 
     if spell {
         // Typos in a wrong-layout word: the trigrams alone leave them or convert them

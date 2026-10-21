@@ -44,6 +44,9 @@ try {
         & reg delete $prefs /v $v /f 2>$null | Out-Null
     }
     & reg add $prefs /v AutoCorrect /t REG_DWORD /d 1 /f | Out-Null
+    # The auto-correct on/off hotkey: a tap of Right Ctrl, for the modifier-tap scenario.
+    & reg add $prefs /v AutoHotkeyVK /t REG_DWORD /d 0xA3 /f | Out-Null
+    & reg add $prefs /v AutoHotkeyMods /t REG_DWORD /d 0 /f | Out-Null
     if ($Spell) { & reg add $prefs /v AutoCorrectSpell /t REG_DWORD /d 1 /f | Out-Null }
     $keyLog = "$env:TEMP\relayout-debug.log"
     Remove-Item $keyLog -ErrorAction SilentlyContinue

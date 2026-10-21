@@ -12,6 +12,16 @@ With three or more layouts enabled (ABC + Russian + Ukrainian) every switch is a
 
 **Steps:** instrument first (per-app layout switches and cycle depth in the trace), look at a week of data, then design the prior; engine side stays in `Core/Auto.swift` as an input to `bestConversion`/`decideAutoTarget`, storage per platform like the learned words.
 
+## Auto-correct waits for a typing pause (decide after the timing data)
+
+Today auto-correct fixes a word at its boundary and holds the keys typed meanwhile, replaying them afterwards (in the layout the fix switched to, `d61b78a`). Consider the alternative: when the user types faster than a fix lands, wait for a pause and fix the whole typed run at once.
+
+**Why:** no keys held mid-typing, so no felt stall; the run is fixed in one erase-and-type. With the whole run in hand, each word can be decided on its own — and with the layout recorded per key, a run where the user switched layout by hand mid-word (`j,` + switch + `новлен`) is still read correctly instead of being broken by a fix that landed in the middle of it. Against: the wrong text stays on screen longer, the user keeps typing in the wrong layout, and the erase grows with the run.
+
+**Gate:** only if the trace timings (`d058e50`: `timing:` and `timing fix:` lines, macOS) show fixes regularly losing the race to typing. If the long stalls are rare and come from the spell checker's guesses, cap those first (Windows already has a 50 ms suggestion budget) and drop this item.
+
+**Steps:** collect a week of timings; count boundaries where keys were held (`hold` lines) and how long; decide; if it goes ahead, the pause detection and per-word re-decision belong in the engine (`AutoRun` in `Core/Auto.swift`) so both platforms share them.
+
 ## Windows default hotkey
 
 Replace the Windows default `Ctrl+Alt+R` (`defaultHotkey`, `windows/WinPrefs.swift`) with something closer to the macOS default, a tap of left ⌥.

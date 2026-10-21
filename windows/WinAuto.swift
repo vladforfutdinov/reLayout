@@ -22,13 +22,10 @@ private var autoEnabled = false  // mirrors the preference; the hook reads it pe
 private var autoEnterEnabled = true
 private var autoSameScript = false
 private var autoSpell = false
-private var learnedConvert: [String: String] = [:]   // the user's verdicts, cached from the registry
-private var learnedKeep: Set<String> = []
+private var learned = LearnedWords()   // the user's verdicts, cached from the registry
 private var edits = EditLearning<WinLayout>()
 // Measured in the VM: a suggestion call takes 2-7 ms typically, 100+ ms at worst.
 private let guessBudgetMs: UInt64 = 50
-private var learnedCounts: [String: Int] = [:]
-private var learnedCandidates: [String: String] = [:]   // counted words and their conversions
 private var exceptions = AppExceptions(auto: [], hotkey: [])
 private var passwordField = false
 private var passwordPending = false   // not known for the focused control: nothing is corrected
@@ -90,7 +87,7 @@ private func foregroundProcessName() -> String {
     let fg = GetForegroundWindow()
     if fg != foregroundHwnd {
         foregroundHwnd = fg
-        foregroundExe = processImagePath(of: fg).map(exeName) ?? ""
+        foregroundExe = processImagePath(of: appWindow(fg)).map(exeName) ?? ""
     }
     return foregroundExe
 }
@@ -157,11 +154,12 @@ func reloadAutoMode() {
     // Loaded here, on the calling thread, not lazily on the first word inside the hook.
     for lang in all.compactMap(\.languageCode) { _ = trigram(lang) }
     let enabled = loadAutoMode(), enter = loadAutoEnter(), same = loadAutoSameScript(), spell = loadAutoSpell()
-    let convert = loadLearned(), keep = Set(loadKept()), counts = loadLearnCounts(), candidates = loadLearnCandidates()
+    let words = LearnedWords(convert: loadLearned(), keep: Set(loadKept()), counts: loadLearnCounts(),
+                             candidates: loadLearnCandidates())
     let exc = AppExceptions(auto: loadExcludedApps(), hotkey: loadHotkeyExcludedApps())
     onHook {
         autoEnabled = enabled; autoEnterEnabled = enter; autoSameScript = same; autoSpell = spell
-        learnedConvert = convert; learnedKeep = keep; learnedCounts = counts; learnedCandidates = candidates
+        learned = words
         exceptions = exc
         run.reset()
     }
@@ -215,9 +213,14 @@ private func mapsToCyrillic(_ ch: Character, cur: WinLayout) -> Bool {
 ///   - replayed: a held key fed after its fix: it is not held again.
 func autoFeed(vk: UINT, scan: WORD, shortcut: Bool, shift: Bool, typed: String? = nil, replayed: Bool = false) -> Bool {
     if correcting, !replayed {
-        if GetTickCount() &- gateSince > gateMaxHoldMs {   // watchdog: never freeze the keyboard
-            correcting = false
-            held = []
+        if GetTickCount() &- gateSince > gateMaxHoldMs {
+            // Watchdog: the fix is stuck. It must not run late at a moved caret, and
+            // nothing typed is lost: the held keys and this one go out as typed.
+            let keys = held + [(vk, scan, shift)]
+            held = []; queued = nil; enterJob = nil; correcting = false
+            run.reset()
+            for k in keys { sendKeyTap(Int32(k.vk), shift: k.shift) }
+            return true
         } else if vk == vkBack, !shortcut, !held.isEmpty {
             held.removeLast()   // un-type a held key instead of reaching the app out of order
             return true
@@ -315,12 +318,12 @@ private func evaluate(word: String, trail: String, boundary: Int32, shift: Bool,
     for lesson in edits.boundary(word, verdict: learnedVerdict(learnedKey(word))) {
         switch lesson {
         case .keep(let key):
-            learnedKeep.insert(key)
+            learned.keep.insert(key)
             saveLearnedWords()
             dwatch("learned keep by revert")
             run.noCandidate(); return false
         case .dropKeep(let key):
-            learnedKeep.remove(key)
+            learned.keep.remove(key)
             saveLearnedWords()
             dwatch("keep dropped by revert")
         case .convert(let key, let out):
@@ -360,46 +363,25 @@ private func evaluate(word: String, trail: String, boundary: Int32, shift: Bool,
     return true
 }
 
-/// The trigram decision, refined by the system dictionary when the spell-check
-/// option is on — the macOS autoDecide.
-/// - Returns: the decision; `repaired` = a typo in the conversion was fixed too
-///   (never learned).
+/// The engine's `autoDecision` with this app's models, verdicts and dictionary.
 private func autoDecide(_ w: String, cur: WinLayout, enabled: [WinLayout])
     -> (target: WinLayout, out: String, ambiguous: Bool, repaired: Bool)? {
-    let d = decideAutoTarget(w, cur: cur, enabled: enabled, model: trigram, learned: learnedVerdict,
-                             sameScript: autoSameScript)
-    guard autoSpell else { return d.map { ($0.target, $0.out, $0.ambiguous, false) } }
-    let s = spellCheckedTarget(w, cur: cur, enabled: enabled, decided: d, model: trigram,
-                               learned: learnedVerdict, isWord: isWord)
-    if s?.out != d?.out { dwatch("spell: \(s == nil ? "left" : "converted")") }
     // Suggestions run inside the keyboard hook, which Windows drops when it runs
-    // long: past the budget the remaining languages are skipped, and a repair
-    // decided without them is not trusted.
+    // long: past the budget the remaining languages are skipped.
     let deadline = GetTickCount64() + guessBudgetMs
-    var overBudget = false
-    let r = spellRepairedTarget(w, cur: cur, enabled: enabled, decided: s, model: trigram,
-                                learned: learnedVerdict, isWord: isWord, guesses: { word, lang in
-        guard GetTickCount64() < deadline else { overBudget = true; return [] }
-        return spellGuesses(word, lang)
-    })
-    if overBudget, r?.repaired == true {
-        dwatch("typo: over budget, not repaired")
-        return s.map { ($0.target, $0.out, $0.ambiguous, false) }
-    }
+    let r = autoDecision(w, cur: cur, enabled: enabled, model: trigram, learned: learnedVerdict,
+                         sameScript: autoSameScript, spell: autoSpell ? (isWord, { word, lang in
+        GetTickCount64() < deadline ? spellGuesses(word, lang) : nil
+    }) : nil)
     if let r, r.repaired { dwatch("typo: repaired len=\(r.out.count)") }
     return r
 }
 
-// MARK: - learned words (the user's verdicts; see the engine's hotkeyMisses)
+// MARK: - learned words (the user's verdicts; rules in the engine's LearnedWords)
 
-func learnedVerdict(_ key: String) -> LearnedVerdict? {
-    onHook {
-        if learnedConvert[key] != nil { return .convert }
-        return learnedKeep.contains(key) ? .keep : nil
-    }
-}
+func learnedVerdict(_ key: String) -> LearnedVerdict? { onHook { learned.verdict(key) } }
 
-func learnedCount() -> Int { onHook { learnedConvert.count + learnedKeep.count } }
+func learnedCount() -> Int { onHook { learned.convert.count + learned.keep.count } }
 
 /// Learns, as `.convert`, the words of a hotkey conversion that auto-correct would
 /// have left alone. Only with auto-correct on, never in a password field or an
@@ -407,105 +389,52 @@ func learnedCount() -> Int { onHook { learnedConvert.count + learnedKeep.count }
 /// - Returns: the learned keys, so the press-again undo can forget them.
 func learnHotkeyMisses(replaced: String, out: String, src: WinLayout, dst: WinLayout) -> [String] {
     guard !focusIsPasswordField() else { return [] }   // UI Automation: on the calling (UI) thread
-    return onHook { learnMisses(replaced: replaced, out: out, src: src, dst: dst) }
+    return onHook {
+        guard autoEnabled, !autoExcluded() else { return [] }
+        let misses = hotkeyMisses(replaced: replaced, out: out, src: src, dst: dst,
+                                  enabled: WinLayout.installedList(), model: trigram)
+        guard !misses.isEmpty else { return [] }
+        learned.count(misses: misses, replaced: replaced, out: out)
+        saveLearnedWords()
+        return misses
+    }
 }
 
-private func learnMisses(replaced: String, out: String, src: WinLayout, dst: WinLayout) -> [String] {
-    guard autoEnabled, !autoExcluded() else { return [] }
-    let misses = hotkeyMisses(replaced: replaced, out: out, src: src, dst: dst, enabled: WinLayout.installedList(),
-                              model: trigram)
-    guard !misses.isEmpty else { return [] }
-    let outWords = out.split(whereSeparator: { $0.isWhitespace })
-    for (t, o) in zip(replaced.split(whereSeparator: { $0.isWhitespace }), outWords) {
-        let key = learnedKey(String(t))
-        guard misses.contains(key), learnedConvert[key] == nil else { continue }
-        learnedCounts[key, default: 0] += 1
-        learnedCandidates[key] = learnedKey(String(o))
-        if learnedCounts[key]! >= autoLearnRepeats { promote(key, to: learnedKey(String(o))) }
+/// Undo takes back what the conversion taught (engine `LearnedWords.unlearn`).
+func unlearn(_ last: Conversion) {
+    onHook {
+        guard autoEnabled, !(last.learned.isEmpty && last.autoWords.isEmpty) else { return }
+        learned.unlearn(learned: last.learned, autoWords: last.autoWords)
+        saveLearnedWords()
     }
-    learnedKeep.subtract(misses)
-    saveLearnedWords()
-    return misses
-}
-
-/// Undo takes back what the conversion taught: its hotkey misses are forgotten, the
-/// words of an undone auto-correction are learned as `.keep`.
-func unlearn(_ last: Conversion) { onHook { unlearnOnHook(last) } }
-
-private func unlearnOnHook(_ last: Conversion) {
-    guard autoEnabled, !(last.learned.isEmpty && last.autoWords.isEmpty) else { return }
-    for w in last.learned {
-        // The press being undone either promoted the word or counted toward it.
-        if learnedConvert[w] != nil { learnedConvert[w] = nil }
-        else if let n = learnedCounts[w] { learnedCounts[w] = n > 1 ? n - 1 : nil }
-        if learnedCounts[w] == nil { learnedCandidates[w] = nil }
-    }
-    for w in last.autoWords { learnedConvert[w] = nil }
-    learnedKeep.formUnion(last.autoWords.filter { !$0.isEmpty })
-    saveLearnedWords()
 }
 
 func learnedWords() -> (convert: [String: String], keep: Set<String>, candidates: [String: String]) {
-    onHook { (learnedConvert, learnedKeep, learnedCandidates) }
-}
-
-private func promote(_ key: String, to out: String?) {
-    learnedConvert[key] = out
-    learnedCounts[key] = nil
-    learnedCandidates[key] = nil
+    onHook { (learned.convert, learned.keep, learned.candidates) }
 }
 
 /// Makes `key` a verdict (a checked candidate, a word added by hand): `.convert`
 /// to `out`, or `.keep` when `out` is empty (a keep candidate's conversion).
-func promoteLearned(_ key: String, to out: String) {
-    onHook {
-        promote(key, to: out.isEmpty ? nil : out)
-        if out.isEmpty { learnedKeep.insert(key) } else { learnedKeep.remove(key) }
-        saveLearnedWords()
-    }
-}
+func promoteLearned(_ key: String, to out: String) { changeLearned { $0.promote(key, to: out) } }
 
-/// Turns a verdict back into a candidate counted once; a `.keep` becomes one with
-/// an empty conversion.
-func demoteLearned(_ key: String) {
-    onHook {
-        learnedCandidates[key] = learnedConvert.removeValue(forKey: key) ?? ""
-        learnedKeep.remove(key)
-        learnedCounts[key] = 1
-        saveLearnedWords()
-    }
-}
+/// Turns a verdict back into a candidate counted once.
+func demoteLearned(_ key: String) { changeLearned { $0.demote(key) } }
 
 /// Drops the candidates and their counts; no verdict is touched.
-func cleanLearnCandidates() {
-    onHook {
-        learnedCandidates = [:]
-        learnedCounts = [:]
-        saveLearnedWords()
-    }
-}
+func cleanLearnCandidates() { changeLearned { $0.cleanCandidates() } }
 
 /// Forgets `keys` from every store, or everything learned when nil.
-func forgetLearned(_ keys: Set<String>? = nil) { onHook { forgetLearnedOnHook(keys) } }
+func forgetLearned(_ keys: Set<String>? = nil) { changeLearned { $0.forget(keys) } }
 
-private func forgetLearnedOnHook(_ keys: Set<String>?) {
-    if let keys {
-        for k in keys { learnedConvert[k] = nil; learnedCounts[k] = nil; learnedCandidates[k] = nil }
-        learnedKeep.subtract(keys)
-    } else {
-        learnedConvert = [:]
-        learnedKeep = []
-        learnedCounts = [:]
-        learnedCandidates = [:]
-    }
-    saveLearnedWords()
+private func changeLearned(_ change: @escaping (inout LearnedWords) -> Void) {
+    onHook { change(&learned); saveLearnedWords() }
 }
 
 private func saveLearnedWords() {
-    saveLearned(learnedConvert)
-    saveKept(learnedKeep.sorted())
-    saveLearnCounts(learnedCounts)
-    saveLearnCandidates(learnedCandidates)
+    saveLearned(learned.convert)
+    saveKept(learned.keep.sorted())
+    saveLearnCounts(learned.counts)
+    saveLearnCandidates(learned.candidates)
     postToUI { refreshSettingsLearned() }   // its windows belong to the UI thread
 }
 

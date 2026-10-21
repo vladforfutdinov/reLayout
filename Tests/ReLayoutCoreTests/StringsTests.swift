@@ -49,6 +49,11 @@ final class StringsTests: XCTestCase {
         }
     }
 
+    func testTrigramModelRejectsNonFiniteValues() {
+        XCTAssertNil(TrigramModel(text: "floor nan\n^^a -1.0\n"))
+        XCTAssertEqual(TrigramModel(text: "floor -5.0\n^^a nan\n")?.score("a") ?? 0, -5.0, accuracy: 0.001)
+    }
+
     func testTrigramModelReadsCRLFFiles() {
         // Same Windows-checkout trap for the shipped models: "\r\n" must split lines.
         let model = TrigramModel(text: "# model\r\nfloor -5.0\r\n^^a -1.0\r\n")

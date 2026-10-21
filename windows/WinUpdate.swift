@@ -9,15 +9,11 @@ import RelayoutNative
 // tray notice per version plus a menu item that opens the release page. Nothing is
 // downloaded or installed. Dev builds skip it and show no menu item.
 
-let WM_UPDATE_RESULT = UINT(WM_APP) + 13
-
 private let firstCheckTimer: UINT_PTR = 10
 private let dailyCheckTimer: UINT_PTR = 11
 
 /// The newer release tag, once a check found one ("v1.3.0").
 private(set) var availableUpdate: String?
-private var checkResult: String??          // set off the UI thread, read on WM_UPDATE_RESULT
-private let resultLock = NSLock()
 
 var releasePageURL: String { "https://github.com/\(repoSlug)/releases/latest" }
 
@@ -39,26 +35,24 @@ func handleUpdateTimer(_ hwnd: HWND?, _ id: WPARAM) -> Bool {
     return true
 }
 
-/// Runs the request off the UI thread (it blocks up to ~20 s; the keyboard hook
-/// lives on the UI thread) and posts the answer back.
+/// Runs the request off the UI thread (it blocks up to ~20 s) and hands each answer
+/// back with its own request, so overlapping checks cannot take each other's.
 func checkForUpdates(_ hwnd: HWND?, manual: Bool) {
     guard updatesEnabled else {
         if manual { showMessage(L("win.update.latest")) }
         return
     }
-    let target = UInt(bitPattern: hwnd)
     DispatchQueue.global().async {
         let tag = latestReleaseTag()
-        resultLock.lock(); checkResult = .some(tag); resultLock.unlock()
-        PostMessageW(HWND(bitPattern: target), WM_UPDATE_RESULT, WPARAM(manual ? 1 : 0), 0)
+        postToUI { handleUpdateResult(tag, manual: manual) }
     }
 }
 
-/// WM_UPDATE_RESULT: remember a newer release, tell the user once per version (or
-/// always, for a manual check).
-func handleUpdateResult(manual: Bool) {
-    resultLock.lock(); let result = checkResult; checkResult = nil; resultLock.unlock()
-    guard let result, let tag = result else {
+/// Remembers a newer release, tells the user once per version (or always, for a
+/// manual check).
+/// - Parameter tag: the latest release's tag; nil when the check failed.
+private func handleUpdateResult(_ tag: String?, manual: Bool) {
+    guard let tag else {
         if manual { showMessage(L("win.update.failed")) }
         return
     }

@@ -192,6 +192,24 @@ func processImagePath(of hwnd: HWND?) -> String? {
 }
 
 /// "C:\\Windows\\System32\\cmd.exe" -> "cmd.exe": the key the exceptions list uses.
+/// The window to name the app by: a UWP app's top-level window belongs to
+/// ApplicationFrameHost, its content to a child window of the app's own process.
+func appWindow(_ hwnd: HWND?) -> HWND? {
+    guard let hwnd, processImagePath(of: hwnd).map(exeName) == "applicationframehost.exe" else { return hwnd }
+    var search: (host: DWORD, app: HWND?) = (0, nil)
+    GetWindowThreadProcessId(hwnd, &search.host)
+    withUnsafeMutablePointer(to: &search) { p in
+        _ = EnumChildWindows(hwnd, { child, lp in
+            guard let p = UnsafeMutablePointer<(host: DWORD, app: HWND?)>(bitPattern: Int(lp)) else { return false }
+            var pid: DWORD = 0
+            GetWindowThreadProcessId(child, &pid)
+            guard pid == p.pointee.host else { p.pointee.app = child; return false }
+            return true
+        }, LPARAM(Int(bitPattern: p)))
+    }
+    return search.app ?? hwnd
+}
+
 func exeName(_ path: String) -> String {
     (path.split(separator: "\\").last.map(String.init) ?? path).lowercased()
 }

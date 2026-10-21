@@ -37,22 +37,11 @@ public protocol AutoLayout: LayoutMaps {
     var languageCode: String? { get }
 }
 
-// Auto fires between layouts of different scripts (Cyrillic<->Latin) and between
-// same-script layouts of different languages (ru<->uk: "ъжа" is "їжа" typed on
-// the Russian layout), under the same gates. Same-language pairs (ru / ru-PC)
-// never: the text would not change.
-//
-// Length is NOT gated here — the trigram model pads `^^w$`, so 1-2 char words
-// (prepositions: d->в, yf->на) still score. autoEvaluate applies the extra
-// adjacency requirement that keeps short-word precision high; a bare candidate
-// from here only means "looks like a wrong-layout word of some length".
 /// The user's own verdict on a typed form, recorded from the hotkey (see
 /// `hotkeyMisses`) and from undoing an auto-correction. No dictionary of a
 /// language: only strings this user has explicitly fixed or restored.
 public enum LearnedVerdict: String { case convert, keep }
 
-/// The dictionary key of a typed form: lowercased, trailing non-letters dropped
-/// (the hotkey sees "учше," where the auto path judged "учше").
 /// Whether two enabled layouts share a script but not a language, both with a model:
 /// the only setup where `decideAutoTarget(sameScript: true)` can fire.
 public func hasSimilarLayouts<L: AutoLayout>(_ enabled: [L], model: (String) -> TrigramModel?) -> Bool {
@@ -66,12 +55,23 @@ public func isAbbreviation(_ w: String) -> Bool {
     return letters.count >= 2 && letters.allSatisfy(\.isUppercase)
 }
 
+/// The dictionary key of a typed form: lowercased, trailing non-letters dropped
+/// (the hotkey sees "учше," where the auto path judged "учше").
 public func learnedKey(_ w: String) -> String {
     var s = Substring(w.lowercased())
     while let l = s.last, !l.isLetter { s = s.dropLast() }
     return String(s)
 }
 
+// Auto fires between layouts of different scripts (Cyrillic<->Latin) and between
+// same-script layouts of different languages (ru<->uk: "ъжа" is "їжа" typed on
+// the Russian layout), under the same gates. Same-language pairs (ru / ru-PC)
+// never: the text would not change.
+//
+// Length is NOT gated here — the trigram model pads `^^w$`, so 1-2 char words
+// (prepositions: d->в, yf->на) still score. autoEvaluate applies the extra
+// adjacency requirement that keeps short-word precision high; a bare candidate
+// from here only means "looks like a wrong-layout word of some length".
 /// Decides whether a just-typed word was typed in the wrong layout.
 /// - Parameters:
 ///   - model: trigram model for a language code, cached by the caller.
@@ -110,8 +110,7 @@ public func decideAutoTarget<L: AutoLayout>(_ w: String, cur: L, enabled: [L],
     // it. Languages typed on any layout of their script even when not enabled
     // (Russian on uk: "еще" -> "tot"; Ukrainian on ru: "лише" -> "kbit"; English
     // on pl: "but" -> "иге") always gate it: ru + uk for Cyrillic, en for Latin.
-    var langs = enabled.filter { $0.isCyrillic == cur.isCyrillic }.compactMap(\.languageCode)
-    langs += cur.isCyrillic ? ["ru", "uk"] : ["en"]
+    let langs = scriptLanguages(cyrillic: cur.isCyrillic, enabled: enabled)
     var sScript = sTyped
     for lang in langs {
         if let m = model(lang) { sScript = max(sScript, m.score(w)) }
@@ -664,6 +663,8 @@ public struct AutoRun {
     private var spacedWord = "", spacedTrail = "", spaces = 0
     // A Tab was typed since the last word: it may have moved focus to another field.
     private var crossedTab = false
+    // The current run outgrew a word: its letters are ignored until whitespace.
+    private var tooLong = false
 
     public init() {}
 
@@ -682,7 +683,7 @@ public struct AutoRun {
 
     /// Ends the run; the previous word can no longer join a correction.
     public mutating func reset() {
-        word = ""; trail = ""; previous = nil; bridged = []; crossedTab = false
+        word = ""; trail = ""; previous = nil; bridged = []; crossedTab = false; tooLong = false
         dropSpacedWord()
     }
 
@@ -705,6 +706,7 @@ public struct AutoRun {
             return ended
         }
         if s == " " || s == "\t" {
+            tooLong = false
             if s == "\t" {
                 dropSpacedWord()   // Tab may move focus: nothing to erase across it
                 crossedTab = true
@@ -724,8 +726,11 @@ public struct AutoRun {
         if crossedTab { previous = nil; bridged = []; crossedTab = false }
         if c.isLetter || (trail.isEmpty && (mapsToCyrillic(c) || (isWordConnector(c) && !word.isEmpty))) {
             if !trail.isEmpty { reset() }   // "a?b": a new run
+            guard !tooLong else { return .none }
             word.append(c)
-            if word.count > 64 { word.removeFirst(word.count - 64) }
+            // Not a word (a hash, a pasted run): dropped whole until whitespace, never
+            // cut to its tail, which a fix would erase and retype alone.
+            if word.count > 64 { reset(); tooLong = true }
         } else if !word.isEmpty, c.isPunctuation || c.isSymbol {
             // Punctuation that is not word material trails the word ("ltkfq?"); it
             // is judged only when whitespace follows, so "@" or "/" inside an address

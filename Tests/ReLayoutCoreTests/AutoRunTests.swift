@@ -48,6 +48,15 @@ final class AutoRunTests: XCTestCase {
         XCTAssertNotNil(run.plan(raw: "рук", out: "her", cyrillic: false, trusted: true, ambiguous: true))
     }
 
+    func testAnOverlongRunIsDroppedWholeNotCut() {
+        var run = AutoRun()
+        _ = type(String(repeating: "a", count: 70), into: &run)
+        XCTAssertEqual(run.word, "")
+        XCTAssertEqual(type(" ", into: &run), [.boundary(word: "", trail: "")])
+        _ = type("ghbdtn", into: &run)
+        XCTAssertEqual(run.word, "ghbdtn")   // the next word is read again
+    }
+
     func testTabBreaksTheShortWordChain() {
         // "d", Tab to the next field, "ljhjut": the fix must not erase across the Tab.
         var run = AutoRun()

@@ -173,7 +173,7 @@ private func beginEdit(_ hwnd: HWND?, _ column: Int32) {
     }
     guard let edit = outEdit else { newPending = false; fillList(hwnd); return }
     SetWindowPos(edit, nil /* HWND_TOP: over the list */, 0, 0, 0, 0, UINT(SWP_NOMOVE) | UINT(SWP_NOSIZE))
-    SendMessageW(edit, UINT(WM_SETFONT), unsafeBitCast(settingsFont(), to: WPARAM.self), LPARAM(1))
+    SendMessageW(edit, UINT(WM_SETFONT), unsafeBitCast(uiFont(dpi: lrnDpi), to: WPARAM.self), LPARAM(1))
     // Left empty, "Becomes" keeps the word as typed.
     setCue(edit, column == colTyped ? L("settings.learned.col.typed") : L("settings.learned.keep"))
     SetFocus(edit)
@@ -205,7 +205,7 @@ private func endEdit(_ hwnd: HWND?, commit: Bool) {
 private func textSize(_ text: String, width: Int32, _ hwnd: HWND?) -> (w: Int32, h: Int32) {
     let dc = GetDC(hwnd)
     defer { ReleaseDC(hwnd, dc) }
-    let old = SelectObject(dc, UnsafeMutableRawPointer(settingsFont()))
+    let old = SelectObject(dc, UnsafeMutableRawPointer(uiFont(dpi: lrnDpi)))
     defer { SelectObject(dc, old) }
     var r = RECT(left: 0, top: 0, right: lsc(width), bottom: 0)
     let units = Array(text.utf16)
@@ -224,7 +224,7 @@ private func makeLrnControl(_ cls: String, _ text: String, _ style: Int32,
             let ctl = CreateWindowExW(exStyle, clsP, txtP,
                                       DWORD(UInt32(bitPattern: style)) | DWORD(WS_CHILD) | DWORD(WS_VISIBLE),
                                       lsc(x), lsc(y), lsc(w), lsc(h), parent, HMENU(bitPattern: id), hInst, nil)
-            SendMessageW(ctl, UINT(WM_SETFONT), unsafeBitCast(settingsFont(), to: WPARAM.self), LPARAM(1))
+            SendMessageW(ctl, UINT(WM_SETFONT), unsafeBitCast(uiFont(dpi: lrnDpi), to: WPARAM.self), LPARAM(1))
             applyControlTheme(ctl, className: cls, dark: lrnColors.dark)
             return ctl
         }

@@ -37,7 +37,9 @@ public struct TrigramModel {
             // Split on the LAST space — trigrams are letters + ^/$ only, never a space.
             guard let sp = line.lastIndex(of: " ") else { continue }
             let key = String(line[line.startIndex..<sp])
-            guard let val = Float(line[line.index(after: sp)...]) else { continue }
+            // A non-finite value ("nan") would make every comparison false: auto
+            // mode would then never fire for this language, silently.
+            guard let val = Float(line[line.index(after: sp)...]), val.isFinite else { continue }
             if key == "floor" { floor = val } else { table[key] = val }
         }
         guard let f = floor else { return nil }

@@ -179,8 +179,6 @@ private func trayWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lParam:
         runAutoFix()
     case WM_AUTOENTER:
         runAutoEnter()
-    case WM_UPDATE_RESULT:
-        handleUpdateResult(manual: wParam != 0)
     case UINT(WM_TIMER) where wParam != WPARAM(themeTimer):
         _ = handleUpdateTimer(hwnd, wParam)
     case UINT(WM_SETTINGCHANGE), UINT(WM_THEMECHANGED):

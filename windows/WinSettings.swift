@@ -128,8 +128,22 @@ private func makeResources() {
     separatorBrush = CreateSolidBrush(colors.separator)
 }
 
-/// The Settings font, shared with the Exceptions window (opened from here).
-func settingsFont() -> HFONT? { uiFont }
+// The UI font at a given dpi, for the Exceptions and Learned windows. Kept for the
+// process's life: Settings rebuilds (and frees) its own font on a theme, language
+// or dpi change while those windows may still use theirs.
+private var uiFonts: [Int32: HFONT] = [:]
+
+/// The Settings UI font at `dpi`, never freed (see `uiFonts`).
+func uiFont(dpi: Int32) -> HFONT? {
+    if let f = uiFonts[dpi] { return f }
+    let f = "Segoe UI".withCString(encodedAs: UTF16.self) {
+        CreateFontW(-(9 * dpi / 72), 0, 0, 0, Int32(FW_NORMAL), 0, 0, 0, DWORD(DEFAULT_CHARSET),
+                    DWORD(OUT_DEFAULT_PRECIS), DWORD(CLIP_DEFAULT_PRECIS), DWORD(CLEARTYPE_QUALITY),
+                    DWORD(DEFAULT_PITCH), $0)
+    }
+    uiFonts[dpi] = f
+    return f
+}
 
 private func setFont(_ h: HWND?, _ f: HFONT?) {
     SendMessageW(h, UINT(WM_SETFONT), unsafeBitCast(f, to: WPARAM.self), LPARAM(1))

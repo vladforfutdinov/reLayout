@@ -4,6 +4,42 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.16 — audit 17/20 and the small items: shared Core rules, stragglers
+
+- 17: `Core/Learned.swift` holds what both apps did twice — the auto decision
+  chain (`autoDecision`: trigram, then spell check and typo repair, with an
+  optional suggestion budget; Windows passes one, macOS none) and the
+  learned-verdict rules (`LearnedWords`: count misses and promote after
+  `autoLearnRepeats`, undo, promote/demote, forget, clean). The platforms only
+  store the lists (UserDefaults, registry) and show them. Windows counted a
+  miss once per occurrence in the text, macOS once per word; it is once per
+  word now. A count reaching the limit with no output word no longer
+  promotes an empty conversion.
+- 20: macOS `stopAutoMonitor` zeroed `autoPending` mid-correction, so
+  `finishCorrection` took it to -1 and the keystroke gate stopped engaging;
+  `unlearn` ran on the worker and raced the main thread's UserDefaults
+  writes; trigram files with `nan` are rejected value by value (a `nan`
+  floor rejects the model); the script-language list is built once.
+- Words over 64 letters were trimmed to their last 64, so a fix erased and
+  retyped only the tail; such a run is now dropped whole until whitespace.
+- macOS `typeUnicode` caps an event at 20 UTF-16 units (a long indent ran in
+  one event; the per-event limit is not documented, 20 is the known one).
+- Windows: "Exclude current app" and the exclusion check named every UWP app
+  `applicationframehost.exe`; `appWindow` finds the child window of the app's
+  own process. The Exceptions and Learned windows used Settings' font, which
+  Settings frees on every rebuild; they use a per-dpi font kept for the
+  process's life. Overlapping update checks shared one result slot (a manual
+  check could report a failure); each answer now travels with its request
+  via `postToUI`. The fix watchdog dropped held keys: it now re-sends them
+  (and the key that tripped it) and drops the stuck fix so it cannot run late.
+  The double-tap window is 500 ms, as on macOS (was 350).
+- Doc comments that sat above the wrong declarations (Engine, Auto) moved.
+- Left: the Windows UI-helper duplication across Settings/Exceptions/Learned
+  (a refactor of three windows nobody can check visually here).
+- Checked: `swift test` 127, macOS run-tests 39, Windows build + e2e 15/15 in
+  the VM. Not run: macOS e2e (screen locked), the spell option on Windows,
+  a UWP app exclusion, the watchdog path.
+
 ## After v1.3.16 — audit 18/19: mixed words on punctuation keys, dead code
 
 - A mixed word whose Latin half was typed on punctuation keys ("[jh" is

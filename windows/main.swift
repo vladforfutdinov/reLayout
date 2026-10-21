@@ -43,7 +43,7 @@ private var retypeMark = 0   // UI thread: conversionMark() when this hotkey pre
 
 // "Trigger on double-tap": fire only on the second hotkey press within the window.
 private var lastTriggerTick = [DWORD](repeating: 0, count: HotkeySlot.allCases.count)
-private let doubleTapWindowMs: DWORD = 350
+private let doubleTapWindowMs: DWORD = 500   // the macOS app's doubleTapWindow
 
 // Called for every hotkey activation (WM_RETYPE / WM_TOGGLE_AUTO from the hook);
 // gates it on a double-press/tap when that hotkey was recorded as one.

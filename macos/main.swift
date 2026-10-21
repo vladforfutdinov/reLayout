@@ -1498,26 +1498,19 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         get { UserDefaults.standard.dictionary(forKey: "autoLearnCounts") as? [String: Int] ?? [:] }
         set { UserDefaults.standard.set(newValue, forKey: "autoLearnCounts") }
     }
-    private func learnedVerdict(_ key: String) -> LearnedVerdict? {
-        if learnedConvert[key] != nil { return .convert }
-        return learnedKeep.contains(key) ? .keep : nil
+    // All four lists as the engine's `LearnedWords`, whose rules change them.
+    private var learned: LearnedWords {
+        get { LearnedWords(convert: learnedConvert, keep: Set(learnedKeep), counts: learnedCounts,
+                           candidates: learnedCandidates) }
+        set {
+            learnedConvert = newValue.convert; learnedKeep = newValue.keep.sorted()
+            learnedCounts = newValue.counts; learnedCandidates = newValue.candidates
+        }
     }
+    private func learnedVerdict(_ key: String) -> LearnedVerdict? { learned.verdict(key) }
     private func learn(convert misses: [String], replaced: String, out: String) {
         guard !misses.isEmpty else { return }
-        var c = learnedConvert
-        // Pair every typed word with its own output word; misses are a subset.
-        let typed = replaced.split(whereSeparator: { $0.isWhitespace }).map { learnedKey(String($0)) }
-        let outs = out.split(whereSeparator: { $0.isWhitespace }).map { learnedKey(String($0)) }
-        let byTyped = Dictionary(zip(typed, outs), uniquingKeysWith: { a, _ in a })
-        var counts = learnedCounts, cand = learnedCandidates
-        var promoted: [String] = []
-        for m in misses where c[m] == nil {
-            counts[m, default: 0] += 1
-            cand[m] = byTyped[m] ?? ""
-            if counts[m]! >= autoLearnRepeats { c[m] = cand[m]; counts[m] = nil; cand[m] = nil; promoted.append(m) }
-        }
-        learnedConvert = c; learnedCounts = counts; learnedCandidates = cand
-        learnedKeep = learnedKeep.filter { !misses.contains($0) }
+        let promoted = learned.count(misses: misses, replaced: replaced, out: out)
         dbg("learned: counted \(misses), promoted \(promoted)")
         refreshLearnedUI()
     }
@@ -1525,18 +1518,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         DispatchQueue.main.async { self.updateAutoAvailability(); if self.learnedWindow?.isVisible == true { self.reloadLearnedRows() } }
     }
     private func unlearn(_ last: Conversion) {
-        var c = learnedConvert, counts = learnedCounts, cand = learnedCandidates
-        for w in last.learned {
-            // The press being undone either promoted the word or counted toward it.
-            if c[w] != nil { c[w] = nil } else if let n = counts[w] { counts[w] = n > 1 ? n - 1 : nil }
-            if counts[w] == nil { cand[w] = nil }
-        }
-        for w in last.autoWords { c[w] = nil }
-        learnedConvert = c; learnedCounts = counts; learnedCandidates = cand
-        if !last.autoWords.isEmpty {
-            learnedKeep = Array(Set(learnedKeep + last.autoWords)).sorted()
-            dbg("learned keep: \(last.autoWords)")
-        }
+        learned.unlearn(learned: last.learned, autoWords: last.autoWords)
+        if !last.autoWords.isEmpty { dbg("learned keep: \(last.autoWords)") }
         refreshLearnedUI()
     }
 
@@ -1646,17 +1629,12 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
 
     @objc private func learnedMinusAction() {
         guard let t = learnedTable else { return }
-        var c = learnedConvert, cand = learnedCandidates, counts = learnedCounts, keep = learnedKeep
+        var l = learned
         for i in t.selectedRowIndexes {
             let r = learnedRows[i]
-            switch r.kind {
-            case .convert: c[r.typed] = nil
-            case .keep: keep.removeAll { $0 == r.typed }
-            case .candidate: cand[r.typed] = nil; counts[r.typed] = nil
-            case .new: learnedNewPending = false
-            }
+            if r.kind == .new { learnedNewPending = false } else { l.forget([r.typed]) }
         }
-        learnedConvert = c; learnedCandidates = cand; learnedCounts = counts; learnedKeep = keep
+        learned = l
         reloadLearnedRows()
         updateAutoAvailability()
     }
@@ -1667,17 +1645,11 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     @objc private func learnedToggle(_ sender: NSButton) {
         guard learnedRows.indices.contains(sender.tag) else { return }
         let r = learnedRows[sender.tag]
-        var c = learnedConvert, cand = learnedCandidates, counts = learnedCounts
         switch r.kind {
-        case .candidate:
-            // An empty conversion marks a keep candidate.
-            if r.out.isEmpty { learnedKeep = Array(Set(learnedKeep + [r.typed])).sorted() } else { c[r.typed] = r.out }
-            cand[r.typed] = nil; counts[r.typed] = nil
-        case .convert: c[r.typed] = nil; cand[r.typed] = r.out; counts[r.typed] = 1
-        case .keep: learnedKeep.removeAll { $0 == r.typed }; cand[r.typed] = ""; counts[r.typed] = 1
+        case .candidate: learned.promote(r.typed, to: r.out)   // an empty conversion marks a keep candidate
+        case .convert, .keep: learned.demote(r.typed)
         case .new: break
         }
-        learnedConvert = c; learnedCandidates = cand; learnedCounts = counts
         reloadLearnedRows()
         updateAutoAvailability()
     }
@@ -1690,7 +1662,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         a.addButton(withTitle: L("settings.learned.clean"))
         a.addButton(withTitle: L("settings.learned.cancel"))
         guard a.runModal() == .alertFirstButtonReturn else { return }
-        learnedCandidates = [:]; learnedCounts = [:]
+        learned.cleanCandidates()
         reloadLearnedRows()
     }
 
@@ -1703,7 +1675,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         a.addButton(withTitle: L("settings.learned.reset"))
         a.addButton(withTitle: L("settings.learned.cancel"))
         guard a.runModal() == .alertFirstButtonReturn else { return }
-        learnedConvert = [:]; learnedKeep = []; learnedCounts = [:]; learnedCandidates = [:]
+        learned = LearnedWords()
         learnedNewPending = false
         reloadLearnedRows()
         updateAutoAvailability()
@@ -1754,9 +1726,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         // Tab out of "Typed" goes on to "Becomes".
         if field.tag == 0, movement == NSTextMovement.tab.rawValue { t.editColumn(1, row: row, with: nil, select: true); return }
         // Committed: a conversion, or with "Becomes" empty, keep the word as typed.
-        if r.out.isEmpty { learnedKeep = Array(Set(learnedKeep + [r.typed])).sorted(); learnedConvert[r.typed] = nil }
-        else { learnedConvert[r.typed] = r.out; learnedKeep.removeAll { $0 == r.typed } }
-        learnedCandidates[r.typed] = nil; learnedCounts[r.typed] = nil
+        learned.promote(r.typed, to: r.out)
         learnedNewPending = false
         reloadLearnedRows()
         updateAutoAvailability()
@@ -2160,14 +2130,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     /// - Returns: the decision; `repaired` = a typo in the conversion was fixed too.
     func autoDecide(_ w: String, cur: Layout, enabled: [Layout])
         -> (target: Layout, out: String, ambiguous: Bool, repaired: Bool)? {
-        let d = decideAutoTarget(w, cur: cur, enabled: enabled, model: trigram, learned: learnedVerdict,
-                                 sameScript: autoSameScript)
-        guard autoSpell else { return d.map { ($0.target, $0.out, $0.ambiguous, false) } }
-        let s = spellCheckedTarget(w, cur: cur, enabled: enabled, decided: d, model: trigram,
-                                   learned: learnedVerdict, isWord: isWord)
-        if s?.out != d?.out { dbg("spell: \(w.debugDescription) -> \(s?.out.debugDescription ?? "left")") }
-        let r = spellRepairedTarget(w, cur: cur, enabled: enabled, decided: s, model: trigram,
-                                    learned: learnedVerdict, isWord: isWord, guesses: spellGuesses)
+        let r = autoDecision(w, cur: cur, enabled: enabled, model: trigram, learned: learnedVerdict,
+                             sameScript: autoSameScript, spell: autoSpell ? (isWord, { self.spellGuesses($0, $1) }) : nil)
         if r?.repaired == true { dbg("typo: \(w.debugDescription) -> \(r!.out.debugDescription)") }
         return r
     }
@@ -2408,7 +2372,9 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
 
     private func stopAutoMonitor() {
         removeEventTap(&autoTap, &autoTapSource)
-        autoRun.reset(); autoPending = 0; autoHeld = []
+        // autoPending is left alone: a correction in flight still ends in
+        // finishCorrection, which counts it down (zeroed here, it went to -1).
+        autoRun.reset(); autoHeld = []
     }
 
     // Backspace edits the word being typed, so the buffer has to follow it: drop
@@ -2577,18 +2543,16 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         for lesson in edits.boundary(word, verdict: learnedVerdict(learnedKey(word))) {
             switch lesson {
             case .keep(let key):
-                learnedKeep = Array(Set(learnedKeep + [key])).sorted()
+                learned.keep.insert(key)
                 dbg("learned keep by revert: \(key.debugDescription)")
                 refreshLearnedUI()
                 autoRun.noCandidate(); return false
             case .dropKeep(let key):
-                learnedKeep = learnedKeep.filter { $0 != key }
+                learned.keep.remove(key)
                 dbg("keep dropped by revert: \(key.debugDescription)")
                 refreshLearnedUI()
             case .convert(let key, let out):
-                learnedConvert[key] = out
-                learnedKeep = learnedKeep.filter { $0 != key }
-                learnedCounts[key] = nil; learnedCandidates[key] = nil
+                learned.promote(key, to: out)
                 dbg("learned convert by hand: \(key.debugDescription) -> \(out.debugDescription)")
                 refreshLearnedUI()
             }
@@ -2918,7 +2882,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     private func performUndo(_ last: Conversion) {
         waitModifiersReleased()
         dbg("undo: restore \(last.original.debugDescription)")
-        if autoMode { unlearn(last) }
+        DispatchQueue.main.sync { if self.autoMode { self.unlearn(last) } }   // UserDefaults: main thread
         eraseBack(last.typed.count)
         // A Return/Tab boundary goes back as the real key, like it was typed.
         if let b = last.original.last, "\r\n\t".contains(b) {
@@ -2942,7 +2906,10 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         var rest = s[...]
         while let first = rest.popFirst() {
             var piece = String(first)
-            while let c = rest.first, c.isNewline || (c == " " && first == " ") { piece.append(rest.removeFirst()) }
+            // At most 20 UTF-16 units per event: that is all one event is known to carry.
+            while let c = rest.first, piece.utf16.count < 20, c.isNewline || (c == " " && first == " ") {
+                piece.append(rest.removeFirst())
+            }
             if first.isNewline, let c = rest.popFirst() { piece.append(c) }
             let units = Array(piece.utf16)
             if let down = CGEvent(keyboardEventSource: src, virtualKey: 0, keyDown: true) {

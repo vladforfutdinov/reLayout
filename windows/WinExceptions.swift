@@ -53,7 +53,7 @@ private let foregroundProc: WINEVENTPROC = { _, _, hwnd, _, _, _, _ in
     let n = Int(GetClassNameW(hwnd, &cls, Int32(cls.count)))
     let name = String(decoding: cls.prefix(n), as: UTF16.self)
     guard !name.hasPrefix("Shell_"), name != "NotifyIconOverflowWindow",
-          let path = processImagePath(of: hwnd) else { return }   // nil for our own windows
+          let path = processImagePath(of: appWindow(hwnd)) else { return }   // nil for our own windows
     lastActiveApp = exeName(path)
 }
 
@@ -289,7 +289,7 @@ private func chooseProgram(_ hwnd: HWND?) -> String? {
 private func textWidth(_ text: String, _ hwnd: HWND?) -> Int32 {
     let dc = GetDC(hwnd)
     defer { ReleaseDC(hwnd, dc) }
-    let old = SelectObject(dc, UnsafeMutableRawPointer(settingsFont()))
+    let old = SelectObject(dc, UnsafeMutableRawPointer(uiFont(dpi: excDpi)))
     defer { SelectObject(dc, old) }
     var size = SIZE()
     let units = Array(text.utf16)
@@ -307,7 +307,7 @@ private func makeExcControl(_ cls: String, _ text: String, _ style: Int32,
             let ctl = CreateWindowExW(exStyle, clsP, txtP,
                                       DWORD(UInt32(bitPattern: style)) | DWORD(WS_CHILD) | DWORD(WS_VISIBLE),
                                       esc(x), esc(y), esc(w), esc(h), parent, HMENU(bitPattern: id), hInst, nil)
-            SendMessageW(ctl, UINT(WM_SETFONT), unsafeBitCast(settingsFont(), to: WPARAM.self), LPARAM(1))
+            SendMessageW(ctl, UINT(WM_SETFONT), unsafeBitCast(uiFont(dpi: excDpi), to: WPARAM.self), LPARAM(1))
             applyControlTheme(ctl, className: cls, dark: excColors.dark)
             return ctl
         }

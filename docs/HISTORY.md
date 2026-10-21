@@ -4,6 +4,25 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.16 — e2e workflow for GitHub-hosted runners (untried)
+
+- `.github/workflows/e2e.yml`: manual, non-blocking, `contents: read`. Both
+  jobs first print what the machine allows, so a failure tells the runner
+  from the app.
+- macOS: the image pre-grants Accessibility and PostEvent to bash and the
+  runner agent (actions/runner-images `configure-tccdb-macos.sh`), so the
+  harness can likely post events; the app itself gets a TCC row written with
+  its own designated requirement — whether that takes depends on SIP being
+  off during the job, which no doc states. Layouts are enabled through TIS
+  (`enable-layouts.swift`), not `defaults`, so no re-login is needed.
+- Windows: no official word on an interactive desktop; WinAppDriver ships in
+  the image, which suggests one. `e2e-win.ps1` starts programs through
+  interactive scheduled tasks (built for SSH into the VM); whether that works
+  in the runner's session is part of what the first run shows. Spell mode is
+  left out (no ru/uk dictionaries on the image).
+- Not run: it needs the workflow on GitHub's default branch to be
+  dispatchable, i.e. a push the user makes.
+
 ## After v1.3.16 — macOS replays held keys in the layout the fix switched to
 
 - Owner typed `rkjl` + space and, while the fix ran, `j,`: the result was

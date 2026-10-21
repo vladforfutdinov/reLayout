@@ -1,0 +1,102 @@
+name: e2e
+
+# End-to-end runs on GitHub-hosted runners: the dev build typed into by the
+# harnesses in scripts/e2e/. Experimental and not part of the release path — run
+# by hand. Each job prints what the runner allows (session, SIP, TCC) before the
+# run, so a failure says whether the machine or the app is at fault.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  macos:
+    runs-on: macos-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: What the runner allows
+        run: |
+          sw_vers; uname -m; whoami
+          csrutil status || true
+          # Who already has Accessibility / PostEvent (the image pre-grants some).
+          sudo sqlite3 "/Library/Application Support/com.apple.TCC/TCC.db" \
+            "SELECT service, client FROM access WHERE service IN ('kTCCServiceAccessibility','kTCCServicePostEvent');" || true
+
+      - name: Enable the layouts
+        # The harness needs ABC or U.S. plus Russian or Ukrainian.
+        run: swift scripts/e2e/enable-layouts.swift com.apple.keylayout.ABC com.apple.keylayout.Russian com.apple.keylayout.Ukrainian-PC
+
+      - name: Build the dev app
+        run: RELAYOUT_DEV=1 RELAYOUT_DEBUG=1 ./scripts/build.sh
+
+      - name: Grant the app Accessibility
+        # The event tap needs it; there is no one to click the prompt. The row
+        # carries the build's own designated requirement (an ad-hoc cdhash), as
+        # the image's own grants do. Writing the system TCC.db needs SIP off.
+        run: |
+          set -euo pipefail
+          APP="dist/ReLayout (dev).app"
+          ID=$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$APP/Contents/Info.plist")
+          codesign -d -r- "$APP" 2>/dev/null | sed -n 's/^designated => //p' > "$RUNNER_TEMP/req.txt"
+          csreq -r "$RUNNER_TEMP/req.txt" -b "$RUNNER_TEMP/req.bin"
+          HEX=$(xxd -p "$RUNNER_TEMP/req.bin" | tr -d '\n')
+          NOW=$(date +%s)
+          ROW="'kTCCServiceAccessibility','$ID',0,2,4,1,X'$HEX',NULL,0,'UNUSED',NULL,0,$NOW,NULL,NULL,'UNUSED',$NOW"
+          sudo sqlite3 "/Library/Application Support/com.apple.TCC/TCC.db" "INSERT OR REPLACE INTO access VALUES($ROW);"
+          sqlite3 "$HOME/Library/Application Support/com.apple.TCC/TCC.db" "INSERT OR REPLACE INTO access VALUES($ROW);" || true
+          sudo sqlite3 "/Library/Application Support/com.apple.TCC/TCC.db" \
+            "SELECT service, client, auth_value FROM access WHERE client='$ID';"
+
+      - name: e2e
+        run: ./scripts/e2e.sh
+
+      - name: App trace
+        if: always()
+        # DEBUG builds trace to /tmp/relayout.log with typed text masked (dbgRedact).
+        run: tail -n 300 /tmp/relayout.log || true
+
+  windows:
+    runs-on: windows-latest   # x64: the VM used by hand is ARM64
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Install Swift toolchain
+        uses: compnerd/gha-setup-swift@397094e75494a93fa8d81db0268dbc8f5d6cf7c6 # main
+        with:
+          swift-version: swift-6.1-release
+          swift-build: 6.1-RELEASE
+
+      - name: What the runner allows
+        shell: pwsh
+        run: |
+          whoami; whoami /groups | Select-String 'Mandatory Label'
+          query session
+          "Interactive: $([Environment]::UserInteractive)"
+          "Session: $((Get-Process -Id $PID).SessionId)"
+          Get-WinUserLanguageList | ForEach-Object { "$($_.LanguageTag) $($_.InputMethodTips -join ',')" }
+
+      - name: Add the layouts
+        # Keyboard layouts only: no language pack download. The spell-check run
+        # (e2e-win.ps1 -Spell) would need the Language.Basic capabilities too.
+        shell: pwsh
+        run: |
+          $list = Get-WinUserLanguageList
+          foreach ($tag in 'ru-RU', 'uk-UA') { if (-not ($list | Where-Object LanguageTag -eq $tag)) { $list.Add($tag) } }
+          Set-WinUserLanguageList $list -Force
+          Get-WinUserLanguageList | ForEach-Object { "$($_.LanguageTag) $($_.InputMethodTips -join ',')" }
+
+      - name: Build the dev app
+        shell: pwsh
+        run: ./scripts/build-windows.ps1 -DebugLog
+
+      - name: e2e
+        shell: pwsh
+        run: ./scripts/e2e-win.ps1 -Trace

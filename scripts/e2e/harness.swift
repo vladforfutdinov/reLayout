@@ -173,6 +173,9 @@ func runScenarios(_ h: Harness) -> Int {
     let hello = c.contains("Russian") ? ("ghbdtn", "привет") : ("ghbdsn", "привіт")
     let word = ("ckjdj", "слово")   // its undo below learns it as kept: later scenarios use `book`
     let book = ("rybuf", "книга")
+    // Each fixed word is used once more at most: retyping a just-fixed word after a
+    // click reads as reverting the fix (learning by revert) and is then kept.
+    let world = c.contains("Russian") ? ("cdtn", "свет") : ("cdsn", "світ")
     print("using \(l) + \(c)")
 
     reset(h); type(hello.0 + " ")
@@ -196,8 +199,8 @@ func runScenarios(_ h: Harness) -> Int {
     expect(h, "hotkey after typing: new word converts", hello.1 + " rfr", layout: latin)
 
     // Keys typed while a fix runs are held, then replayed through the word buffer.
-    reset(h); type(hello.0 + " rfr ")
-    expect(h, "auto: keys typed during a fix land in the new layout", hello.1 + " как ")
+    reset(h); type(world.0 + " rfr ")
+    expect(h, "auto: keys typed during a fix land in the new layout", world.1 + " как ")
 
     reset(h); type("d\t" + book.0 + " ")   // a Tab may move focus: no fix reaches back across it
     expect(h, "auto: short word before a Tab is left alone", "d\t" + book.1 + " ")

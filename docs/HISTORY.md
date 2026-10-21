@@ -37,8 +37,12 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 - Left: the Windows UI-helper duplication across Settings/Exceptions/Learned
   (a refactor of three windows nobody can check visually here).
 - Checked: `swift test` 127, macOS run-tests 39, Windows build + e2e 15/15 in
-  the VM. Not run: macOS e2e (screen locked), the spell option on Windows,
-  a UWP app exclusion, the watchdog path.
+  the VM, macOS e2e 11/11 (after the screen was unlocked). Its new held-key
+  scenario first failed on the test itself: it reused a word fixed one
+  scenario earlier, and a click plus retyping that word reads as reverting
+  the fix (learning by revert, by design), so the word was kept. It uses its
+  own word now. Not run: the spell option on Windows, a UWP app exclusion,
+  the watchdog path.
 
 ## After v1.3.16 — audit 18/19: mixed words on punctuation keys, dead code
 

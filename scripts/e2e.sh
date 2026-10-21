@@ -23,7 +23,8 @@ restore() {
     sleep 0.5
     if [ -s "$backup" ]; then defaults import "$ID" "$backup"; else defaults delete "$ID" 2>/dev/null || true; fi
     rm -f "$backup"
-    while IFS= read -r app; do [ -n "$app" ] && open "$app"; done <<< "$running"
+    # `||`, not `&&`: with nothing running the test would fail the trap under set -e.
+    while IFS= read -r app; do [ -z "$app" ] || open "$app"; done <<< "$running"
 }
 trap restore EXIT
 

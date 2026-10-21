@@ -4,6 +4,35 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.16 — tests split by layer; keystroke gate and hotkey taps in Core
+
+- Test layers written down in ARCHITECTURE: unit (Core, corner cases), e2e
+  (what a user can do, against the unmodified app; the one seam is Windows'
+  injected-key marker), manual (release builds, installer, Sparkle update,
+  UWP exclusion). Fault injection into the app for e2e was proposed and
+  dropped: the watchdog is a unit-tested rule instead.
+- `Core/KeyGate.swift`: the gate around a correction (hold, backspace un-types,
+  replay one at a time with the clock restarting per key, release when stuck)
+  with 6 tests. The platforms differed: Windows released held keys plus the
+  current one in order and dropped the stuck fix; macOS just stopped holding,
+  so new keys went out before the held ones (letters out of order). Both now
+  release in order; macOS cannot cancel a fix already on its worker queue.
+  Windows' backspace during a fix with nothing held is held too, and replayed
+  as a key.
+- `Core/HotkeyTaps.swift`: `TapSequence` (multi-press hotkeys; Windows' double
+  tap now counts like macOS' N taps) and `ModifierTap` (modifier-only taps:
+  exact chord, no key/click/extra modifier, released in time), 8 tests; macOS
+  uses both, Windows uses `TapSequence`. Windows' own modifier-tap detection
+  (`HotkeyDetector`) is unchanged: 400 ms for a single modifier vs 600 ms,
+  exact side only, and a click does not cancel it — left for a separate
+  change, it has no e2e coverage.
+- `build.yml` dispatched (run 39648892347): macOS build + tests + package,
+  Windows x64 and arm64 builds and installers — all green, so the pinned choco
+  versions and the installer's new [Tasks]/[Registry]/[InstallDelete] compile.
+  Sparkle is embedded only on tags, so its hash check ran only locally.
+- Checked: `swift test` 141, macOS run-tests 39, macOS e2e 11/11, Windows e2e
+  15/15 and spell 17/17 in the VM.
+
 ## After v1.3.16 — e2e workflow for GitHub-hosted runners
 
 - `.github/workflows/e2e.yml`: manual, non-blocking, `contents: read`. Both

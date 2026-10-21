@@ -740,18 +740,10 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     private var lastFedKey: (code: Int64, time: Double) = (-1, 0)
     private var dbgRecentFed: [(code: Int64, time: Double)] = []
     private var keyTapSource: CFRunLoopSource?
-    // Per-hotkey press cycle. Multi-tap hotkeys require N activations within
-    // doubleTapWindow (e.g. double-tap Shift); the count is part of the recorded
-    // hotkey (`taps`); press-again counts a whole sequence as one press.
-    private struct TapCycle {
-        var armed = false, armTime = 0.0
-        var interrupted = false   // a key/mouse press during the hold
-        var polluted = false      // an out-of-set modifier appeared this cycle
-        var seqCount = 0, seqTime = 0.0
-    }
-    private var tapCycles: [HotkeySlot: TapCycle] = [:]
-    private let doubleTapWindow = 0.5
-    private let modTapHoldWindow = 0.6   // max chord-hold duration to count as a tap
+    // Per hotkey (engine `HotkeyTaps`): the modifier-only tap being pressed, and the
+    // count toward a multi-tap hotkey (`taps`; press-again counts a whole sequence once).
+    private var modifierTaps: [HotkeySlot: ModifierTap<UInt16>] = [:]
+    private var tapSequences: [HotkeySlot: TapSequence] = [:]
 
     // settings
     private var settingsWindow: NSWindow?
@@ -964,20 +956,12 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     // MARK: hotkey
 
     // Single entry point for both hotkey modes and both hotkeys. Fires once the
-    // hotkey has been activated `taps` times within doubleTapWindow (1 = at once).
+    // hotkey has been activated `taps` times (engine `TapSequence`; 1 = at once).
     private func hotkeyActivated(_ slot: HotkeySlot) {
         guard let hk = definition(slot) else { return }
         let typed = autoRun.hotkeyTarget
-        if hk.taps > 1 {
-            let now = ProcessInfo.processInfo.systemUptime
-            var c = tapCycles[slot, default: TapCycle()]
-            c.seqCount = (now - c.seqTime <= doubleTapWindow) ? c.seqCount + 1 : 1
-            c.seqTime = now
-            let done = c.seqCount >= hk.taps
-            if done { c.seqCount = 0 }
-            tapCycles[slot] = c
-            guard done else { return }
-        }
+        guard tapSequences[slot, default: TapSequence()].activate(at: ProcessInfo.processInfo.systemUptime,
+                                                                  taps: hk.taps) else { return }
         switch slot {
         case .retype:
             // Hotkey-off apps (#1): Figma's canvas reads the key code of our typed
@@ -1022,7 +1006,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         for r in hotKeyRefs.values { UnregisterEventHotKey(r) }
         hotKeyRefs = [:]
         removeEventTap(&keyTap, &keyTapSource)
-        tapCycles = [:]   // don't carry a stale cycle or multi-tap count into a new hotkey
+        modifierTaps = [:]; tapSequences = [:]   // no stale press or count carried into a new hotkey
     }
 
     // Tear down whatever is active, then install the current hotkeys.
@@ -1103,7 +1087,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     }
 
     fileprivate func interruptTapCycles() {
-        for k in tapCycles.keys { tapCycles[k]?.interrupted = true; tapCycles[k]?.armed = false }
+        for k in modifierTaps.keys { modifierTaps[k]?.interrupt() }
     }
 
     // Called from the event tap on every modifier change. `cur` = the modifier
@@ -1113,29 +1097,10 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         let now = ProcessInfo.processInfo.systemUptime
         for slot in HotkeySlot.allCases {
             guard let hk = definition(slot), hk.mode == .modTap else { continue }
-            let target = Set(hk.chord.map(canonicalMod))   // normalize L/R to match cur
-            guard !target.isEmpty else { continue }
-            var c = tapCycles[slot, default: TapCycle()]
-            var fire = false
-            if cur.isEmpty {
-                // fire only on a clean cycle: exact chord, no extra modifier ever, no
-                // key/mouse interruption, released quickly.
-                fire = c.armed && !c.interrupted && !c.polluted && now - c.armTime < modTapHoldWindow
-                c.armed = false
-                c.polluted = false   // reset for the next press cycle
-            } else if !cur.isSubset(of: target) {
-                // a modifier OUTSIDE the configured set was held together with it —
-                // poison the whole cycle so releasing back to the chord can't re-arm.
-                c.polluted = true
-                c.armed = false
-            } else if cur == target, !c.polluted, !c.armed {
-                c.armed = true
-                c.armTime = now
-                c.interrupted = false
+            let chord = Set(hk.chord.map(canonicalMod))   // normalize L/R to match cur
+            if modifierTaps[slot, default: ModifierTap()].changed(held: cur, chord: chord, at: now) {
+                hotkeyActivated(slot)
             }
-            // a non-empty strict subset = chord still building up / partially released -> wait
-            tapCycles[slot] = c
-            if fire { hotkeyActivated(slot) }
         }
     }
 
@@ -2192,12 +2157,11 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     // Main-thread-only state: the tap callback runs on the main run loop and the
     // worker hands completion back with DispatchQueue.main.async.
     fileprivate var autoPending = 0     // retypes in flight (auto-correct or hotkey)
-    fileprivate var autoHeld: [(s: String, flags: CGEventFlags, layout: String)] = []   // keys swallowed while retyping
+    // Keys swallowed while retyping (engine `KeyGate`): what they typed, Shift/Option, and the layout then.
+    fileprivate var gate = KeyGate<(s: String, flags: CGEventFlags, layout: String)>()
     fileprivate var dbgLastCode: Int64 = -1
     // A retype that hangs (unresponsive app, AX call stuck) must never freeze the
     // keyboard: past this the gate passes keys through even while in flight.
-    fileprivate var gateSince = 0.0
-    fileprivate let gateMaxHold = 3.0
 
 
     // Apps where auto-correct stays off — a user-editable deny-list (Settings >
@@ -2254,7 +2218,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         set { UserDefaults.standard.set(newValue, forKey: "autoExcludedApps") }
     }
 
-    // The keystroke gate (autoPending/autoHeld) lives in this tap, and the hotkey
+    // The keystroke gate (autoPending/gate) lives in this tap, and the hotkey
     // retype needs it as much as auto-correct does — so the tap is installed
     // whenever the app is live, and `autoMode` only decides whether keys are also
     // fed to the word buffer.
@@ -2358,11 +2322,21 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
                 // Only text-producing keys are held back; modifiers, Globe, arrows
                 // and delete keep flowing so nothing the user does can be stalled
                 // by a correction that hangs.
-                if me.autoPending > 0, !s.isEmpty,
-                   ProcessInfo.processInfo.systemUptime - me.gateSince < me.gateMaxHold {
-                    me.autoHeld.append((s, event.flags.intersection([.maskShift, .maskAlternate]), me.currentSourceID()))
-                    dbg("hold \(s.debugDescription) held=\(me.autoHeld.count)")
-                    return nil
+                if me.autoPending > 0, !s.isEmpty {
+                    let key = (s: s, flags: event.flags.intersection([.maskShift, .maskAlternate]), layout: me.currentSourceID())
+                    switch me.gate.key(key, at: ProcessInfo.processInfo.systemUptime) {
+                    case .pass: break
+                    case .hold:
+                        dbg("hold \(s.debugDescription) held=\(me.gate.held.count)")
+                        return nil
+                    case .release(let keys):
+                        // The correction is stuck: the held keys and this one go out now,
+                        // in order, posted from here — the worker is still busy with it.
+                        dbg("gate: stuck correction, releasing \(keys.count)")
+                        me.autoRun.reset(); me.endUndoWindow()
+                        for k in keys { me.typeKey(k.s, flags: k.flags) }
+                        return nil
+                    }
                 }
                 // The boundary key that starts a correction is swallowed too: it
                 // would otherwise travel to the app in parallel with the deletes we
@@ -2383,7 +2357,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         removeEventTap(&autoTap, &autoTapSource)
         // autoPending is left alone: a correction in flight still ends in
         // finishCorrection, which counts it down (zeroed here, it went to -1).
-        autoRun.reset(); autoHeld = []
+        autoRun.reset(); gate.open()
     }
 
     // Backspace edits the word being typed, so the buffer has to follow it: drop
@@ -2397,9 +2371,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     // Returns true when the keystroke was consumed (it un-typed a held character
     // instead of reaching the app).
     fileprivate func autoBackspace(wide: Bool) -> Bool {
-        dbg("bksp wide=\(wide) held=\(autoHeld.count) buf=\(autoRun.word.debugDescription)")
-        if !autoHeld.isEmpty, !wide { autoHeld.removeLast(); return true }
-        if wide { autoHeld = [] }
+        dbg("bksp wide=\(wide) held=\(gate.held.count) buf=\(autoRun.word.debugDescription)")
+        if gate.backspace(wide: wide) { return true }
         autoRun.backspace(wide: wide)
         return false
     }
@@ -2620,7 +2593,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     // types meanwhile is swallowed by the tap and replayed here afterwards. Called
     // on the main thread (from the tap callback).
     func beginCorrection(_ body: @escaping () -> Void) {
-        if autoPending == 0 { gateSince = ProcessInfo.processInfo.systemUptime }
+        gate.close(at: ProcessInfo.processInfo.systemUptime)
         autoPending += 1
         let epoch = undoEpoch
         worker.async {
@@ -2642,13 +2615,14 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         }
 #endif
         autoPending -= 1
-        guard autoPending == 0, !autoHeld.isEmpty else { return }
-        var rest = autoHeld[...]
-        autoHeld = []
+        guard autoPending == 0 else { return }
+        guard !gate.held.isEmpty else { gate.open(); return }
         autoPending += 1
         let enabled = Layout.enabledList()
         let cur = enabled.first { $0.id == currentSourceID() }
-        while var k = rest.popFirst() {
+        // One at a time: the gate stays shut, so keys typed during the replay queue
+        // behind it; a replayed key that starts a correction leaves the rest held.
+        while var k = gate.nextToReplay(at: ProcessInfo.processInfo.systemUptime) {
             // Typed blind in the layout the correction just switched away from: the
             // keys mean what they type in the new one, like Windows' replay by key code.
             if let cur, k.layout != cur.id, let src = enabled.first(where: { $0.id == k.layout }) {
@@ -2658,7 +2632,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             if k.s == "\r" || k.s == "\n" {
                 // No Return follow-up here: its "before" read would race this very key.
                 autoRun.reset()
-            } else if autoFeed(k.s, flags: k.flags) { autoHeld = Array(rest); break }
+            } else if autoFeed(k.s, flags: k.flags) { break }
             worker.async { self.typeKey(k.s, flags: k.flags) }
         }
         worker.async { DispatchQueue.main.async { self.finishCorrection() } }

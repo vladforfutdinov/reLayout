@@ -35,13 +35,12 @@ private var passwordAsk = 0           // bumped per question: only the latest on
 private var run = AutoRun()     // the typed-word state machine, shared with macOS (engine)
 private var lastFocus: HWND?
 
-// While a fix is in flight, typed keys are swallowed and replayed afterwards —
-// otherwise they would land between our backspaces and our retype.
-private var correcting = false
-private var gateSince: DWORD = 0
-private let gateMaxHoldMs: DWORD = 3000
+// While a fix is in flight, typed keys are held and replayed afterwards (engine
+// `KeyGate`) — otherwise they would land between our backspaces and our retype.
 private typealias HeldKey = (vk: UINT, scan: WORD, shift: Bool)
-private var held: [HeldKey] = []
+private var gate = KeyGate<HeldKey>()
+private var correcting: Bool { gate.isClosed }
+private func seconds() -> Double { Double(GetTickCount64()) / 1000 }
 
 private struct QueuedFix {
     let fix: AutoRun.Fix
@@ -214,20 +213,19 @@ private func mapsToCyrillic(_ ch: Character, cur: WinLayout) -> Bool {
 ///   - replayed: a held key fed after its fix: it is not held again.
 func autoFeed(vk: UINT, scan: WORD, shortcut: Bool, shift: Bool, typed: String? = nil, replayed: Bool = false) -> Bool {
     if correcting, !replayed {
-        if GetTickCount() &- gateSince > gateMaxHoldMs {
-            // Watchdog: the fix is stuck. It must not run late at a moved caret, and
-            // nothing typed is lost: the held keys and this one go out as typed.
-            let keys = held + [(vk, scan, shift)]
-            held = []; queued = nil; enterJob = nil; correcting = false
+        if vk == vkBack, gate.backspace(wide: shortcut) { return true }
+        if vk == vkBack, shortcut { run.backspace(wide: true); return false }   // the held keys are dropped
+        guard let cur = WinLayout.current(),
+              !character(vk, scan, cur).isEmpty || vk == vkSpace || vk == vkTab else { return false }
+        switch gate.key((vk, scan, shift), at: seconds()) {
+        case .pass: break
+        case .hold: return true
+        case .release(let keys):
+            // The fix is stuck: it must not run late at a moved caret, and nothing
+            // typed is lost — the held keys and this one go out as typed.
+            queued = nil; enterJob = nil
             run.reset()
             for k in keys { sendKeyTap(Int32(k.vk), shift: k.shift) }
-            return true
-        } else if vk == vkBack, !shortcut, !held.isEmpty {
-            held.removeLast()   // un-type a held key instead of reaching the app out of order
-            return true
-        } else if let cur = WinLayout.current() {
-            guard !character(vk, scan, cur).isEmpty || vk == vkSpace || vk == vkTab else { return false }
-            held.append((vk, scan, shift))
             return true
         }
     }
@@ -260,7 +258,6 @@ func autoFeed(vk: UINT, scan: WORD, shortcut: Bool, shift: Bool, typed: String? 
     }
     // Backspace edits the word; Ctrl+Backspace removes a word — nothing left to track.
     if vk == vkBack {
-        if shortcut { held = [] }
         run.backspace(wide: shortcut)
         return false
     }
@@ -358,8 +355,7 @@ private func evaluate(word: String, trail: String, boundary: Int32, shift: Bool,
                              ambiguous: decided.ambiguous) else { return false }
     queued = QueuedFix(fix: fix, boundary: boundary, shift: shift, target: decided.target, src: cur)
     edits.corrected(word, into: decided.out, from: cur, to: decided.target)
-    correcting = true
-    gateSince = GetTickCount()
+    gate.close(at: seconds())
     PostMessageW(trayWindow(), WM_AUTOFIX, 0, 0)
     return true
 }
@@ -462,8 +458,7 @@ private func enterFollowUp(word: String, trail: String, cur: WinLayout, shift: B
     let outTrail = trail.isEmpty ? "" : transliterate(trail, from: cur, to: decided.target)
     enterJob = EnterJob(word: word + trail, text: decided.out + outTrail, target: decided.target, src: cur,
                         shift: shift)
-    correcting = true
-    gateSince = GetTickCount()
+    gate.close(at: seconds())
     PostMessageW(trayWindow(), WM_AUTOENTER, 0, 0)
     return true
 }
@@ -511,7 +506,7 @@ private func finishFix(afterTab: Bool = false) {
     // Keys typed during the fix land after it: the caret has moved past the fix.
     // They may have gone to another field (the fix ended on Tab): ask now, on this
     // thread, before any of them is fed.
-    if onHook({ () -> Bool in if !held.isEmpty { forgetConversion() }; return !held.isEmpty }) {
+    if onHook({ () -> Bool in if !gate.held.isEmpty { forgetConversion() }; return !gate.held.isEmpty }) {
         if afterTab {
             // A read right after the Tab could still see the old field: unknown until
             // the next typed word asks.
@@ -525,9 +520,8 @@ private func finishFix(afterTab: Bool = false) {
         // A fix queued meanwhile (a replayed key started one, or the watchdog let
         // a new word through) replays what is held after it runs.
         guard queued == nil, enterJob == nil else { return nil }
-        guard !held.isEmpty else { correcting = false; return nil }
-        gateSince = GetTickCount()   // the watchdog counts from the last replayed key
-        return held.removeFirst()
+        guard let key = gate.nextToReplay(at: seconds()) else { gate.open(); return nil }
+        return key
     }) {
         if key.vk == vkReturn {
             // No Enter follow-up here: its "before" read would race this very key.
@@ -542,7 +536,7 @@ private func finishFix(afterTab: Bool = false) {
         if onHook({ autoFeed(vk: key.vk, scan: key.scan, shortcut: false, shift: key.shift, typed: text, replayed: true) }) {
             return   // that key started another fix; the rest stays held for it to replay
         }
-        if text.isEmpty || key.vk == vkSpace || key.vk == vkTab {
+        if text.isEmpty || key.vk == vkSpace || key.vk == vkTab || key.vk == vkBack {
             sendKeyTap(Int32(key.vk), shift: key.shift)   // apps act on these keys, not on their text
             // Focus may move with a Tab, and a read right after it could still see the
             // old field: unknown until the next typed word asks again.

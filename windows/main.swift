@@ -41,21 +41,14 @@ func forgetConversion() {
 
 private var retypeMark = 0   // UI thread: conversionMark() when this hotkey press began
 
-// "Trigger on double-tap": fire only on the second hotkey press within the window.
-private var lastTriggerTick = [DWORD](repeating: 0, count: HotkeySlot.allCases.count)
-private let doubleTapWindowMs: DWORD = 500   // the macOS app's doubleTapWindow
+// "Trigger on double-tap" (engine `TapSequence`, as on macOS).
+private var tapSequences = [TapSequence](repeating: TapSequence(), count: HotkeySlot.allCases.count)
 
 // Called for every hotkey activation (WM_RETYPE / WM_TOGGLE_AUTO from the hook);
 // gates it on a double-press/tap when that hotkey was recorded as one.
 func triggerHotkey(_ slot: HotkeySlot) {
-    if loadHotkey(slot).doubleTap {
-        let now = GetTickCount()
-        guard now &- lastTriggerTick[slot.rawValue] <= doubleTapWindowMs else {
-            lastTriggerTick[slot.rawValue] = now
-            return
-        }
-        lastTriggerTick[slot.rawValue] = 0
-    }
+    guard tapSequences[slot.rawValue].activate(at: Double(GetTickCount64()) / 1000,
+                                               taps: loadHotkey(slot).doubleTap ? 2 : 1) else { return }
     switch slot {
     case .retype:     performRetype()
     case .autoToggle: toggleAutoMode()

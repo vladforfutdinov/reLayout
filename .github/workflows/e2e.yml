@@ -42,7 +42,9 @@ jobs:
           set -euo pipefail
           APP="dist/ReLayout (dev).app"
           ID=$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$APP/Contents/Info.plist")
-          codesign -d -r- "$APP" 2>/dev/null | sed -n 's/^designated => //p' > "$RUNNER_TEMP/req.txt"
+          # An ad-hoc signature's requirement is implicit: printed as "# designated => cdhash H\"…\"".
+          codesign -d -r- "$APP" 2>&1 | sed -n 's/^#* *designated => //p' > "$RUNNER_TEMP/req.txt"
+          cat "$RUNNER_TEMP/req.txt"
           csreq -r "$RUNNER_TEMP/req.txt" -b "$RUNNER_TEMP/req.bin"
           HEX=$(xxd -p "$RUNNER_TEMP/req.bin" | tr -d '\n')
           NOW=$(date +%s)
@@ -79,6 +81,7 @@ jobs:
         run: |
           whoami; whoami /groups | Select-String 'Mandatory Label'
           query session
+          $global:LASTEXITCODE = 0   # query session exits 1 even when it prints the sessions
           "Interactive: $([Environment]::UserInteractive)"
           "Session: $((Get-Process -Id $PID).SessionId)"
           Get-WinUserLanguageList | ForEach-Object { "$($_.LanguageTag) $($_.InputMethodTips -join ',')" }

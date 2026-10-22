@@ -4,6 +4,22 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.16 — Windows installer: upgrade and uninstall checked in the VM
+
+- First real run of the installer since the uninstall rule went in (it was
+  "not exercised" in the security batch). Built from HEAD with ISCC 6.7.1 as
+  CI does (arm64, via winget in the VM), silent install and uninstall:
+  - over 1.3.10 with the autostart task: the old Startup shortcut is removed,
+    the `Run` value written, all 13 settings kept;
+  - uninstall: install folder, Start menu shortcut, `Run` value and
+    `HKCU\Software\reLayout` all gone;
+  - without the autostart task, a `Run` value written as the app's "Launch at
+    login" does, plus a setting: both removed on uninstall too.
+- The VM's own 1.3.10 install and settings were backed up and restored after.
+- Not run: the interactive wizard, x64.
+
+---
+
 ## After v1.3.16 — Shift twice on macOS too; Windows hook stalls
 
 - macOS default hotkey is Shift tapped twice as well (was a tap of left ⌥),

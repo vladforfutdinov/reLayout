@@ -28,10 +28,7 @@ private var edits = EditLearning<WinLayout>()
 // Measured in the VM: a suggestion call takes 2-7 ms typically, 100+ ms at worst.
 private let guessBudgetMs: UInt64 = 50
 private var exceptions = AppExceptions(auto: [], hotkey: [])
-private var passwordField = false
-private var passwordPending = false   // not known for the focused control: nothing is corrected
-private var passwordInFlight = false  // a check is on its way back from the UI thread
-private var passwordAsk = 0           // bumped per question: only the latest one's answer counts
+private var password = FieldCheck()   // is the focused control a password field (engine)
 private var run = AutoRun()     // the typed-word state machine, shared with macOS (engine)
 private var lastFocus: HWND?
 
@@ -56,12 +53,24 @@ private let navigationVKs: Set<UINT> = Set([0x1B, 0x2D, 0x2E] + (0x21...0x28).ma
 
 private let vkBack = UINT(0x08), vkTab = UINT(0x09), vkReturn = UINT(0x0D), vkSpace = UINT(0x20)
 
+/// What a key can do to the text (engine `KeyRole`).
+private func keyRole(_ vk: UINT, shortcut: Bool) -> KeyRole {
+    if shortcut { return .command }
+    switch vk {
+    case vkBack: return .backspace
+    case 0x2E: return .forwardDelete
+    case 0x21...0x28: return .caretMove   // PgUp, PgDn, End, Home, arrows
+    case 0x1B, 0x2D: return .other         // Esc, Insert
+    default: return .text
+    }
+}
+
 /// Auto mode stays off in password fields and in the user's deny-list. Terminals
 /// are in that list by default, not ruled out here: the run needs no text from the
 /// window, so a user who removes one gets auto-correct there (the hotkey converts
 /// only the typed word in consoles — a selection read would send Ctrl+C).
 private func autoExcluded() -> Bool {
-    if passwordField || passwordPending { return true }
+    if password.blocks { return true }
     guard !exceptions.auto.isEmpty else { return false }
     return exceptions.autoOff(foregroundProcessName())
 }
@@ -245,17 +254,15 @@ func autoFeed(vk: UINT, scan: WORD, shortcut: Bool, shift: Bool, typed: String? 
     // are kept, in memory only, and the next key after a "yes" drops them.
     // Replayed keys are checked by finishFix itself: the UI thread, busy replaying,
     // could not answer a queued question until the replay ends.
-    if run.word.isEmpty && run.trail.isEmpty, !replayed { checkPasswordField() }
-    if passwordField, !passwordPending { run.reset(); return false }
+    if run.word.isEmpty && run.trail.isEmpty, !replayed, let n = password.needed() { askPasswordField(n) }
+    if password.dropsKeys { run.reset(); return false }
 
     // A modifier alone types nothing. Alt pressed with Ctrl already down reads as a
     // shortcut, and Ctrl+Alt+R would end the very word the hotkey is about to convert.
     if isModifierVK(vk) { return false }
 
-    // Anything that may delete or select text arms learning by revert.
-    if vk == vkBack || shortcut || navigationVKs.contains(vk) {
-        edits.edit()
-    }
+    // Anything that may delete or select text arms learning by revert (engine rule).
+    if mayEditText(keyRole(vk, shortcut: shortcut)) { edits.edit() }
     // Backspace edits the word; Ctrl+Backspace removes a word — nothing left to track.
     if vk == vkBack {
         run.backspace(wide: shortcut)
@@ -286,24 +293,13 @@ func autoFeed(vk: UINT, scan: WORD, shortcut: Bool, shift: Bool, typed: String? 
 }
 
 /// Asks the UI thread whether the focused control is a password field; the answer
-/// lands in `passwordField`. One question at a time.
-private func checkPasswordField() {
-    passwordAsk &+= 1
-    passwordPending = true
-    guard !passwordInFlight else { return }   // the answer on its way asks again when it lands
-    askPasswordField()
-}
-
-private func askPasswordField() {
-    let ask = passwordAsk
-    passwordInFlight = postToUI {
-        let password = focusIsPasswordField()
-        onHook {
-            passwordInFlight = false
-            // Asked for an earlier word, maybe in another field: ask again for this one.
-            if ask == passwordAsk { passwordField = password; passwordPending = false } else { askPasswordField() }
-        }
+/// lands in `password`.
+private func askPasswordField(_ n: Int) {
+    let sent = postToUI {
+        let yes = focusIsPasswordField()
+        onHook { if let again = password.answered(yes, for: n) { askPasswordField(again) } }
     }
+    if !sent { password.unsent() }
 }
 
 /// Word boundary: the engine's `evaluateBoundary`, then the fix is queued for the
@@ -428,12 +424,11 @@ private var enterJob: EnterJob?
 /// submitted field means it is gone.
 /// - Returns: true when Return was held back.
 private func enterFollowUp(word: String, trail: String, cur: WinLayout, shift: Bool) -> Bool {
-    guard autoEnterEnabled, !correcting, wordBody(word) >= 3, !autoExcluded(), !foregroundIsConsole(),
-          let decided = autoDecide(word, cur: cur, enabled: WinLayout.installedList()), !decided.ambiguous
+    guard autoEnterEnabled, !correcting, !autoExcluded(), !foregroundIsConsole(),
+          let plan = enterFixPlan(word: word, trail: trail, cur: cur,
+                                  decide: { autoDecide($0, cur: cur, enabled: WinLayout.installedList()) })
     else { return false }
-    let outTrail = trail.isEmpty ? "" : transliterate(trail, from: cur, to: decided.target)
-    enterJob = EnterJob(word: word + trail, text: decided.out + outTrail, target: decided.target, src: cur,
-                        shift: shift)
+    enterJob = EnterJob(word: plan.original, text: plan.text, target: plan.target, src: cur, shift: shift)
     gate.close(at: seconds())
     PostMessageW(trayWindow(), WM_AUTOENTER, 0, 0)
     return true
@@ -486,10 +481,10 @@ private func finishFix(afterTab: Bool = false) {
         if afterTab {
             // A read right after the Tab could still see the old field: unknown until
             // the next typed word asks.
-            onHook { passwordAsk &+= 1; passwordPending = true }
+            onHook { password.invalidate() }
         } else {
-            let password = focusIsPasswordField()
-            onHook { passwordAsk &+= 1; passwordField = password; passwordPending = false }
+            let yes = focusIsPasswordField()
+            onHook { password.set(yes) }
         }
     }
     while let key = onHook({ () -> HeldKey? in
@@ -516,7 +511,7 @@ private func finishFix(afterTab: Bool = false) {
             sendKeyTap(Int32(key.vk), shift: key.shift)   // apps act on these keys, not on their text
             // Focus may move with a Tab, and a read right after it could still see the
             // old field: unknown until the next typed word asks again.
-            if key.vk == vkTab { onHook { passwordAsk &+= 1; passwordPending = true } }
+            if key.vk == vkTab { onHook { password.invalidate() } }
         } else if let cur {
             _ = typeText(text, in: cur)
         }

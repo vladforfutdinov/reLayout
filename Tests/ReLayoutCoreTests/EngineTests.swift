@@ -575,7 +575,6 @@ final class EngineTests: XCTestCase {
         let models = ["en": model(knowing: []), "uk": model(knowing: ["привет"])]
         let p = planRetype("ghbвет ", enabled: [latin, cyr], curIdx: 1, model: { models[$0] })
         XCTAssertEqual(p?.out, "привет ")
-        XCTAssertEqual(p?.replaced, "ghbвет ")
     }
 
     func testFixMixedWordIgnoresSingleScriptWords() {
@@ -585,7 +584,7 @@ final class EngineTests: XCTestCase {
     // MARK: - planRetype / pickTarget (hotkey layout choice)
 
     private func plan(_ text: String, enabled: [FakeLayout], curIdx: Int)
-        -> (out: String, dst: FakeLayout, src: FakeLayout, replaced: String)? {
+        -> (out: String, dst: FakeLayout, src: FakeLayout)? {
         planRetype(text, enabled: enabled, curIdx: curIdx, model: { _ in nil })
     }
 

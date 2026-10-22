@@ -379,6 +379,20 @@ func modsFromCGFlags(_ f: CGEventFlags) -> Set<UInt16> {
 
 // Right-modifier keyCode -> its left equivalent (canonical), so a chord recorded
 // on either side matches the flag-derived set above.
+/// What a tapped key or click can do to the text (engine `KeyRole`).
+func keyRole(_ type: CGEventType, _ event: CGEvent) -> KeyRole {
+    guard type == .keyDown else { return .click }
+    if event.flags.contains(.maskCommand) || event.flags.contains(.maskControl) { return .command }
+    switch Int(event.getIntegerValueField(.keyboardEventKeycode)) {
+    case kVK_Delete: return .backspace
+    case kVK_ForwardDelete: return .forwardDelete
+    case kVK_LeftArrow, kVK_RightArrow, kVK_UpArrow, kVK_DownArrow,
+         kVK_Home, kVK_End, kVK_PageUp, kVK_PageDown: return .caretMove
+    case kVK_Escape, kVK_Help: return .other
+    default: return .text
+    }
+}
+
 func canonicalMod(_ kc: UInt16) -> UInt16 {
     switch Int(kc) {
     case kVK_RightCommand: return UInt16(kVK_Command)
@@ -2056,7 +2070,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     // (planRetype in Core/Auto.swift), shared with the Windows port.
     // With auto mode on, the words it would have left alone are learned (engine
     // `hotkeyMisses`); `learned` lists them so the undo can forget them again.
-    private func convert(_ text: String) -> (out: String, dst: Layout, src: Layout, replaced: String, learned: [String],
+    private func convert(_ text: String) -> (out: String, dst: Layout, src: Layout, learned: [String],
                                              alternatives: [(out: String, dst: Layout)])? {
         let enabled = Layout.enabledList()
         let curID = currentSourceID()
@@ -2068,13 +2082,13 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         // Same gate as auto mode: nothing typed into a password field or an
         // excluded app is ever persisted.
         if autoMode, !isAutoExcluded() {
-            misses = hotkeyMisses(replaced: p.replaced, out: p.out, src: p.src, dst: p.dst, enabled: enabled, model: trigram)
-            learn(convert: misses, replaced: p.replaced, out: p.out)
+            misses = hotkeyMisses(replaced: text, out: p.out, src: p.src, dst: p.dst, enabled: enabled, model: trigram)
+            learn(convert: misses, replaced: text, out: p.out)
         }
         let alts = enabled.firstIndex(where: { $0.id == p.src.id }).map {
-            retypeAlternatives(p.replaced, enabled: enabled, srcIdx: $0, first: p.out, model: trigram)
+            retypeAlternatives(text, enabled: enabled, srcIdx: $0, first: p.out, model: trigram)
         } ?? []
-        return (p.out, p.dst, p.src, p.replaced, misses, alts)
+        return (p.out, p.dst, p.src, misses, alts)
     }
 
     // MARK: - auto-mode (trigram detection)
@@ -2200,14 +2214,20 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     // already reflects (entries removed from it stay removed).
     private static let firstDefaultExcludedApps: [String] = Array(defaultExcludedApps.prefix(8))
 
-    /// Adds defaults introduced since the user's list was saved, once each, so a new
+    /// Adds defaults introduced since the user's lists were saved, once each, so a new
     /// default reaches existing users while one they removed never comes back.
     private func mergeNewDefaultExclusions() {
-        let d = UserDefaults.standard
-        let seen = Set(d.stringArray(forKey: "autoExcludedDefaultsSeen") ?? AppController.firstDefaultExcludedApps)
-        d.set(AppController.defaultExcludedApps, forKey: "autoExcludedDefaultsSeen")
-        guard let saved = d.array(forKey: "autoExcludedApps") as? [String] else { return }   // defaults apply as-is
-        autoExcludedApps = mergeExclusions(saved: saved, defaults: AppController.defaultExcludedApps, seen: seen)
+        // The hotkey list shipped with its current defaults: all of them count as seen.
+        for (list, seenKey, defaults, first) in [
+            ("autoExcludedApps", "autoExcludedDefaultsSeen", AppController.defaultExcludedApps, AppController.firstDefaultExcludedApps),
+            ("hotkeyExcludedApps", "hotkeyExcludedDefaultsSeen", AppController.defaultHotkeyExcludedApps, AppController.defaultHotkeyExcludedApps),
+        ] {
+            let d = UserDefaults.standard
+            let seen = Set(d.stringArray(forKey: seenKey) ?? first)
+            d.set(defaults, forKey: seenKey)
+            guard let saved = d.array(forKey: list) as? [String] else { continue }   // defaults apply as-is
+            d.set(mergeExclusions(saved: saved, defaults: defaults, seen: seen), forKey: list)
+        }
     }
     var autoExcludedApps: [String] {
         get { UserDefaults.standard.array(forKey: "autoExcludedApps") as? [String]
@@ -2266,12 +2286,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             // A click also ends the undo window: undo erases back from the caret, which
             // is no longer right after the text the conversion typed.
             if type != .keyDown { me.endUndoWindow() }
-            // Anything that may delete or select text arms learning by revert.
-            if !synth, type != .keyDown || event.flags.contains(.maskCommand) || event.flags.contains(.maskControl)
-                || [kVK_Delete, kVK_ForwardDelete, kVK_LeftArrow, kVK_RightArrow, kVK_UpArrow, kVK_DownArrow]
-                    .contains(Int(event.getIntegerValueField(.keyboardEventKeycode))) {
-                me.edits.edit()
-            }
+            // Anything that may delete or select text arms learning by revert (engine rule).
+            if !synth, mayEditText(keyRole(type, event)) { me.edits.edit() }
             if type == .keyDown, !synth,
                event.getIntegerValueField(.keyboardEventKeycode) == Int64(kVK_Delete) {
                 // Backspace (bare, or Option/Cmd-wide) edits the word being typed —
@@ -2424,39 +2440,38 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     // (no preposition adjacency across a line) in a field whose caret and text are
     // readable is followed up; everything else keeps plain Return behaviour.
     private func autoEnterFollowUp(word: String, trail: String, flags: CGEventFlags) {
-        guard autoEnterNewline, wordBody(word) >= 3,
-              !isAutoExcluded() else { return }
+        guard autoEnterNewline, !isAutoExcluded() else { return }
         let enabled = Layout.enabledList()
         guard let cur = enabled.first(where: { $0.id == currentSourceID() }),
-              let d = autoDecide(word, cur: cur, enabled: enabled), !d.ambiguous,
+              let plan = enterFixPlan(word: word, trail: trail, cur: cur,
+                                      decide: { self.autoDecide($0, cur: cur, enabled: enabled) }),
               let el = focusedTextElement(), isEditable(el), let before = fieldSnapshot(el),
-              before.tail.hasSuffix(word + trail) else { return }
-        let outTrail = transliterate(trail, from: cur, to: d.target)
+              before.tail.hasSuffix(plan.original) else { return }
         let srcSource = cur.source
         beginCorrection {
-            self.finishEnter(el: el, before: before, word: word, trail: trail, out: d.out, outTrail: outTrail,
-                             flags: flags, target: d.target, srcSource: srcSource)
+            self.finishEnter(el: el, before: before, word: word, original: plan.original, text: plan.text,
+                             flags: flags, target: plan.target, srcSource: srcSource)
         }
     }
 
     // Worker. Waits for the field to settle — the system may capitalize the word
     // ~50 ms after the line break appears, so a single changed read is not enough —
     // then retypes the word above the new line only for `.newline`.
-    private func finishEnter(el: AXUIElement, before: FieldSnapshot, word: String, trail: String, out: String,
-                             outTrail: String, flags: CGEventFlags, target: Layout, srcSource: TISInputSource) {
+    private func finishEnter(el: AXUIElement, before: FieldSnapshot, word: String, original: String, text: String,
+                             flags: CGEventFlags, target: Layout, srcSource: TISInputSource) {
         guard let after = awaitSettledField(before: before, read: { self.fieldSnapshot(el) },
                                             wait: { usleep(useconds_t($0 * 1000)) })
         else { dbg("enter: field did not settle"); return }
-        let outcome = enterOutcome(before: before, after: after, word: word + trail)
+        let outcome = enterOutcome(before: before, after: after, word: original)
         dbg("enter: \(outcome) before=\(before.tail.debugDescription) after=\(after.tail.debugDescription)")
         guard outcome == .newline else { return }
         waitModifiersReleased()
-        eraseBack(word.count + trail.count + 1)
-        typeUnicode(out + outTrail)
+        eraseBack(original.count + 1)
+        typeUnicode(text)
         typeKey("\r", flags: flags)
         usleep(autoLandPause)
         DispatchQueue.main.sync { self.selectLayout(target) }
-        recordConversion(Conv(original: word + trail + "\r", typed: out + outTrail + "\r",
+        recordConversion(Conv(original: original + "\r", typed: text + "\r",
                                     src: srcSource,
                                     autoWords: [learnedKey(word)]))
     }
@@ -2759,13 +2774,17 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         var clipboardTouched = false
 
         var sel: String?
-        if let ax = axSelectedText() {
+        switch retypeSource(selection: axSelectedText(), hasTypedWord: !typed.text.isEmpty,
+                            probeBlocked: ProcessInfo.processInfo.systemUptime - lastEmptyProbe < 1.0) {
+        case .selection(let ax):
             // AX path — never touches the clipboard (DeepL stays quiet)
-            if !ax.isEmpty { dbg("read via AX: \(ax.debugDescription)"); sel = ax }
-        } else if ProcessInfo.processInfo.systemUptime - lastEmptyProbe < 1.0 {
-            dbg("no Cmd+C probe: the last one found nothing a moment ago")
-        } else {
-            // AX unavailable -> read the selection with Cmd+C (copy keeps the
+            dbg("read via AX: \(ax.debugDescription)"); sel = ax
+        case .typedWord:
+            break
+        case .nothing:
+            dbg("nothing selected, nothing typed (no Cmd+C probe so soon after an empty one)")
+        case .clipboardProbe:
+            // No AX selection to trust -> read the selection with Cmd+C (copy keeps the
             // selection; typing replaces exactly it, so smart cut-and-paste in
             // Word-like apps can't swallow an adjacent space). Save the prior
             // clipboard to restore it.
@@ -2791,24 +2810,14 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         // WRITE via synthesized Unicode keystrokes (no clipboard, no paste) — the
         // active selection is replaced by the typed input, like Caramba. No copy/paste
         // events, so DeepL stays quiet. Clipboard is never used for writing.
-        // The selection may hold more than what converts (mixed-word fix -> one
-        // token). The head is untouched text: collapse the selection to its right
-        // edge and re-select just the converted run, so nothing else is retyped.
-        let head = String(text.dropLast(r.replaced.count))
-        if !head.isEmpty {
-            postKey(CGKeyCode(kVK_RightArrow), [])
-            usleep(landPause)
-            for _ in 0..<r.replaced.count { postKey(CGKeyCode(kVK_LeftArrow), .maskShift) }
-            usleep(landPause)
-        }
-        dbg("type: \(r.out.debugDescription) replacing \(r.replaced.debugDescription)")
+        dbg("type: \(r.out.debugDescription) replacing \(text.debugDescription)")
         typeUnicode(r.out)
         usleep(landPause)
         DispatchQueue.main.sync { self.autoRun.reset(); self.selectLayout(r.dst) }
         // restore clipboard only if the Cmd+C read fallback dirtied it
         if clipboardTouched { restoreClipboard(clipboardSaved) }
         // remember it so a quick second hotkey can undo
-        recordConversion(Conv(original: r.replaced, typed: r.out, src: r.src.source,
+        recordConversion(Conv(original: text, typed: r.out, src: r.src.source,
                                     learned: r.learned, alternatives: r.alternatives))
     }
 
@@ -2819,12 +2828,12 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             dbg("nothing to convert in typed \(typed.text.debugDescription)"); return
         }
         let spaces = String(repeating: " ", count: typed.spaces)
-        dbg("type: \(r.out.debugDescription) replacing typed \(r.replaced.debugDescription) +\(typed.spaces) spaces")
-        eraseBack(r.replaced.count + typed.spaces)
+        dbg("type: \(r.out.debugDescription) replacing typed \(typed.text.debugDescription) +\(typed.spaces) spaces")
+        eraseBack(typed.text.count + typed.spaces)
         typeUnicode(r.out + spaces)
         usleep(landPause)
         DispatchQueue.main.sync { self.autoRun.reset(); self.selectLayout(r.dst) }
-        recordConversion(Conv(original: r.replaced + spaces, typed: r.out + spaces, src: r.src.source,
+        recordConversion(Conv(original: typed.text + spaces, typed: r.out + spaces, src: r.src.source,
                                     learned: r.learned,
                                     alternatives: r.alternatives, suffix: spaces))
     }

@@ -93,4 +93,21 @@ final class BoundaryTests: XCTestCase {
         guard case .switchLayout(let t) = r.action else { return XCTFail("expected a switch") }
         XCTAssertTrue(t.isCyrillic)
     }
+
+    func testKeysThatMayDeleteOrSelectArmRevertLearning() {
+        for role in [KeyRole.backspace, .forwardDelete, .caretMove, .command, .click] { XCTAssertTrue(mayEditText(role)) }
+        for role in [KeyRole.text, .other] { XCTAssertFalse(mayEditText(role)) }
+    }
+
+    func testEnterFixesOnlyALongUnambiguousWord() {
+        let (latin, cyr) = layouts()
+        let wrong: (String) -> AutoDecision<L>? = { w in (cyr, transliterate(w, from: latin, to: cyr), false, false) }
+        let plan = enterFixPlan(word: "ghbdtn", trail: " ", cur: latin, decide: wrong)
+        XCTAssertEqual(plan?.original, "ghbdtn ")
+        XCTAssertEqual(plan?.text, "привет ")
+        XCTAssertNil(enterFixPlan(word: "yt", trail: "", cur: latin, decide: wrong))   // short
+        XCTAssertNil(enterFixPlan(word: "ghbdtn", trail: "", cur: latin, decide: { _ in nil }))
+        XCTAssertNil(enterFixPlan(word: "ghbdtn", trail: "", cur: latin,
+                                  decide: { w in (cyr, w, true, false) }))   // ambiguous
+    }
 }

@@ -70,3 +70,34 @@ public func evaluateBoundary<L: AutoLayout>(
     edits.corrected(word, into: d.out, from: cur, to: d.target)
     return (.fix(fix, target: d.target), lessons)
 }
+
+/// A key or click, by what it can do to the text before the caret.
+public enum KeyRole {
+    case text, backspace, forwardDelete
+    /// Arrows, Home/End, Page Up/Down: move the caret, and select with Shift.
+    case caretMove
+    /// A Cmd/Ctrl shortcut: may cut, paste, undo or select.
+    case command
+    case click
+    /// Esc, Insert, function keys.
+    case other
+}
+
+/// Whether a key may delete or select text, so a correction can be undone by hand
+/// after it: such a key arms learning by revert (`EditLearning.edit`).
+public func mayEditText(_ role: KeyRole) -> Bool {
+    switch role {
+    case .backspace, .forwardDelete, .caretMove, .command, .click: return true
+    case .text, .other: return false
+    }
+}
+
+/// The fix for a word Return ended, made only once the field shows a new line.
+/// A short word is left alone: across a line break no preposition attaches to it.
+/// - Returns: what the field should show for `word + trail` (`original`) and the
+///   layout to type it in; nil when the word is short, right or ambiguous.
+public func enterFixPlan<L: LayoutMaps>(word: String, trail: String, cur: L,
+                                        decide: (String) -> AutoDecision<L>?) -> (original: String, text: String, target: L)? {
+    guard wordBody(word) >= 3, let d = decide(word), !d.ambiguous else { return nil }
+    return (word + trail, d.out + transliterate(trail, from: cur, to: d.target), d.target)
+}

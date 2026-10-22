@@ -502,11 +502,11 @@ func isMixedWordMaterial<L: AutoLayout>(_ w: String, enabled: [L]) -> Bool {
 ///   - enabled: the enabled layouts, in the system's order.
 ///   - curIdx: index of the active layout in `enabled`.
 ///   - model: trigram model for a language code (only the mixed-word case uses it).
-/// - Returns: the converted text, its layouts, and the part of `text` it replaces;
-///   nil when nothing converts.
+/// - Returns: the conversion of the whole of `text` and its layouts; nil when
+///   nothing converts.
 public func planRetype<L: AutoLayout>(_ text: String, enabled: [L], curIdx: Int,
                                       model: (String) -> TrigramModel?)
-    -> (out: String, dst: L, src: L, replaced: String)? {
+    -> (out: String, dst: L, src: L)? {
     guard enabled.count >= 2, enabled.indices.contains(curIdx) else { return nil }
     let cur = enabled[curIdx]
 
@@ -515,7 +515,7 @@ public func planRetype<L: AutoLayout>(_ text: String, enabled: [L], curIdx: Int,
     let words = wordTokens(text)
     if words.count == 1, let word = words.first,
        let fix = fixMixedWord(String(word), cur: cur, enabled: enabled, model: model) {
-        return (String(text[..<word.startIndex]) + fix.out + String(text[word.endIndex...]), fix.dst, fix.src, text)
+        return (String(text[..<word.startIndex]) + fix.out + String(text[word.endIndex...]), fix.dst, fix.src)
     }
 
     // Switched after typing: the wrong layout is the text's, the target the current.
@@ -524,18 +524,18 @@ public func planRetype<L: AutoLayout>(_ text: String, enabled: [L], curIdx: Int,
         let srcs = enabled.filter { $0.isCyrillic == wrongCyr }
         let src = bestConversion(text, pairs: srcs.map { ($0, cur) }, model: model)?.src ?? srcs.first
         if let src, let out = convertWrong(text, src: src, dst: cur) {
-            return (out, cur, src, text)
+            return (out, cur, src)
         }
     }
 
     let targets = enabled.filter { $0.isCyrillic != cur.isCyrillic }
     let target = bestConversion(text, pairs: targets.map { (cur, $0) }, model: model)?.dst
         ?? pickTarget(text, enabled: enabled, curIdx: curIdx)
-    if let out = convertWrong(text, src: cur, dst: target) { return (out, target, cur, text) }
+    if let out = convertWrong(text, src: cur, dst: target) { return (out, target, cur) }
     // The positional pick was a same-script twin (Polish Programmers vs US: the
     // same keys), so nothing changed: the other script is the only real target.
     guard let t = targets.first, let out = convertWrong(text, src: cur, dst: t) else { return nil }
-    return (out, t, cur, text)
+    return (out, t, cur)
 }
 
 /// Among several layouts of one script (ru + uk, en + de): the pair whose

@@ -4,6 +4,28 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.16 — more of both apps' rules in Core
+
+- `planRetype` lost its unused `replaced` field. New in Core: `retypeSource`
+  (selection / typed word / clipboard probe / nothing), `mayEditText` (which
+  keys arm learning by revert), `FieldCheck` (Windows' asynchronous password
+  check: numbered questions, fail closed while pending), `enterFixPlan` (the
+  word Return ended). Each with unit tests.
+- Behavior changes, by unifying the two apps:
+  - macOS probes with Cmd+C when accessibility says nothing is selected and
+    nothing was typed (VS Code reports an empty selection for a real one).
+  - macOS arms revert learning on Home/End/PgUp/PgDn; Windows no longer on
+    Esc/Insert.
+  - macOS merges new defaults into the hotkey exclusion list too (seen record
+    `hotkeyExcludedDefaultsSeen`), as Windows did; a default the user removed
+    stays removed.
+- Verified: swift test 164, run-tests 39, Mac VM e2e 12/12, Windows VM build
+  and e2e (plain and spell) clean twice. Right after the Windows VM rebooted,
+  three runs each lost one different scenario (a word left unfixed); the base
+  commit was not run cold, so a cold-UIA flake is the likely, unproven cause.
+
+---
+
 ## After v1.3.16 — macOS e2e in a test VM over SSH
 
 - Why: `e2e.sh` posts real key events and holds focus, so on the owner's Mac it

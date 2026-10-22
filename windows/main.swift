@@ -60,15 +60,16 @@ func performRetype() {
     guard waitModifiersReleased() else { return }
 
     // The selection, else the word just typed (the auto-mode run) — never a guess
-    // at text before the caret that we did not see typed.
+    // at text before the caret that we did not see typed (engine `retypeSource`).
     let typed = typedWord()
-    // Consoles: only the typed word — reading a selection sends Ctrl+C, which interrupts.
-    if foregroundIsConsole() { return retypeTyped(typed, cur: cur) }
-    guard let selected = readSelectedText() else { return retypeViaClipboard(cur, typed: typed) }
-    if !selected.isEmpty { return retype(selected, cur: cur) }
-    // UIA reports no selection. VS Code says so even for a real one unless its
-    // accessibility support is on, so with no typed word, ask the clipboard.
-    typed.text.isEmpty ? retypeViaClipboard(cur, typed: typed) : retypeTyped(typed, cur: cur)
+    let console = foregroundIsConsole()
+    switch retypeSource(selection: console ? nil : readSelectedText(), hasTypedWord: !typed.text.isEmpty,
+                        console: console, probeBlocked: GetTickCount() &- lastEmptyProbe < 1000) {
+    case .selection(let text): retype(text, cur: cur)
+    case .typedWord: retypeTyped(typed, cur: cur)
+    case .clipboardProbe: retypeViaClipboard(cur, typed: typed)
+    case .nothing: dwatch("hotkey: nothing selected or typed")
+    }
 }
 
 /// Nothing selected: backspaces the word just typed (and the spaces after it), types
@@ -79,12 +80,12 @@ private func retypeTyped(_ typed: (text: String, spaces: Int), cur: WinLayout) {
     guard let curIdx = enabled.firstIndex(where: { $0.id == cur.id }),
           let plan = planRetype(typed.text, enabled: enabled, curIdx: curIdx, model: trigram) else { return }
     let spaces = String(repeating: " ", count: typed.spaces)
-    sendBackspaces(plan.replaced.count + typed.spaces)
+    sendBackspaces(typed.text.count + typed.spaces)
     guard typeText(plan.out + spaces, in: plan.dst) else { return }
     resetAutoBuffer()
-    recordConversion(original: plan.replaced + spaces, typed: plan.out + spaces, src: plan.src, since: retypeMark,
-                     learned: learnHotkeyMisses(replaced: plan.replaced, out: plan.out, src: plan.src, dst: plan.dst),
-                     alternatives: alternatives(plan.replaced, first: plan.out, src: plan.src, enabled: enabled),
+    recordConversion(original: typed.text + spaces, typed: plan.out + spaces, src: plan.src, since: retypeMark,
+                     learned: learnHotkeyMisses(replaced: typed.text, out: plan.out, src: plan.src, dst: plan.dst),
+                     alternatives: alternatives(typed.text, first: plan.out, src: plan.src, enabled: enabled),
                      suffix: spaces)
 }
 
@@ -97,10 +98,9 @@ private func retype(_ text: String, cur: WinLayout) {
           let plan = planRetype(text, enabled: enabled, curIdx: curIdx, model: trigram) else { return }
     guard typeText(plan.out, in: plan.dst) else { return }   // also leaves dst active
     resetAutoBuffer()
-    recordConversion(original: plan.replaced, typed: plan.out, src: plan.src, since: retypeMark,
-                     learned: learnHotkeyMisses(replaced: plan.replaced, out: plan.out, src: plan.src, dst: plan.dst),
-                     alternatives: plan.replaced == text
-                        ? alternatives(plan.replaced, first: plan.out, src: plan.src, enabled: enabled) : [])
+    recordConversion(original: text, typed: plan.out, src: plan.src, since: retypeMark,
+                     learned: learnHotkeyMisses(replaced: text, out: plan.out, src: plan.src, dst: plan.dst),
+                     alternatives: alternatives(text, first: plan.out, src: plan.src, enabled: enabled))
 }
 
 /// The other readings of a hotkey conversion for the press-again cycle (engine
@@ -150,7 +150,6 @@ private func performUndo(_ last: WinConversion) {
 private var lastEmptyProbe: DWORD = 0
 
 private func retypeViaClipboard(_ cur: WinLayout, typed: (text: String, spaces: Int)) {
-    if GetTickCount() &- lastEmptyProbe < 1000 { return retypeTyped(typed, cur: cur) }
     let saved = saveClipboard()
     let seq = GetClipboardSequenceNumber()
     let text = readSelection()

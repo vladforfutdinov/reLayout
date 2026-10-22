@@ -1,5 +1,4 @@
 import WinSDK
-import Foundation
 import Dispatch
 import ReLayoutCore
 import RelayoutNative
@@ -42,9 +41,9 @@ func checkForUpdates(_ hwnd: HWND?, manual: Bool) {
         if manual { showMessage(L("win.update.latest")) }
         return
     }
-    DispatchQueue.global().async {
+    startThread {
         let tag = latestReleaseTag()
-        postToUI { handleUpdateResult(tag, manual: manual) }
+        _ = postToUI { handleUpdateResult(tag, manual: manual) }
     }
 }
 
@@ -87,6 +86,6 @@ private func latestReleaseTag() -> String? {
         }
     }
     guard n > 0 else { return nil }
-    let json = try? JSONSerialization.jsonObject(with: Data(body.prefix(Int(n)))) as? [String: Any]
-    return json?["tag_name"] as? String
+    return jsonStringField("tag_name", in: String(decoding: body.prefix(Int(n)), as: UTF8.self))
 }
+

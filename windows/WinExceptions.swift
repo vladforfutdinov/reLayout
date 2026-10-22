@@ -1,5 +1,4 @@
 import WinSDK
-import Foundation
 import ReLayoutCore
 
 // "Exceptions" window, like the macOS sheet: a list of programs (icon and name),
@@ -100,12 +99,13 @@ private func displayName(_ exe: String, path: String?) -> String {
         guard "\\VarFileInfo\\Translation".withCString(encodedAs: UTF16.self, { VerQueryValueW(data, $0, &ptr, &len) }),
               let ptr, len >= 4 else { return nil }
         let lang = ptr.load(as: UInt16.self), page = ptr.load(fromByteOffset: 2, as: UInt16.self)
-        let key = String(format: "\\StringFileInfo\\%04x%04x\\FileDescription", lang, page)
+        let hex = { (v: UInt16) -> String in let s = String(v, radix: 16); return String(repeating: "0", count: 4 - s.count) + s }
+        let key = "\\StringFileInfo\\\(hex(lang))\(hex(page))\\FileDescription"
         var text: UnsafeMutableRawPointer?
         guard key.withCString(encodedAs: UTF16.self, { VerQueryValueW(data, $0, &text, &len) }),
               let text, len > 1 else { return nil }
-        let s = String(decoding: UnsafeBufferPointer(start: text.assumingMemoryBound(to: WCHAR.self), count: Int(len) - 1),
-                       as: UTF16.self).trimmingCharacters(in: .whitespaces)
+        let s = trimmed(String(decoding: UnsafeBufferPointer(start: text.assumingMemoryBound(to: WCHAR.self),
+                                                             count: Int(len) - 1), as: UTF16.self))
         return s.isEmpty ? nil : s
     } ?? exe
 }

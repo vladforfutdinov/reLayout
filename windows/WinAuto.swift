@@ -1,5 +1,4 @@
 import WinSDK
-import Foundation
 import ReLayoutCore
 
 // Auto-correct while typing (opt-in), the Windows side of the macOS auto mode.
@@ -109,8 +108,7 @@ func trigram(_ lang: String) -> TrigramModel? {
     if let cached = onHook({ models[lang] }) { return cached }
     // Not inside the hook: the file is read on the UI thread; this word goes without.
     if onHookThread() { postToUI { _ = trigram(lang) }; return nil }
-    let model = (try? String(contentsOfFile: "\(exeDirectory())\\trigram\\\(lang).txt", encoding: .utf8))
-        .flatMap(TrigramModel.init(text:))
+    let model = readTextFile("\(exeDirectory())\\trigram\\\(lang).txt").flatMap(TrigramModel.init(text:))
     onHook { models[lang] = model }
     return model
 }
@@ -176,7 +174,7 @@ func reloadAutoMode() {
     // thread, so neither the hook nor the UI does. Checks asked meanwhile get "unknown".
     if spell {
         let langs = scriptLanguages(cyrillic: true, enabled: all) + scriptLanguages(cyrillic: false, enabled: all)
-        Thread { warmSpellCheckers(langs) }.start()
+        startThread { warmSpellCheckers(langs) }
     }
 }
 

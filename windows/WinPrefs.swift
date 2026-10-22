@@ -1,5 +1,4 @@
 import WinSDK
-import Foundation
 import ReLayoutCore
 
 // Small registry-backed preferences under HKCU\Software\reLayout.
@@ -161,7 +160,7 @@ private let firstDefaultExcludedApps = Array(defaultExcludedApps.prefix(15))
 let defaultHotkeyExcludedApps = ["figma.exe"]
 
 private func splitLines(_ s: String) -> [String] {
-    s.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces).lowercased() }
+    s.split(whereSeparator: \.isNewline).map { trimmed($0).lowercased() }
      .filter { !$0.isEmpty }
 }
 

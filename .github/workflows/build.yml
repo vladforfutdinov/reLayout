@@ -274,12 +274,22 @@ jobs:
           if (-not $built) { throw 'ReLayoutWin.exe not found under .build' }
           Copy-Item $built.FullName $payload
 
-          # Bundle the Swift runtime DLLs the exe links: find the PATH entry that
-          # holds swiftCore.dll (the toolchain Runtimes bin) and copy its DLLs.
+          # Bundle the Swift runtime DLLs the exe loads: those of the toolchain's
+          # Runtimes bin (the PATH entry with swiftCore.dll) that its import table
+          # reaches, transitively — not the whole folder (XCTest, Foundation, ICU).
           $rt = ($env:PATH -split ';' | Where-Object {
                    $_ -and (Test-Path (Join-Path $_ 'swiftCore.dll')) } | Select-Object -First 1)
           if (-not $rt) { throw 'swiftCore.dll not found on PATH — cannot bundle runtime' }
-          Copy-Item (Join-Path $rt '*.dll') $payload
+          $readobj = (Get-Command llvm-readobj -ErrorAction Stop).Source
+          $seen = @{}; $queue = [System.Collections.Queue]::new(); $queue.Enqueue($built.FullName)
+          while ($queue.Count) {
+            & $readobj --coff-imports $queue.Dequeue() | Select-String '^\s*Name:\s*(\S+\.dll)' | ForEach-Object {
+              $dll = Join-Path $rt $_.Matches[0].Groups[1].Value
+              if ((Test-Path $dll) -and -not $seen.ContainsKey($dll)) { $seen[$dll] = $true; $queue.Enqueue($dll) }
+            }
+          }
+          if (-not $seen.Keys.Where({ $_ -like '*swiftCore.dll' })) { throw 'swiftCore.dll not among the imports' }
+          $seen.Keys | ForEach-Object { Copy-Item $_ $payload; Write-Host "runtime: $(Split-Path $_ -Leaf)" }
 
           # Trigram models for the auto-correct mode, read from trigram/<lang>.txt
           # next to the exe (the macOS app reads them from its bundle).

@@ -885,6 +885,23 @@ public func mergeExclusions(saved: [String], defaults: [String], seen: Set<Strin
 
 // MARK: - Versions
 
+/// A string field of a JSON object, read without a JSON parser: the first
+/// `"key": "value"` in the text. nil when absent or when the value has escapes
+/// (a release tag has none).
+public func jsonStringField(_ key: String, in json: String) -> String? {
+    let needle = "\"\(key)\""
+    var i = json.startIndex
+    while i < json.endIndex, !json[i...].hasPrefix(needle) { i = json.index(after: i) }
+    guard i < json.endIndex else { return nil }
+    var rest = json[json.index(i, offsetBy: needle.count)...].drop(while: \.isWhitespace)
+    guard rest.first == ":" else { return nil }
+    rest = rest.dropFirst().drop(while: \.isWhitespace)
+    guard rest.first == "\"" else { return nil }
+    let value = rest.dropFirst().prefix(while: { $0 != "\"" && $0 != "\\" })
+    guard value.endIndex < rest.endIndex, rest[value.endIndex] == "\"" else { return nil }
+    return String(value)
+}
+
 /// True when release tag `candidate` ("v1.3.0") is newer than `current` ("1.2.27").
 /// Numeric dot parts only; anything unparsable (a dev build's "0.0.0-dev" suffix,
 /// a pre-release tag) is never newer.

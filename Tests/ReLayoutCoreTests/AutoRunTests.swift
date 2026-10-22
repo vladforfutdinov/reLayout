@@ -256,6 +256,15 @@ final class AutoRunTests: XCTestCase {
         XCTAssertFalse(isNewerVersion("v9.9.9", than: "0.0.0-dev"))    // dev build: never checks
     }
 
+    func testJsonStringField() {
+        let reply = #"{"url":"x","tag_name" : "v1.4.0","name":"say \"hi\"","n":3}"#
+        XCTAssertEqual(jsonStringField("tag_name", in: reply), "v1.4.0")
+        XCTAssertNil(jsonStringField("name", in: reply))     // escaped: not read
+        XCTAssertNil(jsonStringField("n", in: reply))        // not a string
+        XCTAssertNil(jsonStringField("missing", in: reply))
+        XCTAssertNil(jsonStringField("tag_name", in: #"{"tag_name":"v1.4"#))   // cut off
+    }
+
     func testRevertWatch() {
         let back: (String) -> String = { $0.replacingOccurrences(of: "п", with: "g") }
         var w = RevertWatch()

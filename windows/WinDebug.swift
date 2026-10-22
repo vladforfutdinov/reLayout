@@ -1,5 +1,4 @@
 import WinSDK
-import Foundation
 
 // Diagnostics for DEBUG builds only (scripts/build-windows.ps1 -DebugLog): with
 // HKCU\Software\reLayout\DebugLog = 1 it writes to %TEMP%\relayout-debug.log what
@@ -25,18 +24,19 @@ func dlog(_ line: @autoclosure () -> String) {
 }
 
 // Kept open: an antivirus scans the file on every close, which stalled the hook.
-private let logHandle: FileHandle? = {
-    if !FileManager.default.fileExists(atPath: logPath) {
-        _ = FileManager.default.createFile(atPath: logPath, contents: nil)
+private let logHandle: HANDLE? = {
+    let h = logPath.withCString(encodedAs: UTF16.self) {
+        CreateFileW($0, DWORD(0x0004) /* FILE_APPEND_DATA */, DWORD(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE),
+                    nil, DWORD(OPEN_ALWAYS), DWORD(FILE_ATTRIBUTE_NORMAL), nil)
     }
-    let h = FileHandle(forWritingAtPath: logPath)
-    h?.seekToEndOfFile()
-    return h
+    return h == INVALID_HANDLE_VALUE ? nil : h
 }()
 
 private func append(_ text: String) {
-    guard let data = text.data(using: .utf8) else { return }
-    logHandle?.write(data)
+    guard let logHandle else { return }
+    var bytes = Array(text.utf8)
+    var written: DWORD = 0
+    _ = WriteFile(logHandle, &bytes, DWORD(bytes.count), &written, nil)
 }
 
 /// Marks an action of ours in the log (a fix, a hotkey).

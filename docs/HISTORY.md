@@ -4,6 +4,28 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.16 — Windows without Foundation: 59 MB of runtime down to 11
+
+- Installed, the port took 68 MB; the exe is 1.7 MB. Measured in the arm64 VM
+  as the exe plus the runtime DLLs it loads (transitively): 58.7 MB, of which
+  ICU 36 MB and Foundation's DLLs ~11 MB. CI copied the whole runtime folder
+  besides (63 MB: XCTest, Testing, FoundationNetworking…).
+- Foundation went from `windows/` (Core never imported it): file reads, the
+  `lang` directory list and threads are Win32 (`WinSys.swift`), language names
+  `GetLocaleInfoEx` (same autonyms, checked for all 12), the update tag Core's
+  `jsonStringField` (tested; checked on the live GitHub reply), `%@`
+  `replacing`, the debug log `WriteFile`. Result: 10.8 MB — exe 2.7, swiftCore
+  5.2, string processing 1.4, the C++ runtime 1.5. CI now bundles only the
+  imported DLLs.
+- Static stdlib tried too: `--static-swift-stdlib` is ignored by SwiftPM on
+  Windows; `-Xswiftc -static-stdlib` fails to link with Foundation (Blocks
+  runtime imported as a DLL) and without it gives 12.7 MB — larger than
+  dynamic, so not taken.
+- Checked: swift test 165, Windows e2e 18/18 and spell 20/20 in the VM. Not
+  run: a CI build with the new payload step (needs a push).
+
+---
+
 ## After v1.3.16 — Windows installer: upgrade and uninstall checked in the VM
 
 - First real run of the installer since the uninstall rule went in (it was

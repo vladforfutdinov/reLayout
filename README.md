@@ -6,7 +6,7 @@ A tiny open-source menu-bar app that instantly retypes text typed in the wrong k
 
 ![reLayout in action: ghbdsn → Shift twice → привіт, then руддщ → hello](assets/demo.gif)
 
-Typed `ghbdsn` instead of `привіт`? Press the hotkey — the word you just typed, or a selection, is retyped in the right layout, and the system input source switches too, so you can keep typing. Works with **any** installed layouts, not a hard-coded pair. macOS; Windows port in preview.
+Typed `ghbdsn` instead of `привіт`? Press the hotkey — the word you just typed, or a selection, is retyped in the right layout, and the system input source switches too, so you can keep typing. Works with **any** installed layouts, not a hard-coded pair. macOS and Windows.
 
 ## Install
 
@@ -18,7 +18,7 @@ brew install --cask vladforfutdinov/relayout/relayout
 
 or download `reLayout.dmg` from the [latest release](https://github.com/vladforfutdinov/reLayout/releases/latest) and drag it to Applications (signed and notarized). On first launch, grant **Accessibility**: System Settings → Privacy & Security → Accessibility → enable reLayout → relaunch.
 
-**Windows (preview):** each release has an installer (`reLayout-windows-<arch>-setup.exe`) and a portable `.exe` for x64 and arm64. They aren't code-signed yet, so SmartScreen asks once ("More info" → "Run anyway"). No auto-update yet — download a newer release to upgrade.
+**Windows:** each release has an installer (`reLayout-windows-<arch>-setup.exe`) and a portable `.exe` for x64 and arm64. They aren't code-signed yet, so SmartScreen asks once ("More info" → "Run anyway"). No auto-update yet — download a newer release to upgrade.
 
 ## Use
 

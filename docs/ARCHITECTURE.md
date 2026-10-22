@@ -82,7 +82,7 @@ Holds everything outside the engine:
 
 Diagnostics without the GUI: `ReLayout.app/Contents/MacOS/ReLayout --enabled` lists the enabled input sources in order; `--selftest` prints sample conversions.
 
-## Windows port (`windows/`, preview)
+## Windows port (`windows/`)
 
 - `main.swift` — single-instance mutex, message loop (with `IsDialogMessageW` for our windows), the per-hotkey double-tap gate, the hotkey retype and press-again undo.
 - `WinHotkey.swift` — low-level keyboard hook: two hotkeys (`HotkeySlot`: convert, auto-correct on/off; unset = vk 0), each a `HotkeyDetector` for combos, bare-modifier taps and modifier-chord taps (`chordVK`: Ctrl+Shift released together) that posts `WM_RETYPE` / `WM_TOGGLE_AUTO`; hotkey capture for Settings; also feeds the auto mode. A key a hotkey swallows never reaches the undo window or the auto mode.

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-reLayout is a tiny menu-bar macOS app (with a Windows port in preview) that retypes selected text in the correct keyboard layout — Punto/Caramba style. Hotkey → read selection → convert via the active OS keyboard layouts → type back → switch system input source. Press the hotkey again (before typing or clicking anything else) to cycle the remaining layouts, then to undo.
+reLayout is a tiny menu-bar macOS app (with a Windows port) that retypes selected text in the correct keyboard layout — Punto/Caramba style. Hotkey → read selection → convert via the active OS keyboard layouts → type back → switch system input source. Press the hotkey again (before typing or clicking anything else) to cycle the remaining layouts, then to undo.
 
 ## Session handoff (context across sessions)
 
@@ -21,7 +21,7 @@ At the end of a session (or before `/clear`): run **`/handoff`** — it updates 
 ```
 Core/        shared platform-free engine, auto-mode state machine, trigram model, .strings reader (SwiftPM module ReLayoutCore)
 macos/       macOS app — main.swift, tests.swift, Info.plist
-windows/     Windows port (preview) — Win*.swift + main.swift, native/ (C++: UI Automation, WinHTTP, theme)
+windows/     Windows port — Win*.swift + main.swift, native/ (C++: UI Automation, WinHTTP, theme)
 Resources/   macOS bundle resources — <lang>.lproj + icon PNGs + trigram/<lang>.txt
 Tests/       SwiftPM engine tests
 scripts/     build.sh, run-tests.sh, e2e.sh / e2e-win.ps1 (+ e2e/), make-cert.sh, make-dmg.sh, notarize.sh, trigram/
@@ -58,7 +58,7 @@ Build env vars, the release/notarization flow, and the full architecture (engine
 - **`Core/Trigram.swift`** — char-trigram language model for the auto-correct mode. Models generated offline by `scripts/trigram/gen.py`, shipped as `Resources/trigram/<lang>.txt`. Auto-correct fires between scripts (ru/uk ↔ en/de/fr/es/pl/pt; a layout whose language has no model gets no auto-correct) and, as an experimental opt-in, between same-script layouts of different languages (ru ↔ uk); default off.
 - **`macos/main.swift`** — the macOS app (single file): localization, hotkey system (combos + modifier taps), AX-first selection read, synthetic-keystroke write, input-source switching, Settings/menu-bar/login-item, Sparkle.
 - **`Core/Auto.swift`** — what both apps share beyond conversion: the auto-mode decision (`decideAutoTarget`), the typed-word state machine (`AutoRun`), the hotkey's layout choice (`planRetype`, `fixMixedWord`). `Core/Learned.swift`: the full auto decision chain (`autoDecision`) and the learned-verdict rules (`LearnedWords`). `Core/Boundary.swift`: the word-boundary step (`evaluateBoundary`), the Enter fix (`enterFixPlan`), which keys arm learning by revert (`mayEditText`). `Core/Retype.swift`: where the hotkey's text comes from (`retypeSource`). `Core/FieldCheck.swift`: the asynchronous password-field check. `Core/PressAgain.swift`: the press-again record. `Core/KeyGate.swift`: keys held during a fix. `Core/HotkeyTaps.swift`: multi-press and modifier-only hotkeys. Platform code only feeds keystrokes, stores the lists and performs what these return.
-- **`windows/`** — Windows port (preview): hook-based hotkey + auto mode, UI Automation read, Settings/tray, built only under `#if os(Windows)`. CI builds it on manual dispatch and on `v*` tags, attaching the unsigned installer and portable exe to the Release.
+- **`windows/`** — Windows port: hook-based hotkey + auto mode, UI Automation read, Settings/tray, built only under `#if os(Windows)`. CI builds it on manual dispatch and on `v*` tags, attaching the unsigned installer and portable exe to the Release.
 
 Details for each → [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 

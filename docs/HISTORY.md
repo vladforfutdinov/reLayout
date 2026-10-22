@@ -27,6 +27,10 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
   logging went in, worst 140 ms), so whether these two explain all of it is open.
 - Test VMs reachable as `ssh mac-vm` / `ssh win-vm` (mDNS names);
   `e2e-mac-vm.sh` defaults to `mac-vm`.
+- README demo re-recorded in the macOS VM: `ghbdsn` → Shift twice → `привіт`,
+  then `руддщ` → `hello`, a caption showing only the hotkey. Recorded with
+  `screencapture -v` over SSH (one "bypass the private window picker" consent
+  in the VM); `make-demo-gif.sh` no longer exits 1 on success.
 
 ---
 

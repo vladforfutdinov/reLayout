@@ -4,9 +4,9 @@ A tiny open-source menu-bar app that instantly retypes text typed in the wrong k
 
 **Website:** [relayout.forfutdinov.com](https://relayout.forfutdinov.com/)
 
-![reLayout in action: ](assets/demo.gif)
+![reLayout in action: ghbdsn → Shift twice → привіт, then руддщ → hello](assets/demo.gif)
 
-Typed `ghbdtn` instead of `привет`? Select it, press the hotkey, and it's retyped in the right layout — the system input source switches too, so you can keep typing. Works with **any** installed layouts, not a hard-coded pair. macOS; Windows port in preview.
+Typed `ghbdsn` instead of `привіт`? Press the hotkey — the word you just typed, or a selection, is retyped in the right layout, and the system input source switches too, so you can keep typing. Works with **any** installed layouts, not a hard-coded pair. macOS; Windows port in preview.
 
 ## Install
 

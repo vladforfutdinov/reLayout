@@ -2,8 +2,8 @@
 # make-demo-gif.sh — turn a screen recording into a tight, optimized promo GIF.
 #
 # Recording is native: hit Cmd-Shift-5, pick "Record Selected Portion", frame a
-# small region around your text field, record `я сказал ghbdtn` → tap Option →
-# `я сказал привет`, stop. Then feed the .mov here.
+# small region around your text field, record `ghbdsn` → tap Shift twice →
+# `привіт`, stop. Then feed the .mov here.
 #
 # Usage:
 #   scripts/make-demo-gif.sh INPUT.mov [OUTPUT.gif]
@@ -55,4 +55,4 @@ fi
 
 bytes=$(stat -f%z "$out")
 printf '✓ %s  (%s, %d KB)\n' "$out" "${width}px @ ${fps}fps" "$((bytes/1024))"
-[[ $bytes -gt 5242880 ]] && echo "⚠ >5 MB — drop FPS/WIDTH or trim tighter (GitHub/PH prefer <5 MB)"
+if [[ $bytes -gt 5242880 ]]; then echo "⚠ >5 MB — drop FPS/WIDTH or trim tighter (GitHub/PH prefer <5 MB)"; fi

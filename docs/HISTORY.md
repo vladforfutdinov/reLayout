@@ -4,6 +4,32 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.16 — Shift twice on macOS too; Windows hook stalls
+
+- macOS default hotkey is Shift tapped twice as well (was a tap of left ⌥),
+  so both apps share it. A Mac that ran an earlier version and never saved a
+  hotkey keeps left ⌥: `pinOldDefaultHotkey` saves it once at launch
+  (`hkDefaultPinned`), judged by keys an earlier launch left
+  (`autoExcludedDefaultsSeen`, `SUHasLaunchedBefore`, `autoMode`).
+- Windows e2e lost a scenario now and then, once fixing across a Tab
+  (`d\tкнига` → `dвкнига`). The key log showed the hook silent for 22 s with
+  key-ups missing: Windows passes keys by a hook that does not answer in
+  time, so the run never saw the Tab and joined both words. Two stalls of
+  the hook thread found:
+  - `reloadAutoMode` queued dictionary warm-up on the hook thread, each step
+    waiting up to 5 s for the spell thread (since hooks got their own thread);
+    now a thread of its own does it.
+  - the DEBUG key log opened and closed its file per event — an antivirus
+    scans on close (140 ms seen); it stays open now.
+  DEBUG builds log a hook callback over 100 ms (`slow hook`), and
+  `e2e-win.ps1 -Trace` prints those lines on every run.
+- Not proven: the 22 s stall itself was not caught again (six runs after the
+  logging went in, worst 140 ms), so whether these two explain all of it is open.
+- Test VMs reachable as `ssh mac-vm` / `ssh win-vm` (mDNS names);
+  `e2e-mac-vm.sh` defaults to `mac-vm`.
+
+---
+
 ## After v1.3.16 — Windows default hotkey: Left Shift twice
 
 - Was Ctrl+Alt+R: Ctrl+Alt is AltGr on many European layouts, and a

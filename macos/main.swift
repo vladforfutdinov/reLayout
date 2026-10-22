@@ -807,6 +807,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     func applicationDidFinishLaunching(_ note: Notification) {
         UserDefaults.standard.set(0, forKey: "NSInitialToolTipDelay")   // app-wide: tooltips show at once
         Loc.load()   // apply saved language override before any UI is built
+        pinOldDefaultHotkey()   // before anything this launch writes a preference
         mergeNewDefaultExclusions()
 #if SPARKLE
         updater = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: self, userDriverDelegate: nil)
@@ -1122,9 +1123,19 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         autoHotkey = Hotkey.load(d, prefix: HotkeySlot.autoToggle.prefix)
     }
 
-    // default hotkey: tap left Option
-    private static let defaultHotkey = Hotkey(mode: .modTap, code: UInt32(kVK_ANSI_R), mods: UInt32(controlKey | optionKey),
-                                              chord: [UInt16(kVK_Option)], display: "left ⌥")
+    // default hotkey: Shift tapped twice, as on Windows
+    private static let defaultHotkey = Hotkey(mode: .modTap, chord: [UInt16(kVK_Shift)], taps: 2, display: "left ⇧ ×2")
+
+    /// Once: a Mac that ran reLayout before the default changed, and never saved a
+    /// hotkey, keeps the tap of left Option its user knows.
+    private func pinOldDefaultHotkey() {
+        let d = UserDefaults.standard
+        guard !d.bool(forKey: "hkDefaultPinned") else { return }
+        d.set(true, forKey: "hkDefaultPinned")
+        let usedBefore = ["autoExcludedDefaultsSeen", "SUHasLaunchedBefore", "autoMode"].contains { d.object(forKey: $0) != nil }
+        guard usedBefore, Hotkey.load(d, prefix: HotkeySlot.retype.prefix) == nil else { return }
+        Hotkey(mode: .modTap, chord: [UInt16(kVK_Option)], display: "left ⌥").save(d, prefix: HotkeySlot.retype.prefix)
+    }
 
     @objc private func resetHotkey() { restoreHotkey(.retype) }
     @objc private func clearAutoHotkey() { restoreHotkey(.autoToggle) }

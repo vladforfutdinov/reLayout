@@ -30,7 +30,7 @@ trap restore EXIT
 
 killall ReLayout 2>/dev/null || true
 sleep 0.5
-# Known state: auto-correct on, default hotkey (tap left Option), nothing learned or excluded.
+# Known state: auto-correct on, default hotkey (Shift twice), nothing learned or excluded.
 for k in autoLearned autoKept autoLearnCounts autoLearnCandidates autoExcludedApps hotkeyExcludedApps \
          autoSameScript autoSpell autoEnterNewline \
          hkType hkCode hkMods hkChord hkTaps hkDisplay \
@@ -38,6 +38,7 @@ for k in autoLearned autoKept autoLearnCounts autoLearnCandidates autoExcludedAp
     defaults delete "$ID" "$k" 2>/dev/null || true
 done
 defaults write "$ID" autoMode -bool true
+defaults write "$ID" hkDefaultPinned -bool true   # not a Mac from before the default changed
 open "$APP"
 sleep 2
 

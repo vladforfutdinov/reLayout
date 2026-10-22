@@ -23,7 +23,7 @@ or download `reLayout.dmg` from the [latest release](https://github.com/vladforf
 ## Use
 
 1. Select the mistyped text — or select nothing right after typing a word to fix that word.
-2. Press the hotkey (default: **tap left Option**; on Windows, **tap left Shift twice**).
+2. Press the hotkey (default: **tap Shift twice**).
 3. Press again right away (before typing or clicking anything else) to try the next layout, and once there's none left, to undo.
 
 Only words in the wrong layout are converted: `я сказал ghbdtn` → `я сказал привет`. A word split by a layout switch is fixed too: `ghj` + switch + `сто` → `просто`.

@@ -11,8 +11,8 @@ let keyCodes: [Character: CGKeyCode] = [
     "p": 35, "l": 37, "j": 38, "'": 39, "k": 40, ";": 41, ",": 43, "n": 45, "m": 46, ".": 47,
     " ": 49, "\r": 36, "\t": 48,
 ]
-let kOption: CGKeyCode = 58
-let leftAltDeviceBit = CGEventFlags(rawValue: 0x20)   // NX_DEVICELALTKEYMASK: the app tells left from right
+let kShift: CGKeyCode = 56
+let leftShiftDeviceBit = CGEventFlags(rawValue: 0x02)   // NX_DEVICELSHIFTKEYMASK
 
 final class Harness: NSObject, NSApplicationDelegate {
     var window: NSWindow!
@@ -62,14 +62,16 @@ func type(_ s: String) {
     }
 }
 
-/// The default retype hotkey: a clean tap of left Option.
-func tapOption() {
-    for flags in [CGEventFlags.maskAlternate.union(leftAltDeviceBit), []] {
-        let e = CGEvent(keyboardEventSource: source, virtualKey: kOption, keyDown: !flags.isEmpty)!
-        e.type = .flagsChanged
-        e.flags = flags
-        e.post(tap: .cghidEventTap)
-        pause(60)
+/// The default retype hotkey: two clean taps of left Shift.
+func hotkey() {
+    for _ in 0..<2 {
+        for flags in [CGEventFlags.maskShift.union(leftShiftDeviceBit), []] {
+            let e = CGEvent(keyboardEventSource: source, virtualKey: kShift, keyDown: !flags.isEmpty)!
+            e.type = .flagsChanged
+            e.flags = flags
+            e.post(tap: .cghidEventTap)
+            pause(60)
+        }
     }
 }
 
@@ -184,24 +186,24 @@ func runScenarios(_ h: Harness) -> Int {
     reset(h); type("hello ")
     expect(h, "auto: right-layout word stays", "hello ", layout: latin, settle: 700)
 
-    reset(h, hello.0, selectAll: true); tapOption()
+    reset(h, hello.0, selectAll: true); hotkey()
     expect(h, "hotkey: selection is converted", hello.1, layout: cyrillic)
     // With Russian enabled too, Ukrainian "ghbdsn" has a second reading: the press
     // after the conversion types it, and the next one undoes (three layouts cycle).
     if c.contains("Ukrainian"), let ru = ids.first(where: { $0.contains("Russian") }) {
-        tapOption()
+        hotkey()
         expect(h, "hotkey again: next reading", "привыт", layout: ru)
     }
-    tapOption()
+    hotkey()
     expect(h, "hotkey again: conversion is undone", hello.0, layout: latin)
 
     reset(h); type(word.0 + " "); expect(h, "auto: fix before the undo", word.1 + " ")
-    tapOption()
+    hotkey()
     expect(h, "hotkey after auto-fix: fix is undone", word.0 + " ", layout: latin)
 
     reset(h); type(hello.0 + " ")
     expect(h, "auto: fix before typing on", hello.1 + " ")
-    type("rfr"); tapOption()   // "как", typed after the fix: the hotkey converts it, not undo
+    type("rfr"); hotkey()   // "как", typed after the fix: the hotkey converts it, not undo
     expect(h, "hotkey after typing: new word converts", hello.1 + " rfr", layout: latin)
 
     // Keys typed while a fix runs are held, then replayed through the word buffer.

@@ -1,6 +1,6 @@
 #!/bin/bash
 # One-time setup of a macOS test VM for scripts/e2e-mac-vm.sh, run inside the VM
-# (`ssh -t relayout-mac 'bash -s' < scripts/e2e/vm-setup.sh`; asks for the sudo
+# (`ssh -t mac-vm 'bash -s' < scripts/e2e/vm-setup.sh`; asks for the sudo
 # password once). Installs the Command Line Tools without the GUI dialog, keeps
 # the session awake, and gives the VM user passwordless sudo — the e2e run writes
 # TCC.db and starts the test in the GUI session as root. Test VMs only. SIP must

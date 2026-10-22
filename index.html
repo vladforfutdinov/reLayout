@@ -105,7 +105,8 @@
     border:1px solid var(--line); background:#0e131a; color:var(--muted)}
   .pill.on{border-color:var(--accent-line); color:var(--accent); background:var(--accent-soft)}
   /* Magic Keyboard (space gray): flat matte keycaps, glyph-over-word modifier
-     labels at bottom-left. The option key lights up when the hotkey fires. */
+     labels at bottom-left; a Windows bottom row for Windows visitors. Left Shift
+     lights up twice when the hotkey fires. */
   .kb{margin:22px -26px 0 0; display:flex; flex-direction:column; gap:3px; user-select:none}
   .kb .r{display:flex; gap:3px}
   .kbk{position:relative; height:44px; width:46px; flex:none; border-radius:3px;
@@ -115,6 +116,9 @@
     font:400 15px/1 -apple-system,BlinkMacSystemFont,sans-serif; color:#d4d7dc}
   .kbk.shift{width:96px} .kbk.fn{width:48px} .kbk.ctrl,.kbk.opt{width:58px} .kbk.cmd{width:66px}
   .kbk.space{flex:1; min-width:90px}
+  .kbk.wctrl{width:66px} .kbk.wwin,.kbk.walt{width:54px}
+  .kbk.wwin i{font-size:15px; color:#c4c8ce}
+  .kb[hidden]{display:none}
   .kbk .c{position:absolute; left:8px; bottom:6px; font-size:10.5px; color:#9da1a8; letter-spacing:.01em; line-height:1}
   .kbk .ml{position:absolute; left:8px; bottom:6px; display:flex; flex-direction:column; align-items:flex-start; gap:3px; line-height:1}
   .kbk .ml .g{font-size:12.5px; color:#c4c8ce; display:flex}
@@ -125,7 +129,8 @@
     color:#fff; transition:box-shadow .1s ease}
   .kbk.lit .ml .g,.kbk.lit .ml .w,.kbk.lit .c{color:#eaf1ff}
   @media(max-width:520px){ .kbk{height:38px; width:40px; font-size:13px}
-    .kbk.shift{width:82px} .kbk.fn{width:42px} .kbk.ctrl,.kbk.opt{width:52px} .kbk.cmd{width:60px} }
+    .kbk.shift{width:82px} .kbk.fn{width:42px} .kbk.ctrl,.kbk.opt{width:52px} .kbk.cmd{width:60px}
+    .kbk.wctrl{width:58px} .kbk.wwin,.kbk.walt{width:48px} }
   .stage{font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:21px; line-height:1.5}
   .demo .lbl{font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--faint);
     font-family:-apple-system,sans-serif}
@@ -189,7 +194,17 @@
   .legend span{display:inline-flex; align-items:center; gap:6px}
   .legend i{font-size:16px; vertical-align:-2px}
 
-  /* install */
+  /* install — macOS / Windows tabs, the visitor's OS selected */
+  .tabs{display:flex; gap:4px; width:fit-content; margin:24px 0 0; padding:4px; border:1px solid var(--line);
+    border-radius:var(--r-btn); background:var(--panel)}
+  .tab{display:inline-flex; align-items:center; gap:8px; padding:9px 18px; border:0; border-radius:9px; cursor:pointer;
+    background:none; color:var(--muted); font-family:inherit; font-size:15px; font-weight:600; line-height:1}
+  .tab i{font-size:17px}
+  .tab:hover{color:var(--fg)}
+  .tab[aria-selected="true"]{background:var(--accent-soft); color:var(--accent); box-shadow:inset 0 0 0 1px var(--accent-line)}
+  .tab .tag{font-weight:400; font-size:12.5px; color:var(--faint)}
+  .tab:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+  [role="tabpanel"][hidden]{display:none}
   .col{display:flex; flex-direction:column; gap:16px}
   .card{background:var(--panel); border:1px solid var(--line); border-radius:var(--r-card); padding:22px 24px}
   .card h3{margin:0 0 12px; font-size:16px; font-weight:650}
@@ -277,16 +292,28 @@
         <div class="stage">
           <div class="line"><span class="pre" id="dPre"></span><span class="dword" id="dWord"></span><span class="caret blink" id="dCaret">▍</span></div>
         </div>
-        <div class="kb" aria-hidden="true">
+        <div class="kb" id="kbMac" aria-hidden="true">
           <div class="r">
-            <span class="kbk shift"><span class="c">shift</span></span>
+            <span class="kbk shift hk"><span class="c">shift</span></span>
             <span class="kbk">Z</span><span class="kbk">X</span><span class="kbk">C</span><span class="kbk">V</span><span class="kbk">B</span><span class="kbk">N</span><span class="kbk">M</span>
           </div>
           <div class="r">
             <span class="kbk fn"><span class="ml"><span class="g"><i class="ph ph-globe-simple"></i></span><span class="w">fn</span></span></span>
             <span class="kbk ctrl"><span class="ml"><span class="g">⌃</span><span class="w">control</span></span></span>
-            <span class="kbk opt" id="optKey"><span class="ml"><span class="g">⌥</span><span class="w">option</span></span></span>
+            <span class="kbk opt"><span class="ml"><span class="g">⌥</span><span class="w">option</span></span></span>
             <span class="kbk cmd"><span class="ml"><span class="g">⌘</span><span class="w">command</span></span></span>
+            <span class="kbk space"></span>
+          </div>
+        </div>
+        <div class="kb" id="kbWin" aria-hidden="true" hidden>
+          <div class="r">
+            <span class="kbk shift hk"><span class="c">Shift</span></span>
+            <span class="kbk">Z</span><span class="kbk">X</span><span class="kbk">C</span><span class="kbk">V</span><span class="kbk">B</span><span class="kbk">N</span><span class="kbk">M</span>
+          </div>
+          <div class="r">
+            <span class="kbk wctrl"><span class="c">Ctrl</span></span>
+            <span class="kbk wwin"><i class="ph ph-windows-logo"></i></span>
+            <span class="kbk walt"><span class="c">Alt</span></span>
             <span class="kbk space"></span>
           </div>
         </div>
@@ -434,7 +461,12 @@
   <div class="wrap">
     <h2 class="reveal">Install</h2>
 
-    <h3 class="reveal" style="margin:28px 0 0">macOS</h3>
+    <div class="tabs reveal" role="tablist" aria-label="Platform">
+      <button class="tab" role="tab" id="tabMac" aria-controls="panelMac" aria-selected="true" type="button"><i class="ph ph-apple-logo"></i>macOS</button>
+      <button class="tab" role="tab" id="tabWin" aria-controls="panelWin" aria-selected="false" tabindex="-1" type="button"><i class="ph ph-windows-logo"></i>Windows <span class="tag">preview</span></button>
+    </div>
+
+    <div role="tabpanel" id="panelMac" aria-labelledby="tabMac">
     <div class="col" style="margin-top:16px">
       <div class="card reveal">
         <h3>Homebrew</h3>
@@ -452,10 +484,11 @@
     <div class="steps" style="margin-top:16px">
       <div class="step reveal"><p>Launch reLayout. It lives in the menu bar as the <b>rL</b> icon.</p></div>
       <div class="step reveal"><p>Grant <b>Accessibility</b> in System Settings, then relaunch.</p></div>
-      <div class="step reveal"><p>Select wrong-layout text and tap your hotkey (default <b>left&nbsp;⌥</b>).</p></div>
+      <div class="step reveal"><p>Select wrong-layout text and press your hotkey (default <b>Shift&nbsp;twice</b>).</p></div>
+    </div>
     </div>
 
-    <h3 class="reveal" style="margin:40px 0 0">Windows <span style="color:var(--faint);font-weight:400">— preview</span></h3>
+    <div role="tabpanel" id="panelWin" aria-labelledby="tabWin" hidden>
     <div class="col" style="margin-top:16px">
       <div class="card reveal">
         <h3>Installer</h3>
@@ -466,7 +499,8 @@
     <div class="steps" style="margin-top:16px">
       <div class="step reveal"><p>Run the installer. reLayout lives in the tray as the <b>rL</b> icon.</p></div>
       <div class="step reveal"><p>Open <b>Settings</b> from the tray to pick your hotkey or turn on auto-correct.</p></div>
-      <div class="step reveal"><p>Select wrong-layout text and press your hotkey (default <b>Ctrl+Alt+R</b>).</p></div>
+      <div class="step reveal"><p>Select wrong-layout text and press your hotkey (default <b>Shift&nbsp;twice</b>).</p></div>
+    </div>
     </div>
   </div>
 </section>
@@ -482,14 +516,41 @@
 </footer>
 
 <script>
+  // the visitor's OS (?os=win / ?os=mac overrides, for a look at the other one)
+  var isWin = (function(){
+    var q = (location.search.match(/[?&]os=(win|mac)/) || [])[1];
+    if (q) return q === 'win';
+    var p = ((navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || '').toLowerCase();
+    return p.indexOf('win') === 0;
+  })();
+
   // the primary download button follows the visitor's OS
   (function(){
-    var p = ((navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || '').toLowerCase();
-    if (p.indexOf('win') === 0) {
+    if (isWin) {
       var mac = document.getElementById('dlMac'), win = document.getElementById('dlWin');
       mac.classList.remove('primary'); win.classList.add('primary');
       win.parentNode.insertBefore(win, mac);
     }
+  })();
+
+  // install tabs: the visitor's OS first; arrow keys move between tabs
+  (function(){
+    var tabs = [document.getElementById('tabMac'), document.getElementById('tabWin')];
+    function select(t, focus){
+      tabs.forEach(function(x){
+        var on = x === t;
+        x.setAttribute('aria-selected', on); x.tabIndex = on ? 0 : -1;
+        document.getElementById(x.getAttribute('aria-controls')).hidden = !on;
+      });
+      if (focus) t.focus();
+    }
+    tabs.forEach(function(t, i){
+      t.addEventListener('click', function(){ select(t); });
+      t.addEventListener('keydown', function(e){
+        if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); select(tabs[(i + 1) % 2], true); }
+      });
+    });
+    select(tabs[isWin ? 1 : 0]);
   })();
 
   // copy buttons
@@ -512,12 +573,13 @@
   } else if (navEl) {
     navEl.classList.add('show');
   }
-  // hero conversion demo — type the wrong-layout word, press the key, flip each
+  // hero conversion demo — type the wrong-layout word, tap Shift twice, flip each
   // letter to the right one. Cycles through real layout pairs.
   (function(){
     var demo=document.querySelector('.demo'); if(!demo) return;
+    if(isWin){ document.getElementById('kbMac').hidden=true; document.getElementById('kbWin').hidden=false; }
     var pSrc=document.getElementById('pSrc'), pDst=document.getElementById('pDst'),
-        opt=document.getElementById('optKey'),
+        hk=document.querySelector('.kb:not([hidden]) .hk'),
         pre=document.getElementById('dPre'), word=document.getElementById('dWord'), caret=document.getElementById('dCaret');
     var R=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     var SC=[
@@ -531,26 +593,28 @@
     function spell(str,cls){ word.innerHTML=''; for(var i=0;i<str.length;i++){ var s=document.createElement('span'); s.className='ch '+cls; s.textContent=str[i]; word.appendChild(s);} }
     function run(idx){
       var s=SC[idx]; clr();
-      pre.textContent=s.pre; word.innerHTML=''; opt.classList.remove('lit');
+      pre.textContent=s.pre; word.innerHTML=''; hk.classList.remove('lit');
       pSrc.textContent=s.src; pDst.textContent=s.dst; pSrc.classList.add('on'); pDst.classList.remove('on');
       caret.style.visibility='visible'; caret.classList.add('blink');
       var i=0;
       (function type(){
         if(i<=s.from.length){ spell(s.from.slice(0,i),'bad'); i++; at(78,type); return; }
-        at(820,function(){ opt.classList.add('lit'); caret.classList.remove('blink'); caret.style.visibility='hidden'; });
+        at(700,function(){ hk.classList.add('lit'); caret.classList.remove('blink'); caret.style.visibility='hidden'; });
+        at(820,function(){ hk.classList.remove('lit'); });
+        at(900,function(){ hk.classList.add('lit'); });
         at(1000,function(){
           pSrc.classList.remove('on'); pDst.classList.add('on');
           word.innerHTML='';
           for(var k=0;k<s.to.length;k++){ var c=document.createElement('span'); c.className='ch good flip'; c.style.animationDelay=(k*55)+'ms'; c.textContent=s.to[k]; word.appendChild(c); }
         });
-        at(1260,function(){ opt.classList.remove('lit'); });
+        at(1260,function(){ hk.classList.remove('lit'); });
         at(2900,function(){ run((idx+1)%SC.length); });
       })();
     }
     if(R){
       var s0=SC[0]; pre.textContent=s0.pre; spell(s0.to,'good');
       pSrc.textContent=s0.src; pDst.textContent=s0.dst; pSrc.classList.remove('on'); pDst.classList.add('on');
-      caret.style.visibility='hidden'; opt.classList.add('lit');
+      caret.style.visibility='hidden'; hk.classList.add('lit');
     } else if('IntersectionObserver' in window){
       var io=new IntersectionObserver(function(es){ es.forEach(function(e){ if(e.isIntersecting){ run(0); io.disconnect(); } }); },{threshold:.35});
       io.observe(demo);

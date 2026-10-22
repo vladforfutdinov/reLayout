@@ -206,6 +206,8 @@
   .tab-ind{position:absolute; top:4px; bottom:4px; left:0; border-radius:9px; pointer-events:none;
     background:var(--accent-soft); box-shadow:inset 0 0 0 1px var(--accent-line)}
   .tab-ind.slide{transition:transform .32s cubic-bezier(.16,1,.3,1), width .32s cubic-bezier(.16,1,.3,1)}
+  [role="tabpanel"].enter{animation:panelin .3s ease both}
+  @keyframes panelin{from{opacity:0}}
   .tab:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
   [role="tabpanel"][hidden]{display:none}
   .arch{display:grid; grid-template-columns:1fr 1fr; gap:16px}
@@ -266,7 +268,7 @@
     .aurora b{animation:none}
     .dword .ch.flip{animation:none}
     .anim .fade-before{opacity:0} .anim .fade-after{opacity:1}
-    .tab-ind.slide{transition:none}
+    .tab-ind.slide{transition:none} [role="tabpanel"].enter{animation:none}
     .btn{transition:none}
   }
 </style>
@@ -561,25 +563,28 @@
   })();
 
   // install tabs: the visitor's OS first; arrow keys move between tabs. The
-  // highlight slides to the selected tab; the panel itself switches at once.
+  // highlight slides to the selected tab and the panel fades in.
   (function(){
     var tabs = [document.getElementById('tabMac'), document.getElementById('tabWin')];
     var ind = document.querySelector('.tab-ind');
     function place(t){ ind.style.width = t.offsetWidth + 'px'; ind.style.transform = 'translateX(' + t.offsetLeft + 'px)'; }
-    function select(t, focus){
+    function select(t, focus, fade){
       tabs.forEach(function(x){
         var on = x === t, panel = document.getElementById(x.getAttribute('aria-controls'));
         x.setAttribute('aria-selected', on); x.tabIndex = on ? 0 : -1;
-        panel.hidden = !on;
-        if (on) panel.querySelectorAll('.reveal').forEach(function(e){ e.classList.add('in'); });
+        panel.hidden = !on; panel.classList.remove('enter');
+        if (on && fade) {
+          panel.querySelectorAll('.reveal').forEach(function(e){ e.classList.add('in'); });
+          void panel.offsetWidth; panel.classList.add('enter');
+        }
       });
       place(t);
       if (focus) t.focus();
     }
     tabs.forEach(function(t, i){
-      t.addEventListener('click', function(){ select(t); });
+      t.addEventListener('click', function(){ if (t.getAttribute('aria-selected') !== 'true') select(t, false, true); });
       t.addEventListener('keydown', function(e){
-        if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); select(tabs[(i + 1) % 2], true); }
+        if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); select(tabs[(i + 1) % 2], true, true); }
       });
     });
     select(tabs[isWin ? 1 : 0]);

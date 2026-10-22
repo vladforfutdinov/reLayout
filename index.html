@@ -192,6 +192,7 @@
   .cmp i{font-size:19px; vertical-align:-3px}
   .cmp .yes{color:var(--good)} .cmp .par{color:var(--muted)} .cmp .no{color:var(--faint)}
   .cmp .val{font-weight:600; color:var(--accent)}
+  .cmp small + .val{display:block; margin-top:8px}
   .cmp small{display:block; font-size:11.5px; color:var(--faint); margin-top:3px; line-height:1.3}
 
   /* install — macOS / Windows tabs, the visitor's OS selected */
@@ -466,7 +467,7 @@
           </tr>
           <tr>
             <td class="feat">Native, no Electron</td>
-            <td class="us"><span class="val">2 MB</span><small>on macOS</small></td>
+            <td class="us"><span class="val">2 MB</span><small>macOS download</small><span class="val">16 MB</span><small>Windows download, Swift runtime inside</small></td>
             <td><i class="ph ph-minus par"></i><small>varies</small></td>
           </tr>
         </tbody>

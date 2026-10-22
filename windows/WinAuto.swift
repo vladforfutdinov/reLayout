@@ -172,12 +172,11 @@ func reloadAutoMode() {
         exceptions = exc
         run.reset()
     }
-    // Opening a dictionary is slow: one language per queued step on the hook thread
-    // (which waits for the spell thread), so keys are served in between.
+    // Opening a dictionary takes seconds: a thread of its own waits for the spell
+    // thread, so neither the hook nor the UI does. Checks asked meanwhile get "unknown".
     if spell {
-        for lang in scriptLanguages(cyrillic: true, enabled: all) + scriptLanguages(cyrillic: false, enabled: all) {
-            postToHook { warmSpellCheckers([lang]) }
-        }
+        let langs = scriptLanguages(cyrillic: true, enabled: all) + scriptLanguages(cyrillic: false, enabled: all)
+        Thread { warmSpellCheckers(langs) }.start()
     }
 }
 

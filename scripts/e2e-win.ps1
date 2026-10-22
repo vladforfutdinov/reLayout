@@ -71,6 +71,8 @@ try {
         $out = if (Test-Path $log) { Get-Content $log -Raw -Encoding utf8 } else { '' }
     } until ($out -match '(?m)^(all passed|\d+ failed|ABORT|SKIP)' -or (Get-Date) -gt $deadline)
     Write-Output $out
+    # Stalls of reLayout's hook thread, logged in any run: Windows skips a hook past its timeout.
+    if ($Trace -and (Test-Path $keyLog)) { Select-String -Path $keyLog -Pattern ' slow ' -Encoding utf8 | ForEach-Object Line }
     if ($out -notmatch '(?m)^all passed') {
         $failed = $true
         if ($Trace -and (Test-Path $keyLog)) { "--- key log ---"; $lines = Get-Content $keyLog -Encoding utf8

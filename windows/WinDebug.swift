@@ -18,13 +18,25 @@ private let logPath: String = {
 
 func dlog(_ line: @autoclosure () -> String) {
     guard debugEnabled else { return }
-    let text = "\(GetTickCount()) \(line())\n"
-    guard let data = text.data(using: .utf8) else { return }
-    if let h = FileHandle(forWritingAtPath: logPath) {
-        h.seekToEndOfFile(); h.write(data); h.closeFile()
-    } else {
-        FileManager.default.createFile(atPath: logPath, contents: data)
+    let t0 = GetTickCount64()
+    append("\(GetTickCount()) \(line())\n")
+    let ms = GetTickCount64() - t0
+    if ms > 100 { append("\(GetTickCount()) slow log write: \(ms) ms\n") }
+}
+
+// Kept open: an antivirus scans the file on every close, which stalled the hook.
+private let logHandle: FileHandle? = {
+    if !FileManager.default.fileExists(atPath: logPath) {
+        _ = FileManager.default.createFile(atPath: logPath, contents: nil)
     }
+    let h = FileHandle(forWritingAtPath: logPath)
+    h?.seekToEndOfFile()
+    return h
+}()
+
+private func append(_ text: String) {
+    guard let data = text.data(using: .utf8) else { return }
+    logHandle?.write(data)
 }
 
 /// Marks an action of ours in the log (a fix, a hotkey).

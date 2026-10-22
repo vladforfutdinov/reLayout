@@ -315,6 +315,10 @@ let e2eKeyMarker: ULONG_PTR = 0x524C_4532
 private let llProc: HOOKPROC = { nCode, wParam, lParam in
     if nCode == 0 /* HC_ACTION */, let p = UnsafeRawPointer(bitPattern: Int(lParam)) {
         let info = p.assumingMemoryBound(to: KBDLLHOOKSTRUCT.self).pointee
+#if DEBUG
+        let t0 = GetTickCount64()
+        defer { let ms = GetTickCount64() - t0; if ms > 100 { dwatch("slow hook: \(ms) ms, vk=\(String(info.vkCode, radix: 16))") } }
+#endif
         dlogHook(vk: info.vkCode, scan: info.scanCode, flags: info.flags, message: UInt(wParam))
         if info.dwExtraInfo == ownInputMarker { return CallNextHookEx(nil, nCode, wParam, lParam) }
         // Ignore our own synthesized input (Ctrl+C / typing) — else it would feed

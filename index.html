@@ -196,18 +196,18 @@
   .legend i{font-size:16px; vertical-align:-2px}
 
   /* install — macOS / Windows tabs, the visitor's OS selected */
-  .tabs{display:flex; gap:4px; width:fit-content; margin:24px 0 0; padding:4px; border:1px solid var(--line);
+  .tabs{position:relative; display:flex; gap:4px; width:fit-content; margin:24px 0 0; padding:4px; border:1px solid var(--line);
     border-radius:var(--r-btn); background:var(--panel)}
-  .tab{display:inline-flex; align-items:center; gap:8px; padding:9px 18px; border:0; border-radius:9px; cursor:pointer;
+  .tab{position:relative; z-index:1; display:inline-flex; align-items:center; gap:8px; padding:9px 18px; border:0; border-radius:9px; cursor:pointer;
     background:none; color:var(--muted); font-family:inherit; font-size:15px; font-weight:600; line-height:1}
   .tab i{font-size:17px}
   .tab:hover{color:var(--fg)}
-  .tab[aria-selected="true"]{background:var(--accent-soft); color:var(--accent); box-shadow:inset 0 0 0 1px var(--accent-line)}
+  .tab[aria-selected="true"]{color:var(--accent); transition:color .25s ease}
+  .tab-ind{position:absolute; top:4px; bottom:4px; left:0; border-radius:9px; pointer-events:none;
+    background:var(--accent-soft); box-shadow:inset 0 0 0 1px var(--accent-line)}
+  .tab-ind.slide{transition:transform .32s cubic-bezier(.16,1,.3,1), width .32s cubic-bezier(.16,1,.3,1)}
   .tab:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
   [role="tabpanel"][hidden]{display:none}
-  .panels.sizing{overflow:hidden; transition:height .34s cubic-bezier(.16,1,.3,1)}
-  [role="tabpanel"].enter{animation:panelin .34s cubic-bezier(.16,1,.3,1) both}
-  @keyframes panelin{from{opacity:0; transform:translateY(10px)}}
   .arch{display:grid; grid-template-columns:1fr 1fr; gap:16px}
   .arch .card{display:flex; flex-direction:column; gap:12px}
   .arch .card h3{margin:0; display:flex; align-items:center; gap:10px}
@@ -266,7 +266,7 @@
     .aurora b{animation:none}
     .dword .ch.flip{animation:none}
     .anim .fade-before{opacity:0} .anim .fade-after{opacity:1}
-    .panels.sizing{transition:none} [role="tabpanel"].enter{animation:none}
+    .tab-ind.slide{transition:none}
     .btn{transition:none}
   }
 </style>
@@ -478,11 +478,11 @@
     <h2 class="reveal">Install</h2>
 
     <div class="tabs reveal" role="tablist" aria-label="Platform">
+      <span class="tab-ind" aria-hidden="true"></span>
       <button class="tab" role="tab" id="tabMac" aria-controls="panelMac" aria-selected="true" type="button"><i class="ph ph-apple-logo"></i>macOS</button>
       <button class="tab" role="tab" id="tabWin" aria-controls="panelWin" aria-selected="false" tabindex="-1" type="button"><i class="ph ph-windows-logo"></i>Windows</button>
     </div>
 
-    <div class="panels">
     <div role="tabpanel" id="panelMac" aria-labelledby="tabMac">
     <div class="col" style="margin-top:16px">
       <div class="card reveal">
@@ -529,7 +529,6 @@
       <div class="step reveal"><p>Select wrong-layout text, or nothing right after typing a word, and press <b>Shift&nbsp;twice</b>.</p></div>
     </div>
     </div>
-    </div>
   </div>
 </section>
 
@@ -561,39 +560,33 @@
     }
   })();
 
-  // install tabs: the visitor's OS first; arrow keys move between tabs. A switch
-  // fades the new panel in while the box eases to its height.
+  // install tabs: the visitor's OS first; arrow keys move between tabs. The
+  // highlight slides to the selected tab; the panel itself switches at once.
   (function(){
     var tabs = [document.getElementById('tabMac'), document.getElementById('tabWin')];
-    var box = document.querySelector('.panels');
-    var still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    function select(t, focus, animate){
-      var from = box.offsetHeight, shown;
+    var ind = document.querySelector('.tab-ind');
+    function place(t){ ind.style.width = t.offsetWidth + 'px'; ind.style.transform = 'translateX(' + t.offsetLeft + 'px)'; }
+    function select(t, focus){
       tabs.forEach(function(x){
         var on = x === t, panel = document.getElementById(x.getAttribute('aria-controls'));
         x.setAttribute('aria-selected', on); x.tabIndex = on ? 0 : -1;
-        panel.hidden = !on; panel.classList.remove('enter');
-        if (on) shown = panel;
+        panel.hidden = !on;
+        if (on) panel.querySelectorAll('.reveal').forEach(function(e){ e.classList.add('in'); });
       });
+      place(t);
       if (focus) t.focus();
-      if (!animate || still) return;
-      shown.querySelectorAll('.reveal').forEach(function(e){ e.classList.add('in'); e.style.transitionDelay = '0ms'; });
-      void shown.offsetWidth; shown.classList.add('enter');
-      var to = box.offsetHeight;
-      box.style.height = from + 'px'; box.classList.add('sizing');
-      void box.offsetHeight; box.style.height = to + 'px';
-      box.addEventListener('transitionend', function done(e){
-        if (e.target !== box) return;
-        box.style.height = ''; box.classList.remove('sizing'); box.removeEventListener('transitionend', done);
-      });
     }
     tabs.forEach(function(t, i){
-      t.addEventListener('click', function(){ if (t.getAttribute('aria-selected') !== 'true') select(t, false, true); });
+      t.addEventListener('click', function(){ select(t); });
       t.addEventListener('keydown', function(e){
-        if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); select(tabs[(i + 1) % 2], true, true); }
+        if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); select(tabs[(i + 1) % 2], true); }
       });
     });
     select(tabs[isWin ? 1 : 0]);
+    var current = function(){ return tabs.filter(function(t){ return t.getAttribute('aria-selected') === 'true'; })[0]; };
+    // icons and fonts load later and change the tab widths
+    window.addEventListener('load', function(){ place(current()); requestAnimationFrame(function(){ ind.classList.add('slide'); }); });
+    window.addEventListener('resize', function(){ place(current()); });
   })();
 
   // Windows on ARM: mark its download (Chromium tells the architecture; others keep x64 first)

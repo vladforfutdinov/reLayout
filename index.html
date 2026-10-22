@@ -11,8 +11,13 @@
 <meta property="og:url" content="https://relayout.forfutdinov.com/">
 <meta property="og:image" content="https://relayout.forfutdinov.com/logo.png">
 <link rel="canonical" href="https://relayout.forfutdinov.com/">
-<link rel="icon" type="image/png" href="logo.png">
-<script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
+<meta name="theme-color" content="#0c0f14">
+<meta name="color-scheme" content="dark">
+<link rel="icon" type="image/png" href="logo-192.png">
+<link rel="apple-touch-icon" href="logo-192.png">
+<link rel="preconnect" href="https://unpkg.com" crossorigin>
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<script>document.documentElement.classList.add('js')</script>
 <style>
   :root{
     --bg:#0c0f14; --panel:#12161d; --panel2:#161b24; --line:#222a35;
@@ -31,7 +36,6 @@
   a{color:var(--accent); text-decoration:none}
   a:hover{text-decoration:underline}
   .wrap{max-width:1080px; margin:0 auto; padding:0 28px}
-  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,"SF Mono",monospace}
   pre,code,.stage,.pill,.codechip{font-variant-ligatures:none; font-feature-settings:"liga" 0,"calt" 0}
   code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.85em; background:var(--panel2);
     border:1px solid var(--line); border-radius:7px; padding:2px 7px; color:#cdd8e6; white-space:nowrap}
@@ -102,6 +106,7 @@
   .layoutsw{display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--muted)}
   .pill{font-family:ui-monospace,Menlo,monospace; font-size:12px; padding:3px 9px; border-radius:7px;
     border:1px solid var(--line); background:#0e131a; color:var(--muted)}
+  .layoutsw i{font-size:13px; color:var(--faint)}
   .pill.on{border-color:var(--accent-line); color:var(--accent); background:var(--accent-soft)}
   /* Magic Keyboard (space gray): flat matte keycaps, glyph-over-word modifier
      labels at bottom-left; a Windows bottom row for Windows visitors. Left Shift
@@ -116,7 +121,7 @@
   .kbk.shift{width:96px} .kbk.fn{width:48px} .kbk.ctrl,.kbk.opt{width:58px} .kbk.cmd{width:66px}
   .kbk.space{flex:1; min-width:90px}
   .kbk.wctrl,.kbk.wfn,.kbk.wwin,.kbk.walt{width:54px}
-  .kbk.wwin i{font-size:16px; color:#c4c8ce}
+  .kbk.wwin svg{width:15px; height:15px; color:#c4c8ce}
   .kbk.wfn,.kbk.walt{font-size:11.5px; color:#9da1a8}
   #kbWin .c{bottom:auto; top:50%; transform:translateY(-50%); font-size:11.5px}
   .kb[hidden]{display:none}
@@ -133,8 +138,6 @@
     .kbk.shift{width:82px} .kbk.fn{width:42px} .kbk.ctrl,.kbk.opt{width:52px} .kbk.cmd{width:60px}
     .kbk.wctrl,.kbk.wfn,.kbk.wwin,.kbk.walt{width:46px} }
   .stage{font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:21px; line-height:1.5}
-  .demo .lbl{font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--faint);
-    font-family:-apple-system,sans-serif}
   .stage .line{min-height:36px; display:flex; align-items:center; perspective:600px}
   .stage .pre{color:var(--muted); white-space:pre}
   .dword{display:inline-block}
@@ -162,7 +165,6 @@
   .tile i{font-size:24px; color:var(--accent)}
   .tile h3{margin:0; font-size:16.5px; font-weight:650; letter-spacing:-.01em}
   .tile p{margin:0; color:var(--muted); font-size:14.5px; line-height:1.55}
-  .tile .grow{flex:1}
   .codechip{font-family:ui-monospace,Menlo,monospace; font-size:14px; color:#cdd8e6; background:#0e131a;
     border:1px solid var(--line); border-radius:10px; padding:10px 13px; margin-top:auto; width:fit-content}
   .codechip .b{color:var(--bad)} .codechip .g{color:var(--good)}
@@ -191,9 +193,6 @@
   .cmp .yes{color:var(--good)} .cmp .par{color:var(--muted)} .cmp .no{color:var(--faint)}
   .cmp .val{font-weight:600; color:var(--accent)}
   .cmp small{display:block; font-size:11.5px; color:var(--faint); margin-top:3px; line-height:1.3}
-  .legend{margin-top:14px; font-size:13px; color:var(--faint); display:flex; gap:18px; flex-wrap:wrap}
-  .legend span{display:inline-flex; align-items:center; gap:6px}
-  .legend i{font-size:16px; vertical-align:-2px}
 
   /* install — macOS / Windows tabs, the visitor's OS selected */
   .tabs{position:relative; display:flex; gap:4px; width:fit-content; margin:24px 0 0; padding:4px; border:1px solid var(--line);
@@ -209,7 +208,11 @@
   [role="tabpanel"].enter{animation:panelin .3s ease both}
   @keyframes panelin{from{opacity:0}}
   .tab:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+  [role="tabpanel"]{display:grid; grid-template-columns:minmax(0,1fr); gap:16px; margin-top:16px}
   [role="tabpanel"][hidden]{display:none}
+  .card h3 + .note{margin-top:0}
+  .fine{margin:0; color:var(--muted); font-size:14.5px}
+  .fine b{color:var(--fg)}
   .arch{display:grid; grid-template-columns:1fr 1fr; gap:16px}
   .arch .card{display:flex; flex-direction:column; gap:12px}
   .arch .card h3{margin:0; display:flex; align-items:center; gap:10px}
@@ -233,7 +236,7 @@
   .copy:hover{border-color:#33404f} .copy.ok{color:var(--good); border-color:#2c4a39}
 
   /* steps */
-  .steps{display:grid; grid-template-columns:repeat(3,1fr); gap:16px; counter-reset:s; margin-top:8px}
+  .steps{display:grid; grid-template-columns:repeat(3,1fr); gap:16px; counter-reset:s}
   .step{background:var(--panel); border:1px solid var(--line); border-radius:var(--r-card); padding:22px}
   .step::before{counter-increment:s; content:counter(s); display:flex; align-items:center; justify-content:center;
     width:30px; height:30px; border-radius:8px; background:var(--accent-soft); color:var(--accent);
@@ -244,12 +247,10 @@
   footer{padding:48px 0 60px; border-top:1px solid var(--line); color:var(--muted); font-size:14.5px}
   footer .wrap{display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:14px; text-align:center}
   footer a{color:var(--muted)} footer a:hover{color:var(--fg)}
-  footer .left{display:flex; align-items:center; gap:10px}
-  footer .left img{width:22px; height:22px; border-radius:6px}
 
   /* scroll reveal */
-  .reveal{opacity:0; transform:translateY(18px); transition:opacity .6s cubic-bezier(.16,1,.3,1), transform .6s cubic-bezier(.16,1,.3,1)}
-  .reveal.in{opacity:1; transform:none}
+  .js .reveal{opacity:0; transform:translateY(18px); transition:opacity .6s cubic-bezier(.16,1,.3,1), transform .6s cubic-bezier(.16,1,.3,1)}
+  .js .reveal.in{opacity:1; transform:none}
 
   @media(max-width:880px){
     .hero{grid-template-columns:1fr; gap:40px; padding:60px 0 52px}
@@ -262,12 +263,11 @@
 
   @media(prefers-reduced-motion:reduce){
     html{scroll-behavior:auto}
-    .reveal{opacity:1; transform:none; transition:none}
+    .js .reveal{opacity:1; transform:none; transition:none}
     .herologo{animation:none}
     nav{transition:opacity .2s ease}
     .aurora b{animation:none}
     .dword .ch.flip{animation:none}
-    .anim .fade-before{opacity:0} .anim .fade-after{opacity:1}
     .tab-ind.slide{transition:none} [role="tabpanel"].enter{animation:none}
     .btn{transition:none}
   }
@@ -277,7 +277,7 @@
 
 <nav>
   <div class="bar">
-    <a class="brand" href="#top"><img src="logo.png" alt="">reLayout</a>
+    <a class="brand" href="#top"><img src="logo-192.png" width="30" height="30" alt="">reLayout</a>
     <div class="nav-links">
       <a href="#features">Features</a>
       <a href="#install">Install</a>
@@ -292,7 +292,7 @@
   <div class="wrap">
     <div class="hero">
       <div class="reveal">
-        <img class="herologo" src="logo.png" width="84" height="84" alt="reLayout">
+        <img class="herologo" src="logo-192.png" width="84" height="84" alt="reLayout" fetchpriority="high">
         <h1>Wrong keyboard layout?<br><span class="hl">Fixed in one keystroke.</span></h1>
         <p class="lede">reLayout retypes text you typed in the wrong layout and flips the input source. Punto-style, for macOS and Windows.</p>
         <div class="cta">
@@ -304,7 +304,7 @@
 
       <div class="demo reveal" aria-hidden="true">
         <div class="head">
-          <div class="layoutsw"><span class="pill" id="pSrc">EN</span><i class="ph ph-arrow-right" style="font-size:13px;color:var(--faint)"></i><span class="pill on" id="pDst">UK</span></div>
+          <div class="layoutsw"><span class="pill" id="pSrc">EN</span><i class="ph ph-arrow-right"></i><span class="pill on" id="pDst">UK</span></div>
         </div>
         <div class="stage">
           <div class="line"><span class="pre" id="dPre"></span><span class="dword" id="dWord"></span><span class="caret blink" id="dCaret">▍</span></div>
@@ -330,7 +330,7 @@
           <div class="r">
             <span class="kbk wctrl"><span class="c">ctrl</span></span>
             <span class="kbk wfn">fn</span>
-            <span class="kbk wwin"><i class="ph-fill ph-windows-logo"></i></span>
+            <span class="kbk wwin"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M0 2.3 6.6 1.4v6.1H0zM7.4 1.3 16 0v7.5H7.4zM0 8.5h6.6v6.1L0 13.7zm7.4 0H16V16l-8.6-1.2z"/></svg></span>
             <span class="kbk walt">alt</span>
             <span class="kbk space"></span>
           </div>
@@ -486,7 +486,7 @@
     </div>
 
     <div role="tabpanel" id="panelMac" aria-labelledby="tabMac">
-    <div class="col" style="margin-top:16px">
+    <div class="col">
       <div class="card reveal">
         <h3>Homebrew</h3>
         <div class="codeblock">
@@ -497,10 +497,10 @@
       </div>
       <div class="card reveal">
         <h3>Direct download</h3>
-        <p class="note" style="margin-top:0">Grab <a href="https://github.com/vladforfutdinov/reLayout/releases/latest/download/reLayout.dmg"><b>reLayout.dmg</b></a> from the <a href="https://github.com/vladforfutdinov/reLayout/releases/latest">latest release</a> and drag it to Applications.</p>
+        <p class="note">Grab <a href="https://github.com/vladforfutdinov/reLayout/releases/latest/download/reLayout.dmg"><b>reLayout.dmg</b></a> from the <a href="https://github.com/vladforfutdinov/reLayout/releases/latest">latest release</a> and drag it to Applications.</p>
       </div>
     </div>
-    <div class="steps" style="margin-top:16px">
+    <div class="steps">
       <div class="step reveal"><p>Launch reLayout. It lives in the menu bar as the <b>rL</b> icon.</p></div>
       <div class="step reveal"><p>Grant <b>Accessibility</b> in System Settings, then relaunch.</p></div>
       <div class="step reveal"><p>Select wrong-layout text, or nothing right after typing a word, and press <b>Shift&nbsp;twice</b>.</p></div>
@@ -508,7 +508,7 @@
     </div>
 
     <div role="tabpanel" id="panelWin" aria-labelledby="tabWin" hidden>
-    <div class="arch" style="margin-top:16px">
+    <div class="arch">
       <div class="card reveal" id="archX64">
         <h3>x64 <span class="sub">Intel and AMD — most PCs</span><span class="badge">This PC</span></h3>
         <div class="links">
@@ -524,8 +524,8 @@
         </div>
       </div>
     </div>
-    <p class="note reveal" style="color:var(--muted); font-size:14.5px; margin:14px 0 0">Not code-signed yet: SmartScreen asks to confirm the first run — <b style="color:var(--fg)">More info → Run anyway</b>. All files are in the <a href="https://github.com/vladforfutdinov/reLayout/releases/latest">latest release</a>.</p>
-    <div class="steps" style="margin-top:16px">
+    <p class="fine reveal">Not code-signed yet: SmartScreen asks to confirm the first run — <b>More info → Run anyway</b>. All files are in the <a href="https://github.com/vladforfutdinov/reLayout/releases/latest">latest release</a>.</p>
+    <div class="steps">
       <div class="step reveal"><p>Run the installer. reLayout lives in the tray as the <b>rL</b> icon.</p></div>
       <div class="step reveal"><p>Open <b>Settings</b> from the tray to pick your hotkey or turn on auto-correct.</p></div>
       <div class="step reveal"><p>Select wrong-layout text, or nothing right after typing a word, and press <b>Shift&nbsp;twice</b>.</p></div>
@@ -545,155 +545,148 @@
 </footer>
 
 <script>
-  // the visitor's OS (?os=win / ?os=mac overrides, for a look at the other one)
-  var isWin = (function(){
-    var q = (location.search.match(/[?&]os=(win|mac)/) || [])[1];
-    if (q) return q === 'win';
-    var p = ((navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || '').toLowerCase();
-    return p.indexOf('win') === 0;
-  })();
+(() => {
+  const $ = (sel, root = document) => root.querySelector(sel);
+  const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const canObserve = 'IntersectionObserver' in window;
+  const params = new URLSearchParams(location.search);
 
-  // the primary download button follows the visitor's OS
-  (function(){
-    if (isWin) {
-      var mac = document.getElementById('dlMac'), win = document.getElementById('dlWin');
-      mac.classList.remove('primary'); win.classList.add('primary');
-      win.parentNode.insertBefore(win, mac);
-    }
-  })();
+  // The visitor's OS; ?os=win / ?os=mac shows the other one.
+  const os = params.get('os');
+  const isWin = os === 'win' || os === 'mac' ? os === 'win'
+    : /^win/i.test(navigator.userAgentData?.platform || navigator.platform || '');
 
-  // install tabs: the visitor's OS first; arrow keys move between tabs. The
+  // The primary download button follows the visitor's OS.
+  if (isWin) {
+    const mac = $('#dlMac'), win = $('#dlWin');
+    mac.classList.remove('primary'); win.classList.add('primary'); mac.before(win);
+  }
+
+  // Install tabs: the visitor's OS first, arrow keys move between them. The
   // highlight slides to the selected tab and the panel fades in.
-  (function(){
-    var tabs = [document.getElementById('tabMac'), document.getElementById('tabWin')];
-    var ind = document.querySelector('.tab-ind');
-    function place(t){ ind.style.width = t.offsetWidth + 'px'; ind.style.transform = 'translateX(' + t.offsetLeft + 'px)'; }
-    function select(t, focus, fade){
-      tabs.forEach(function(x){
-        var on = x === t, panel = document.getElementById(x.getAttribute('aria-controls'));
-        x.setAttribute('aria-selected', on); x.tabIndex = on ? 0 : -1;
+  {
+    const tabs = [$('#tabMac'), $('#tabWin')];
+    const ind = $('.tab-ind');
+    const current = () => tabs.find(t => t.getAttribute('aria-selected') === 'true');
+    const place = t => { ind.style.width = `${t.offsetWidth}px`; ind.style.transform = `translateX(${t.offsetLeft}px)`; };
+    const select = (tab, { focus = false, fade = false } = {}) => {
+      for (const t of tabs) {
+        const on = t === tab, panel = document.getElementById(t.getAttribute('aria-controls'));
+        t.setAttribute('aria-selected', on); t.tabIndex = on ? 0 : -1;
         panel.hidden = !on; panel.classList.remove('enter');
         if (on && fade) {
-          panel.querySelectorAll('.reveal').forEach(function(e){ e.classList.add('in'); });
+          $$('.reveal', panel).forEach(e => e.classList.add('in'));
           void panel.offsetWidth; panel.classList.add('enter');
         }
-      });
-      place(t);
-      if (focus) t.focus();
-    }
-    tabs.forEach(function(t, i){
-      t.addEventListener('click', function(){ if (t.getAttribute('aria-selected') !== 'true') select(t, false, true); });
-      t.addEventListener('keydown', function(e){
-        if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); select(tabs[(i + 1) % 2], true, true); }
+      }
+      place(tab);
+      if (focus) tab.focus();
+    };
+    tabs.forEach((t, i) => {
+      t.addEventListener('click', () => { if (t !== current()) select(t, { fade: true }); });
+      t.addEventListener('keydown', e => {
+        if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+        e.preventDefault(); select(tabs[(i + 1) % tabs.length], { focus: true, fade: true });
       });
     });
     select(tabs[isWin ? 1 : 0]);
-    var current = function(){ return tabs.filter(function(t){ return t.getAttribute('aria-selected') === 'true'; })[0]; };
-    // icons and fonts load later and change the tab widths
-    window.addEventListener('load', function(){ place(current()); requestAnimationFrame(function(){ ind.classList.add('slide'); }); });
-    window.addEventListener('resize', function(){ place(current()); });
-  })();
+    // Icons and fonts arrive later and change the tab widths.
+    addEventListener('load', () => { place(current()); requestAnimationFrame(() => ind.classList.add('slide')); });
+    addEventListener('resize', () => place(current()));
+  }
 
-  // Windows on ARM: mark its download (Chromium tells the architecture; others keep x64 first)
-  (function(){
-    var mark = function(arm){
-      document.getElementById(arm ? 'archArm' : 'archX64').classList.add('mine');
-      if (!arm) return;
-      document.getElementById('dlWin').href = 'https://github.com/vladforfutdinov/reLayout/releases/latest/download/reLayout-windows-arm64-setup.exe';
-      document.querySelectorAll('#archArm .btn')[0].classList.add('primary');
-      document.querySelectorAll('#archX64 .btn')[0].classList.remove('primary');
-    };
-    var q = (location.search.match(/[?&]arch=(arm|x64)/) || [])[1];
-    if (q) return mark(q === 'arm');
-    if (!isWin || !navigator.userAgentData || !navigator.userAgentData.getHighEntropyValues) return;
-    navigator.userAgentData.getHighEntropyValues(['architecture']).then(function(v){ mark(v.architecture === 'arm'); }, function(){});
-  })();
+  // Windows on ARM gets its download marked (Chromium reports the architecture;
+  // elsewhere x64 stays first). ?arch=arm / ?arch=x64 overrides.
+  const markArch = arm => {
+    $(arm ? '#archArm' : '#archX64').classList.add('mine');
+    if (!arm) return;
+    $('#dlWin').href = 'https://github.com/vladforfutdinov/reLayout/releases/latest/download/reLayout-windows-arm64-setup.exe';
+    $('#archArm .btn').classList.add('primary');
+    $('#archX64 .btn').classList.remove('primary');
+  };
+  const arch = params.get('arch');
+  if (arch === 'arm' || arch === 'x64') markArch(arch === 'arm');
+  else if (isWin) navigator.userAgentData?.getHighEntropyValues?.(['architecture'])
+    .then(v => markArch(v.architecture === 'arm'), () => {});
 
-  // copy buttons
-  document.querySelectorAll('.copy').forEach(function(b){
-    b.addEventListener('click', function(){
-      var code = b.parentElement.querySelector('pre').innerText.trim();
-      navigator.clipboard.writeText(code).then(function(){
-        b.textContent='Copied'; b.classList.add('ok');
-        setTimeout(function(){ b.textContent='Copy'; b.classList.remove('ok'); }, 1200);
-      });
-    });
+  // Copy buttons.
+  for (const b of $$('.copy')) b.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText($('pre', b.parentElement).innerText.trim()); }
+    catch { return; }
+    b.textContent = 'Copied'; b.classList.add('ok');
+    setTimeout(() => { b.textContent = 'Copy'; b.classList.remove('ok'); }, 1200);
   });
-  // reveal the floating nav only once the hero logo has scrolled out of view
-  var heroLogo = document.querySelector('.herologo');
-  var navEl = document.querySelector('nav');
-  if (heroLogo && navEl && 'IntersectionObserver' in window) {
-    new IntersectionObserver(function(es){
-      es.forEach(function(e){ navEl.classList.toggle('show', !e.isIntersecting); });
-    }, { threshold:0 }).observe(heroLogo);
-  } else if (navEl) {
-    navEl.classList.add('show');
-  }
-  // hero conversion demo — type the wrong-layout word, tap Shift twice, flip each
-  // letter to the right one. Cycles through real layout pairs.
-  (function(){
-    var demo=document.querySelector('.demo'); if(!demo) return;
-    if(isWin){ document.getElementById('kbMac').hidden=true; document.getElementById('kbWin').hidden=false; }
-    var pSrc=document.getElementById('pSrc'), pDst=document.getElementById('pDst'),
-        hk=document.querySelector('.kb:not([hidden]) .hk'),
-        pre=document.getElementById('dPre'), word=document.getElementById('dWord'), caret=document.getElementById('dCaret');
-    var R=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    var SC=[
-      {pre:'я сказав ', from:'ghbdsn', to:'привіт', src:'EN', dst:'UK'},
-      {pre:'I said ',   from:'руддщ',  to:'hello',  src:'UK', dst:'EN'},
-      {pre:'',          from:'lzre.',  to:'дякую',  src:'EN', dst:'UK'}
-    ];
-    var timers=[];
-    function clr(){ timers.forEach(clearTimeout); timers=[]; }
-    function at(ms,fn){ timers.push(setTimeout(fn,ms)); }
-    function spell(str,cls){ word.innerHTML=''; for(var i=0;i<str.length;i++){ var s=document.createElement('span'); s.className='ch '+cls; s.textContent=str[i]; word.appendChild(s);} }
-    function run(idx){
-      var s=SC[idx]; clr();
-      pre.textContent=s.pre; word.innerHTML=''; hk.classList.remove('lit');
-      pSrc.textContent=s.src; pDst.textContent=s.dst; pSrc.classList.add('on'); pDst.classList.remove('on');
-      caret.style.visibility='visible'; caret.classList.add('blink');
-      var i=0;
-      (function type(){
-        if(i<=s.from.length){ spell(s.from.slice(0,i),'bad'); i++; at(78,type); return; }
-        at(700,function(){ hk.classList.add('lit'); caret.classList.remove('blink'); caret.style.visibility='hidden'; });
-        at(820,function(){ hk.classList.remove('lit'); });
-        at(900,function(){ hk.classList.add('lit'); });
-        at(1000,function(){
-          pSrc.classList.remove('on'); pDst.classList.add('on');
-          word.innerHTML='';
-          for(var k=0;k<s.to.length;k++){ var c=document.createElement('span'); c.className='ch good flip'; c.style.animationDelay=(k*55)+'ms'; c.textContent=s.to[k]; word.appendChild(c); }
-        });
-        at(1260,function(){ hk.classList.remove('lit'); });
-        at(2900,function(){ run((idx+1)%SC.length); });
-      })();
-    }
-    if(R){
-      var s0=SC[0]; pre.textContent=s0.pre; spell(s0.to,'good');
-      pSrc.textContent=s0.src; pDst.textContent=s0.dst; pSrc.classList.remove('on'); pDst.classList.add('on');
-      caret.style.visibility='hidden'; hk.classList.add('lit');
-    } else if('IntersectionObserver' in window){
-      var io=new IntersectionObserver(function(es){ es.forEach(function(e){ if(e.isIntersecting){ run(0); io.disconnect(); } }); },{threshold:.35});
-      io.observe(demo);
-    } else { run(0); }
-  })();
 
-  // scroll reveal (IntersectionObserver, no scroll listener)
-  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  var els = document.querySelectorAll('.reveal');
-  if (reduce || !('IntersectionObserver' in window)) {
-    els.forEach(function(e){ e.classList.add('in'); });
-  } else {
-    var io = new IntersectionObserver(function(entries){
-      entries.forEach(function(en){
-        if (en.isIntersecting){
-          var sibs = Array.prototype.slice.call(en.target.parentElement.children).filter(function(c){return c.classList.contains('reveal');});
-          en.target.style.transitionDelay = (Math.max(0, sibs.indexOf(en.target)) * 55) + 'ms';
-          en.target.classList.add('in'); io.unobserve(en.target);
-        }
-      });
-    }, { threshold:.18, rootMargin:'0px 0px -8% 0px' });
-    els.forEach(function(e){ io.observe(e); });
+  // The floating nav shows once the hero logo has scrolled out of view.
+  const nav = $('nav'), heroLogo = $('.herologo');
+  if (canObserve) new IntersectionObserver(([e]) => nav.classList.toggle('show', !e.isIntersecting)).observe(heroLogo);
+  else nav.classList.add('show');
+
+  // Hero demo: type the wrong-layout word, tap Shift twice, flip each letter to
+  // the right one. Cycles through real layout pairs.
+  {
+    const demo = $('.demo');
+    if (isWin) { $('#kbMac').hidden = true; $('#kbWin').hidden = false; }
+    const pSrc = $('#pSrc'), pDst = $('#pDst'), key = $('.kb:not([hidden]) .hk'),
+          pre = $('#dPre'), word = $('#dWord'), caret = $('#dCaret');
+    const scenes = [
+      { pre: 'я сказав ', from: 'ghbdsn', to: 'привіт', src: 'EN', dst: 'UK' },
+      { pre: 'I said ',   from: 'руддщ',  to: 'hello',  src: 'UK', dst: 'EN' },
+      { pre: '',          from: 'lzre.',  to: 'дякую',  src: 'EN', dst: 'UK' },
+    ];
+    let timers = [];
+    const at = (ms, fn) => timers.push(setTimeout(fn, ms));
+    const letters = (str, cls, flip) => word.replaceChildren(...[...str].map((ch, k) => {
+      const s = document.createElement('span');
+      s.className = `ch ${cls}${flip ? ' flip' : ''}`; s.textContent = ch;
+      if (flip) s.style.animationDelay = `${k * 55}ms`;
+      return s;
+    }));
+    const run = idx => {
+      const s = scenes[idx];
+      timers.forEach(clearTimeout); timers = [];
+      pre.textContent = s.pre; word.replaceChildren(); key.classList.remove('lit');
+      pSrc.textContent = s.src; pDst.textContent = s.dst; pSrc.classList.add('on'); pDst.classList.remove('on');
+      caret.style.visibility = 'visible'; caret.classList.add('blink');
+      let i = 0;
+      const type = () => {
+        if (i <= s.from.length) { letters(s.from.slice(0, i++), 'bad'); at(78, type); return; }
+        at(700, () => { key.classList.add('lit'); caret.classList.remove('blink'); caret.style.visibility = 'hidden'; });
+        at(820, () => key.classList.remove('lit'));
+        at(900, () => key.classList.add('lit'));
+        at(1000, () => { pSrc.classList.remove('on'); pDst.classList.add('on'); letters(s.to, 'good', true); });
+        at(1260, () => key.classList.remove('lit'));
+        at(2900, () => run((idx + 1) % scenes.length));
+      };
+      type();
+    };
+    if (still) {
+      const s = scenes[0];
+      pre.textContent = s.pre; letters(s.to, 'good');
+      pSrc.textContent = s.src; pDst.textContent = s.dst; pSrc.classList.remove('on'); pDst.classList.add('on');
+      caret.style.visibility = 'hidden'; key.classList.add('lit');
+    } else if (canObserve) {
+      const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) { run(0); io.disconnect(); } }, { threshold: .35 });
+      io.observe(demo);
+    } else run(0);
   }
+
+  // Scroll reveal, staggered among siblings.
+  const els = $$('.reveal');
+  if (still || !canObserve) els.forEach(e => e.classList.add('in'));
+  else {
+    const io = new IntersectionObserver(entries => {
+      for (const en of entries) {
+        if (!en.isIntersecting) continue;
+        const sibs = [...en.target.parentElement.children].filter(c => c.classList.contains('reveal'));
+        en.target.style.transitionDelay = `${Math.max(0, sibs.indexOf(en.target)) * 55}ms`;
+        en.target.classList.add('in'); io.unobserve(en.target);
+      }
+    }, { threshold: .18, rootMargin: '0px 0px -8% 0px' });
+    els.forEach(e => io.observe(e));
+  }
+})();
 </script>
 
 </body>

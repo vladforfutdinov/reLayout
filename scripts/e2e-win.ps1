@@ -37,13 +37,15 @@ function Start-Interactive([string]$name, [string]$command) {
 try {
     Get-Process ReLayoutWin -ErrorAction SilentlyContinue | Stop-Process -Force
     Start-Sleep -Milliseconds 500
-    # Known state: auto-correct and Enter follow-up on, default hotkey (Ctrl+Alt+R), nothing learned.
+    # Known state: auto-correct and Enter follow-up on, default hotkey (Left Shift twice), nothing learned.
     foreach ($v in 'HotkeyMods', 'HotkeyVK', 'DoubleTap', 'AutoHotkeyMods', 'AutoHotkeyVK', 'AutoHotkeyDoubleTap',
                    'AutoCorrectOnEnter', 'AutoCorrectSameScript', 'AutoCorrectSpell', 'AutoCorrectLearned',
                    'AutoCorrectKept', 'AutoCorrectLearnCounts', 'AutoCorrectLearnCandidates') {
         & reg delete $prefs /v $v /f 2>$null | Out-Null
     }
     & reg add $prefs /v AutoCorrect /t REG_DWORD /d 1 /f | Out-Null
+    # Not an install from before the default changed: no Ctrl+Alt+R pinned.
+    & reg add $prefs /v HotkeyDefaultPinned /t REG_DWORD /d 1 /f | Out-Null
     # The auto-correct on/off hotkey: a tap of Right Ctrl, for the modifier-tap scenario.
     & reg add $prefs /v AutoHotkeyVK /t REG_DWORD /d 0xA3 /f | Out-Null
     & reg add $prefs /v AutoHotkeyMods /t REG_DWORD /d 0 /f | Out-Null

@@ -9,6 +9,7 @@ private let prefsSubKey   = "Software\\reLayout"
 private let keyHotkeyMods = "HotkeyMods"
 private let keyHotkeyVK   = "HotkeyVK"
 private let keyDoubleTap  = "DoubleTap"
+private let keyHotkeyDefaultPinned = "HotkeyDefaultPinned"
 private let keyAutoHotkeyMods = "AutoHotkeyMods"
 private let keyAutoHotkeyVK   = "AutoHotkeyVK"
 private let keyAutoHotkeyDoubleTap = "AutoHotkeyDoubleTap"
@@ -73,9 +74,27 @@ private func hotkeyValueNames(_ slot: HotkeySlot) -> (mods: String, vk: String, 
     }
 }
 
-/// Convert: Ctrl+Alt+R. Auto-correct on/off: unset.
+/// Convert: a double tap of Left Shift. Auto-correct on/off: unset.
 func defaultHotkey(_ slot: HotkeySlot) -> Hotkey {
-    slot == .retype ? Hotkey(mods: UINT(MOD_CONTROL) | UINT(MOD_ALT), vk: UINT(0x52)) : Hotkey.none
+    slot == .retype ? Hotkey(mods: 0, vk: 0xA0 /* VK_LSHIFT */, doubleTap: true) : Hotkey.none
+}
+
+/// Once per install: an install from before the default changed, which never
+/// saved a hotkey, keeps Ctrl+Alt+R rather than lose the keys its user knows.
+/// Runs before the hook loads the hotkeys.
+func pinOldDefaultHotkey() {
+    let existed = withPrefsKey(write: false) { key -> Bool in
+        readDword(key, keyHotkeyDefaultPinned) == nil && readDword(key, keyHotkeyVK) == nil
+    }
+    _ = withPrefsKey(write: true) { key -> Bool in
+        guard readDword(key, keyHotkeyDefaultPinned) == nil else { return true }
+        if existed == true {
+            writeDword(key, keyHotkeyMods, DWORD(MOD_CONTROL) | DWORD(MOD_ALT))
+            writeDword(key, keyHotkeyVK, 0x52)   // R
+        }
+        writeDword(key, keyHotkeyDefaultPinned, 1)
+        return true
+    }
 }
 
 func loadHotkey(_ slot: HotkeySlot) -> Hotkey {

@@ -4,6 +4,20 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.16 — Windows default hotkey: Left Shift twice
+
+- Was Ctrl+Alt+R: Ctrl+Alt is AltGr on many European layouts, and a
+  three-key chord is heavier than macOS's one tap. Left Shift twice is a
+  modifier tap (engine `ModifierTap` + `TapSequence`), so Shift held for a
+  capital never counts; twice, not five times — five open Sticky Keys.
+- Installs from before, which never saved a hotkey, keep Ctrl+Alt+R:
+  `pinOldDefaultHotkey` writes it once at start when the prefs key exists
+  without a hotkey, then marks `HotkeyDefaultPinned`. An install that never
+  wrote any preference gets the new default.
+- The Windows e2e harness presses the new default.
+
+---
+
 ## After v1.3.16 — more of both apps' rules in Core
 
 - `planRetype` lost its unused `replaced` field. New in Core: `retypeSource`

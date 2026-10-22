@@ -16,7 +16,7 @@ let scans: [Character: WORD] = [
     "k": 0x25, "l": 0x26, ";": 0x27, "'": 0x28, "z": 0x2C, "x": 0x2D, "c": 0x2E, "v": 0x2F, "b": 0x30,
     "n": 0x31, "m": 0x32, ",": 0x33, ".": 0x34, " ": 0x39, "\t": 0x0F, "\r": 0x1C,
 ]
-let scanCtrl: WORD = 0x1D, scanAlt: WORD = 0x38, scanR: WORD = 0x13
+let scanCtrl: WORD = 0x1D, scanAlt: WORD = 0x38, scanLShift: WORD = 0x2A
 
 var mainWindow: HWND?
 var edit: HWND?
@@ -45,11 +45,9 @@ func type(_ s: String) {
     }
 }
 
-/// The default retype hotkey, Ctrl+Alt+R.
+/// The default retype hotkey, Left Shift tapped twice.
 func hotkey() {
-    key(scanCtrl, down: true); key(scanAlt, down: true)
-    key(scanR, down: true); key(scanR, down: false)
-    key(scanAlt, down: false); key(scanCtrl, down: false)
+    for _ in 0..<2 { key(scanLShift, down: true); key(scanLShift, down: false); pause(60) }
     pause(100)
 }
 

@@ -175,6 +175,7 @@ _ = setupTray()
 // modifier (e.g. Left Shift) can be a hotkey, which RegisterHotKey can't do.
 // The hook (on its own thread, with the mouse hook) posts WM_RETYPE / WM_TOGGLE_AUTO
 // to this thread; we act on them here.
+pinOldDefaultHotkey()
 if !installHotkeyHook() {
     let err = GetLastError()
     let text = L("win.hookFailed", "\(err)")

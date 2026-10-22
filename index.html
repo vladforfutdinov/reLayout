@@ -94,7 +94,6 @@
   .btn i{font-size:18px}
   .avail{margin:20px 0 0; font-size:14.5px; color:var(--faint)}
   .avail b{color:var(--muted); font-weight:600}
-  .avail .soon{color:var(--accent)}
 
   /* conversion demo (the actual transform, animated) */
   .demo{background:linear-gradient(180deg,var(--panel),var(--panel2)); border:1px solid var(--line);
@@ -116,8 +115,9 @@
     font:400 15px/1 -apple-system,BlinkMacSystemFont,sans-serif; color:#d4d7dc}
   .kbk.shift{width:96px} .kbk.fn{width:48px} .kbk.ctrl,.kbk.opt{width:58px} .kbk.cmd{width:66px}
   .kbk.space{flex:1; min-width:90px}
-  .kbk.wctrl{width:66px} .kbk.wwin,.kbk.walt{width:54px}
-  .kbk.wwin i{font-size:15px; color:#c4c8ce}
+  .kbk.wctrl,.kbk.wfn,.kbk.wwin,.kbk.walt{width:54px}
+  .kbk.wwin i{font-size:16px; color:#c4c8ce}
+  .kbk.wfn,.kbk.walt{font-size:11.5px; color:#9da1a8}
   .kb[hidden]{display:none}
   .kbk .c{position:absolute; left:8px; bottom:6px; font-size:10.5px; color:#9da1a8; letter-spacing:.01em; line-height:1}
   .kbk .ml{position:absolute; left:8px; bottom:6px; display:flex; flex-direction:column; align-items:flex-start; gap:3px; line-height:1}
@@ -130,7 +130,7 @@
   .kbk.lit .ml .g,.kbk.lit .ml .w,.kbk.lit .c{color:#eaf1ff}
   @media(max-width:520px){ .kbk{height:38px; width:40px; font-size:13px}
     .kbk.shift{width:82px} .kbk.fn{width:42px} .kbk.ctrl,.kbk.opt{width:52px} .kbk.cmd{width:60px}
-    .kbk.wctrl{width:58px} .kbk.wwin,.kbk.walt{width:48px} }
+    .kbk.wctrl,.kbk.wfn,.kbk.wwin,.kbk.walt{width:46px} }
   .stage{font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:21px; line-height:1.5}
   .demo .lbl{font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--faint);
     font-family:-apple-system,sans-serif}
@@ -202,7 +202,6 @@
   .tab i{font-size:17px}
   .tab:hover{color:var(--fg)}
   .tab[aria-selected="true"]{background:var(--accent-soft); color:var(--accent); box-shadow:inset 0 0 0 1px var(--accent-line)}
-  .tab .tag{font-weight:400; font-size:12.5px; color:var(--faint)}
   .tab:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
   [role="tabpanel"][hidden]{display:none}
   .col{display:flex; flex-direction:column; gap:16px}
@@ -282,7 +281,7 @@
           <a class="btn primary" id="dlMac" href="https://github.com/vladforfutdinov/reLayout/releases/latest/download/reLayout.dmg"><i class="ph ph-apple-logo"></i>Download for macOS</a>
           <a class="btn" id="dlWin" href="https://github.com/vladforfutdinov/reLayout/releases/latest/download/reLayout-windows-x64-setup.exe"><i class="ph ph-windows-logo"></i>Download for Windows</a>
         </div>
-        <p class="avail"><b>macOS 13+</b>, signed and notarized. <b>Windows 10 and 11</b>, x64 and ARM64 — <span class="soon">preview</span>.</p>
+        <p class="avail"><b>macOS 13+</b>, signed and notarized. <b>Windows 10 and 11</b>, x64 and ARM64.</p>
       </div>
 
       <div class="demo reveal" aria-hidden="true">
@@ -307,13 +306,14 @@
         </div>
         <div class="kb" id="kbWin" aria-hidden="true" hidden>
           <div class="r">
-            <span class="kbk shift hk"><span class="c">Shift</span></span>
+            <span class="kbk shift hk"><span class="c">shift ⇧</span></span>
             <span class="kbk">Z</span><span class="kbk">X</span><span class="kbk">C</span><span class="kbk">V</span><span class="kbk">B</span><span class="kbk">N</span><span class="kbk">M</span>
           </div>
           <div class="r">
-            <span class="kbk wctrl"><span class="c">Ctrl</span></span>
-            <span class="kbk wwin"><i class="ph ph-windows-logo"></i></span>
-            <span class="kbk walt"><span class="c">Alt</span></span>
+            <span class="kbk wctrl"><span class="c">ctrl</span></span>
+            <span class="kbk wfn">fn</span>
+            <span class="kbk wwin"><i class="ph-fill ph-windows-logo"></i></span>
+            <span class="kbk walt">alt</span>
             <span class="kbk space"></span>
           </div>
         </div>
@@ -463,7 +463,7 @@
 
     <div class="tabs reveal" role="tablist" aria-label="Platform">
       <button class="tab" role="tab" id="tabMac" aria-controls="panelMac" aria-selected="true" type="button"><i class="ph ph-apple-logo"></i>macOS</button>
-      <button class="tab" role="tab" id="tabWin" aria-controls="panelWin" aria-selected="false" tabindex="-1" type="button"><i class="ph ph-windows-logo"></i>Windows <span class="tag">preview</span></button>
+      <button class="tab" role="tab" id="tabWin" aria-controls="panelWin" aria-selected="false" tabindex="-1" type="button"><i class="ph ph-windows-logo"></i>Windows</button>
     </div>
 
     <div role="tabpanel" id="panelMac" aria-labelledby="tabMac">

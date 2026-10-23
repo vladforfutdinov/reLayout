@@ -41,6 +41,8 @@ dist/        build output (.app/.dmg/.zip) — gitignored
 ./scripts/e2e.sh         # macOS end-to-end: types into a test window against the dev build (hands off; needs Accessibility for the terminal)
 ./scripts/e2e-mac-vm.sh  # the same in a macOS test VM over SSH (keyboard stays free; setup in docs/ARCHITECTURE.md)
 scripts/e2e-win.ps1      # on Windows: the same against dist\win built with -DebugLog (-Trace prints the key log on failure)
+./scripts/demo-vm.sh setup|take       # demo take in the macOS VM: scripts/demo/scenario.swift played, screen + key/mouse log -> dist/demo/<take>/
+swift scripts/demo/render.swift dist/demo/<take> out.mov   # cut: camera zooms, cursor, keycaps, captions; then make-demo-gif.sh
 ./scripts/make-dmg.sh    # -> reLayout.dmg drag-to-Applications installer
 swift test               # cross-platform engine tests via SwiftPM (Tests/ReLayoutCoreTests)
 scripts/build-windows.ps1  # on Windows: release build of the port into dist\win (exe + trigram/ + lang/)

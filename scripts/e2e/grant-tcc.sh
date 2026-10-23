@@ -2,7 +2,8 @@
 # Grants Accessibility for e2e on a test Mac with SIP off (a CI runner, a VM):
 # the dev app by its own designated requirement, plus the given executables by
 # path (whatever posts the harness's keys). Writes the system TCC.db: needs sudo.
-# usage: grant-tcc.sh "<app path>" [executable …]
+# usage: [SERVICES="kTCCService…"] grant-tcc.sh "<app path>" [executable …]
+# SERVICES: what the executables get (default Accessibility + PostEvent).
 set -euo pipefail
 APP="$1"; shift
 DB="/Library/Application Support/com.apple.TCC/TCC.db"
@@ -27,7 +28,7 @@ requirement() {
 ID=$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$APP/Contents/Info.plist")
 sudo sqlite3 "$DB" "INSERT OR REPLACE INTO access VALUES($(row kTCCServiceAccessibility "$ID" 0 "$(requirement "$APP")"));"
 for exe in "$@"; do
-    for service in kTCCServiceAccessibility kTCCServicePostEvent; do
+    for service in ${SERVICES:-kTCCServiceAccessibility kTCCServicePostEvent}; do
         sudo sqlite3 "$DB" "INSERT OR REPLACE INTO access VALUES($(row $service "$exe" 1 "$(requirement "$exe")"));"
     done
 done

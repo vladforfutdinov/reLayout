@@ -35,7 +35,7 @@ if command -v gifski >/dev/null 2>&1 && command -v ffmpeg >/dev/null 2>&1; then
   echo "→ gifski path (fps=$fps width=$width)"
   tmp=$(mktemp -d)
   trap 'rm -rf "$tmp"' EXIT
-  ffmpeg -hide_banner -loglevel error "${trim[@]}" -i "$in" \
+  ffmpeg -hide_banner -loglevel error ${trim[@]+"${trim[@]}"} -i "$in" \
     -vf "fps=$fps,scale=$width:-1:flags=lanczos" "$tmp/f%05d.png"
   gifski --fps "$fps" --width "$width" -o "$out" "$tmp"/f*.png
 elif command -v ffmpeg >/dev/null 2>&1; then
@@ -44,9 +44,9 @@ elif command -v ffmpeg >/dev/null 2>&1; then
   pal=$(mktemp -t relayout-pal).png
   trap 'rm -f "$pal"' EXIT
   vf="fps=$fps,scale=$width:-1:flags=lanczos"
-  ffmpeg -hide_banner -loglevel error "${trim[@]}" -i "$in" \
+  ffmpeg -hide_banner -loglevel error ${trim[@]+"${trim[@]}"} -i "$in" \
     -vf "$vf,palettegen=stats_mode=diff" -y "$pal"
-  ffmpeg -hide_banner -loglevel error "${trim[@]}" -i "$in" -i "$pal" \
+  ffmpeg -hide_banner -loglevel error ${trim[@]+"${trim[@]}"} -i "$in" -i "$pal" \
     -lavfi "$vf[x];[x][1:v]paletteuse=dither=bayer:bayer_scale=3" -y "$out"
 else
   echo "need ffmpeg (and ideally gifski) — brew install gifski ffmpeg" >&2

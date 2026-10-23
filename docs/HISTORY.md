@@ -4,6 +4,27 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.16 — the demo is recorded and cut by scripts
+
+- `scripts/demo-vm.sh setup|take` plays a feature tour in the macOS VM
+  (`scripts/demo/scenario.swift`: hotkey, Settings, auto-correct and the
+  menu bar dot, learning by undo, Learned words, Terminal, Exceptions,
+  ⌃⌥A off) with HID keys and clicks found over Accessibility, while
+  `record.swift` writes the screen without the cursor plus a key/mouse log
+  (reLayout's own synthetic keys flagged). `render.swift` cuts it: camera
+  from scene markers with a dead zone and zoom caps, the native arrow
+  cursor captured in the VM, hotkey-only keycaps, captions held ~1.5 s
+  before each action. GIF via ffmpeg (640 px, 7 fps, ×1.2, < 10 MB).
+- Learned on the way: walking reLayout's whole AX tree while its menu tracks
+  stalls the app and lost the Settings click — the item is clicked by its
+  offset; KeyCastr cannot tell synthetic keys apart (it showed reLayout's
+  ⌘C), hence keycaps in post; Terminal resizes its window on a font change,
+  so the font goes first; UTM's HiDPI reached the guest only after a VM
+  restart; the first Settings window takes 1.2–1.8 s to build in the VM
+  (once > 3 s, cause unknown).
+- The Settings hotkey field shows ⌃⌥A as "⌃⌥Ф" while the Ukrainian layout is
+  active: its label follows the current layout. Not fixed.
+
 ## After v1.3.16 — exceptions: a tick means the feature works
 
 - The Exceptions window's check boxes read inverted: ticked meant auto-correct

@@ -218,4 +218,4 @@ echo "Built $APP"
 echo
 echo "Run:   open \"./$APP\""
 echo "First launch: System Settings > Privacy & Security > Accessibility -> enable \"$DISPLAY_NAME\", then relaunch."
-echo "Hotkey: Left Option (select text, then press)."
+echo "Hotkey: Shift twice (select text or type a word, then press)."

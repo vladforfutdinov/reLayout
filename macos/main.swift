@@ -2481,7 +2481,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         typeUnicode(text)
         typeKey("\r", flags: flags)
         usleep(autoLandPause)
-        DispatchQueue.main.sync { self.selectLayout(target) }
+        DispatchQueue.main.sync { _ = self.selectLayout(target) }
         recordConversion(Conv(original: original + "\r", typed: text + "\r",
                                     src: srcSource,
                                     autoWords: [learnedKey(word)]))
@@ -2653,7 +2653,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         typeKey(boundary, flags: boundaryFlags)
         usleep(autoLandPause)
         let t3 = uptimeMs()
-        DispatchQueue.main.sync { self.selectLayout(target) }
+        DispatchQueue.main.sync { _ = self.selectLayout(target) }
         dbg(String(format: "timing fix: modifiers+trace=%.1f erase=%.1f type=%.1f select=%.1f ms",
                    t1 - t0, t2 - t1, t3 - t2, uptimeMs() - t3))
         recordConversion(Conv(original: fix.original + boundary, typed: fix.text + boundary,

@@ -36,12 +36,12 @@
 "settings.exc.choose" = "Escolher…";
 "settings.exc.remove" = "Remover";
 "settings.exc.done" = "Concluído";
-"settings.exc.info" = "Terminais, editores de código, máquinas virtuais e áreas de trabalho remotas já vêm na lista: neles se digitam comandos ou código, ou outro sistema com o seu próprio layout recebe as teclas, e a correção automática atrapalharia. Remova um para ativá-la nele. O Figma está na lista também com o atalho desligado: a tela dele toma o texto digitado por atalhos de ferramentas.";
+"settings.exc.info" = "Terminais, editores de código, máquinas virtuais e áreas de trabalho remotas estão na lista desde o início, com tudo desligado: ali se digitam comandos ou código, ou as teclas vão para outro sistema com seu próprio layout. Marque o que deve funcionar ou remova o app da lista. O Figma também está: sua tela lê o texto digitado como atalhos de ferramentas.";
 "settings.exc.section" = "Permitir recursos por app";
 "settings.exc.auto" = "Correção automática";
-"settings.exc.auto.tip" = "Marcado: a correção automática funciona neste programa.";
+"settings.exc.auto.tip" = "A correção automática funciona neste app.";
 "settings.exc.hotkey" = "Atalho";
-"settings.exc.hotkey.tip" = "Marcado: o atalho funciona neste programa. Com os dois desmarcados, o reLayout não lê nenhuma tecla aqui.";
+"settings.exc.hotkey.tip" = "O atalho funciona neste app. Com os dois desmarcados, o reLayout não lê nenhuma tecla aqui.";
 
 // learned words
 "settings.learned" = "Palavras aprendidas: %@";

@@ -4,6 +4,21 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.16 — per-app features: a listed app starts with both off
+
+- Owner: by default both ticks cleared. The default apps (terminals,
+  editors, VMs, remote desktops, Figma) now have the hotkey off as well as
+  auto-correct, so reLayout reads no keys there; an added app (Add current
+  app, +) starts with both off too (engine `AppExceptions.add`).
+- Existing users get the new hotkey defaults once, through the "seen"
+  lists, but only for apps whose auto-correct is still off: an app they took
+  off the list does not come back as a hotkey-only row. macOS keeps Figma
+  as the hotkey list's pre-"seen" default.
+- The column tips say what a tick means without "Ticked:", and the ⓘ says
+  the listed apps start with everything off.
+- macOS: Learned words' check boxes were green and uncentred; now standard
+  ones centred in their cell, as in Per-app features (`centeredCheckbox`).
+
 ## After v1.3.16 — "Exceptions" becomes per-app features
 
 - The Settings row said "turn off in chosen programs", the window under it

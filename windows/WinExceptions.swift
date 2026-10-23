@@ -261,11 +261,11 @@ private func updateRemoveButton(_ hwnd: HWND?) {
     EnableWindow(GetDlgItem(hwnd, Int32(idExcRemove)), !selectedRows(hwnd).isEmpty)
 }
 
-/// An added program gets auto-correct off; the hotkey is its own tick.
+/// An added program starts with both features off (as the engine's `AppExceptions.add`).
 private func addApps(_ hwnd: HWND?, _ exes: [String]) {
     for exe in exes {
-        if let i = rows.firstIndex(where: { $0.exe == exe }) { rows[i].auto = true }
-        else { rows.append(ExcRow(exe: exe, auto: true, hotkey: false)) }
+        if let i = rows.firstIndex(where: { $0.exe == exe }) { rows[i].auto = true; rows[i].hotkey = true }
+        else { rows.append(ExcRow(exe: exe, auto: true, hotkey: true)) }
     }
     saveRows()
     fillList(hwnd)

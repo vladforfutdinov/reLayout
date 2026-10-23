@@ -485,6 +485,9 @@ final class EngineTests: XCTestCase {
         e.add("sketch")                                           // auto-correct off too now
         XCTAssertTrue(e.keysOff("sketch"))
         XCTAssertEqual(e.rows, ["term", "figma", "sketch"])
+        e.add("code")                                             // a new app: both off
+        XCTAssertTrue(e.keysOff("code"))
+        e.remove(["code"])
         e.setHotkey("figma", off: false)
         XCTAssertFalse(e.keysOff("figma"))
         e.remove(["figma", "sketch"])

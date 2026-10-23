@@ -1676,19 +1676,25 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         updateAutoAvailability()
     }
 
+    /// A table cell holding `box` centred, the same in Learned words and Per-app features.
+    private func centeredCheckbox(_ box: NSButton) -> NSView {
+        let cell = NSView()
+        box.translatesAutoresizingMaskIntoConstraints = false
+        cell.addSubview(box)
+        NSLayoutConstraint.activate([box.centerXAnchor.constraint(equalTo: cell.centerXAnchor),
+                                     box.centerYAnchor.constraint(equalTo: cell.centerYAnchor)])
+        return cell
+    }
+
     private func learnedCell(_ table: NSTableView, column: NSTableColumn?, row: Int) -> NSView? {
         guard learnedRows.indices.contains(row) else { return nil }
         let r = learnedRows[row]
         if column?.identifier.rawValue == "ok" {
-            let id = NSUserInterfaceItemIdentifier("learned-ok")
-            let box = (table.makeView(withIdentifier: id, owner: self) as? NSButton)
-                ?? NSButton(checkboxWithTitle: "", target: self, action: #selector(learnedToggle(_:)))
-            box.identifier = id
-            box.contentTintColor = .systemGreen
+            let box = NSButton(checkboxWithTitle: "", target: self, action: #selector(learnedToggle(_:)))
             box.tag = row
             box.state = (r.kind == .convert || r.kind == .keep) ? .on : .off
             box.isHidden = r.kind == .new
-            return box
+            return centeredCheckbox(box)
         }
         let isTyped = column?.identifier.rawValue == "typed"
         let id = NSUserInterfaceItemIdentifier("learned-text")
@@ -1978,12 +1984,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             box.tag = row
             box.state = (flag == "hotkey" ? exceptions.hotkeyOff(bid) : exceptions.autoOff(bid)) ? .off : .on
             box.toolTip = L("settings.exc.\(flag).tip")
-            let cell = NSView()
-            box.translatesAutoresizingMaskIntoConstraints = false
-            cell.addSubview(box)
-            NSLayoutConstraint.activate([box.centerXAnchor.constraint(equalTo: cell.centerXAnchor),
-                                         box.centerYAnchor.constraint(equalTo: cell.centerYAnchor)])
-            return cell
+            return centeredCheckbox(box)
         }
         let info = appInfo(bid)
         let id = NSUserInterfaceItemIdentifier("exc")
@@ -2189,9 +2190,11 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         "org.virtualbox.app.VirtualBoxVM", "com.microsoft.rdc.macos",
         "com.figma.Desktop",
     ]
-    // Apps where the retype hotkey does nothing (#1). In one listed in both, the key
-    // tap reads no key at all.
-    private static let defaultHotkeyExcludedApps: [String] = ["com.figma.Desktop"]
+    // Apps where the retype hotkey does nothing (#1): the same as auto-correct, so a
+    // listed app starts with both off. In one listed in both, the key tap reads no key at all.
+    private static let defaultHotkeyExcludedApps: [String] = defaultExcludedApps
+    // What the hotkey list shipped with, before its "seen" record existed.
+    private static let firstDefaultHotkeyExcludedApps: [String] = ["com.figma.Desktop"]
     var hotkeyExcludedApps: [String] {
         get { UserDefaults.standard.array(forKey: "hotkeyExcludedApps") as? [String]
                 ?? AppController.defaultHotkeyExcludedApps }
@@ -2217,16 +2220,18 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     /// Adds defaults introduced since the user's lists were saved, once each, so a new
     /// default reaches existing users while one they removed never comes back.
     private func mergeNewDefaultExclusions() {
-        // The hotkey list shipped with its current defaults: all of them count as seen.
         for (list, seenKey, defaults, first) in [
             ("autoExcludedApps", "autoExcludedDefaultsSeen", AppController.defaultExcludedApps, AppController.firstDefaultExcludedApps),
-            ("hotkeyExcludedApps", "hotkeyExcludedDefaultsSeen", AppController.defaultHotkeyExcludedApps, AppController.defaultHotkeyExcludedApps),
+            ("hotkeyExcludedApps", "hotkeyExcludedDefaultsSeen", AppController.defaultHotkeyExcludedApps, AppController.firstDefaultHotkeyExcludedApps),
         ] {
             let d = UserDefaults.standard
             let seen = Set(d.stringArray(forKey: seenKey) ?? first)
             d.set(defaults, forKey: seenKey)
             guard let saved = d.array(forKey: list) as? [String] else { continue }   // defaults apply as-is
-            d.set(mergeExclusions(saved: saved, defaults: defaults, seen: seen), forKey: list)
+            // A hotkey default reaches only an app whose auto-correct is off: one the
+            // user took off the list does not come back.
+            let offered = list == "hotkeyExcludedApps" ? defaults.filter(autoExcludedApps.contains) : defaults
+            d.set(mergeExclusions(saved: saved, defaults: offered, seen: seen), forKey: list)
         }
     }
     var autoExcludedApps: [String] {

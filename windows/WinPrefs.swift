@@ -155,9 +155,10 @@ let defaultExcludedApps = [
 // The defaults a list saved before the "seen" record existed already reflects.
 private let firstDefaultExcludedApps = Array(defaultExcludedApps.prefix(15))
 
-/// Programs where the retype hotkey does nothing: Figma's canvas takes the erase
-/// backspaces and typed letters as commands on the selected layers.
-let defaultHotkeyExcludedApps = ["figma.exe"]
+/// Programs where the retype hotkey does nothing: the same as auto-correct, so a
+/// listed program starts with both off. Figma's canvas takes the erase backspaces
+/// and typed letters as commands on the selected layers.
+let defaultHotkeyExcludedApps = defaultExcludedApps
 
 private func splitLines(_ s: String) -> [String] {
     s.split(whereSeparator: \.isNewline).map { trimmed($0).lowercased() }
@@ -166,11 +167,13 @@ private func splitLines(_ s: String) -> [String] {
 
 /// A saved program list plus defaults introduced since it was saved (once each: one
 /// the user removed stays removed — see the engine's mergeExclusions).
-private func loadAppList(_ name: String, seenName: String, defaults: [String], firstDefaults: [String]) -> [String] {
+/// - Parameter offered: which new defaults the saved list may take.
+private func loadAppList(_ name: String, seenName: String, defaults: [String], firstDefaults: [String],
+                         offered: (String) -> Bool = { _ in true }) -> [String] {
     let stored = withPrefsKey(write: false, { readString($0, name) })
     guard let stored else { return defaults }
     let seen = withPrefsKey(write: false, { readString($0, seenName) }).map(splitLines) ?? firstDefaults
-    let merged = mergeExclusions(saved: splitLines(stored), defaults: defaults, seen: Set(seen))
+    let merged = mergeExclusions(saved: splitLines(stored), defaults: defaults.filter(offered), seen: Set(seen))
     if Set(seen) != Set(defaults) { saveAppList(name, seenName: seenName, merged, defaults: defaults) }
     return merged
 }
@@ -193,8 +196,11 @@ func saveExcludedApps(_ apps: [String]) {
 }
 
 func loadHotkeyExcludedApps() -> [String] {
-    loadAppList(keyHotkeyExcluded, seenName: keyHotkeyExcludedSeen, defaults: defaultHotkeyExcludedApps,
-                firstDefaults: [])
+    // A hotkey default reaches only a program whose auto-correct is off: one the user
+    // took off the list does not come back.
+    let autoOff = Set(loadExcludedApps())
+    return loadAppList(keyHotkeyExcluded, seenName: keyHotkeyExcludedSeen, defaults: defaultHotkeyExcludedApps,
+                       firstDefaults: [], offered: autoOff.contains)
 }
 
 func saveHotkeyExcludedApps(_ apps: [String]) {

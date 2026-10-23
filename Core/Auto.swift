@@ -853,8 +853,8 @@ public struct AppExceptions: Equatable {
     /// Both off: no key of the app is read at all.
     public func keysOff(_ app: String) -> Bool { autoOff(app) && hotkeyOff(app) }
 
-    /// A new (or re-added) exception turns auto-correct off; the hotkey flag is the user's call.
-    public mutating func add(_ app: String) { setAuto(app, off: true) }
+    /// A new (or re-added) app starts with both features off; the user ticks what should work.
+    public mutating func add(_ app: String) { setAuto(app, off: true); setHotkey(app, off: true) }
 
     public mutating func setAuto(_ app: String, off: Bool) {
         auto.removeAll { $0 == app }

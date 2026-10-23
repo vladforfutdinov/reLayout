@@ -4,6 +4,24 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.16 — Windows UI helpers shared; CI shows the smaller download
+
+- The audit's last item: Settings, Exceptions and Learned each carried their
+  own control factory, dpi scale, fonts, text measuring, `WM_CTLCOLOR*` and
+  background painting, list-view setup, class registration and window
+  sizing. Now in `windows/WinUI.swift`; each window keeps its own state and
+  extras (Settings' separators and disabled labels, its work-area centering).
+- Checked without a human: the three windows shot with `PrintWindow` in the
+  VM, light and dark, with fixed prefs (auto-correct on, four learned words),
+  before and after — all six pixel-identical. Opened by `WM_COMMAND` to the
+  tray window (Settings) and to Settings (buttons 111, 117).
+- CI on `5ab6561` (first run with the import-closure payload): build, core and
+  e2e green (macOS 11/11, Windows 18/18). Downloads: installer 18 → 5.5 MB,
+  portable exe 16 → 3.5 MB, x64 and arm64.
+- The Mac Enter e2e flake did not come back in six VM runs.
+
+---
+
 ## After v1.3.16 — Windows without Foundation: 59 MB of runtime down to 11
 
 - Installed, the port took 68 MB; the exe is 1.7 MB. Measured in the arm64 VM

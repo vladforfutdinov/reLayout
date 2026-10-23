@@ -41,7 +41,7 @@ private var editColumn: Int32 = colTyped
 // above can line up with it.
 private let colTyped: Int32 = 1, colOut: Int32 = 2
 
-private func lsc(_ v: Int32) -> Int32 { v * lrnDpi / 96 }   // scale a 96-dpi coord
+private func lsc(_ v: Int32) -> Int32 { scaled(v, dpi: lrnDpi) }
 
 // MARK: - list
 
@@ -94,15 +94,7 @@ private func fillList(_ hwnd: HWND?) {
 }
 
 private func selectedRows(_ hwnd: HWND?) -> [Int] {
-    let list = listView(hwnd)
-    var rows: [Int] = []
-    var i = -1
-    while true {
-        let next = Int(SendMessageW(list, UINT(0x100C /* LVM_GETNEXTITEM */), WPARAM(bitPattern: Int64(i)),
-                                    LPARAM(0x2 /* LVNI_SELECTED */)))
-        if next < 0 { return rows }
-        rows.append(next); i = next
-    }
+    selectedListRows(listView(hwnd))
 }
 
 private func updateMinusButton(_ hwnd: HWND?) {
@@ -173,7 +165,7 @@ private func beginEdit(_ hwnd: HWND?, _ column: Int32) {
     }
     guard let edit = outEdit else { newPending = false; fillList(hwnd); return }
     SetWindowPos(edit, nil /* HWND_TOP: over the list */, 0, 0, 0, 0, UINT(SWP_NOMOVE) | UINT(SWP_NOSIZE))
-    SendMessageW(edit, UINT(WM_SETFONT), unsafeBitCast(uiFont(dpi: lrnDpi), to: WPARAM.self), LPARAM(1))
+    setFont(edit, uiFont(dpi: lrnDpi))
     // Left empty, "Becomes" keeps the word as typed.
     setCue(edit, column == colTyped ? L("settings.learned.col.typed") : L("settings.learned.keep"))
     SetFocus(edit)
@@ -203,32 +195,16 @@ private func endEdit(_ hwnd: HWND?, commit: Bool) {
 
 /// Size of `text` in the Settings font, wrapped at `width`, in 96-dpi units.
 private func textSize(_ text: String, width: Int32, _ hwnd: HWND?) -> (w: Int32, h: Int32) {
-    let dc = GetDC(hwnd)
-    defer { ReleaseDC(hwnd, dc) }
-    let old = SelectObject(dc, UnsafeMutableRawPointer(uiFont(dpi: lrnDpi)))
-    defer { SelectObject(dc, old) }
-    var r = RECT(left: 0, top: 0, right: lsc(width), bottom: 0)
-    let units = Array(text.utf16)
-    DrawTextW(dc, units, Int32(units.count), &r, UINT(0x400 /* DT_CALCRECT */ | 0x10 /* DT_WORDBREAK */
-                                                      | 0x800 /* DT_NOPREFIX */))
-    return (r.right * 96 / lrnDpi, r.bottom * 96 / lrnDpi)
+    let size = measureWrapped(text, wrapWidth: lsc(width), hwnd, font: uiFont(dpi: lrnDpi))
+    return (size.cx * 96 / lrnDpi, size.cy * 96 / lrnDpi)
 }
 
 @discardableResult
 private func makeLrnControl(_ cls: String, _ text: String, _ style: Int32,
                             _ x: Int32, _ y: Int32, _ w: Int32, _ h: Int32,
                             _ parent: HWND?, _ id: Int, exStyle: DWORD = 0) -> HWND? {
-    let hInst = GetModuleHandleW(nil)
-    return cls.withCString(encodedAs: UTF16.self) { clsP in
-        text.withCString(encodedAs: UTF16.self) { txtP in
-            let ctl = CreateWindowExW(exStyle, clsP, txtP,
-                                      DWORD(UInt32(bitPattern: style)) | DWORD(WS_CHILD) | DWORD(WS_VISIBLE),
-                                      lsc(x), lsc(y), lsc(w), lsc(h), parent, HMENU(bitPattern: id), hInst, nil)
-            SendMessageW(ctl, UINT(WM_SETFONT), unsafeBitCast(uiFont(dpi: lrnDpi), to: WPARAM.self), LPARAM(1))
-            applyControlTheme(ctl, className: cls, dark: lrnColors.dark)
-            return ctl
-        }
-    }
+    createControl(cls, text, style, x, y, w, h, parent, id, exStyle: exStyle,
+                  dpi: lrnDpi, font: uiFont(dpi: lrnDpi), dark: lrnColors.dark)
 }
 
 private var lrnClientW: Int32 = 424   // widened when the bottom buttons need it
@@ -265,20 +241,8 @@ private func buildLearned(_ hwnd: HWND?) {
                               16, y, width, 200, hwnd, idLrnList, exStyle: DWORD(WS_EX_CLIENTEDGE))
     SendMessageW(list, UINT(0x1036 /* LVM_SETEXTENDEDLISTVIEWSTYLE */), 0,
                  LPARAM(0x20 /* LVS_EX_FULLROWSELECT */ | 0x10000 /* LVS_EX_DOUBLEBUFFER */ | 0x4 /* LVS_EX_CHECKBOXES */))
-    if lrnColors.dark {
-        let bg = LPARAM(Int(lrnColors.background)), fg = LPARAM(Int(lrnColors.text))
-        SendMessageW(list, UINT(0x1001 /* LVM_SETBKCOLOR */), 0, bg)
-        SendMessageW(list, UINT(0x1026 /* LVM_SETTEXTBKCOLOR */), 0, bg)
-        SendMessageW(list, UINT(0x1024 /* LVM_SETTEXTCOLOR */), 0, fg)
-    }
-    for (i, cx) in [lsc(checkW), lsc(typedW), lsc(width - checkW - typedW) - GetSystemMetrics(SM_CXVSCROLL) - 4].enumerated() {
-        var column = LVCOLUMNW()
-        column.mask = UINT(0x2 /* LVCF_WIDTH */)
-        column.cx = cx
-        _ = withUnsafeMutablePointer(to: &column) {
-            SendMessageW(list, UINT(0x1061 /* LVM_INSERTCOLUMNW */), WPARAM(i), LPARAM(Int(bitPattern: $0)))
-        }
-    }
+    applyListColors(list, lrnColors)
+    insertColumns(list, widths: [lsc(checkW), lsc(typedW), lsc(width - checkW - typedW) - GetSystemMetrics(SM_CXVSCROLL) - 4])
     y += 212
 
     // "+" / "−" (the macOS segmented pair), then Clean and Reset bottom-left; Done bottom-right.
@@ -341,23 +305,13 @@ private func learnedWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lPar
         default: break
         }
     case UINT(WM_CTLCOLORSTATIC), UINT(WM_CTLCOLORBTN):
-        let ctl = HWND(bitPattern: Int(lParam))
-        let dc = HDC(bitPattern: UInt(wParam))
-        let id = Int(GetDlgCtrlID(ctl))
-        SetTextColor(dc, id == idLrnColTyped || id == idLrnColOut ? lrnColors.secondary : lrnColors.text)
-        SetBkColor(dc, lrnColors.background)
-        SetBkMode(dc, TRANSPARENT)
-        return LRESULT(Int(bitPattern: lrnBrush))
+        let id = Int(GetDlgCtrlID(HWND(bitPattern: Int(lParam))))
+        return paintControl(wParam, text: id == idLrnColTyped || id == idLrnColOut ? lrnColors.secondary : lrnColors.text,
+                            lrnColors, lrnBrush)
     case UINT(WM_CTLCOLOREDIT) where lrnColors.dark:   // the "Becomes" editor
-        let dc = HDC(bitPattern: UInt(wParam))
-        SetTextColor(dc, lrnColors.text)
-        SetBkColor(dc, lrnColors.background)
-        return LRESULT(Int(bitPattern: lrnBrush))
+        return paintEdit(wParam, lrnColors, lrnBrush)
     case UINT(WM_ERASEBKGND):
-        var r = RECT()
-        GetClientRect(hwnd, &r)
-        FillRect(HDC(bitPattern: UInt(wParam)), &r, lrnBrush)
-        return 1
+        return fillBackground(hwnd, wParam, lrnBrush)
     case UINT(WM_SETTINGCHANGE):
         // A theme switch arrives as a burst of broadcasts: check once, after it.
         SetTimer(hwnd, lrnThemeTimer, 300, nil)
@@ -367,8 +321,7 @@ private func learnedWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lPar
         rebuildWithoutFlicker(hwnd) {
             outEdit = nil
             newPending = false
-            var child = GetWindow(hwnd, UINT(GW_CHILD))
-            while let c = child { child = GetWindow(c, UINT(GW_HWNDNEXT)); DestroyWindow(c) }
+            destroyChildren(hwnd)
             buildLearned(hwnd)
         }
         return 0
@@ -393,46 +346,18 @@ func refreshLearnedWindow() {
 
 func openLearned(owner: HWND?) {
     if let existing = learnedHwnd {
-        ShowWindow(existing, SW_SHOW)
-        SetForegroundWindow(existing)
+        showAndFocus(existing)
         return
     }
-    let hInst = GetModuleHandleW(nil)
-    if !learnedClassRegistered {
-        learnedClassW.withUnsafeBufferPointer { name in
-            var wc = WNDCLASSW()
-            wc.lpfnWndProc = learnedWndProc
-            wc.hInstance = hInst
-            wc.lpszClassName = name.baseAddress
-            wc.hCursor = LoadCursorW(nil, UnsafePointer<WCHAR>(bitPattern: 32512))   // IDC_ARROW
-            wc.hbrBackground = HBRUSH(bitPattern: Int(COLOR_BTNFACE) + 1)
-            wc.hIcon = LoadIconW(hInst, UnsafePointer<WCHAR>(bitPattern: 1))          // app icon (id 1)
-            learnedClassRegistered = RegisterClassW(&wc) != 0
-        }
-    }
+    if !learnedClassRegistered { learnedClassRegistered = registerWindowClass(learnedClassW, proc: learnedWndProc) }
     guard learnedClassRegistered else { return }
 
-    let style = DWORD(WS_OVERLAPPED) | DWORD(WS_CAPTION) | DWORD(WS_SYSMENU)
-    learnedHwnd = learnedClassW.withUnsafeBufferPointer { name in
-        L("settings.learned.title").withCString(encodedAs: UTF16.self) { title in
-            CreateWindowExW(0, name.baseAddress, title, style,
-                            Int32(CW_USEDEFAULT), Int32(CW_USEDEFAULT), 440, 400,
-                            owner, nil, hInst, nil)
-        }
-    }
+    learnedHwnd = createWindow(learnedClassW, title: L("settings.learned.title"), width: 440, height: 400, owner: owner)
     guard let hwnd = learnedHwnd else { return }
-    let dpi = GetDpiForWindow(hwnd)
-    lrnDpi = dpi > 0 ? Int32(dpi) : 96
+    lrnDpi = windowDpi(hwnd)
     buildLearned(hwnd)
 
     // Size to the scaled client area, centered over the owner (Settings).
-    var wr = RECT(); GetWindowRect(hwnd, &wr)
-    var cr = RECT(); GetClientRect(hwnd, &cr)
-    let w = lsc(lrnClientW) + (wr.right - wr.left) - (cr.right - cr.left)
-    let h = lsc(lrnClientH) + (wr.bottom - wr.top) - (cr.bottom - cr.top)
-    var or = RECT(); GetWindowRect(owner, &or)
-    SetWindowPos(hwnd, nil, or.left + ((or.right - or.left) - w) / 2, or.top + ((or.bottom - or.top) - h) / 2,
-                 w, h, UINT(SWP_NOZORDER))
-    ShowWindow(hwnd, SW_SHOW)
-    SetForegroundWindow(hwnd)
+    sizeCenteredOverOwner(hwnd, owner: owner, clientWidth: lsc(lrnClientW), clientHeight: lsc(lrnClientH))
+    showAndFocus(hwnd)
 }

@@ -38,7 +38,7 @@ private var excColors = ThemeColors.current()
 private var excBrush: HBRUSH?
 private let excThemeTimer: UINT_PTR = 1
 
-private func esc(_ v: Int32) -> Int32 { v * excDpi / 96 }   // scale a 96-dpi coord
+private func esc(_ v: Int32) -> Int32 { scaled(v, dpi: excDpi) }
 
 // MARK: - the last program the user was in ("Exclude current app")
 
@@ -232,15 +232,7 @@ private func clickCell(_ hwnd: HWND?) {
 }
 
 private func selectedRows(_ hwnd: HWND?) -> [Int] {
-    let list = listView(hwnd)
-    var rows: [Int] = []
-    var i = -1
-    while true {
-        let next = Int(SendMessageW(list, UINT(0x100C /* LVM_GETNEXTITEM */), WPARAM(bitPattern: Int64(i)),
-                                    LPARAM(0x2 /* LVNI_SELECTED */)))
-        if next < 0 { return rows }
-        rows.append(next); i = next
-    }
+    selectedListRows(listView(hwnd))
 }
 
 private func updateRemoveButton(_ hwnd: HWND?) {
@@ -287,39 +279,15 @@ private func chooseProgram(_ hwnd: HWND?) -> String? {
 // MARK: - window
 
 private func textWidth(_ text: String, _ hwnd: HWND?) -> Int32 {
-    let dc = GetDC(hwnd)
-    defer { ReleaseDC(hwnd, dc) }
-    let old = SelectObject(dc, UnsafeMutableRawPointer(uiFont(dpi: excDpi)))
-    defer { SelectObject(dc, old) }
-    var size = SIZE()
-    let units = Array(text.utf16)
-    GetTextExtentPoint32W(dc, units, Int32(units.count), &size)
-    return size.cx * 96 / excDpi
+    uiTextWidth(text, hwnd, font: uiFont(dpi: excDpi), dpi: excDpi)
 }
 
 @discardableResult
 private func makeExcControl(_ cls: String, _ text: String, _ style: Int32,
                             _ x: Int32, _ y: Int32, _ w: Int32, _ h: Int32,
                             _ parent: HWND?, _ id: Int, exStyle: DWORD = 0) -> HWND? {
-    let hInst = GetModuleHandleW(nil)
-    return cls.withCString(encodedAs: UTF16.self) { clsP in
-        text.withCString(encodedAs: UTF16.self) { txtP in
-            let ctl = CreateWindowExW(exStyle, clsP, txtP,
-                                      DWORD(UInt32(bitPattern: style)) | DWORD(WS_CHILD) | DWORD(WS_VISIBLE),
-                                      esc(x), esc(y), esc(w), esc(h), parent, HMENU(bitPattern: id), hInst, nil)
-            SendMessageW(ctl, UINT(WM_SETFONT), unsafeBitCast(uiFont(dpi: excDpi), to: WPARAM.self), LPARAM(1))
-            applyControlTheme(ctl, className: cls, dark: excColors.dark)
-            return ctl
-        }
-    }
-}
-
-private func excFont(_ face: String, points: Int32) -> HFONT? {
-    face.withCString(encodedAs: UTF16.self) {
-        CreateFontW(-(points * excDpi / 72), 0, 0, 0, Int32(FW_NORMAL), 0, 0, 0,
-                    DWORD(DEFAULT_CHARSET), DWORD(OUT_DEFAULT_PRECIS), DWORD(CLIP_DEFAULT_PRECIS),
-                    DWORD(CLEARTYPE_QUALITY), DWORD(DEFAULT_PITCH), $0)
-    }
+    createControl(cls, text, style, x, y, w, h, parent, id, exStyle: exStyle,
+                  dpi: excDpi, font: uiFont(dpi: excDpi), dark: excColors.dark)
 }
 
 private let clientW: Int32 = 480
@@ -337,8 +305,8 @@ private func buildExceptions(_ hwnd: HWND?) {
     // Why a fresh install already lists programs (terminals, editors, VMs).
     let titleW = min(textWidth(title, hwnd) + 6, 340)
     let info = makeExcControl("STATIC", "\u{E946}" /* Info glyph */, 0, 16 + titleW, 16, 20, 20, hwnd, idExcInfo)
-    excGlyphFont = excFont("Segoe MDL2 Assets", points: 10)
-    SendMessageW(info, UINT(WM_SETFONT), unsafeBitCast(excGlyphFont, to: WPARAM.self), LPARAM(1))
+    excGlyphFont = makeFont("Segoe MDL2 Assets", points: 10, dpi: excDpi)
+    setFont(info, excGlyphFont)
     excTooltip = nil
     addTooltip(&excTooltip, hwnd, info, L("settings.exc.info"), overWindow: true)
 
@@ -366,23 +334,11 @@ private func buildExceptions(_ hwnd: HWND?) {
     SendMessageW(list, UINT(0x1036 /* LVM_SETEXTENDEDLISTVIEWSTYLE */), 0,
                  LPARAM(0x20 /* LVS_EX_FULLROWSELECT */ | 0x10000 /* LVS_EX_DOUBLEBUFFER */
                         | 0x2 /* LVS_EX_SUBITEMIMAGES */))
-    if excColors.dark {
-        let bg = LPARAM(Int(excColors.background)), fg = LPARAM(Int(excColors.text))
-        SendMessageW(list, UINT(0x1001 /* LVM_SETBKCOLOR */), 0, bg)
-        SendMessageW(list, UINT(0x1026 /* LVM_SETTEXTBKCOLOR */), 0, bg)
-        SendMessageW(list, UINT(0x1024 /* LVM_SETTEXTCOLOR */), 0, fg)
-    }
+    applyListColors(list, excColors)
     let box = GetSystemMetrics(SM_CXSMICON) + esc(4)   // the check image plus the list's left inset
     let autoPad = (esc(autoW) - box) / 2, hotkeyPad = (esc(hotkeyW) - box) / 2
     let widths = [nameCx + autoPad, box, esc(autoW) - box - autoPad + hotkeyPad, box, esc(hotkeyW) - box - hotkeyPad]
-    for (i, cx) in widths.enumerated() {
-        var column = LVCOLUMNW()
-        column.mask = UINT(0x2 /* LVCF_WIDTH */)
-        column.cx = cx
-        _ = withUnsafeMutablePointer(to: &column) {
-            SendMessageW(list, UINT(0x1061 /* LVM_INSERTCOLUMNW */), WPARAM(i), LPARAM(Int(bitPattern: $0)))
-        }
-    }
+    insertColumns(list, widths: widths)
 
     // "+" (Choose…) / "−" (remove the selection), then "Exclude current app"; Done
     // on the right, as on macOS.
@@ -423,17 +379,11 @@ private func exceptionsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ l
             }
         }
     case UINT(WM_CTLCOLORSTATIC), UINT(WM_CTLCOLORBTN):
-        let dc = HDC(bitPattern: UInt(wParam))
         let id = Int(GetDlgCtrlID(HWND(bitPattern: Int(lParam))))
-        SetTextColor(dc, id == idExcColAuto || id == idExcColHotkey ? excColors.secondary : excColors.text)
-        SetBkColor(dc, excColors.background)
-        SetBkMode(dc, TRANSPARENT)
-        return LRESULT(Int(bitPattern: excBrush))
+        return paintControl(wParam, text: id == idExcColAuto || id == idExcColHotkey ? excColors.secondary : excColors.text,
+                            excColors, excBrush)
     case UINT(WM_ERASEBKGND):
-        var r = RECT()
-        GetClientRect(hwnd, &r)
-        FillRect(HDC(bitPattern: UInt(wParam)), &r, excBrush)
-        return 1
+        return fillBackground(hwnd, wParam, excBrush)
     case UINT(WM_SETTINGCHANGE):
         // A theme switch arrives as a burst of broadcasts: check once, after it.
         SetTimer(hwnd, excThemeTimer, 300, nil)
@@ -441,8 +391,7 @@ private func exceptionsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ l
         KillTimer(hwnd, excThemeTimer)
         guard appsUseDarkTheme() != excColors.dark else { return 0 }
         rebuildWithoutFlicker(hwnd) {
-            var child = GetWindow(hwnd, UINT(GW_CHILD))
-            while let c = child { child = GetWindow(c, UINT(GW_HWNDNEXT)); DestroyWindow(c) }
+            destroyChildren(hwnd)
             if let tip = excTooltip { DestroyWindow(tip) }
             if let f = excGlyphFont { DeleteObject(UnsafeMutableRawPointer(f)); excGlyphFont = nil }
             buildExceptions(hwnd)
@@ -464,47 +413,19 @@ func exceptionsWindow() -> HWND? { exceptionsHwnd }
 
 func openExceptions(owner: HWND?) {
     if let existing = exceptionsHwnd {
-        ShowWindow(existing, SW_SHOW)
-        SetForegroundWindow(existing)
+        showAndFocus(existing)
         return
     }
-    let hInst = GetModuleHandleW(nil)
-    if !exceptionsClassRegistered {
-        exceptionsClassW.withUnsafeBufferPointer { name in
-            var wc = WNDCLASSW()
-            wc.lpfnWndProc = exceptionsWndProc
-            wc.hInstance = hInst
-            wc.lpszClassName = name.baseAddress
-            wc.hCursor = LoadCursorW(nil, UnsafePointer<WCHAR>(bitPattern: 32512))   // IDC_ARROW
-            wc.hbrBackground = HBRUSH(bitPattern: Int(COLOR_BTNFACE) + 1)
-            wc.hIcon = LoadIconW(hInst, UnsafePointer<WCHAR>(bitPattern: 1))          // app icon (id 1)
-            exceptionsClassRegistered = RegisterClassW(&wc) != 0
-        }
-    }
+    if !exceptionsClassRegistered { exceptionsClassRegistered = registerWindowClass(exceptionsClassW, proc: exceptionsWndProc) }
     guard exceptionsClassRegistered else { return }
 
-    let style = DWORD(WS_OVERLAPPED) | DWORD(WS_CAPTION) | DWORD(WS_SYSMENU)
-    exceptionsHwnd = exceptionsClassW.withUnsafeBufferPointer { name in
-        L("settings.exc.title").withCString(encodedAs: UTF16.self) { title in
-            CreateWindowExW(0, name.baseAddress, title, style,
-                            Int32(CW_USEDEFAULT), Int32(CW_USEDEFAULT), 440, 400,
-                            owner, nil, hInst, nil)
-        }
-    }
+    exceptionsHwnd = createWindow(exceptionsClassW, title: L("settings.exc.title"), width: 440, height: 400, owner: owner)
     guard let hwnd = exceptionsHwnd else { return }
-    let dpi = GetDpiForWindow(hwnd)
-    excDpi = dpi > 0 ? Int32(dpi) : 96
+    excDpi = windowDpi(hwnd)
     rows = loadRows()
     buildExceptions(hwnd)
 
     // Size to the scaled client area, centered over the owner (Settings).
-    var wr = RECT(); GetWindowRect(hwnd, &wr)
-    var cr = RECT(); GetClientRect(hwnd, &cr)
-    let w = esc(clientW) + (wr.right - wr.left) - (cr.right - cr.left)
-    let h = esc(clientH) + (wr.bottom - wr.top) - (cr.bottom - cr.top)
-    var or = RECT(); GetWindowRect(owner, &or)
-    SetWindowPos(hwnd, nil, or.left + ((or.right - or.left) - w) / 2, or.top + ((or.bottom - or.top) - h) / 2,
-                 w, h, UINT(SWP_NOZORDER))
-    ShowWindow(hwnd, SW_SHOW)
-    SetForegroundWindow(hwnd)
+    sizeCenteredOverOwner(hwnd, owner: owner, clientWidth: esc(clientW), clientHeight: esc(clientH))
+    showAndFocus(hwnd)
 }

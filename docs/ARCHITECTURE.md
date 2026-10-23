@@ -89,6 +89,8 @@ Diagnostics without the GUI: `ReLayout.app/Contents/MacOS/ReLayout --enabled` li
 - `WinLayout.swift` — builds `LayoutMaps` via `ToUnicodeEx` (cached per HKL), language code, lists/switches HKLs.
 - `WinInput.swift` — `SendInput` writes: text as real key presses of the target layout after switching to it (`typeText`; VK_PACKET can't be batched — a busy app reads one character several times, undocumented), paced Unicode events as the fallback, Backspace; the Ctrl+C fallback read with clipboard save/restore, `pumpWait`, focus/console helpers.
 - `WinUIA.swift` + `native/relayout_uia.cpp` — UI Automation: the selection, the field snapshot for the Enter follow-up, the password-field flag. C++ because Swift has no COM.
+- `WinUI.swift` — what the Settings, Exceptions and Learned windows share: per-dpi scaling and fonts, themed controls, text measuring, `WM_CTLCOLOR*`/background painting, list-view colors and columns, window class registration and sizing.
+- `WinSys.swift` — Win32 stand-ins for the Foundation calls the port made (file read, directory list, thread).
 - `WinTheme.swift` + `native/relayout_theme.cpp` — light/dark: DWM title bar, the system's dark control styles, theme colors for background/text/separators, dark tray menu (uxtheme ordinal 135).
 - `WinSpell.swift` + `native/relayout_spell.cpp` — the system spell checker (Windows Spell Checking API, `ISpellCheckerFactory`/`ISpellChecker`) for the `autoSpell` option: `isWord` / `spellGuesses` feed engine `spellCheckedTarget` / `spellRepairedTarget`, `hasSpellDictionary` decides whether Settings offers it.
 - `WinUpdate.swift` + `native/relayout_http.cpp` — the update check (GitHub latest release over WinHTTP, which Swift's WinSDK module lacks).

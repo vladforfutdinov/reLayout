@@ -19,6 +19,10 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
   e2e green (macOS 11/11, Windows 18/18). Downloads: installer 18 → 5.5 MB,
   portable exe 16 → 3.5 MB, x64 and arm64.
 - The Mac Enter e2e flake did not come back in six VM runs.
+- Cold Windows VM rechecked: rebuilt before a reboot, e2e run 6 min after boot
+  on `273d499` — plain 18/18, spell 20/20, no hook callback over 100 ms. The
+  cold-start losses and the 22 s stall seen before the stall fixes did not
+  come back; one cold run, so "fixed" is likely, not proven.
 
 ---
 

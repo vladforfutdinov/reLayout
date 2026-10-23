@@ -4,6 +4,16 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.16 — demo follows the per-app features rework
+
+- Listed apps now start with both features off, so the demo's Terminal scene
+  changed: Shift twice does nothing there, the hotkey is allowed for Terminal
+  in Per-app features (Apps…), then Shift twice converts in Terminal. README
+  shows the small GIF (560 px, 6 fps, 7.6 MB).
+- Seen while recording: Settings opened behind TextEdit once — `NSApp.activate()`
+  is cooperative on macOS 14+, so a user can hit this too. The scenario raises
+  the window over AX; reLayout itself is unchanged.
+
 ## After v1.3.16 — per-app features: a listed app starts with both off
 
 - Owner: by default both ticks cleared. The default apps (terminals,

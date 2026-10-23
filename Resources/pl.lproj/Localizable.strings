@@ -37,7 +37,7 @@
 "settings.exc.remove" = "Usuń";
 "settings.exc.done" = "Gotowe";
 "settings.exc.info" = "Terminale, edytory kodu, maszyny wirtualne i pulpity zdalne są na liście od początku: wpisuje się tam polecenia lub kod albo klawisze trafiają do innego systemu z własnym układem, więc autokorekta by szkodziła. Usuń program z listy, aby ją w nim włączyć. Figma jest na liście także z wyłączonym skrótem: jej płótno bierze wpisany tekst za skróty narzędzi.";
-"settings.exc.hint" = "Zaznaczone: działa w programie. Odznacz, by wyłączyć.";
+"settings.exc.hint" = "Zezwól na funkcje w każdym programie:";
 "settings.exc.section" = "Wyłącz autokorektę lub skrót w wybranych programach";
 "settings.exc.auto" = "Autokorekta";
 "settings.exc.auto.tip" = "Zaznaczone: autokorekta działa w tym programie.";

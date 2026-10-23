@@ -37,7 +37,7 @@
 "settings.exc.remove" = "Remove";
 "settings.exc.done" = "Done";
 "settings.exc.info" = "Terminals, code editors, virtual machines and remote desktops are listed from the start: there you type commands or code, or another system with its own layout takes the keys, so auto-correct would do harm. Remove one to turn auto-correct on in it. Figma is listed with the hotkey off too: its canvas reads typed text as tool shortcuts.";
-"settings.exc.hint" = "Ticked: works in this program. Clear to turn off.";
+"settings.exc.hint" = "Allow features for each program:";
 "settings.exc.section" = "Turn auto-correct or the hotkey off in chosen programs";
 "settings.exc.auto" = "Auto-correct";
 "settings.exc.auto.tip" = "Ticked: auto-correct works in this program.";

@@ -22,12 +22,6 @@ Today auto-correct fixes a word at its boundary and holds the keys typed meanwhi
 
 **Steps:** collect a week of timings; count boundaries where keys were held (`hold` lines) and how long; decide; if it goes ahead, the pause detection and per-word re-decision belong in the engine (`AutoRun` in `Core/Auto.swift`) so both platforms share them.
 
-## Windows keyboard in the landing demo
-
-The hero demo on the landing page (`index.html` on `gh-pages`) draws a Mac keyboard row — fn, control, option, command — with the ⌥ key lighting up as the hotkey. Add a Windows variant: Ctrl, Win, Alt, with the Windows default hotkey lit.
-
-**Steps:** a second key row in the `.kb` block, shown for Windows visitors by the same OS detection that already makes "Download for Windows" the primary button (`navigator.userAgentData.platform` / `navigator.platform`); the animation script highlights the hotkey key per variant. Do it after the default hotkey above is settled, so the demo shows the real one.
-
 ## Wide trigram model set
 
 Generate trigram models for ~40–60 langs (all Cyrillic + common Latin from the Hermit Dave *FrequencyWords* corpus) and commit them to `Resources/trigram/`, so auto-mode works for far more language pairs than the current 8 (`de en es fr pl pt ru uk`).
@@ -47,8 +41,19 @@ Generate trigram models for ~40–60 langs (all Cyrillic + common Latin from the
 
 ## Windows: a triple-clicked line counts as no selection
 
-Windows `readSelection` treats any copy that ends in a line break as "no selection", so a line selected by triple click is ignored and the hotkey falls back to the typed word.
+When UI Automation gives no text, Windows `readSelection` copies, and a copy that ends in a line break with no Chromium mark counts as "no selection": a line selected by triple click in such an app is ignored and the hotkey falls back to the typed word.
 
-**Why:** the rule guards against VS Code copying the whole line when nothing is selected; macOS tells the two apart by VS Code's `"isFromEmptySelection":true` clipboard metadata (`org.chromium.web-custom-data`) instead of the trailing newline.
+**Why:** the rule guards against editors that copy the whole line when nothing is selected. VS Code's `"isFromEmptySelection"` mark (Chromium custom data) is already read and decides first (`copiedFromEmptySelection`); the trailing-newline guess is the fallback for everything else.
 
-**Steps:** read the same Chromium custom-data format on Windows (clipboard format registered as "Chromium Web Custom MIME Data Format") and drop the trailing-newline rule; verify in VS Code and a plain editor in the VM.
+**Steps:** also read the line-copy marks Scintilla (Notepad++) and Visual Studio put on the clipboard (`MSDEVLineSelect`, `VisualStudioEditorOperationsLineCutCopyClipboardTag`) and keep the newline guess only for apps with no mark; verify in Notepad++, VS Code and a plain editor in the VM.
+
+## Windows package managers: winget, Scoop, Chocolatey
+
+Today Windows users download the installer or portable exe from the release page. macOS has its own Homebrew tap; Windows has no equivalent yet.
+
+**Why:** a one-line install and upgrade is what Windows users expect. Options, from the 2026-10-23 look:
+- **winget** — in every Windows 10/11. Only through `microsoft/winget-pkgs` (free; a PR, the Microsoft CLA once, automated validation plus a moderator, hours to days; an unsigned exe may wait for manual review). No own-repo source short of hosting a REST service. Gives no signature: the manifest pins the GitHub URL and SHA-256. Whether an install through winget skips the SmartScreen prompt for the unsigned exe is unverified.
+- **Scoop** — the brew-tap equivalent: an own bucket repo of JSON manifests, no review, per-user, no admin. Smaller audience.
+- **Chocolatey** — community repo with the slowest moderation (validator, test VM, VirusTotal, a human; days to weeks for the first versions). Runs elevated, which fits our per-user installer badly (an elevation under another admin account installs into that account's profile).
+
+**Steps:** winget first — the first manifest with `wingetcreate new` (x64 + arm64 installer URLs; Inno Setup and its silent switches are detected), tried locally with `winget install --manifest` in the VM (SmartScreen question answered there), then the PR; afterwards a CI step on `v*` tags (`vedantmgoyal9/winget-releaser`, a token for the `winget-pkgs` fork as a secret) opens the update PRs. Scoop next if wanted (bucket repo + `autoupdate`, or a CI push like the tap's). Chocolatey last. Signing (SignPath Foundation for open source, or Azure Trusted Signing) is a separate track and helps every channel.

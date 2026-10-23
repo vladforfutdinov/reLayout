@@ -39,6 +39,11 @@ void relayout_set_window_theme(void *hwnd, const uint16_t *subAppName);
 /// ordinal 135, undocumented but stable since Windows 10 1903). No-op if missing.
 void relayout_allow_dark_menus(int32_t dark);
 
+/// Draws a check box (clear or checked) in the visual style of `button` (a BUTTON
+/// window, themed light or dark) and appends it to the image list `images`.
+/// Returns the new image's index, or -1 on failure.
+int32_t relayout_add_check_image(void *images, void *button, int32_t checked);
+
 /// HTTPS GET through WinHTTP (system proxy settings, 5 s connect/10 s receive).
 /// Writes up to `cap` bytes of the body into `buf`.
 /// Returns the body length, or a negative value on any failure or a non-200 status.

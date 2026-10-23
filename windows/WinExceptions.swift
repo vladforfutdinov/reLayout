@@ -1,5 +1,6 @@
 import WinSDK
 import ReLayoutCore
+import RelayoutNative
 
 // "Exceptions" window, like the macOS sheet: a list of programs (icon and name),
 // each with two check columns — auto-correct off, retype hotkey off — then
@@ -161,29 +162,20 @@ private func fillList(_ hwnd: HWND?) {
     updateRemoveButton(hwnd)
 }
 
-/// Adds the list view's own check box images (clear, checked) in the current
-/// theme to `images`, taken from a hidden list view with check boxes: those draw
-/// only in column 0, the check columns show them as sub-item images.
+/// Adds check box images (clear, checked) in the current theme to `images`, drawn
+/// in the style of a hidden themed BUTTON: the list view's own state images keep a
+/// light box in the dark theme. The check columns show them as sub-item images.
 /// - Returns: their indexes, nil when they could not be made (a check mark is shown instead).
 private func addCheckImages(_ hwnd: HWND?, to images: HIMAGELIST?) -> (off: Int32, on: Int32)? {
-    let probe = "SysListView32".withCString(encodedAs: UTF16.self) {
-        CreateWindowExW(0, $0, nil, DWORD(WS_CHILD) | DWORD(0x1 /* LVS_REPORT */), 0, 0, 0, 0,
-                        hwnd, nil, GetModuleHandleW(nil), nil)
+    let probe = "BUTTON".withCString(encodedAs: UTF16.self) {
+        CreateWindowExW(0, $0, nil, DWORD(WS_CHILD), 0, 0, 0, 0, hwnd, nil, GetModuleHandleW(nil), nil)
     }
     guard let probe else { return nil }
-    defer { DestroyWindow(probe) }   // and its state image list with it
-    applyControlTheme(probe, className: "SysListView32", dark: excColors.dark)
-    SendMessageW(probe, UINT(0x1036 /* LVM_SETEXTENDEDLISTVIEWSTYLE */), 0, LPARAM(0x4 /* LVS_EX_CHECKBOXES */))
-    let state = SendMessageW(probe, UINT(0x1002 /* LVM_GETIMAGELIST */), WPARAM(2 /* LVSIL_STATE */), 0)
-    guard state != 0 else { return nil }
-    var added: [Int32] = []
-    for i: Int32 in 0...1 {
-        guard let icon = ImageList_GetIcon(HIMAGELIST(bitPattern: Int(state)), i, UINT(0 /* ILD_NORMAL */))
-        else { return nil }
-        added.append(ImageList_ReplaceIcon(images, -1, icon))
-        DestroyIcon(icon)
-    }
-    return added.contains(-1) ? nil : (added[0], added[1])
+    defer { DestroyWindow(probe) }
+    applyControlTheme(probe, className: "BUTTON", dark: excColors.dark)
+    let off = relayout_add_check_image(UnsafeMutableRawPointer(images), UnsafeMutableRawPointer(probe), 0)
+    let on = relayout_add_check_image(UnsafeMutableRawPointer(images), UnsafeMutableRawPointer(probe), 1)
+    return off < 0 || on < 0 ? nil : (off, on)
 }
 
 private func setCheck(_ list: HWND?, _ row: Int, _ column: Int32, _ on: Bool) {

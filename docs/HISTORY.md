@@ -4,6 +4,16 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.16 — Windows: dark check boxes in Exceptions; UI screenshots in the repo
+
+- In the dark theme the Exceptions list's empty check boxes were light: they were
+  the list view's own state images, which `DarkMode_Explorer` leaves light. Now
+  drawn with the BUTTON theme of a hidden themed button
+  (`relayout_add_check_image`, uxtheme `DrawThemeBackground`), the same boxes
+  as in Settings.
+- The screenshot scripts used for VM checks lived only in the VM's `C:\src`.
+  Now `scripts/win-shots.sh` + `scripts/e2e/win-shots{,-inner}.ps1`.
+
 ## After v1.3.16 — the demo is recorded and cut by scripts
 
 - `scripts/demo-vm.sh setup|take` plays a feature tour in the macOS VM

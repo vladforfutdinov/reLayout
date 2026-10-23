@@ -164,8 +164,9 @@ let captionText: [String: String] = [
     "auto": "Auto-correct fixes it as you type",
     "learn": "Shift twice undoes a fix, and it is remembered",
     "learned": "Learned words",
-    "terminal": "Terminals: no auto-correct, the hotkey still works",
-    "exceptions": "Per-app exceptions",
+    "terminal": "Terminals: reLayout stays out by default",
+    "apps": "Per-app features: allow the hotkey in Terminal",
+    "terminal2": "Now the hotkey works there",
     "off": "⌃⌥A: auto-correct off",
 ]
 /// Caption text, its opacity, and whether it goes low (the shot looks at the menu bar).

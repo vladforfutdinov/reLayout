@@ -108,7 +108,7 @@ func frame(_ e: AXUIElement) -> CGRect? {
     return CGRect(origin: pt, size: sz)
 }
 func texts(_ e: AXUIElement) -> [String] {
-    [kAXTitleAttribute, kAXDescriptionAttribute, kAXValueAttribute].compactMap { attr(e, $0) as? String }
+    [kAXTitleAttribute, kAXDescriptionAttribute, kAXValueAttribute, kAXIdentifierAttribute].compactMap { attr(e, $0) as? String }
 }
 func app(_ bundle: String) -> AXUIElement {
     for _ in 0..<50 {
@@ -146,6 +146,17 @@ func panel(_ title: String) -> AXUIElement {
           let up = attr(e, kAXParentAttribute) { e = up as! AXUIElement }
     return e
 }
+/// The check box of `flag` ("auto" or "hotkey") in the Per-app features row of `app`.
+func appCheckbox(_ panel: AXUIElement, app name: String, flag: String) -> AXUIElement {
+    var queue = [panel]
+    while !queue.isEmpty {
+        let e = queue.removeFirst()
+        if attr(e, kAXRoleAttribute) as? String == "AXRow", tryFind(e, name, exact: true, timeout: 0) != nil,
+           let box = tryFind(e, role: "AXCheckBox", flag, exact: true, timeout: 0) { return box }
+        queue += (attr(e, kAXChildrenAttribute) as? [AXUIElement]) ?? []
+    }
+    fatalError("no \(flag) check box for \(name)")
+}
 func clickOn(_ e: AXUIElement, dur: Double = 0.55) {
     guard let r = frame(e) else { fatalError("no frame") }
     moveTo(CGPoint(x: r.midX, y: r.midY), dur); pause(0.12); click()
@@ -177,7 +188,13 @@ func openSettings() -> AXUIElement {
         // Settings… is the menu's first item: clicked by its offset, since walking the app's
         // AX tree while the menu tracks stalls reLayout and the click got lost.
         moveTo(CGPoint(x: icon.midX + 59, y: icon.midY + 33), 0.35); pause(0.12); click()
-        if let w = window(relayoutID, "reLayout Settings", timeout: 8) { return w }   // first build after a rebuild can take >3 s
+        if let w = window(relayoutID, "reLayout Settings", timeout: 8) {
+            // NSApp.activate() is cooperative on macOS 14+: the window can open behind the front app.
+            AXUIElementSetAttributeValue(app(relayoutID), kAXFrontmostAttribute as CFString, kCFBooleanTrue)
+            AXUIElementPerformAction(w, kAXRaiseAction as CFString)
+            pause(0.2)
+            return w
+        }   // first build after a rebuild can take >3 s
     }
     fatalError("Settings did not open")
 }
@@ -252,22 +269,32 @@ func run() {
     clickOn(find(learned, role: "AXButton", "Done")); pause(0.4)
     press(13, .maskCommand); pause(0.5)
 
-    // 6. Terminal: auto-correct stays out, the hotkey still works.
+    // 6. Terminal: a listed app starts with both features off, so Shift twice does nothing.
     mark("wide", nil)
     clickOn(find(app("com.apple.dock"), role: "AXDockItem", "Terminal"), dur: 0.8); pause(1.2)
     mark("terminal", typingArea("com.apple.Terminal", height: 200), zoom: 1.7, hold: 1.8)
-    type("echo ghbdsn "); pause(1.0)
-    shiftTwice(); pause(0.9)
-    type("\n"); pause(1.0)
+    type("echo ghbdsn "); pause(0.8)
+    shiftTwice(); pause(1.4)
+    type("\n"); pause(0.8)
 
-    // 7. Exceptions: Terminal is there from the start.
+    // 7. Per-app features: allow the hotkey in Terminal.
     settings = openSettings()
     mark("settings", frame(settings), zoom: 1.5, hold: 1.0)
-    clickOn(find(settings, role: "AXButton", "Exceptions"), dur: 0.9); pause(0.8)
-    let exc = panel("Exceptions")
-    mark("exceptions", frame(exc), zoom: 1.6); pause(2.4)
-    clickOn(find(exc, role: "AXButton", "Done")); pause(0.4)
+    clickOn(find(settings, role: "AXButton", "Apps"), dur: 0.9); pause(0.8)
+    let apps = panel("Per-app features")
+    mark("apps", frame(apps), zoom: 1.6, hold: 1.8)
+    clickOn(appCheckbox(apps, app: "Terminal", flag: "hotkey"), dur: 0.8); pause(1.2)
+    clickOn(find(apps, role: "AXButton", "Done")); pause(0.4)
     press(13, .maskCommand); pause(0.5)
+
+    // Back in Terminal: now the hotkey works there.
+    if let w = frame(find(app("com.apple.Terminal"), role: "AXWindow")) {
+        moveTo(CGPoint(x: w.midX, y: w.midY), 0.8); pause(0.1); click(); pause(0.4)
+    }
+    mark("terminal2", typingArea("com.apple.Terminal", height: 200), zoom: 1.7, hold: 1.4)
+    type("echo ghbdsn"); pause(0.8)
+    shiftTwice(); pause(1.0)
+    type("\n"); pause(1.0)
 
     // 8. ⌃⌥A turns auto-correct off: the dot goes.
     mark("off", menuBar, zoom: 3.6, hold: 1.2)

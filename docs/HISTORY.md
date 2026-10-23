@@ -4,6 +4,18 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.16 — Windows: hover in light lists
+
+- Exceptions and Learned words highlighted the row under the cursor only in
+  the dark theme: there the list has the `DarkMode_Explorer` style, in the
+  light theme no style. The light `Explorer` style hovers too but draws
+  column lines, so light lists draw the hover themselves: a subclass
+  (`trackHover`) follows the row under the cursor, custom draw
+  (`paintHover`) fills it with File Explorer's hover blue; selected rows
+  keep the selection.
+- `scripts/win-shots.sh` moves the real mouse (SendInput) over a list row
+  once the list exists, so the shots show the hover.
+
 ## After v1.3.16 — Windows exceptions: check boxes centred by custom draw
 
 - The centring of 1.3.16 (box-wide check columns between pad columns) showed

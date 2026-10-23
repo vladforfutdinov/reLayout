@@ -196,15 +196,15 @@ private func setCheck(_ list: HWND?, _ row: Int, _ column: Int32, _ on: Bool) {
 }
 
 /// NM_CUSTOMDRAW of the list: the list paints each cell (background, selection),
-/// then the check cells get their box centred on top.
-private func drawCheck(_ list: HWND?, _ raw: UnsafeRawPointer) -> LRESULT {
+/// then the check cells get their box centred on top; the hovered row is coloured.
+private func drawCheck(_ list: HWND?, _ raw: UnsafeMutableRawPointer) -> LRESULT {
     let cd = raw.assumingMemoryBound(to: NMLVCUSTOMDRAW.self).pointee
     let column = cd.iSubItem, row = Int(cd.nmcd.dwItemSpec)
     switch cd.nmcd.dwDrawStage {
     case DWORD(0x1 /* CDDS_PREPAINT */): return LRESULT(0x20 /* CDRF_NOTIFYITEMDRAW */)
-    case DWORD(0x10001 /* CDDS_ITEMPREPAINT */): return LRESULT(0x20 /* CDRF_NOTIFYSUBITEMDRAW */)
+    case DWORD(0x10001 /* CDDS_ITEMPREPAINT */): return LRESULT(0x20 /* CDRF_NOTIFYSUBITEMDRAW */) | paintHover(list, raw)
     case DWORD(0x30001 /* CDDS_SUBITEM | CDDS_ITEMPREPAINT */):
-        return column == colAuto || column == colHotkey ? LRESULT(0x10 /* CDRF_NOTIFYPOSTPAINT */) : 0
+        return (column == colAuto || column == colHotkey ? LRESULT(0x10 /* CDRF_NOTIFYPOSTPAINT */) : 0) | paintHover(list, raw)
     case DWORD(0x30002 /* CDDS_SUBITEM | CDDS_ITEMPOSTPAINT */):
         guard let images = checkImages, rows.indices.contains(row) else { return 0 }
         let on = column == colAuto ? !rows[row].auto : !rows[row].hotkey
@@ -358,6 +358,7 @@ private func buildExceptions(_ hwnd: HWND?) {
     SendMessageW(list, UINT(0x1036 /* LVM_SETEXTENDEDLISTVIEWSTYLE */), 0,
                  LPARAM(0x20 /* LVS_EX_FULLROWSELECT */ | 0x10000 /* LVS_EX_DOUBLEBUFFER */))
     applyListColors(list, excColors)
+    if !excColors.dark { trackHover(list) }
     insertColumns(list, widths: [nameCx, esc(autoW), esc(hotkeyW)])
 
     // "+" (Choose…) / "−" (remove the selection), then "Exclude current app"; Done
@@ -389,7 +390,7 @@ private func exceptionsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ l
         if let raw = UnsafeRawPointer(bitPattern: Int(lParam)) {
             let hdr = raw.assumingMemoryBound(to: NMHDR.self).pointee
             guard hdr.idFrom == UINT_PTR(idExcList) else { break }
-            if hdr.code == UINT(bitPattern: -12) /* NM_CUSTOMDRAW */ { return drawCheck(hdr.hwndFrom, raw) }
+            if hdr.code == UINT(bitPattern: -12) /* NM_CUSTOMDRAW */ { return drawCheck(hdr.hwndFrom, UnsafeMutableRawPointer(mutating: raw)) }
             if hdr.code == UINT(bitPattern: -101) /* LVN_ITEMCHANGED */ { updateRemoveButton(hwnd) }
             if hdr.code == UINT(bitPattern: -2) /* NM_CLICK */ || hdr.code == UINT(bitPattern: -3) /* NM_DBLCLK */ {
                 clickCell(hwnd)

@@ -244,6 +244,7 @@ private func buildLearned(_ hwnd: HWND?) {
     SendMessageW(list, UINT(0x1036 /* LVM_SETEXTENDEDLISTVIEWSTYLE */), 0,
                  LPARAM(0x20 /* LVS_EX_FULLROWSELECT */ | 0x10000 /* LVS_EX_DOUBLEBUFFER */ | 0x4 /* LVS_EX_CHECKBOXES */))
     applyListColors(list, lrnColors)
+    if !lrnColors.dark { trackHover(list) }
     insertColumns(list, widths: [lsc(checkW), lsc(typedW), lsc(width - checkW - typedW) - GetSystemMetrics(SM_CXVSCROLL) - 4])
     y += 212
 
@@ -293,6 +294,15 @@ private func learnedWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lPar
         let hdr = raw.assumingMemoryBound(to: NMHDR.self).pointee
         guard hdr.idFrom == UINT_PTR(idLrnList) else { break }
         switch hdr.code {
+        case UINT(bitPattern: -12) /* NM_CUSTOMDRAW */:
+            let cd = UnsafeMutableRawPointer(mutating: raw)
+            switch raw.assumingMemoryBound(to: NMCUSTOMDRAW.self).pointee.dwDrawStage {
+            case DWORD(0x1 /* CDDS_PREPAINT */): return LRESULT(0x20 /* CDRF_NOTIFYITEMDRAW */)
+            case DWORD(0x10001 /* CDDS_ITEMPREPAINT */):
+                return LRESULT(0x20 /* CDRF_NOTIFYSUBITEMDRAW */) | paintHover(hdr.hwndFrom, cd)
+            case DWORD(0x30001 /* CDDS_SUBITEM | CDDS_ITEMPREPAINT */): return paintHover(hdr.hwndFrom, cd)
+            default: return 0
+            }
         case UINT(bitPattern: -101) /* LVN_ITEMCHANGED */:
             let nm = raw.assumingMemoryBound(to: NMLISTVIEW.self).pointee
             let image = UINT(0xF000 /* LVIS_STATEIMAGEMASK */)

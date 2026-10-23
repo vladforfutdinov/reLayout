@@ -27,6 +27,9 @@ func taskbarIsDark() -> Bool { personalizeFlag("SystemUsesLightTheme") != true }
 
 private func rgb(_ r: UInt32, _ g: UInt32, _ b: UInt32) -> COLORREF { COLORREF(r | g << 8 | b << 16) }
 
+/// Background of the row under the cursor in a light list (File Explorer's).
+let lightListHover = rgb(229, 243, 255)
+
 /// The colors our windows paint with in the current app mode.
 struct ThemeColors {
     let dark: Bool

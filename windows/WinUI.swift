@@ -121,6 +121,72 @@ func applyListColors(_ list: HWND?, _ colors: ThemeColors) {
     SendMessageW(list, UINT(0x1024 /* LVM_SETTEXTCOLOR */), 0, fg)
 }
 
+private var hoverRows: [HWND: Int] = [:]
+
+/// Light theme: an unthemed list view draws no hover. `list` reports the row under
+/// the cursor here and repaints it; its custom draw colours it with `paintHover`.
+func trackHover(_ list: HWND?) {
+    _ = SetWindowSubclass(list, hoverProc, 1, 0)
+}
+
+private func hoverProc(_ list: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lParam: LPARAM,
+                       _ id: UINT_PTR, _ data: DWORD_PTR) -> LRESULT {
+    switch msg {
+    case UINT(WM_MOUSEMOVE):
+        var hit = LVHITTESTINFO()
+        hit.pt = POINT(x: LONG(Int16(truncatingIfNeeded: lParam & 0xFFFF)),
+                       y: LONG(Int16(truncatingIfNeeded: (lParam >> 16) & 0xFFFF)))
+        let row = withUnsafeMutablePointer(to: &hit) {
+            Int(SendMessageW(list, UINT(0x1012 /* LVM_HITTEST */), 0, LPARAM(Int(bitPattern: $0))))
+        }
+        setHoverRow(list, row)
+        var leave = TRACKMOUSEEVENT()
+        leave.cbSize = DWORD(MemoryLayout<TRACKMOUSEEVENT>.size)
+        leave.dwFlags = DWORD(0x2 /* TME_LEAVE */)
+        leave.hwndTrack = list
+        _ = TrackMouseEvent(&leave)
+    case UINT(0x02A3 /* WM_MOUSELEAVE */):
+        setHoverRow(list, -1)
+    case UINT(WM_NCDESTROY):
+        if let list { hoverRows[list] = nil }
+        _ = RemoveWindowSubclass(list, hoverProc, 1)
+    default: break
+    }
+    return DefSubclassProc(list, msg, wParam, lParam)
+}
+
+private func setHoverRow(_ list: HWND?, _ row: Int) {
+    guard let list else { return }
+    let old = hoverRows[list] ?? -1
+    guard old != row else { return }
+    hoverRows[list] = row
+    for r in [old, row] where r >= 0 {
+        SendMessageW(list, UINT(0x1015 /* LVM_REDRAWITEMS */), WPARAM(r), LPARAM(r))
+    }
+}
+
+/// Item or sub-item prepaint (NM_CUSTOMDRAW) of a list with `trackHover`: gives the
+/// hovered row, unless selected, the hover background.
+/// - Returns: CDRF_NEWFONT when it did, else 0; or it into the stage's answer.
+func paintHover(_ list: HWND?, _ raw: UnsafeMutableRawPointer) -> LRESULT {
+    let cd = raw.assumingMemoryBound(to: NMLVCUSTOMDRAW.self)
+    let row = Int(cd.pointee.nmcd.dwItemSpec)
+    guard let list, hoverRows[list] == row,
+          SendMessageW(list, UINT(0x102C /* LVM_GETITEMSTATE */), WPARAM(row), LPARAM(0x2 /* LVIS_SELECTED */)) == 0
+    else { return 0 }
+    if cd.pointee.nmcd.dwDrawStage == DWORD(0x10001 /* CDDS_ITEMPREPAINT */) {
+        var bounds = RECT()   // left = LVIR_BOUNDS
+        _ = withUnsafeMutablePointer(to: &bounds) {
+            SendMessageW(list, UINT(0x100E /* LVM_GETITEMRECT */), WPARAM(row), LPARAM(Int(bitPattern: $0)))
+        }
+        let brush = CreateSolidBrush(lightListHover)
+        FillRect(cd.pointee.nmcd.hdc, &bounds, brush)
+        DeleteObject(UnsafeMutableRawPointer(brush))
+    }
+    cd.pointee.clrTextBk = lightListHover
+    return LRESULT(0x2 /* CDRF_NEWFONT */)
+}
+
 /// Appends a column of each width (device pixels) to a report-view list.
 func insertColumns(_ list: HWND?, widths: [Int32]) {
     for (i, cx) in widths.enumerated() {

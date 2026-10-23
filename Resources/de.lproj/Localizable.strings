@@ -37,12 +37,12 @@
 "settings.exc.remove" = "Entfernen";
 "settings.exc.done" = "Fertig";
 "settings.exc.info" = "Terminals, Code-Editoren, virtuelle Maschinen und Remotedesktops stehen von Anfang an in der Liste: Dort tippt man Befehle oder Code, oder ein anderes System mit eigenem Layout empfängt die Tasten – die Autokorrektur würde schaden. Entferne ein Programm, um sie dort einzuschalten. Figma steht auch mit ausgeschaltetem Hotkey in der Liste: Die Arbeitsfläche hält getippten Text für Werkzeug-Kürzel.";
-"settings.exc.hint" = "In diesen Programmen ausgeschaltet:";
+"settings.exc.hint" = "Angehakt: aktiv im Programm. Haken entfernen = aus.";
 "settings.exc.section" = "Autokorrektur oder Hotkey in ausgewählten Programmen ausschalten";
 "settings.exc.auto" = "Autokorrektur";
-"settings.exc.auto.tip" = "Angehakt: keine Autokorrektur in diesem Programm.";
+"settings.exc.auto.tip" = "Angehakt: Autokorrektur ist in diesem Programm aktiv.";
 "settings.exc.hotkey" = "Hotkey";
-"settings.exc.hotkey.tip" = "Angehakt: Der Hotkey tut in diesem Programm nichts. Sind beide angehakt, liest reLayout hier keine Tasten.";
+"settings.exc.hotkey.tip" = "Angehakt: Der Hotkey funktioniert in diesem Programm. Sind beide leer, liest reLayout hier keine Tasten.";
 
 // learned words
 "settings.learned" = "Gelernte Wörter: %@";

@@ -4,6 +4,15 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.16 — exceptions: a tick means the feature works
+
+- The Exceptions window's check boxes read inverted: ticked meant auto-correct
+  or the hotkey was *off*, which confused. Now ticked = works in that program,
+  cleared = off, on macOS and Windows. Only the display flips; the stored
+  `autoExcludedApps` / `hotkeyExcludedApps` lists and `AppExceptions` are
+  unchanged, so no settings migration. The window's hint line and both column
+  tips say so in all 12 languages.
+
 ## After v1.3.16 — Windows UI helpers shared; CI shows the smaller download
 
 - The audit's last item: Settings, Exceptions and Learned each carried their

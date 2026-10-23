@@ -37,12 +37,12 @@
 "settings.exc.remove" = "Remove";
 "settings.exc.done" = "Done";
 "settings.exc.info" = "Terminals, code editors, virtual machines and remote desktops are listed from the start: there you type commands or code, or another system with its own layout takes the keys, so auto-correct would do harm. Remove one to turn auto-correct on in it. Figma is listed with the hotkey off too: its canvas reads typed text as tool shortcuts.";
-"settings.exc.hint" = "Turned off in these programs:";
+"settings.exc.hint" = "Ticked: works in this program. Clear to turn off.";
 "settings.exc.section" = "Turn auto-correct or the hotkey off in chosen programs";
 "settings.exc.auto" = "Auto-correct";
-"settings.exc.auto.tip" = "Ticked: no auto-correct in this program.";
+"settings.exc.auto.tip" = "Ticked: auto-correct works in this program.";
 "settings.exc.hotkey" = "Hotkey";
-"settings.exc.hotkey.tip" = "Ticked: the hotkey does nothing in this program. With both ticked, reLayout reads no keys here.";
+"settings.exc.hotkey.tip" = "Ticked: the hotkey works in this program. With both cleared, reLayout reads no keys here.";
 
 // learned words
 "settings.learned" = "Learned words: %@";

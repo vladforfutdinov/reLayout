@@ -1863,7 +1863,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         col.title = ""
         col.resizingMask = .autoresizingMask
         table.addTableColumn(col)
-        // Ticked = that feature is off in the app.
+        // Ticked = that feature works in the app.
         for (id, key) in [("auto", "settings.exc.auto"), ("hotkey", "settings.exc.hotkey")] {
             let c = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(id))
             c.title = L(key)
@@ -1945,8 +1945,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     @objc private func excToggleFlag(_ sender: NSButton) {
         guard excRows.indices.contains(sender.tag) else { return }
         let bid = excRows[sender.tag], on = sender.state == .on
-        if sender.identifier?.rawValue == "hotkey" { exceptions.setHotkey(bid, off: on) }
-        else { exceptions.setAuto(bid, off: on) }
+        if sender.identifier?.rawValue == "hotkey" { exceptions.setHotkey(bid, off: !on) }
+        else { exceptions.setAuto(bid, off: !on) }
     }
 
     @objc private func excChoose() {
@@ -1987,7 +1987,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             let box = NSButton(checkboxWithTitle: "", target: self, action: #selector(excToggleFlag(_:)))
             box.identifier = NSUserInterfaceItemIdentifier(flag)
             box.tag = row
-            box.state = (flag == "hotkey" ? exceptions.hotkeyOff(bid) : exceptions.autoOff(bid)) ? .on : .off
+            box.state = (flag == "hotkey" ? exceptions.hotkeyOff(bid) : exceptions.autoOff(bid)) ? .off : .on
             box.toolTip = L("settings.exc.\(flag).tip")
             let cell = NSView()
             box.translatesAutoresizingMaskIntoConstraints = false

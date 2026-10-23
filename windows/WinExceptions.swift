@@ -155,8 +155,8 @@ private func fillList(_ hwnd: HWND?) {
                 SendMessageW(list, UINT(0x104D /* LVM_INSERTITEMW */), 0, LPARAM(Int(bitPattern: $0)))
             }
         }
-        setCheck(list, i, colAuto, row.auto)
-        setCheck(list, i, colHotkey, row.hotkey)
+        setCheck(list, i, colAuto, !row.auto)   // ticked = the feature works
+        setCheck(list, i, colHotkey, !row.hotkey)
     }
     updateRemoveButton(hwnd)
 }
@@ -227,7 +227,7 @@ private func clickCell(_ hwnd: HWND?) {
     let on: Bool
     if hit.iSubItem == colAuto { rows[row].auto.toggle(); on = rows[row].auto }
     else { rows[row].hotkey.toggle(); on = rows[row].hotkey }
-    setCheck(list, row, hit.iSubItem, on)
+    setCheck(list, row, hit.iSubItem, !on)
     saveRows()
 }
 

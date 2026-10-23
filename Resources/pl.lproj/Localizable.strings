@@ -37,12 +37,12 @@
 "settings.exc.remove" = "Usuń";
 "settings.exc.done" = "Gotowe";
 "settings.exc.info" = "Terminale, edytory kodu, maszyny wirtualne i pulpity zdalne są na liście od początku: wpisuje się tam polecenia lub kod albo klawisze trafiają do innego systemu z własnym układem, więc autokorekta by szkodziła. Usuń program z listy, aby ją w nim włączyć. Figma jest na liście także z wyłączonym skrótem: jej płótno bierze wpisany tekst za skróty narzędzi.";
-"settings.exc.hint" = "Wyłączone w tych programach:";
+"settings.exc.hint" = "Zaznaczone: działa w programie. Odznacz, by wyłączyć.";
 "settings.exc.section" = "Wyłącz autokorektę lub skrót w wybranych programach";
 "settings.exc.auto" = "Autokorekta";
-"settings.exc.auto.tip" = "Zaznaczone: brak autokorekty w tym programie.";
+"settings.exc.auto.tip" = "Zaznaczone: autokorekta działa w tym programie.";
 "settings.exc.hotkey" = "Skrót";
-"settings.exc.hotkey.tip" = "Zaznaczone: skrót nic nie robi w tym programie. Gdy oba zaznaczone, reLayout nie czyta tu żadnych klawiszy.";
+"settings.exc.hotkey.tip" = "Zaznaczone: skrót działa w tym programie. Gdy oba odznaczone, reLayout nie czyta tu żadnych klawiszy.";
 
 // learned words
 "settings.learned" = "Nauczone słowa: %@";

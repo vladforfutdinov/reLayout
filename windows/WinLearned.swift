@@ -90,6 +90,8 @@ private func fillList(_ hwnd: HWND?) {
         setItemText(list, i, colOut, row.out.isEmpty && row.kind != .new ? L("settings.learned.keep") : row.out)
         setCheckImage(list, i, row.kind == .new ? 0 : row.kind == .candidate ? 1 : 2)
     }
+    // The last column fills the list up to its scroll bar, if the rows need one.
+    SendMessageW(list, UINT(0x101E /* LVM_SETCOLUMNWIDTH */), WPARAM(colOut), LPARAM(-2 /* LVSCW_AUTOSIZE_USEHEADER */))
     updateMinusButton(hwnd)
 }
 

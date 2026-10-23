@@ -15,6 +15,9 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
   (`DarkMode_ItemsView` kept them) and not custom draw alone (asking for
   every cell's stage kept them); the list's `LVS_EX_CHECKBOXES` is the
   remaining suspect, as old Exceptions had them with `LVS_EX_SUBITEMIMAGES`.
+- Learned words: the last column kept a scroll bar's width free even with no
+  scroll bar, an empty column at the right. It now fills the list
+  (`LVSCW_AUTOSIZE_USEHEADER` after each fill).
 
 ## After v1.3.16 — Windows: dark check boxes in Exceptions; UI screenshots in the repo
 

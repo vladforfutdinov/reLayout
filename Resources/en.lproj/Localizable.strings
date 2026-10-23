@@ -29,16 +29,15 @@
 "settings.autoCorrectSpell.tip" = "Asks the system spelling dictionary before converting: a real word is left alone even when it looks odd, and a word the dictionary knows only in the other layout is converted. Also fixes one typo in a word typed in the wrong layout (“рудддщ” → “hello”) when the dictionary leaves a single candidate. Available only when the system has a spelling dictionary for the language of an enabled layout.";
 "settings.autoCorrectUnavailable" = "Auto-correct needs keyboard layouts of different scripts, e.g. English and any Cyrillic one. Layouts of one script (%@) can't be told apart reliably — use the hotkey.";
 
-// auto-correct exceptions
-"settings.exceptions" = "Exceptions…";
-"settings.exc.title" = "Exceptions";
-"settings.exc.addCurrent" = "Exclude current app";
+// per-app features (stored as exception lists)
+"settings.exceptions" = "Apps…";
+"settings.exc.title" = "Per-app features";
+"settings.exc.addCurrent" = "Add current app";
 "settings.exc.choose" = "Choose…";
 "settings.exc.remove" = "Remove";
 "settings.exc.done" = "Done";
 "settings.exc.info" = "Terminals, code editors, virtual machines and remote desktops are listed from the start: there you type commands or code, or another system with its own layout takes the keys, so auto-correct would do harm. Remove one to turn auto-correct on in it. Figma is listed with the hotkey off too: its canvas reads typed text as tool shortcuts.";
-"settings.exc.hint" = "Allow features for each program:";
-"settings.exc.section" = "Turn auto-correct or the hotkey off in chosen programs";
+"settings.exc.section" = "Allow features per app";
 "settings.exc.auto" = "Auto-correct";
 "settings.exc.auto.tip" = "Ticked: auto-correct works in this program.";
 "settings.exc.hotkey" = "Hotkey";

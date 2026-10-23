@@ -29,16 +29,15 @@
 "settings.autoCorrectSpell.tip" = "转换前查询系统拼写词典:真实存在的单词即使看起来奇怪也保持不变,而词典只在另一种键盘布局中认识的单词会被转换。在错误布局中输入的单词若有一处拼写错误,且词典只给出一个候选,也会一并修正(“рудддщ” → “hello”)。仅当系统为某个已启用布局的语言提供拼写词典时可用。";
 "settings.autoCorrectUnavailable" = "自动纠正需要不同文字的键盘布局，例如英语和任意西里尔文布局。同一文字的布局（%@）无法可靠区分，请使用快捷键。";
 
-// auto-correct exceptions
-"settings.exceptions" = "例外…";
-"settings.exc.title" = "例外";
-"settings.exc.addCurrent" = "排除当前应用";
+// per-app features (stored as exception lists)
+"settings.exceptions" = "应用…";
+"settings.exc.title" = "按应用设置功能";
+"settings.exc.addCurrent" = "添加当前应用";
 "settings.exc.choose" = "选择…";
 "settings.exc.remove" = "移除";
 "settings.exc.done" = "完成";
 "settings.exc.info" = "终端、代码编辑器、虚拟机和远程桌面默认就在列表中：在那里输入的是命令或代码，或者按键会交给使用自己键盘布局的另一个系统，自动更正只会添乱。将某项移除即可在其中启用自动更正。Figma 也已列入并关闭了快捷键：它的画布会把输入的文字当作工具快捷键。";
-"settings.exc.hint" = "为每个程序允许功能：";
-"settings.exc.section" = "在指定程序中关闭自动更正或快捷键";
+"settings.exc.section" = "按应用允许功能";
 "settings.exc.auto" = "自动更正";
 "settings.exc.auto.tip" = "勾选：此程序中启用自动更正。";
 "settings.exc.hotkey" = "快捷键";

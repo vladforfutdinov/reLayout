@@ -2,9 +2,10 @@ import WinSDK
 import ReLayoutCore
 import RelayoutNative
 
-// "Exceptions" window, like the macOS sheet: a list of programs (icon and name),
-// each with two check columns — auto-correct off, retype hotkey off — then
-// "Exclude current app", "Choose…", "Remove" and "Done". Every change is saved at
+// Per-app features window ("Apps…" in Settings), like the macOS sheet: a list of
+// programs (icon and name), each with two check columns — auto-correct, retype
+// hotkey; ticked = works there — then "Add current app", "+" (Choose…), "−"
+// (Remove) and "Done". Every change is saved at
 // once; there is nothing to cancel. A program is stored by its executable name
 // ("code.exe") in two lists: the auto-correct one and the hotkey one.
 
@@ -12,9 +13,7 @@ private let idExcList:   Int = 201
 private let idExcCurrent: Int = 202
 private let idExcChoose: Int = 203
 private let idExcRemove: Int = 204
-private let idExcInfo:   Int = 205
 private let idExcDone:   Int = 206
-private let idExcTitle:  Int = 207
 private let idExcColAuto: Int = 208
 private let idExcColHotkey: Int = 209
 
@@ -27,7 +26,6 @@ private var exceptionsClassW = Array("ReLayoutExceptionsWnd".utf16) + [0]
 private var exceptionsClassRegistered = false
 private var excDpi: Int32 = 96
 private var excTooltip: HWND?
-private var excGlyphFont: HFONT?
 /// A program and what is off in it. A row with both cleared stays until the
 /// window closes; it is in neither list.
 private struct ExcRow { let exe: String; var auto: Bool; var hotkey: Bool }
@@ -315,24 +313,14 @@ private func makeExcControl(_ cls: String, _ text: String, _ style: Int32,
 }
 
 private let clientW: Int32 = 480
-private let clientH: Int32 = 322
+private let clientH: Int32 = 294
 
 private func buildExceptions(_ hwnd: HWND?) {
     excColors = ThemeColors.current()
     if let b = excBrush { DeleteObject(UnsafeMutableRawPointer(b)) }
     excBrush = CreateSolidBrush(excColors.background)
     applyTitleBarTheme(hwnd, dark: excColors.dark)
-    // The window caption already names it; this line says what the list does.
-    let title = L("settings.exc.hint")
-    makeExcControl("STATIC", title, 0, 16, 16, 360, 20, hwnd, idExcTitle)
-
-    // Why a fresh install already lists programs (terminals, editors, VMs).
-    let titleW = min(textWidth(title, hwnd) + 6, 340)
-    let info = makeExcControl("STATIC", "\u{E946}" /* Info glyph */, 0, 16 + titleW, 16, 20, 20, hwnd, idExcInfo)
-    excGlyphFont = makeFont("Segoe MDL2 Assets", points: 10, dpi: excDpi)
-    setFont(info, excGlyphFont)
     excTooltip = nil
-    addTooltip(&excTooltip, hwnd, info, L("settings.exc.info"), overWindow: true)
 
     // Check column titles as labels over a header-less list (a list view's header
     // does not follow the dark theme), as in Learned words: each starts where the
@@ -344,17 +332,17 @@ private func buildExceptions(_ hwnd: HWND?) {
     let autoW = max(textWidth(autoTitle, hwnd) + 12, 36), hotkeyW = max(textWidth(hotkeyTitle, hwnd) + 12, 36)
     let nameCx = esc(listW - autoW - hotkeyW) - GetSystemMetrics(SM_CXVSCROLL) - 4
     let autoX = 16 + 2 + nameCx * 96 / excDpi   // list border, then the program column
-    let autoLabel = makeExcControl("STATIC", autoTitle, Int32(0x0001 /* SS_CENTER */), autoX, 44, autoW, 18,
+    let autoLabel = makeExcControl("STATIC", autoTitle, Int32(0x0001 /* SS_CENTER */), autoX, 16, autoW, 18,
                                    hwnd, idExcColAuto)
     addTooltip(&excTooltip, hwnd, autoLabel, L("settings.exc.auto.tip"), overWindow: true)
-    let hotkeyLabel = makeExcControl("STATIC", hotkeyTitle, Int32(0x0001 /* SS_CENTER */), autoX + autoW, 44,
+    let hotkeyLabel = makeExcControl("STATIC", hotkeyTitle, Int32(0x0001 /* SS_CENTER */), autoX + autoW, 16,
                                      hotkeyW, 18, hwnd, idExcColHotkey)
     addTooltip(&excTooltip, hwnd, hotkeyLabel, L("settings.exc.hotkey.tip"), overWindow: true)
 
     let list = makeExcControl("SysListView32", "",
                               Int32(0x1 /* LVS_REPORT */) | Int32(0x4000 /* LVS_NOCOLUMNHEADER */)
                               | Int32(0x8 /* LVS_SHOWSELALWAYS */) | Int32(WS_TABSTOP),
-                              16, 64, listW, 200, hwnd, idExcList, exStyle: DWORD(WS_EX_CLIENTEDGE))
+                              16, 36, listW, 200, hwnd, idExcList, exStyle: DWORD(WS_EX_CLIENTEDGE))
     SendMessageW(list, UINT(0x1036 /* LVM_SETEXTENDEDLISTVIEWSTYLE */), 0,
                  LPARAM(0x20 /* LVS_EX_FULLROWSELECT */ | 0x10000 /* LVS_EX_DOUBLEBUFFER */))
     applyListColors(list, excColors)
@@ -363,13 +351,13 @@ private func buildExceptions(_ hwnd: HWND?) {
 
     // "+" (Choose…) / "−" (remove the selection), then "Exclude current app"; Done
     // on the right, as on macOS.
-    makeExcControl("BUTTON", "+", Int32(WS_TABSTOP), 16, 276, 28, 28, hwnd, idExcChoose)
-    makeExcControl("BUTTON", "\u{2212}", Int32(WS_TABSTOP), 16 + 28 + 4, 276, 28, 28, hwnd, idExcRemove)
-    makeExcControl("BUTTON", L("settings.exc.addCurrent"), Int32(WS_TABSTOP), 16 + 28 + 4 + 28 + 16, 276,
+    makeExcControl("BUTTON", "+", Int32(WS_TABSTOP), 16, 248, 28, 28, hwnd, idExcChoose)
+    makeExcControl("BUTTON", "\u{2212}", Int32(WS_TABSTOP), 16 + 28 + 4, 248, 28, 28, hwnd, idExcRemove)
+    makeExcControl("BUTTON", L("settings.exc.addCurrent"), Int32(WS_TABSTOP), 16 + 28 + 4 + 28 + 16, 248,
                    textWidth(L("settings.exc.addCurrent"), hwnd) + 24, 28, hwnd, idExcCurrent)
     let doneW = max(textWidth(L("settings.exc.done"), hwnd) + 24, 80)
     makeExcControl("BUTTON", L("settings.exc.done"), Int32(WS_TABSTOP) | Int32(BS_DEFPUSHBUTTON),
-                   clientW - 16 - doneW, 276, doneW, 28, hwnd, idExcDone)
+                   clientW - 16 - doneW, 248, doneW, 28, hwnd, idExcDone)
     fillList(hwnd)
 }
 
@@ -415,7 +403,6 @@ private func exceptionsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ l
         rebuildWithoutFlicker(hwnd) {
             destroyChildren(hwnd)
             if let tip = excTooltip { DestroyWindow(tip) }
-            if let f = excGlyphFont { DeleteObject(UnsafeMutableRawPointer(f)); excGlyphFont = nil }
             buildExceptions(hwnd)
         }
         return 0
@@ -423,7 +410,6 @@ private func exceptionsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ l
         exceptionsHwnd = nil
         if let b = excBrush { DeleteObject(UnsafeMutableRawPointer(b)); excBrush = nil }
         excTooltip = nil   // owned by the window: destroyed with it
-        if let f = excGlyphFont { DeleteObject(UnsafeMutableRawPointer(f)); excGlyphFont = nil }
     default:
         break
     }

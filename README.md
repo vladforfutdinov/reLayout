@@ -37,7 +37,7 @@ Fixes wrong-layout words **as you type**, no hotkey:
 - Between Cyrillic and Latin layouts (ru/uk ↔ en/de/fr/es/pl/pt), judged by small on-device language models tuned for ≥99% precision.
 - Experimental: between similar layouts of different languages (ru ↔ uk).
 - Experimental: check with the system spelling dictionary — a real word is never converted into junk, a word the trigrams miss is converted when the dictionary knows its other-layout reading, and one typo inside a wrong-layout word is fixed when the dictionary leaves a single candidate (“ghbddtn” → “привет”). Off by default; uses the system's spell checker on macOS and Windows.
-- Skips password fields; terminals, code editors, VMs and remote desktops are excluded by default. Per program you can turn off auto-correct, the hotkey, or both (Settings → Exceptions…); Figma has both off by default — its canvas reads typed text as tool shortcuts.
+- Skips password fields; terminals, code editors, VMs and remote desktops are excluded by default. Per app you choose whether auto-correct and the hotkey work (Settings → Apps…); Figma has both off by default — its canvas reads typed text as tool shortcuts.
 - Leaves abbreviations alone: a word typed in capitals (IBM, МФЦ) is never auto-corrected — the hotkey still converts it.
 - Learns from you: undo a fix (with the hotkey, or just erase it and type the word again — erase and retype a word it left alone to have it fixed again; or fix a word it missed by hand, and it remembers), or correct the same word with the hotkey a few times, and auto-correct follows your choice.
 - Optional second hotkey to switch it on and off (Settings → Auto-correct on/off; not set by default). On macOS a dot in the menu-bar icon's corner shows it is on.

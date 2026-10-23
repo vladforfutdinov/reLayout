@@ -29,16 +29,15 @@
 "settings.autoCorrectSpell.tip" = "Consulta el diccionario ortográfico del sistema antes de convertir: una palabra real no se toca aunque parezca rara, y una palabra que el diccionario solo conoce en la otra distribución se convierte. También corrige una errata en una palabra escrita en la distribución equivocada («рудддщ» → «hello») si el diccionario deja un único candidato. Disponible solo si el sistema tiene un diccionario ortográfico para el idioma de una distribución activada.";
 "settings.autoCorrectUnavailable" = "La autocorrección necesita distribuciones de alfabetos distintos, p. ej., inglés y cualquier cirílica. Las de un mismo alfabeto (%@) no se distinguen con fiabilidad: usa el atajo de teclado.";
 
-// auto-correct exceptions
-"settings.exceptions" = "Excepciones…";
-"settings.exc.title" = "Excepciones";
-"settings.exc.addCurrent" = "Excluir app actual";
+// per-app features (stored as exception lists)
+"settings.exceptions" = "Apps…";
+"settings.exc.title" = "Funciones por app";
+"settings.exc.addCurrent" = "Añadir app actual";
 "settings.exc.choose" = "Elegir…";
 "settings.exc.remove" = "Quitar";
 "settings.exc.done" = "Listo";
 "settings.exc.info" = "Los terminales, editores de código, máquinas virtuales y escritorios remotos están en la lista desde el principio: allí se escriben comandos o código, u otro sistema con su propia distribución recibe las teclas, y la autocorrección haría daño. Quita uno para activarla en él. Figma figura también con el atajo desactivado: su lienzo toma el texto escrito por atajos de herramientas.";
-"settings.exc.hint" = "Permite funciones para cada programa:";
-"settings.exc.section" = "Desactivar la autocorrección o el atajo en programas concretos";
+"settings.exc.section" = "Permitir funciones por app";
 "settings.exc.auto" = "Autocorrección";
 "settings.exc.auto.tip" = "Marcado: la autocorrección funciona en este programa.";
 "settings.exc.hotkey" = "Atajo";

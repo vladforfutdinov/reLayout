@@ -4,6 +4,15 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.16 — "Exceptions" becomes per-app features
+
+- The Settings row said "turn off in chosen programs", the window under it
+  "allow features for each program", and the ticks now mean "works": three
+  framings of one list. Now one: the Settings row reads "Allow features per
+  app" with the defaults ⓘ next to it, the button is "Apps…", the window
+  "Per-app features" with no hint line or ⓘ of its own, and "Exclude current
+  app" is "Add current app". Storage keeps its exception lists.
+
 ## After v1.3.16 — Windows: hover in light lists
 
 - Exceptions and Learned words highlighted the row under the cursor only in

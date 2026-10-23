@@ -30,6 +30,7 @@ private let idVersion:       Int = 122
 private let idCopyright:     Int = 123
 private let idCapAutoHotkey: Int = 124
 private let idExcSection:    Int = 125
+private let idExcInfo:       Int = 126
 private let secondaryIDs: Set<Int> = [idCapLanguage, idCapHotkey, idCapAutoHotkey, idVersion, idCopyright]
 
 private func hotkeyIDs(_ slot: HotkeySlot) -> (caption: Int, field: Int, reset: Int) {
@@ -376,10 +377,15 @@ private func buildControls(_ hwnd: HWND?) {
 
     // ── section D: Exceptions… — always enabled, it covers the hotkey too ──
     let excLabel = L("settings.exc.section")
-    let excLabelW = content - excW - 16
+    let excLabelW = min(textWidth(excLabel, hwnd) + 4, content - excW - 16 - 22)   // 22: the ⓘ after it
     let excLabelH = textHeight(excLabel, width: excLabelW, hwnd)
     let excRowH = max(excLabelH, 26)
     makeControl("STATIC", excLabel, 0, margin, y + (excRowH - excLabelH) / 2, excLabelW, excLabelH, hwnd, idExcSection)
+    // Why a fresh install already lists programs (terminals, editors, VMs).
+    let excInfo = makeControl("STATIC", "\u{E946}" /* Info glyph */, Int32(0x0200 /* SS_CENTERIMAGE */),
+                              margin + excLabelW + 2, y + (excRowH - 16) / 2, 20, 16, hwnd, idExcInfo)
+    setFont(excInfo, glyphFont)
+    addTooltip(&tooltip, hwnd, excInfo, L("settings.exc.info"), overWindow: true)
     makeControl("BUTTON", excTitle, Int32(WS_TABSTOP),
                 clientWidth - margin - excW, y + (excRowH - 26) / 2, excW, 26, hwnd, idBtnExceptions)
     y += excRowH + 16

@@ -29,16 +29,15 @@
 "settings.autoCorrectSpell.tip" = "Przed zamianą pyta systemowy słownik ortograficzny: prawdziwe słowo zostaje, nawet jeśli wygląda dziwnie, a słowo, które słownik zna tylko w drugim układzie, jest zamieniane. Poprawia też jedną literówkę w słowie wpisanym w złym układzie („рудддщ” → „hello”), gdy słownik zostawia jednego kandydata. Dostępne tylko, gdy system ma słownik ortograficzny dla języka jednego z włączonych układów.";
 "settings.autoCorrectUnavailable" = "Autokorekta wymaga układów o różnych alfabetach, np. angielskiego i dowolnego cyrylickiego. Układów jednego alfabetu (%@) nie da się wiarygodnie rozróżnić – użyj skrótu klawiszowego.";
 
-// auto-correct exceptions
-"settings.exceptions" = "Wyjątki…";
-"settings.exc.title" = "Wyjątki";
-"settings.exc.addCurrent" = "Wyklucz bieżącą aplikację";
+// per-app features (stored as exception lists)
+"settings.exceptions" = "Aplikacje…";
+"settings.exc.title" = "Funkcje według aplikacji";
+"settings.exc.addCurrent" = "Dodaj bieżącą aplikację";
 "settings.exc.choose" = "Wybierz…";
 "settings.exc.remove" = "Usuń";
 "settings.exc.done" = "Gotowe";
 "settings.exc.info" = "Terminale, edytory kodu, maszyny wirtualne i pulpity zdalne są na liście od początku: wpisuje się tam polecenia lub kod albo klawisze trafiają do innego systemu z własnym układem, więc autokorekta by szkodziła. Usuń program z listy, aby ją w nim włączyć. Figma jest na liście także z wyłączonym skrótem: jej płótno bierze wpisany tekst za skróty narzędzi.";
-"settings.exc.hint" = "Zezwól na funkcje w każdym programie:";
-"settings.exc.section" = "Wyłącz autokorektę lub skrót w wybranych programach";
+"settings.exc.section" = "Zezwól na funkcje w aplikacjach";
 "settings.exc.auto" = "Autokorekta";
 "settings.exc.auto.tip" = "Zaznaczone: autokorekta działa w tym programie.";
 "settings.exc.hotkey" = "Skrót";

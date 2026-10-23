@@ -1323,7 +1323,13 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         excLabel.lineBreakMode = .byWordWrapping
         excLabel.preferredMaxLayoutWidth = 240
         excLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        let excRow = NSStackView(views: [excLabel, spacer(), excBtn])
+        // Why a fresh install already lists apps (terminals, editors, VMs).
+        let excInfo = NSImageView(image: NSImage(systemSymbolName: "info.circle", accessibilityDescription: nil) ?? NSImage())
+        excInfo.contentTintColor = .secondaryLabelColor
+        excInfo.toolTip = L("settings.exc.info")
+        let excTitle = NSStackView(views: [excLabel, excInfo])
+        excTitle.orientation = .horizontal; excTitle.spacing = 4; excTitle.alignment = .centerY
+        let excRow = NSStackView(views: [excTitle, spacer(), excBtn])
         excRow.orientation = .horizontal; excRow.spacing = 12; excRow.alignment = .centerY
         autoRow.orientation = .horizontal; autoRow.spacing = 12; autoRow.alignment = .centerY
         let enterCb = makeCheckbox(L("settings.autoCorrectEnter"), #selector(toggleAutoEnter(_:)), on: autoEnterNewline)
@@ -1844,17 +1850,6 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         content.translatesAutoresizingMaskIntoConstraints = false
         w.contentView = content
 
-        // Why a fresh install already lists apps (terminals, editors, VMs).
-        let info = NSImageView(image: NSImage(systemSymbolName: "info.circle", accessibilityDescription: nil) ?? NSImage())
-        info.contentTintColor = .secondaryLabelColor
-        info.toolTip = L("settings.exc.info")
-        info.translatesAutoresizingMaskIntoConstraints = false
-        // What the list does, under its name.
-        let hint = NSTextField(labelWithString: L("settings.exc.hint"))
-        hint.font = .systemFont(ofSize: 11)
-        hint.textColor = .secondaryLabelColor
-        hint.translatesAutoresizingMaskIntoConstraints = false
-
         let table = NSTableView()
         table.rowHeight = 24
         table.usesAlternatingRowBackgroundColors = true
@@ -1900,16 +1895,10 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         bar.orientation = .horizontal; bar.spacing = 8; bar.distribution = .fill
         bar.translatesAutoresizingMaskIntoConstraints = false
 
-        content.addSubview(info); content.addSubview(hint)
         content.addSubview(box); content.addSubview(bar)
         NSLayoutConstraint.activate([
             content.widthAnchor.constraint(equalToConstant: 440),
-            hint.topAnchor.constraint(equalTo: content.topAnchor, constant: 16),
-            hint.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 16),
-            info.leadingAnchor.constraint(equalTo: hint.trailingAnchor, constant: 4),
-            info.centerYAnchor.constraint(equalTo: hint.centerYAnchor),
-            hint.trailingAnchor.constraint(lessThanOrEqualTo: content.trailingAnchor, constant: -16),
-            box.topAnchor.constraint(equalTo: hint.bottomAnchor, constant: 10),
+            box.topAnchor.constraint(equalTo: content.topAnchor, constant: 16),
             box.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 16),
             box.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -16),
             box.heightAnchor.constraint(equalToConstant: 224),

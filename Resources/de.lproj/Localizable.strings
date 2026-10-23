@@ -29,16 +29,15 @@
 "settings.autoCorrectSpell.tip" = "Fragt vor dem Umwandeln das Rechtschreibwörterbuch des Systems: Ein echtes Wort bleibt unberührt, auch wenn es seltsam aussieht, und ein Wort, das das Wörterbuch nur im anderen Layout kennt, wird umgewandelt. Behebt außerdem einen Tippfehler in einem im falschen Layout getippten Wort („рудддщ“ → „hello“), wenn das Wörterbuch nur einen Kandidaten übrig lässt. Nur verfügbar, wenn das System ein Rechtschreibwörterbuch für die Sprache eines aktivierten Layouts hat.";
 "settings.autoCorrectUnavailable" = "Die automatische Korrektur braucht Tastaturlayouts verschiedener Schriften, z. B. Englisch und ein beliebiges kyrillisches. Layouts derselben Schrift (%@) lassen sich nicht zuverlässig unterscheiden – nutzen Sie das Tastenkürzel.";
 
-// auto-correct exceptions
-"settings.exceptions" = "Ausnahmen…";
-"settings.exc.title" = "Ausnahmen";
-"settings.exc.addCurrent" = "Aktuelle App ausschließen";
+// per-app features (stored as exception lists)
+"settings.exceptions" = "Apps…";
+"settings.exc.title" = "Funktionen je App";
+"settings.exc.addCurrent" = "Aktuelle App hinzufügen";
 "settings.exc.choose" = "Auswählen…";
 "settings.exc.remove" = "Entfernen";
 "settings.exc.done" = "Fertig";
 "settings.exc.info" = "Terminals, Code-Editoren, virtuelle Maschinen und Remotedesktops stehen von Anfang an in der Liste: Dort tippt man Befehle oder Code, oder ein anderes System mit eigenem Layout empfängt die Tasten – die Autokorrektur würde schaden. Entferne ein Programm, um sie dort einzuschalten. Figma steht auch mit ausgeschaltetem Hotkey in der Liste: Die Arbeitsfläche hält getippten Text für Werkzeug-Kürzel.";
-"settings.exc.hint" = "Funktionen pro Programm erlauben:";
-"settings.exc.section" = "Autokorrektur oder Hotkey in ausgewählten Programmen ausschalten";
+"settings.exc.section" = "Funktionen je App erlauben";
 "settings.exc.auto" = "Autokorrektur";
 "settings.exc.auto.tip" = "Angehakt: Autokorrektur ist in diesem Programm aktiv.";
 "settings.exc.hotkey" = "Hotkey";

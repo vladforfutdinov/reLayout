@@ -18,11 +18,9 @@ private let idExcTitle:  Int = 207
 private let idExcColAuto: Int = 208
 private let idExcColHotkey: Int = 209
 
-// Column 0 is the program; the check columns follow.
-// Columns: program (+ pad), auto, pad, hotkey, pad. A sub-item image is drawn at its
-// cell's left edge, so each check column is just wider than the box and the pads
-// around it centre it under its title.
-private let colAuto: Int32 = 1, colHotkey: Int32 = 3
+// Columns: program, auto, hotkey. A list view puts a cell image at the cell's left
+// edge, so the check boxes are custom-drawn, centred in their cells.
+private let colAuto: Int32 = 1, colHotkey: Int32 = 2
 
 private var exceptionsHwnd: HWND?
 private var exceptionsClassW = Array("ReLayoutExceptionsWnd".utf16) + [0]
@@ -164,7 +162,7 @@ private func fillList(_ hwnd: HWND?) {
 
 /// Adds check box images (clear, checked) in the current theme to `images`, drawn
 /// in the style of a hidden themed BUTTON: the list view's own state images keep a
-/// light box in the dark theme. The check columns show them as sub-item images.
+/// light box in the dark theme. `drawCheck` paints them into the check cells.
 /// - Returns: their indexes, nil when they could not be made (a check mark is shown instead).
 private func addCheckImages(_ hwnd: HWND?, to images: HIMAGELIST?) -> (off: Int32, on: Int32)? {
     let probe = "BUTTON".withCString(encodedAs: UTF16.self) {
@@ -178,18 +176,52 @@ private func addCheckImages(_ hwnd: HWND?, to images: HIMAGELIST?) -> (off: Int3
     return off < 0 || on < 0 ? nil : (off, on)
 }
 
+/// Shows a check cell's state: the box is drawn from `rows` (`drawCheck`), so with
+/// check images this only repaints the row; without them the cell gets a check mark.
 private func setCheck(_ list: HWND?, _ row: Int, _ column: Int32, _ on: Bool) {
-    let mark = checkImages == nil && on ? "\u{2713}" : ""
-    mark.withCString(encodedAs: UTF16.self) { txt in
+    guard checkImages == nil else {
+        SendMessageW(list, UINT(0x1015 /* LVM_REDRAWITEMS */), WPARAM(row), LPARAM(row))
+        return
+    }
+    (on ? "\u{2713}" : "").withCString(encodedAs: UTF16.self) { txt in
         var item = LVITEMW()
-        item.mask = UINT(0x1 /* LVIF_TEXT */) | (checkImages == nil ? 0 : UINT(0x2 /* LVIF_IMAGE */))
+        item.mask = UINT(0x1 /* LVIF_TEXT */)
         item.iItem = Int32(row)
         item.iSubItem = column
-        item.iImage = (on ? checkImages?.on : checkImages?.off) ?? -1
         item.pszText = UnsafeMutablePointer(mutating: txt)
         _ = withUnsafeMutablePointer(to: &item) {
             SendMessageW(list, UINT(0x104C /* LVM_SETITEMW */), 0, LPARAM(Int(bitPattern: $0)))
         }
+    }
+}
+
+/// NM_CUSTOMDRAW of the list: the list paints each cell (background, selection),
+/// then the check cells get their box centred on top.
+private func drawCheck(_ list: HWND?, _ raw: UnsafeRawPointer) -> LRESULT {
+    let cd = raw.assumingMemoryBound(to: NMLVCUSTOMDRAW.self).pointee
+    let column = cd.iSubItem, row = Int(cd.nmcd.dwItemSpec)
+    switch cd.nmcd.dwDrawStage {
+    case DWORD(0x1 /* CDDS_PREPAINT */): return LRESULT(0x20 /* CDRF_NOTIFYITEMDRAW */)
+    case DWORD(0x10001 /* CDDS_ITEMPREPAINT */): return LRESULT(0x20 /* CDRF_NOTIFYSUBITEMDRAW */)
+    case DWORD(0x30001 /* CDDS_SUBITEM | CDDS_ITEMPREPAINT */):
+        return column == colAuto || column == colHotkey ? LRESULT(0x10 /* CDRF_NOTIFYPOSTPAINT */) : 0
+    case DWORD(0x30002 /* CDDS_SUBITEM | CDDS_ITEMPOSTPAINT */):
+        guard let images = checkImages, rows.indices.contains(row) else { return 0 }
+        let on = column == colAuto ? !rows[row].auto : !rows[row].hotkey
+        var cell = RECT()
+        cell.top = column   // LVM_GETSUBITEMRECT takes the sub-item here
+        cell.left = 0       // LVIR_BOUNDS
+        _ = withUnsafeMutablePointer(to: &cell) {
+            SendMessageW(list, UINT(0x1038 /* LVM_GETSUBITEMRECT */), WPARAM(row), LPARAM(Int(bitPattern: $0)))
+        }
+        let list32 = HIMAGELIST(bitPattern: Int(SendMessageW(list, UINT(0x1002 /* LVM_GETIMAGELIST */),
+                                                             WPARAM(1 /* LVSIL_SMALL */), 0)))
+        let size = GetSystemMetrics(SM_CXSMICON)
+        _ = ImageList_Draw(list32, on ? images.on : images.off, cd.nmcd.hdc,
+                       (cell.left + cell.right - size) / 2, (cell.top + cell.bottom - size) / 2,
+                       UINT(0x1 /* ILD_TRANSPARENT */))
+        return 0
+    default: return 0
     }
 }
 
@@ -311,7 +343,7 @@ private func buildExceptions(_ hwnd: HWND?) {
     let autoTitle = L("settings.exc.auto"), hotkeyTitle = L("settings.exc.hotkey")
     let autoW = max(textWidth(autoTitle, hwnd) + 12, 36), hotkeyW = max(textWidth(hotkeyTitle, hwnd) + 12, 36)
     let nameCx = esc(listW - autoW - hotkeyW) - GetSystemMetrics(SM_CXVSCROLL) - 4
-    let autoX = 16 + 2 + nameCx * 96 / excDpi + 2   // titles centred over the boxes below
+    let autoX = 16 + 2 + nameCx * 96 / excDpi   // list border, then the program column
     let autoLabel = makeExcControl("STATIC", autoTitle, Int32(0x0001 /* SS_CENTER */), autoX, 44, autoW, 18,
                                    hwnd, idExcColAuto)
     addTooltip(&excTooltip, hwnd, autoLabel, L("settings.exc.auto.tip"), overWindow: true)
@@ -324,13 +356,9 @@ private func buildExceptions(_ hwnd: HWND?) {
                               | Int32(0x8 /* LVS_SHOWSELALWAYS */) | Int32(WS_TABSTOP),
                               16, 64, listW, 200, hwnd, idExcList, exStyle: DWORD(WS_EX_CLIENTEDGE))
     SendMessageW(list, UINT(0x1036 /* LVM_SETEXTENDEDLISTVIEWSTYLE */), 0,
-                 LPARAM(0x20 /* LVS_EX_FULLROWSELECT */ | 0x10000 /* LVS_EX_DOUBLEBUFFER */
-                        | 0x2 /* LVS_EX_SUBITEMIMAGES */))
+                 LPARAM(0x20 /* LVS_EX_FULLROWSELECT */ | 0x10000 /* LVS_EX_DOUBLEBUFFER */))
     applyListColors(list, excColors)
-    let box = GetSystemMetrics(SM_CXSMICON) + esc(4)   // the check image plus the list's left inset
-    let autoPad = (esc(autoW) - box) / 2, hotkeyPad = (esc(hotkeyW) - box) / 2
-    let widths = [nameCx + autoPad, box, esc(autoW) - box - autoPad + hotkeyPad, box, esc(hotkeyW) - box - hotkeyPad]
-    insertColumns(list, widths: widths)
+    insertColumns(list, widths: [nameCx, esc(autoW), esc(hotkeyW)])
 
     // "+" (Choose…) / "−" (remove the selection), then "Exclude current app"; Done
     // on the right, as on macOS.
@@ -361,6 +389,7 @@ private func exceptionsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ l
         if let raw = UnsafeRawPointer(bitPattern: Int(lParam)) {
             let hdr = raw.assumingMemoryBound(to: NMHDR.self).pointee
             guard hdr.idFrom == UINT_PTR(idExcList) else { break }
+            if hdr.code == UINT(bitPattern: -12) /* NM_CUSTOMDRAW */ { return drawCheck(hdr.hwndFrom, raw) }
             if hdr.code == UINT(bitPattern: -101) /* LVN_ITEMCHANGED */ { updateRemoveButton(hwnd) }
             if hdr.code == UINT(bitPattern: -2) /* NM_CLICK */ || hdr.code == UINT(bitPattern: -3) /* NM_DBLCLK */ {
                 clickCell(hwnd)

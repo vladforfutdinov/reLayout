@@ -4,6 +4,18 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.16 — Windows exceptions: check boxes centred by custom draw
+
+- The centring of 1.3.16 (box-wide check columns between pad columns) showed
+  as frames in the dark theme: `DarkMode_Explorer` draws lines at column
+  edges. Now three columns as wide as their titles; the list paints each cell,
+  then the box is centred in it at `NM_CUSTOMDRAW` post-paint. The lines are
+  gone with it; selection and hover still come from the list.
+- Learned words still shows those lines in the dark theme. Not the theme
+  (`DarkMode_ItemsView` kept them) and not custom draw alone (asking for
+  every cell's stage kept them); the list's `LVS_EX_CHECKBOXES` is the
+  remaining suspect, as old Exceptions had them with `LVS_EX_SUBITEMIMAGES`.
+
 ## After v1.3.16 — Windows: dark check boxes in Exceptions; UI screenshots in the repo
 
 - In the dark theme the Exceptions list's empty check boxes were light: they were

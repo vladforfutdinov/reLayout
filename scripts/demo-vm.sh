@@ -22,6 +22,7 @@ setup)
     git update-ref refs/demo/wip "$wip"
     bundle=$(mktemp -t relayout-demo)
     git bundle create "$bundle" refs/demo/wip 2>/dev/null
+    git update-ref -d refs/demo/wip   # a leftover ref keeps every shipped tree alive in the graph
     scp -q "$bundle" "$HOST:/tmp/relayout.bundle"
     rm -f "$bundle"
     ssh "$HOST" 'bash -s' <<'EOF'

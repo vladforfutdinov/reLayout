@@ -195,6 +195,17 @@ func saveExcludedApps(_ apps: [String]) {
     saveAppList(keyExcluded, seenName: keyExcludedSeen, apps, defaults: defaultExcludedApps)
 }
 
+/// Once, on the update to per-app features: an install that ran before keeps the
+/// hotkey where it worked; the listed programs' hotkey-off default is for new
+/// installs. Runs before anything this launch writes a preference.
+func keepOldHotkeyExclusions() {
+    let ranBefore = withPrefsKey(write: false) { _ in true } ?? false
+    let seen = withPrefsKey(write: false, { readString($0, keyHotkeyExcludedSeen) }).map(splitLines)
+    guard keepsOldHotkeyDefaults(seen: seen, oldDefaults: ["figma.exe"], ranBefore: ranBefore) else { return }
+    let stored = withPrefsKey(write: false, { readString($0, keyHotkeyExcluded) }).map(splitLines) ?? ["figma.exe"]
+    saveAppList(keyHotkeyExcluded, seenName: keyHotkeyExcludedSeen, stored, defaults: defaultHotkeyExcludedApps)
+}
+
 func loadHotkeyExcludedApps() -> [String] {
     // A hotkey default reaches only a program whose auto-correct is off: one the user
     // took off the list does not come back.

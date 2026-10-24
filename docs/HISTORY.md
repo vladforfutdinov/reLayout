@@ -4,6 +4,20 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.16 — the update keeps the hotkey where it worked
+
+- "A listed app starts with both off" would have turned the hotkey off in
+  terminals, editors, VMs and remote desktops for every user updating from
+  v1.3.16 — at once for most of them, since a hotkey list never saved takes
+  the defaults as they are. Owner: keep it as it was. Engine
+  `keepsOldHotkeyDefaults`: an install that ran before and has seen only the
+  old hotkey default (Figma) keeps its hotkey list (Figma alone when never
+  saved) and records the new defaults as seen. New installs and newly added
+  apps start with both off. macOS in `mergeNewDefaultExclusions`, Windows in
+  `keepOldHotkeyExclusions` before `pinOldDefaultHotkey` creates the prefs key.
+- Storage did not change with per-app features (same two lists, same
+  meaning per app), so nothing else migrates; only the UI reads them inverted.
+
 ## After v1.3.16 — macOS: Apps and Learned words as sheets
 
 - Owner: Settings should dim behind them, as System Settings does under its

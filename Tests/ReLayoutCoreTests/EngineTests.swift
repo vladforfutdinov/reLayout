@@ -496,6 +496,14 @@ final class EngineTests: XCTestCase {
         XCTAssertEqual(e.rows, [])
     }
 
+    func testKeepsOldHotkeyDefaults() {
+        let old = ["figma"]
+        XCTAssertTrue(keepsOldHotkeyDefaults(seen: ["figma"], oldDefaults: old, ranBefore: true))    // v1.3.16 user
+        XCTAssertTrue(keepsOldHotkeyDefaults(seen: nil, oldDefaults: old, ranBefore: true))          // older still
+        XCTAssertFalse(keepsOldHotkeyDefaults(seen: nil, oldDefaults: old, ranBefore: false))        // new install
+        XCTAssertFalse(keepsOldHotkeyDefaults(seen: ["figma", "term"], oldDefaults: old, ranBefore: true))   // migrated
+    }
+
     func testAutoDecideWithoutAModelDoesNothing() {
         let (latin, cyr) = makeLayouts()
         XCTAssertNil(decideAutoTarget("ghbdtn", cur: latin, enabled: [latin, cyr], model: { _ in nil }))

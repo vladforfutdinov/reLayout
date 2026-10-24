@@ -2226,11 +2226,21 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     /// Adds defaults introduced since the user's lists were saved, once each, so a new
     /// default reaches existing users while one they removed never comes back.
     private func mergeNewDefaultExclusions() {
+        // Once, on the update to per-app features: a Mac that ran reLayout before keeps
+        // the hotkey where it worked; the listed apps' hotkey-off default is for new installs.
+        let d = UserDefaults.standard
+        let ranBefore = ["autoExcludedDefaultsSeen", "SUHasLaunchedBefore", "autoMode"].contains { d.object(forKey: $0) != nil }
+        if keepsOldHotkeyDefaults(seen: d.stringArray(forKey: "hotkeyExcludedDefaultsSeen"),
+                                  oldDefaults: AppController.firstDefaultHotkeyExcludedApps, ranBefore: ranBefore) {
+            if d.array(forKey: "hotkeyExcludedApps") == nil {
+                d.set(AppController.firstDefaultHotkeyExcludedApps, forKey: "hotkeyExcludedApps")
+            }
+            d.set(AppController.defaultHotkeyExcludedApps, forKey: "hotkeyExcludedDefaultsSeen")
+        }
         for (list, seenKey, defaults, first) in [
             ("autoExcludedApps", "autoExcludedDefaultsSeen", AppController.defaultExcludedApps, AppController.firstDefaultExcludedApps),
             ("hotkeyExcludedApps", "hotkeyExcludedDefaultsSeen", AppController.defaultHotkeyExcludedApps, AppController.firstDefaultHotkeyExcludedApps),
         ] {
-            let d = UserDefaults.standard
             let seen = Set(d.stringArray(forKey: seenKey) ?? first)
             d.set(defaults, forKey: seenKey)
             guard let saved = d.array(forKey: list) as? [String] else { continue }   // defaults apply as-is

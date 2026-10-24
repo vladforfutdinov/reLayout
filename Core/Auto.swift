@@ -883,6 +883,17 @@ public func mergeExclusions(saved: [String], defaults: [String], seen: Set<Strin
     saved + defaults.filter { !seen.contains($0) && !saved.contains($0) }
 }
 
+/// Once, on the update to per-app features (listed apps start with the hotkey off
+/// too): whether this install keeps its hotkey list as it was instead of taking the
+/// new defaults — it ran before, and the hotkey defaults it has seen are the old ones.
+/// - Parameters:
+///   - seen: the hotkey defaults the stored list reflects; nil when never recorded.
+///   - oldDefaults: the hotkey defaults before per-app features (Figma).
+///   - ranBefore: reLayout ran on this machine before this launch.
+public func keepsOldHotkeyDefaults(seen: [String]?, oldDefaults: [String], ranBefore: Bool) -> Bool {
+    ranBefore && (seen.map { Set($0) == Set(oldDefaults) } ?? true)
+}
+
 // MARK: - Versions
 
 /// A string field of a JSON object, read without a JSON parser: the first

@@ -139,14 +139,6 @@ func tryFind(_ root: AXUIElement, role: String? = nil, _ text: String? = nil, ex
     } while Date() < end
     return nil
 }
-/// The sheet or window that shows `title` as its heading or title.
-func panel(_ title: String) -> AXUIElement {
-    var e = find(app(relayoutID), title, exact: true)
-    while !["AXSheet", "AXWindow"].contains(attr(e, kAXRoleAttribute) as? String ?? ""),
-          let up = attr(e, kAXParentAttribute) { e = up as! AXUIElement }
-    return e
-}
-/// The check box of `flag` ("auto" or "hotkey") in the Per-app features row of `app`.
 func appCheckbox(_ panel: AXUIElement, app name: String, flag: String) -> AXUIElement {
     var queue = [panel]
     while !queue.isEmpty {
@@ -258,7 +250,7 @@ func run() {
     settings = openSettings()
     mark("settings", frame(settings), zoom: 1.5, hold: 1.0)
     clickOn(find(settings, role: "AXButton", "View"), dur: 0.9); pause(0.8)
-    let learned = panel("Learned words")
+    let learned = find(settings, role: "AXSheet")
     mark("learned", frame(learned), zoom: 1.7); pause(2.2)
     clickOn(find(learned, role: "AXButton", "Done")); pause(0.4)
     press(13, .maskCommand); pause(0.5)
@@ -275,7 +267,7 @@ func run() {
     settings = openSettings()
     mark("settings", frame(settings), zoom: 1.5, hold: 1.0)
     clickOn(find(settings, role: "AXButton", "Apps"), dur: 0.9); pause(0.8)
-    let apps = panel("Per-app features")
+    let apps = find(settings, role: "AXSheet")
     mark("apps", frame(apps), zoom: 1.6, hold: 1.8)
     clickOn(appCheckbox(apps, app: "Terminal", flag: "hotkey"), dur: 0.8); pause(1.2)
     clickOn(find(apps, role: "AXButton", "Done")); pause(0.4)

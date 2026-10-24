@@ -188,13 +188,7 @@ func openSettings() -> AXUIElement {
         // Settings… is the menu's first item: clicked by its offset, since walking the app's
         // AX tree while the menu tracks stalls reLayout and the click got lost.
         moveTo(CGPoint(x: icon.midX + 59, y: icon.midY + 33), 0.35); pause(0.12); click()
-        if let w = window(relayoutID, "reLayout Settings", timeout: 8) {
-            // NSApp.activate() is cooperative on macOS 14+: the window can open behind the front app.
-            AXUIElementSetAttributeValue(app(relayoutID), kAXFrontmostAttribute as CFString, kCFBooleanTrue)
-            AXUIElementPerformAction(w, kAXRaiseAction as CFString)
-            pause(0.2)
-            return w
-        }   // first build after a rebuild can take >3 s
+        if let w = window(relayoutID, "reLayout Settings", timeout: 8) { return w }   // first build after a rebuild can take >3 s
     }
     fatalError("Settings did not open")
 }

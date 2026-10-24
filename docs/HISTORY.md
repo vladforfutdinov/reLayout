@@ -4,6 +4,19 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.16 — macOS: Settings opens above the front app
+
+- Settings could open behind the app in front (seen once in ~30 demo opens,
+  over TextEdit): on macOS 14+ `NSApp.activate()` only asks for activation and
+  may be refused, and `makeKeyAndOrderFront` leaves an inactive app's window
+  behind. `bringToFront` adds `orderFrontRegardless()`; both Settings paths
+  (first build and reopen) use it. Learned words and Per-app features open
+  over Settings and were never affected.
+- Checked in the macOS VM: TextEdit in front, Settings opened from the menu bar
+  icon 15 times — above TextEdit every time. No run of the old build for
+  comparison: the old failure was too rare to reproduce on demand.
+- The demo scenario's AX raise workaround is gone.
+
 ## After v1.3.16 — demo follows the per-app features rework
 
 - Listed apps now start with both features off, so the demo's Terminal scene

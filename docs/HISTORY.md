@@ -4,7 +4,7 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
-## After v1.3.16 — performance check before v1.3.17 (macOS VM)
+## After v1.3.16 — performance check before v1.4.0 (macOS VM)
 
 - `RELAYOUT_E2E_PERF=15` (new harness mode) against v1.3.16 and HEAD, two
   runs each, interleaved, debug builds (`RELAYOUT_DEBUG=1`). Word fix from

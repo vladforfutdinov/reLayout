@@ -4,6 +4,22 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.16 — performance check before v1.3.17 (macOS VM)
+
+- `RELAYOUT_E2E_PERF=15` (new harness mode) against v1.3.16 and HEAD, two
+  runs each, interleaved, debug builds (`RELAYOUT_DEBUG=1`). Word fix from
+  the space's key-down to a still field — v1.3.16: median 79 / 84 ms, p90
+  88 / 96, max 114 / 109; HEAD: median 80 / 82, p90 94 / 111, max 118 / 120.
+  14 of 15 words fixed in every run (the same one left in both). Phrases:
+  15/15 fixed, all work done before the last key in both. RSS 54.2 vs
+  54.3 MB; CPU per run 1.42 / 1.50 s vs 1.82 / 1.64 s — HEAD's debug build
+  also traces timings; release builds not measured.
+- Getting a fair number took three tries: timing from after `type()`
+  returned missed fixes that landed in its 30 ms key-up pause; one repeated
+  word was learned as kept after its third retype (revert learning), so
+  every word now appears once; after a fix switches the layout the rest of
+  a phrase types right, so a phrase measures only the tail.
+
 ## After v1.3.16 — the update keeps the hotkey where it worked
 
 - "A listed app starts with both off" would have turned the hotkey off in

@@ -15,6 +15,17 @@ Found by the dev-guardrails session's jactionlint run (local branch `chore/guard
 - `concurrency` groups for `build.yml` (tags) and `core.yml`; `timeout-minutes` on the 7 jobs without one; explicit `permissions` on the 2 jobs without.
 - Decide on `chore/guardrails-ci` (push, PR); after the fixes `jactionlint --baseline-write`.
 
+## Sort out the site's domains
+
+The landing and the Sparkle appcast live in one branch, `gh-pages`, served twice: `https://relayout.forfutdinov.com/` (DigitalOcean static site that redeploys from `gh-pages`, behind Cloudflare — 172.67.x / 104.21.x) and the GitHub Pages mirror `https://vladforfutdinov.github.io/reLayout/` (`cname: null`). Checked 2026-10-24: both return 200 with the v1.4.0 appcast and the new favicons; the repository variable `RELAYOUT_FEED_URL` points Sparkle at the domain.
+
+**Why:** two hosts of the same pages and the feed every installed copy polls. If the DigitalOcean site or the DNS lapses, auto-update stops for every user while the mirror keeps working unseen; the mirror itself is duplicate content (its `canonical` does point at the domain).
+
+**Steps:**
+- Decide which host is primary and whether the mirror stays (or redirects); write it down in `docs/RELEASING.md`.
+- Know who renews `forfutdinov.com` and the DigitalOcean site, and what an outage would look like (a monitor on `appcast.xml`?).
+- Consider a fallback for the feed (Sparkle reads one `SUFeedURL`; a second host means a release that changes it).
+
 ## Remember the key layouts per app and per session (3+ layouts)
 
 With three or more layouts enabled (ABC + Russian + Ukrainian) every switch is a cycle, and both the hotkey's press-again cycle and auto-correct's target choice guess from the text alone. Think through remembering which two layouts the user actually works with in a given app (and lately), so the first guess is right and the user is not walked through every layout.

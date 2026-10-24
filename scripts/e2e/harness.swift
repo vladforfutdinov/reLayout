@@ -161,6 +161,59 @@ func expect(_ h: Harness, _ name: String, _ want: String, layout: String? = nil,
     }
 }
 
+/// Types `text` and a space, then waits until the field has not changed for `quiet`
+/// ms. Returns the ms from the space's key-down to the field's last change (0 when
+/// it was done before) and whether the field ended up other than the keys typed.
+/// After a fix switches the layout the rest of a phrase types right, so for a phrase
+/// this is the tail of the work: the first word's fix and the keys held meanwhile.
+func timedFix(_ h: Harness, _ text: String, quiet: Int = 400, limit: Int = 3000) -> (ms: Int, changed: Bool) {
+    reset(h); type(text)
+    let start = DispatchTime.now().uptimeNanoseconds
+    type(" ")
+    var last = onMain { h.text.string }, changed = start
+    while true {
+        pause(2)
+        let now = DispatchTime.now().uptimeNanoseconds
+        let cur = onMain { h.text.string }
+        if cur != last { last = cur; changed = now }
+        if Int((now - changed) / 1_000_000) >= quiet || Int((now - start) / 1_000_000) >= limit { break }
+    }
+    return (Int((changed - start) / 1_000_000), last != text + " ")
+}
+
+// Russian words, each typed once: a word fixed and typed again after the field is
+// reset reads as reverting the fix and is learned as kept, which a timing must avoid.
+let perfWords = """
+    привет книга слово дорога работа город время человек жизнь рука место вопрос ответ страна сейчас
+    может хорошо всегда сегодня завтра вечер утро письмо машина деньги погода музыка история неделя правда
+    солнце дерево окно стол улица море небо голос школа друг семья ночь дождь ветер поле
+    мама папа брат сестра собака кошка лето зима осень весна река гора лес цветок птица
+    """.split(whereSeparator: \.isWhitespace).map(String.init)
+let ruKeys: [Character: Character] = [
+    "й": "q", "ц": "w", "у": "e", "к": "r", "е": "t", "н": "y", "г": "u", "ш": "i", "щ": "o", "з": "p", "х": "[",
+    "ф": "a", "ы": "s", "в": "d", "а": "f", "п": "g", "р": "h", "о": "j", "л": "k", "д": "l", "ж": ";", "э": "'",
+    "я": "z", "ч": "x", "с": "c", "м": "v", "и": "b", "т": "n", "ь": "m", "б": ",", "ю": ".",
+]
+/// A Russian word as typed on the Latin keys.
+func onLatinKeys(_ word: String) -> String { String(word.map { ruKeys[$0] ?? $0 }) }
+
+/// RELAYOUT_E2E_PERF=n: times auto-correct instead of checking it — up to n
+/// wrong-layout words and n three-word phrases (Russian, each word once), each from
+/// the last space's key-down to a still field.
+func runPerf(_ h: Harness, _ n: Int) -> Int {
+    func run(_ name: String, _ texts: [String]) {
+        let runs = texts.map { timedFix(h, $0) }
+        let s = runs.filter(\.changed).map(\.ms).sorted()
+        guard !s.isEmpty else { print("PERF  \(name): nothing fixed in \(texts.count)"); return }
+        print("PERF  \(name): fixed \(s.count)/\(texts.count) median=\(s[s.count / 2]) p90=\(s[s.count * 9 / 10]) max=\(s.last!) ms")
+    }
+    let words = perfWords.map(onLatinKeys)
+    let count = min(n, words.count / 4)
+    run("word fix", Array(words.prefix(count)))
+    run("phrase fix", (0..<count).map { i in words[count + 3 * i ..< count + 3 * i + 3].joined(separator: " ") })
+    return 0
+}
+
 func runScenarios(_ h: Harness) -> Int {
     requireFocus(h)
     pause(300)
@@ -179,6 +232,9 @@ func runScenarios(_ h: Harness) -> Int {
     // click reads as reverting the fix (learning by revert) and is then kept.
     let world = c.contains("Russian") ? ("cdtn", "свет") : ("cdsn", "світ")
     print("using \(l) + \(c)")
+    if let n = Int(ProcessInfo.processInfo.environment["RELAYOUT_E2E_PERF"] ?? "") {
+        return runPerf(h, n)
+    }
 
     reset(h); type(hello.0 + " ")
     expect(h, "auto: wrong-layout word is fixed", hello.1 + " ", layout: cyrillic)

@@ -29,4 +29,5 @@ scripts/e2e/grant-tcc.sh "dist/ReLayout (dev).app" /usr/libexec/sshd-keygen-wrap
 
 # The SSH session is outside the GUI session; the GUI one has the window server.
 # sudo drops the environment: SDKROOT goes along explicitly.
-sudo launchctl asuser "$(id -u)" sudo -u "$(whoami)" env SDKROOT="${SDKROOT:-}" ./scripts/e2e.sh
+sudo launchctl asuser "$(id -u)" sudo -u "$(whoami)" env SDKROOT="${SDKROOT:-}" \
+    RELAYOUT_E2E_PERF="${RELAYOUT_E2E_PERF:-}" ./scripts/e2e.sh

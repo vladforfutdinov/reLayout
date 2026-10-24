@@ -42,4 +42,8 @@ defaults write "$ID" hkDefaultPinned -bool true   # not a Mac from before the de
 open "$APP"
 sleep 2
 
-"$BIN"
+rc=0
+"$BIN" || rc=$?
+# The app's footprint after the run: resident memory, CPU time used.
+ps -o rss=,time= -p "$(pgrep -x ReLayout | head -1)" | awk '{ printf "app   rss=%.1f MB cpu=%s\n", $1 / 1024, $2 }' || true
+exit $rc

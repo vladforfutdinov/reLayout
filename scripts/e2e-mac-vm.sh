@@ -10,4 +10,4 @@ bundle=$(mktemp -t relayout-e2e)
 git bundle create "$bundle" HEAD 2>/dev/null
 scp -q "$bundle" "$HOST:/tmp/relayout.bundle"
 rm -f "$bundle"
-ssh "$HOST" 'bash -s' < scripts/e2e/vm-run.sh
+ssh "$HOST" "RELAYOUT_E2E_PERF=${RELAYOUT_E2E_PERF:-} bash -s" < scripts/e2e/vm-run.sh

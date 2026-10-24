@@ -4,6 +4,25 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.16 — Windows Learned words: dark check boxes, no column lines
+
+- Learned's check boxes were the list view's own (`LVS_EX_CHECKBOXES`),
+  light in the dark theme. Now drawn like Per-app features': `addCheckImages`
+  (BUTTON theme) in the small image list, centred in column 0 at post-paint
+  (`drawCentredImage`), toggled on a click in that column (`clickedCell`,
+  shared with Per-app features) or Space.
+- The dark list style draws a line at every column's right edge. Not the
+  theme name (`DarkMode_ItemsView` kept them), not `LVS_EX_CHECKBOXES` (gone,
+  lines stayed), not custom draw alone. `coverColumnLines` paints them over
+  with the background at post-paint, skipping hot and selected rows; both
+  lists, dark theme only.
+- win-shots: its `SendInput` never worked — the C# `INPUT` was 48 bytes, not
+  40, so every call was refused; the hover seen in earlier shots was the real
+  cursor's. Fixed, and the shots now click a check box in each list and save
+  `*-clicked.png`; `RELAYOUT_SHOTS_DEBUG=1` keeps the debug log. Checked: the
+  clicks reach both lists and toggle.
+
+
 ## After v1.3.16 — macOS: Settings opens above the front app
 
 - Settings could open behind the app in front (seen once in ~30 demo opens,

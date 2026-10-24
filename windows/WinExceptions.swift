@@ -131,7 +131,7 @@ private func fillList(_ hwnd: HWND?) {
     let old = SendMessageW(list, UINT(0x1003 /* LVM_SETIMAGELIST */), WPARAM(1 /* LVSIL_SMALL */),
                            LPARAM(Int(bitPattern: UnsafeRawPointer(images))))
     if old != 0 { ImageList_Destroy(HIMAGELIST(bitPattern: Int(old))) }
-    checkImages = addCheckImages(hwnd, to: images)
+    checkImages = addCheckImages(hwnd, to: images, dark: excColors.dark)   // drawCheck paints them
 
     for (i, row) in rows.enumerated() {
         let path = locate(row.exe)
@@ -156,22 +156,6 @@ private func fillList(_ hwnd: HWND?) {
         setCheck(list, i, colHotkey, !row.hotkey)
     }
     updateRemoveButton(hwnd)
-}
-
-/// Adds check box images (clear, checked) in the current theme to `images`, drawn
-/// in the style of a hidden themed BUTTON: the list view's own state images keep a
-/// light box in the dark theme. `drawCheck` paints them into the check cells.
-/// - Returns: their indexes, nil when they could not be made (a check mark is shown instead).
-private func addCheckImages(_ hwnd: HWND?, to images: HIMAGELIST?) -> (off: Int32, on: Int32)? {
-    let probe = "BUTTON".withCString(encodedAs: UTF16.self) {
-        CreateWindowExW(0, $0, nil, DWORD(WS_CHILD), 0, 0, 0, 0, hwnd, nil, GetModuleHandleW(nil), nil)
-    }
-    guard let probe else { return nil }
-    defer { DestroyWindow(probe) }
-    applyControlTheme(probe, className: "BUTTON", dark: excColors.dark)
-    let off = relayout_add_check_image(UnsafeMutableRawPointer(images), UnsafeMutableRawPointer(probe), 0)
-    let on = relayout_add_check_image(UnsafeMutableRawPointer(images), UnsafeMutableRawPointer(probe), 1)
-    return off < 0 || on < 0 ? nil : (off, on)
 }
 
 /// Shows a check cell's state: the box is drawn from `rows` (`drawCheck`), so with
@@ -199,25 +183,18 @@ private func drawCheck(_ list: HWND?, _ raw: UnsafeMutableRawPointer) -> LRESULT
     let cd = raw.assumingMemoryBound(to: NMLVCUSTOMDRAW.self).pointee
     let column = cd.iSubItem, row = Int(cd.nmcd.dwItemSpec)
     switch cd.nmcd.dwDrawStage {
-    case DWORD(0x1 /* CDDS_PREPAINT */): return LRESULT(0x20 /* CDRF_NOTIFYITEMDRAW */)
+    case DWORD(0x1 /* CDDS_PREPAINT */):
+        return LRESULT(0x20 /* CDRF_NOTIFYITEMDRAW */) | (excColors.dark ? LRESULT(0x10 /* CDRF_NOTIFYPOSTPAINT */) : 0)
+    case DWORD(0x2 /* CDDS_POSTPAINT */):
+        coverColumnLines(list, cd.nmcd.hdc, background: excColors.background)
+        return 0
     case DWORD(0x10001 /* CDDS_ITEMPREPAINT */): return LRESULT(0x20 /* CDRF_NOTIFYSUBITEMDRAW */) | paintHover(list, raw)
     case DWORD(0x30001 /* CDDS_SUBITEM | CDDS_ITEMPREPAINT */):
         return (column == colAuto || column == colHotkey ? LRESULT(0x10 /* CDRF_NOTIFYPOSTPAINT */) : 0) | paintHover(list, raw)
     case DWORD(0x30002 /* CDDS_SUBITEM | CDDS_ITEMPOSTPAINT */):
         guard let images = checkImages, rows.indices.contains(row) else { return 0 }
         let on = column == colAuto ? !rows[row].auto : !rows[row].hotkey
-        var cell = RECT()
-        cell.top = column   // LVM_GETSUBITEMRECT takes the sub-item here
-        cell.left = 0       // LVIR_BOUNDS
-        _ = withUnsafeMutablePointer(to: &cell) {
-            SendMessageW(list, UINT(0x1038 /* LVM_GETSUBITEMRECT */), WPARAM(row), LPARAM(Int(bitPattern: $0)))
-        }
-        let list32 = HIMAGELIST(bitPattern: Int(SendMessageW(list, UINT(0x1002 /* LVM_GETIMAGELIST */),
-                                                             WPARAM(1 /* LVSIL_SMALL */), 0)))
-        let size = GetSystemMetrics(SM_CXSMICON)
-        _ = ImageList_Draw(list32, on ? images.on : images.off, cd.nmcd.hdc,
-                       (cell.left + cell.right - size) / 2, (cell.top + cell.bottom - size) / 2,
-                       UINT(0x1 /* ILD_TRANSPARENT */))
+        drawCentredImage(list, cd.nmcd.hdc, row: row, column: column, image: on ? images.on : images.off)
         return 0
     default: return 0
     }
@@ -237,19 +214,12 @@ private func saveRows() {
 /// A click in a check column flips that cell.
 private func clickCell(_ hwnd: HWND?) {
     let list = listView(hwnd)
-    let pos = GetMessagePos()
-    var hit = LVHITTESTINFO()
-    hit.pt = POINT(x: LONG(Int16(truncatingIfNeeded: pos & 0xFFFF)), y: LONG(Int16(truncatingIfNeeded: pos >> 16)))
-    ScreenToClient(list, &hit.pt)
-    _ = withUnsafeMutablePointer(to: &hit) {
-        SendMessageW(list, UINT(0x1039 /* LVM_SUBITEMHITTEST */), 0, LPARAM(Int(bitPattern: $0)))
-    }
-    let row = Int(hit.iItem)
-    guard rows.indices.contains(row), hit.iSubItem == colAuto || hit.iSubItem == colHotkey else { return }
+    guard let (row, column) = clickedCell(list), rows.indices.contains(row),
+          column == colAuto || column == colHotkey else { return }
     let on: Bool
-    if hit.iSubItem == colAuto { rows[row].auto.toggle(); on = rows[row].auto }
+    if column == colAuto { rows[row].auto.toggle(); on = rows[row].auto }
     else { rows[row].hotkey.toggle(); on = rows[row].hotkey }
-    setCheck(list, row, hit.iSubItem, !on)
+    setCheck(list, row, column, !on)
     saveRows()
 }
 

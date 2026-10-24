@@ -32,7 +32,7 @@ private let lrnThemeTimer: UINT_PTR = 1
 
 private enum RowKind { case convert, keep, candidate, new }
 private var shownRows: [(typed: String, out: String, kind: RowKind)] = []   // row i shows shownRows[i]
-private var filling = false      // check boxes set by fillList are not the user's clicks
+private var lrnCheckImages: (off: Int32, on: Int32)?   // in the list's small image list
 private var newPending = false   // the "+" row, until committed or dropped
 private var newTyped = ""
 private var outEdit: HWND?       // the editor over the new row's cell
@@ -55,26 +55,24 @@ private func setItemText(_ list: HWND?, _ row: Int, _ column: Int32, _ text: Str
         item.iSubItem = column
         item.pszText = UnsafeMutablePointer(mutating: txt)
         _ = withUnsafeMutablePointer(to: &item) {
-            column == 0
+            if column == 0 {   // the check box is custom-drawn: no image of its own
+                $0.pointee.mask |= UINT(0x2 /* LVIF_IMAGE */)
+                $0.pointee.iImage = -2 /* I_IMAGENONE */
+            }
+            return column == 0
                 ? SendMessageW(list, UINT(0x104D /* LVM_INSERTITEMW */), 0, LPARAM(Int(bitPattern: $0)))
                 : SendMessageW(list, UINT(0x1074 /* LVM_SETITEMTEXTW */), WPARAM(row), LPARAM(Int(bitPattern: $0)))
         }
     }
 }
 
-/// The row's check box: state image 2 = checked, 1 = clear, 0 = none.
-private func setCheckImage(_ list: HWND?, _ row: Int, _ image: UINT) {
-    var item = LVITEMW()
-    item.stateMask = UINT(0xF000 /* LVIS_STATEIMAGEMASK */)
-    item.state = image << 12
-    _ = withUnsafeMutablePointer(to: &item) {
-        SendMessageW(list, UINT(0x102B /* LVM_SETITEMSTATE */), WPARAM(row), LPARAM(Int(bitPattern: $0)))
-    }
+/// A row's check box is in force: a verdict (convert or keep); none on the new row.
+private func isChecked(_ row: Int) -> Bool? {
+    guard shownRows.indices.contains(row), shownRows[row].kind != .new else { return nil }
+    return shownRows[row].kind != .candidate
 }
 
 private func fillList(_ hwnd: HWND?) {
-    filling = true
-    defer { filling = false }
     let list = listView(hwnd)
     SendMessageW(list, UINT(0x1009 /* LVM_DELETEALLITEMS */), 0, 0)
     let words = learnedWords()
@@ -84,11 +82,11 @@ private func fillList(_ hwnd: HWND?) {
     if newPending { rows.append((typed: "", out: "", kind: .new)) }
     shownRows = rows
     for (i, row) in shownRows.enumerated() {
-        setItemText(list, i, 0, "")
+        // Without check images the column shows a check mark instead.
+        setItemText(list, i, 0, lrnCheckImages == nil && isChecked(i) == true ? "\u{2713}" : "")
         setItemText(list, i, colTyped, row.typed)
         // An empty conversion is a keep (or a keep candidate's).
         setItemText(list, i, colOut, row.out.isEmpty && row.kind != .new ? L("settings.learned.keep") : row.out)
-        setCheckImage(list, i, row.kind == .new ? 0 : row.kind == .candidate ? 1 : 2)
     }
     // The last column fills the list up to its scroll bar, if the rows need one.
     SendMessageW(list, UINT(0x101E /* LVM_SETCOLUMNWIDTH */), WPARAM(colOut), LPARAM(-2 /* LVSCW_AUTOSIZE_USEHEADER */))
@@ -242,7 +240,13 @@ private func buildLearned(_ hwnd: HWND?) {
                               | Int32(WS_TABSTOP) | Int32(WS_CLIPSIBLINGS),
                               16, y, width, 200, hwnd, idLrnList, exStyle: DWORD(WS_EX_CLIENTEDGE))
     SendMessageW(list, UINT(0x1036 /* LVM_SETEXTENDEDLISTVIEWSTYLE */), 0,
-                 LPARAM(0x20 /* LVS_EX_FULLROWSELECT */ | 0x10000 /* LVS_EX_DOUBLEBUFFER */ | 0x4 /* LVS_EX_CHECKBOXES */))
+                 LPARAM(0x20 /* LVS_EX_FULLROWSELECT */ | 0x10000 /* LVS_EX_DOUBLEBUFFER */))
+    // The list view owns this image list and destroys it with itself.
+    let images = ImageList_Create(GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CXSMICON),
+                                  UINT(0x20 /* ILC_COLOR32 */ | 0x1 /* ILC_MASK */), 2, 0)
+    SendMessageW(list, UINT(0x1003 /* LVM_SETIMAGELIST */), WPARAM(1 /* LVSIL_SMALL */),
+                 LPARAM(Int(bitPattern: UnsafeRawPointer(images))))
+    lrnCheckImages = addCheckImages(hwnd, to: images, dark: lrnColors.dark)
     applyListColors(list, lrnColors)
     if !lrnColors.dark { trackHover(list) }
     insertColumns(list, widths: [lsc(checkW), lsc(typedW), lsc(width - checkW - typedW) - GetSystemMetrics(SM_CXVSCROLL) - 4])
@@ -297,23 +301,41 @@ private func learnedWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lPar
         case UINT(bitPattern: -12) /* NM_CUSTOMDRAW */:
             let cd = UnsafeMutableRawPointer(mutating: raw)
             switch raw.assumingMemoryBound(to: NMCUSTOMDRAW.self).pointee.dwDrawStage {
-            case DWORD(0x1 /* CDDS_PREPAINT */): return LRESULT(0x20 /* CDRF_NOTIFYITEMDRAW */)
+            case DWORD(0x1 /* CDDS_PREPAINT */):
+                return LRESULT(0x20 /* CDRF_NOTIFYITEMDRAW */) | (lrnColors.dark ? LRESULT(0x10 /* CDRF_NOTIFYPOSTPAINT */) : 0)
+            case DWORD(0x2 /* CDDS_POSTPAINT */):
+                coverColumnLines(hdr.hwndFrom, raw.assumingMemoryBound(to: NMCUSTOMDRAW.self).pointee.hdc,
+                                 background: lrnColors.background)
+                return 0
             case DWORD(0x10001 /* CDDS_ITEMPREPAINT */):
                 return LRESULT(0x20 /* CDRF_NOTIFYSUBITEMDRAW */) | paintHover(hdr.hwndFrom, cd)
-            case DWORD(0x30001 /* CDDS_SUBITEM | CDDS_ITEMPREPAINT */): return paintHover(hdr.hwndFrom, cd)
+            case DWORD(0x30001 /* CDDS_SUBITEM | CDDS_ITEMPREPAINT */):
+                let column = raw.assumingMemoryBound(to: NMLVCUSTOMDRAW.self).pointee.iSubItem
+                return (column == 0 ? LRESULT(0x10 /* CDRF_NOTIFYPOSTPAINT */) : 0) | paintHover(hdr.hwndFrom, cd)
+            case DWORD(0x30002 /* CDDS_SUBITEM | CDDS_ITEMPOSTPAINT */):
+                let nm = raw.assumingMemoryBound(to: NMCUSTOMDRAW.self).pointee
+                let row = Int(nm.dwItemSpec)
+                if let images = lrnCheckImages, let on = isChecked(row) {
+                    drawCentredImage(hdr.hwndFrom, nm.hdc, row: row, column: 0, image: on ? images.on : images.off)
+                }
+                return 0
             default: return 0
             }
         case UINT(bitPattern: -101) /* LVN_ITEMCHANGED */:
-            let nm = raw.assumingMemoryBound(to: NMLISTVIEW.self).pointee
-            let image = UINT(0xF000 /* LVIS_STATEIMAGEMASK */)
-            if !filling, nm.iItem >= 0, nm.uChanged & UINT(0x8 /* LVIF_STATE */) != 0,
-               (nm.uNewState ^ nm.uOldState) & image != 0, nm.uOldState & image != 0 {
-                PostMessageW(hwnd, WM_LRN_TOGGLE, WPARAM(nm.iItem), 0)
-            }
             updateMinusButton(hwnd)
+        case UINT(bitPattern: -2) /* NM_CLICK */:
+            // A click in the check column toggles the row's box.
+            if let (row, column) = clickedCell(hdr.hwndFrom), column == 0, isChecked(row) != nil {
+                PostMessageW(hwnd, WM_LRN_TOGGLE, WPARAM(row), 0)
+            }
         case UINT(bitPattern: -155) /* LVN_KEYDOWN */:
             let key = raw.assumingMemoryBound(to: NMLVKEYDOWN.self).pointee.wVKey
             if key == WORD(VK_DELETE) { removeSelected(hwnd) }
+            if key == WORD(VK_SPACE) {
+                let row = SendMessageW(hdr.hwndFrom, UINT(0x100C /* LVM_GETNEXTITEM */), WPARAM(bitPattern: Int64(-1)),
+                                       LPARAM(0x1 /* LVNI_FOCUSED */))
+                if row >= 0 { PostMessageW(hwnd, WM_LRN_TOGGLE, WPARAM(row), 0) }
+            }
         default: break
         }
     case UINT(WM_CTLCOLORSTATIC), UINT(WM_CTLCOLORBTN):

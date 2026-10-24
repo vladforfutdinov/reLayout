@@ -1,6 +1,7 @@
 # Desktop session: opens Settings, Exceptions and Learned in the running app and
 # saves each window (PrintWindow) to $args[0]\<name>.png, the cursor over a list's
-# third row so its hover shows.
+# third row so its hover shows; then clicks the first row's check box and saves
+# <name>-clicked.png (the click toggles it).
 param([string]$Out)
 $ErrorActionPreference = 'Stop'
 Add-Type -ReferencedAssemblies System.Drawing -TypeDefinition @'
@@ -14,14 +15,24 @@ public static class Shot {
   [DllImport("user32.dll")] public static extern bool SetProcessDPIAware();
   [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern IntPtr FindWindowExW(IntPtr parent, IntPtr after, string cls, string title);
   [StructLayout(LayoutKind.Sequential)] public struct MOUSEINPUT { public int dx, dy; public uint data, flags, time; public IntPtr extra; }
-  [StructLayout(LayoutKind.Sequential)] public struct INPUT { public uint type; public MOUSEINPUT mi; public long pad; }
+  [StructLayout(LayoutKind.Sequential)] public struct INPUT { public uint type; public MOUSEINPUT mi; }   // 40 bytes on x64, as SendInput checks
   [DllImport("user32.dll")] public static extern uint SendInput(uint n, INPUT[] inputs, int size);
   [DllImport("user32.dll")] public static extern int GetSystemMetrics(int i);
-  static void MoveTo(int x, int y) {
+  [DllImport("user32.dll")] public static extern uint GetDpiForWindow(IntPtr h);
+  static void MoveTo(int x, int y, uint buttons = 0) {
     var input = new INPUT[1];
     input[0].mi.dx = x * 65535 / (GetSystemMetrics(0) - 1); input[0].mi.dy = y * 65535 / (GetSystemMetrics(1) - 1);
-    input[0].mi.flags = 0x0001 | 0x8000;   // MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE
+    input[0].mi.flags = 0x0001 | 0x8000 | buttons;   // MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE
     SendInput(1, input, Marshal.SizeOf(typeof(INPUT)));
+  }
+  /// Clicks the list's first row at `dx` (96-dpi units from the list's left edge).
+  public static void ClickFirstRow(IntPtr h, int dx) {
+    var list = FindWindowExW(h, IntPtr.Zero, "SysListView32", null);
+    RECT r; GetWindowRect(list, out r);
+    double s = GetDpiForWindow(list) / 96.0;
+    int x = r.L + (int)(dx * s), y = r.T + 2 + (int)(9 * s);
+    MoveTo(x, y); System.Threading.Thread.Sleep(100);
+    MoveTo(x, y, 0x0002); MoveTo(x, y, 0x0004);   // left down, left up
   }
   public static void Hover(IntPtr h) {
     var list = IntPtr.Zero;
@@ -54,6 +65,9 @@ foreach ($w in @(@{ id = 111; cls = 'ReLayoutExceptionsWnd'; name = 'exceptions'
   [void][Shot]::PostMessageW($set, $WM_COMMAND, [IntPtr]$w.id, [IntPtr]0)
   $h = [Shot]::Wait($w.cls); if ($h -eq 0) { throw "no $($w.name) window" }
   [Shot]::Hover($h); Start-Sleep -Milliseconds 1500; [Shot]::Save($h, "$Out\$($w.name).png")
+  # The check box in the first row: Learned's first column; Per-app features' Auto-correct column.
+  $dx = if ($w.name -eq 'learned') { 16 } else { 337 }
+  [Shot]::ClickFirstRow($h, $dx); Start-Sleep -Milliseconds 800; [Shot]::Save($h, "$Out\$($w.name)-clicked.png")
   [void][Shot]::PostMessageW($h, $WM_CLOSE, [IntPtr]0, [IntPtr]0); Start-Sleep -Milliseconds 500
 }
 [void][Shot]::PostMessageW($set, $WM_CLOSE, [IntPtr]0, [IntPtr]0)

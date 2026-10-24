@@ -1,4 +1,5 @@
 import WinSDK
+import RelayoutNative
 
 // Win32 plumbing the Settings, Exceptions and Learned windows share. Each window
 // keeps its own dpi, font, colors and brush and passes them in.
@@ -185,6 +186,85 @@ func paintHover(_ list: HWND?, _ raw: UnsafeMutableRawPointer) -> LRESULT {
     }
     cd.pointee.clrTextBk = lightListHover
     return LRESULT(0x2 /* CDRF_NEWFONT */)
+}
+
+/// Adds check box images (clear, checked) to `images`, drawn in the style of a
+/// hidden themed BUTTON under `owner`: a list view's own state images keep a light
+/// box in the dark theme.
+/// - Returns: their indexes, nil when they could not be made.
+func addCheckImages(_ owner: HWND?, to images: HIMAGELIST?, dark: Bool) -> (off: Int32, on: Int32)? {
+    let probe = "BUTTON".withCString(encodedAs: UTF16.self) {
+        CreateWindowExW(0, $0, nil, DWORD(WS_CHILD), 0, 0, 0, 0, owner, nil, GetModuleHandleW(nil), nil)
+    }
+    guard let probe else { return nil }
+    defer { DestroyWindow(probe) }
+    applyControlTheme(probe, className: "BUTTON", dark: dark)
+    let off = relayout_add_check_image(UnsafeMutableRawPointer(images), UnsafeMutableRawPointer(probe), 0)
+    let on = relayout_add_check_image(UnsafeMutableRawPointer(images), UnsafeMutableRawPointer(probe), 1)
+    return off < 0 || on < 0 ? nil : (off, on)
+}
+
+/// Post-paint (NM_CUSTOMDRAW) of a check cell: draws image `image` of the list's small
+/// image list centred in sub-item `column` of `row`.
+func drawCentredImage(_ list: HWND?, _ hdc: HDC?, row: Int, column: Int32, image: Int32) {
+    var cell = RECT()
+    cell.top = column   // LVM_GETSUBITEMRECT takes the sub-item here
+    cell.left = 0       // LVIR_BOUNDS
+    _ = withUnsafeMutablePointer(to: &cell) {
+        SendMessageW(list, UINT(0x1038 /* LVM_GETSUBITEMRECT */), WPARAM(row), LPARAM(Int(bitPattern: $0)))
+    }
+    if column == 0 {   // sub-item 0's bounds are the whole row
+        cell.right = cell.left + LONG(SendMessageW(list, UINT(0x101D /* LVM_GETCOLUMNWIDTH */), 0, 0))
+    }
+    let images = HIMAGELIST(bitPattern: Int(SendMessageW(list, UINT(0x1002 /* LVM_GETIMAGELIST */),
+                                                         WPARAM(1 /* LVSIL_SMALL */), 0)))
+    let size = GetSystemMetrics(SM_CXSMICON)
+    _ = ImageList_Draw(images, image, hdc, (cell.left + cell.right - size) / 2, (cell.top + cell.bottom - size) / 2,
+                       UINT(0x1 /* ILD_TRANSPARENT */))
+}
+
+/// Post-paint (CDDS_POSTPAINT) of a dark list: the dark list style draws a line at
+/// each column's right edge; this paints them over with `background`, except across
+/// rows the list highlights (hot or selected).
+func coverColumnLines(_ list: HWND?, _ hdc: HDC?, background: COLORREF) {
+    var client = RECT()
+    GetClientRect(list, &client)
+    let saved = SaveDC(hdc)
+    defer { RestoreDC(hdc, saved) }
+    let hot = Int(SendMessageW(list, UINT(0x103D /* LVM_GETHOTITEM */), 0, 0))
+    let top = Int(SendMessageW(list, UINT(0x1027 /* LVM_GETTOPINDEX */), 0, 0))
+    let page = Int(SendMessageW(list, UINT(0x1028 /* LVM_GETCOUNTPERPAGE */), 0, 0))
+    for row in top...(top + page) {
+        let selected = SendMessageW(list, UINT(0x102C /* LVM_GETITEMSTATE */), WPARAM(row), LPARAM(0x2 /* LVIS_SELECTED */)) != 0
+        guard row == hot || selected else { continue }
+        var r = RECT()   // left = LVIR_BOUNDS
+        guard withUnsafeMutablePointer(to: &r, {
+            SendMessageW(list, UINT(0x100E /* LVM_GETITEMRECT */), WPARAM(row), LPARAM(Int(bitPattern: $0)))
+        }) != 0 else { continue }
+        ExcludeClipRect(hdc, r.left, r.top, r.right, r.bottom)
+    }
+    let brush = CreateSolidBrush(background)
+    defer { DeleteObject(UnsafeMutableRawPointer(brush)) }
+    var x: Int32 = 0
+    for column in 0..<16 {
+        let width = Int32(SendMessageW(list, UINT(0x101D /* LVM_GETCOLUMNWIDTH */), WPARAM(column), 0))
+        guard width > 0 else { break }
+        x += width
+        var line = RECT(left: x - 2, top: client.top, right: x + 1, bottom: client.bottom)
+        FillRect(hdc, &line, brush)
+    }
+}
+
+/// The row and column under the last click (GetMessagePos), nil off any row.
+func clickedCell(_ list: HWND?) -> (row: Int, column: Int32)? {
+    let pos = GetMessagePos()
+    var hit = LVHITTESTINFO()
+    hit.pt = POINT(x: LONG(Int16(truncatingIfNeeded: pos & 0xFFFF)), y: LONG(Int16(truncatingIfNeeded: pos >> 16)))
+    ScreenToClient(list, &hit.pt)
+    _ = withUnsafeMutablePointer(to: &hit) {
+        SendMessageW(list, UINT(0x1039 /* LVM_SUBITEMHITTEST */), 0, LPARAM(Int(bitPattern: $0)))
+    }
+    return hit.iItem >= 0 ? (Int(hit.iItem), hit.iSubItem) : nil
 }
 
 /// Appends a column of each width (device pixels) to a report-view list.

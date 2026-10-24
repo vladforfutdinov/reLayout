@@ -4,6 +4,22 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## v1.4.0 — released; landing and favicons
+
+- Tagged `v1.4.0` on `474b628` (1.4, not 1.3.17: the per-app features
+  rework, the Shift-twice default and the Core refactors). CI green: build
+  (notarized dmg/zip, appcast 1.4.0, Homebrew tap), Windows x64/arm64
+  (installer 5.5 / 5.6 MB, portable 3.5 / 3.4 MB), core. Notes in
+  `docs/release-notes/v1.4.0{,-windows}.md`, landed in the release body and
+  the appcast.
+- Landing (`gh-pages`, `f30a232`..`7d0b9c9`): Windows size under "Native,
+  no Electron"; Exceptions copy → per-app features; the menu-bar/tray rL in
+  Install, the nav and hero logos drawn from one `rl-glyph` symbol (the
+  owner's cleaned `assets/rL-logo.svg` → `rL-logo-clean.svg` via svgOMG,
+  `81bf6af`), sized to the owner's DevTools values; favicons per Evil
+  Martians: `favicon.ico` 32, `icon.svg`, `apple-touch-icon.png` 180,
+  `manifest.webmanifest` with 192/512 — all rendered from one SVG.
+
 ## After v1.3.16 — performance check before v1.4.0 (macOS VM)
 
 - `RELAYOUT_E2E_PERF=15` (new harness mode) against v1.3.16 and HEAD, two

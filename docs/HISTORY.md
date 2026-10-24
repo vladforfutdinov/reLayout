@@ -4,6 +4,15 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.16 — macOS: Apps and Learned words as sheets
+
+- Owner: Settings should dim behind them, as System Settings does under its
+  sheets. That is the system sheet (`beginSheet`), which also blocks Settings
+  and moves with it, so the child window and `ModalShield` of the previous
+  entry are gone. A sheet has no close button; Done, Esc and Cmd+W end it
+  (`SettingsWindow.dismiss`). Windows has no system dimming of an owner and
+  keeps its disabled owner.
+
 ## After v1.3.16 — Learned words and Per-app features modal to Settings
 
 - Owner: View… and Apps… must be modal, Settings unusable meanwhile, and the

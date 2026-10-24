@@ -614,46 +614,23 @@ final class ShortcutField: NSView {
 
 // Settings window that closes on Esc (macOS convention via cancelOperation).
 final class SettingsWindow: NSWindow {
-    override func cancelOperation(_ sender: Any?) { close() }   // Esc
+    override func cancelOperation(_ sender: Any?) { dismiss() }   // Esc
 
-    /// Apps or Learned words while open: modal to this window, which then takes no
-    /// focus, clicks or close until it goes.
-    var modalChild: NSWindow? {
-        didSet {
-            shield?.removeFromSuperview()
-            shield = nil
-            standardWindowButton(.closeButton)?.isEnabled = modalChild == nil
-            guard let child = modalChild, let content = contentView else { return }
-            let s = ModalShield(frame: content.bounds)
-            s.autoresizingMask = [.width, .height]
-            s.onClick = { [weak child] in NSSound.beep(); child?.makeKeyAndOrderFront(nil) }
-            content.addSubview(s)
-            shield = s
-        }
+    /// Closes it, or ends it when it is a sheet (Apps, Learned words) on Settings.
+    func dismiss() {
+        if let parent = sheetParent { parent.endSheet(self) } else { close() }
     }
-    private var shield: NSView?
-    override var canBecomeKey: Bool { modalChild == nil && super.canBecomeKey }
 
     // No main menu (agent app), so Cmd+W / Cmd+Q have no handler. Handle them here,
     // matching the physical keys (keyCode) so it works on any keyboard layout.
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         guard event.modifierFlags.contains(.command) else { return super.performKeyEquivalent(with: event) }
         switch Int(event.keyCode) {
-        case kVK_ANSI_W: close(); return true
+        case kVK_ANSI_W: dismiss(); return true
         case kVK_ANSI_Q: NSApp.terminate(nil); return true
         default: return super.performKeyEquivalent(with: event)
         }
     }
-}
-
-/// Covers a window while its modal child is open: takes its clicks and brings the child forward.
-final class ModalShield: NSView {
-    var onClick: () -> Void = {}
-    override func hitTest(_ point: NSPoint) -> NSView? { frame.contains(point) ? self : nil }
-    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
-    override func mouseDown(with event: NSEvent) { onClick() }
-    override func rightMouseDown(with event: NSEvent) { onClick() }
-    override func scrollWheel(with event: NSEvent) {}
 }
 
 // The app cell of the exceptions table: icon + name. Removal is the list's ⊖, like
@@ -1637,7 +1614,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     }
 
     @objc private func learnedDone() {
-        learnedWindow?.close()
+        (learnedWindow as? SettingsWindow)?.dismiss()
         updateAutoAvailability()
     }
 
@@ -1861,32 +1838,15 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         present(w, over: parent)
     }
 
-    // A window of its own, centered over Settings and modal to it (a sheet has no
-    // close button): it moves only with Settings, and Settings takes no input until it closes.
+    // A sheet on Settings: the system dims Settings, keeps it from input and moves
+    // the sheet with it; Done and Esc end it.
     private func present(_ w: NSWindow, over parent: NSWindow) {
-        // Only the close button: the other two are drawn disabled otherwise.
-        w.standardWindowButton(.miniaturizeButton)?.isHidden = true
-        w.standardWindowButton(.zoomButton)?.isHidden = true
-        w.isMovable = false
-        if !w.isVisible {
-            let p = parent.frame, f = w.frame
-            w.setFrameOrigin(NSPoint(x: p.midX - f.width / 2, y: p.midY - f.height / 2))
-            parent.addChildWindow(w, ordered: .above)
-            (parent as? SettingsWindow)?.modalChild = w
-            var token: NSObjectProtocol?
-            token = NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: w,
-                                                           queue: .main) { [weak parent, weak w] _ in
-                if let token { NotificationCenter.default.removeObserver(token) }
-                if let w { parent?.removeChildWindow(w) }
-                (parent as? SettingsWindow)?.modalChild = nil
-                parent?.makeKeyAndOrderFront(nil)
-            }
-        }
-        w.makeKeyAndOrderFront(nil)
+        guard w.sheetParent == nil else { return }
+        parent.beginSheet(w)
     }
 
     @objc private func excDone() {
-        excWindow?.close()
+        (excWindow as? SettingsWindow)?.dismiss()
     }
 
     private func buildExceptionsWindow() -> NSWindow {
@@ -2048,7 +2008,11 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         let tag = sender.selectedTag()
         Loc.apply(tag == 0 ? nil : Loc.languages[tag - 1].code)
         setupMenu()
-        if let w = settingsWindow { settingsWindow = nil; w.close() }
+        if let w = settingsWindow {
+            settingsWindow = nil
+            if let sheet = w.attachedSheet { w.endSheet(sheet) }
+            w.close()
+        }
         excWindow = nil; learnedWindow = nil   // cached sheets carry the old language
         DispatchQueue.main.async { self.openReLayoutSettings() }
     }

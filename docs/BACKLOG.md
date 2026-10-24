@@ -14,7 +14,6 @@ Found by the dev-guardrails session's jactionlint run (local branch `chore/guard
 - Pin `actions/checkout@v5` and `actions/upload-artifact@v4` by SHA (`jactionlint --online --fix`).
 - `concurrency` groups for `build.yml` (tags) and `core.yml`; `timeout-minutes` on the 7 jobs without one; explicit `permissions` on the 2 jobs without.
 - Decide on `chore/guardrails-ci` (push, PR); after the fixes `jactionlint --baseline-write`.
-- Typo: `docs/HISTORY.md` `herf` → `href`.
 
 ## Remember the key layouts per app and per session (3+ layouts)
 

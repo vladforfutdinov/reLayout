@@ -1196,10 +1196,14 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
 
     // MARK: settings window
 
-    // NSApp.activate(ignoringOtherApps:) is deprecated on macOS 14+.
-    private func activateApp() {
+    /// Shows `w` above the front app: NSApp.activate() only asks on macOS 14+ and may be
+    /// refused, and makeKeyAndOrderFront alone leaves an inactive app's window behind.
+    private func bringToFront(_ w: NSWindow) {
+        // NSApp.activate(ignoringOtherApps:) is deprecated on macOS 14+.
         if #available(macOS 14.0, *) { NSApp.activate() }
         else { NSApp.activate(ignoringOtherApps: true) }
+        w.makeKeyAndOrderFront(nil)
+        w.orderFrontRegardless()
     }
 
     // Settings widget builders (shared styling).
@@ -1219,8 +1223,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
 
     @objc private func openReLayoutSettings() {
         if let w = settingsWindow {
-            activateApp()
-            w.makeKeyAndOrderFront(nil)
+            bringToFront(w)
             return
         }
         let w = SettingsWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: 200),
@@ -1466,8 +1469,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         settingsWindow = w
         w.initialFirstResponder = nil
         w.animationBehavior = .none   // no zoom-in on open
-        activateApp()
-        w.makeKeyAndOrderFront(nil)
+        bringToFront(w)
         w.makeFirstResponder(nil)   // don't leave the first checkbox focused on open
     }
 

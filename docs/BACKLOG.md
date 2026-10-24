@@ -2,6 +2,20 @@
 
 Committed, repo-travelling backlog of planned-but-not-started work. Operational day-to-day state lives in the gitignored `docs/SNAPSHOT.md`; durable history in `docs/HISTORY.md`. Move an item out of here once it's in progress.
 
+## Next after the release: CI hardening
+
+Found by the dev-guardrails session's jactionlint run (local branch `chore/guardrails-ci`, not pushed: a guardrails workflow with jactionlint + agnix and a baseline of the 24 current findings). None blocks a release: `build.yml` and `resign-appcast.yml` run only on a `v*` tag or by hand, and pull requests from forks get a read-only token.
+
+**Why:** least privilege and reproducible CI before a pipeline step or a contributor makes the broad defaults matter.
+
+**Steps:**
+- `build.yml`: move `contents: write` from the workflow to the release job only; the build jobs get `contents: read`. Check what else runs in the build jobs (downloaded scripts) — the one place the broad write right would count.
+- `resign-appcast.yml`: workflow-level write permission onto its one job.
+- Pin `actions/checkout@v5` and `actions/upload-artifact@v4` by SHA (`jactionlint --online --fix`).
+- `concurrency` groups for `build.yml` (tags) and `core.yml`; `timeout-minutes` on the 7 jobs without one; explicit `permissions` on the 2 jobs without.
+- Decide on `chore/guardrails-ci` (push, PR); after the fixes `jactionlint --baseline-write`.
+- Typo: `docs/HISTORY.md` `herf` → `href`.
+
 ## Remember the key layouts per app and per session (3+ layouts)
 
 With three or more layouts enabled (ABC + Russian + Ukrainian) every switch is a cycle, and both the hotkey's press-again cycle and auto-correct's target choice guess from the text alone. Think through remembering which two layouts the user actually works with in a given app (and lately), so the first guess is right and the user is not walked through every layout.

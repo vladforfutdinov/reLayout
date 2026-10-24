@@ -616,6 +616,24 @@ final class ShortcutField: NSView {
 final class SettingsWindow: NSWindow {
     override func cancelOperation(_ sender: Any?) { close() }   // Esc
 
+    /// Apps or Learned words while open: modal to this window, which then takes no
+    /// focus, clicks or close until it goes.
+    var modalChild: NSWindow? {
+        didSet {
+            shield?.removeFromSuperview()
+            shield = nil
+            standardWindowButton(.closeButton)?.isEnabled = modalChild == nil
+            guard let child = modalChild, let content = contentView else { return }
+            let s = ModalShield(frame: content.bounds)
+            s.autoresizingMask = [.width, .height]
+            s.onClick = { [weak child] in NSSound.beep(); child?.makeKeyAndOrderFront(nil) }
+            content.addSubview(s)
+            shield = s
+        }
+    }
+    private var shield: NSView?
+    override var canBecomeKey: Bool { modalChild == nil && super.canBecomeKey }
+
     // No main menu (agent app), so Cmd+W / Cmd+Q have no handler. Handle them here,
     // matching the physical keys (keyCode) so it works on any keyboard layout.
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
@@ -626,6 +644,16 @@ final class SettingsWindow: NSWindow {
         default: return super.performKeyEquivalent(with: event)
         }
     }
+}
+
+/// Covers a window while its modal child is open: takes its clicks and brings the child forward.
+final class ModalShield: NSView {
+    var onClick: () -> Void = {}
+    override func hitTest(_ point: NSPoint) -> NSView? { frame.contains(point) ? self : nil }
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+    override func mouseDown(with event: NSEvent) { onClick() }
+    override func rightMouseDown(with event: NSEvent) { onClick() }
+    override func scrollWheel(with event: NSEvent) {}
 }
 
 // The app cell of the exceptions table: icon + name. Removal is the list's ⊖, like
@@ -1833,14 +1861,26 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         present(w, over: parent)
     }
 
-    // A window of its own, centered over Settings: a sheet has no close button.
+    // A window of its own, centered over Settings and modal to it (a sheet has no
+    // close button): it moves only with Settings, and Settings takes no input until it closes.
     private func present(_ w: NSWindow, over parent: NSWindow) {
         // Only the close button: the other two are drawn disabled otherwise.
         w.standardWindowButton(.miniaturizeButton)?.isHidden = true
         w.standardWindowButton(.zoomButton)?.isHidden = true
+        w.isMovable = false
         if !w.isVisible {
             let p = parent.frame, f = w.frame
             w.setFrameOrigin(NSPoint(x: p.midX - f.width / 2, y: p.midY - f.height / 2))
+            parent.addChildWindow(w, ordered: .above)
+            (parent as? SettingsWindow)?.modalChild = w
+            var token: NSObjectProtocol?
+            token = NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: w,
+                                                           queue: .main) { [weak parent, weak w] _ in
+                if let token { NotificationCenter.default.removeObserver(token) }
+                if let w { parent?.removeChildWindow(w) }
+                (parent as? SettingsWindow)?.modalChild = nil
+                parent?.makeKeyAndOrderFront(nil)
+            }
         }
         w.makeKeyAndOrderFront(nil)
     }

@@ -341,7 +341,7 @@ private func exceptionsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ l
         case idExcChoose:
             if let app = chooseProgram(hwnd) { addApps(hwnd, [app]) }
         case idExcRemove: removeSelected(hwnd)
-        case idExcDone, 2 /* IDCANCEL: Esc */: DestroyWindow(hwnd)
+        case idExcDone, 2 /* IDCANCEL: Esc */: endModal(hwnd); DestroyWindow(hwnd)
         default: break
         }
     case UINT(WM_NOTIFY):
@@ -376,7 +376,12 @@ private func exceptionsWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ l
             buildExceptions(hwnd)
         }
         return 0
+    case UINT(WM_NCHITTEST):
+        return fixedHitTest(hwnd, wParam, lParam)
+    case UINT(WM_CLOSE):   // the title bar's ✕, Alt+F4
+        endModal(hwnd)
     case UINT(WM_DESTROY):
+        endModal(hwnd)
         exceptionsHwnd = nil
         if let b = excBrush { DeleteObject(UnsafeMutableRawPointer(b)); excBrush = nil }
         excTooltip = nil   // owned by the window: destroyed with it
@@ -405,5 +410,6 @@ func openExceptions(owner: HWND?) {
 
     // Size to the scaled client area, centered over the owner (Settings).
     sizeCenteredOverOwner(hwnd, owner: owner, clientWidth: esc(clientW), clientHeight: esc(clientH))
+    beginModal(hwnd)
     showAndFocus(hwnd)
 }

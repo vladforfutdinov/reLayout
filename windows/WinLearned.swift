@@ -284,7 +284,7 @@ private func learnedWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lPar
             PostMessageW(hwnd, WM_LRN_COMMIT, 0, 0)
         case 1 /* IDOK: Enter */: endEdit(hwnd, commit: true)
         case 2 /* IDCANCEL: Esc */ where outEdit != nil: endEdit(hwnd, commit: false)
-        case idLrnDone, 2 /* IDCANCEL: Esc */: DestroyWindow(hwnd)
+        case idLrnDone, 2 /* IDCANCEL: Esc */: endModal(hwnd); DestroyWindow(hwnd)
         default: break
         }
     case WM_LRN_TOGGLE:
@@ -359,7 +359,12 @@ private func learnedWndProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lPar
             buildLearned(hwnd)
         }
         return 0
+    case UINT(WM_NCHITTEST):
+        return fixedHitTest(hwnd, wParam, lParam)
+    case UINT(WM_CLOSE):   // the title bar's ✕, Alt+F4
+        endModal(hwnd)
     case UINT(WM_DESTROY):
+        endModal(hwnd)
         learnedHwnd = nil
         outEdit = nil
         newPending = false
@@ -393,5 +398,6 @@ func openLearned(owner: HWND?) {
 
     // Size to the scaled client area, centered over the owner (Settings).
     sizeCenteredOverOwner(hwnd, owner: owner, clientWidth: lsc(lrnClientW), clientHeight: lsc(lrnClientH))
+    beginModal(hwnd)
     showAndFocus(hwnd)
 }

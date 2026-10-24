@@ -328,6 +328,19 @@ func createWindow(_ className: [UInt16], title: String, width: Int32, height: In
     }
 }
 
+/// Opens `hwnd` modal to its owner: the owner takes no input until `endModal`.
+func beginModal(_ hwnd: HWND?) { EnableWindow(GetWindow(hwnd, UINT(GW_OWNER)), false) }
+
+/// Gives the owner its input back. Called before the window is destroyed: with the
+/// owner still disabled then, Windows activates another app instead of it.
+func endModal(_ hwnd: HWND?) { EnableWindow(GetWindow(hwnd, UINT(GW_OWNER)), true) }
+
+/// WM_NCHITTEST of a modal window: its caption does not drag it, so it stays over its owner.
+func fixedHitTest(_ hwnd: HWND?, _ wParam: WPARAM, _ lParam: LPARAM) -> LRESULT {
+    let hit = DefWindowProcW(hwnd, UINT(WM_NCHITTEST), wParam, lParam)
+    return hit == LRESULT(HTCAPTION) ? LRESULT(HTCLIENT) : hit
+}
+
 func showAndFocus(_ hwnd: HWND?) {
     ShowWindow(hwnd, SW_SHOW)
     SetForegroundWindow(hwnd)

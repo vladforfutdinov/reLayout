@@ -19,6 +19,7 @@ public static class Shot {
   [DllImport("user32.dll")] public static extern uint SendInput(uint n, INPUT[] inputs, int size);
   [DllImport("user32.dll")] public static extern int GetSystemMetrics(int i);
   [DllImport("user32.dll")] public static extern uint GetDpiForWindow(IntPtr h);
+  [DllImport("user32.dll")] public static extern bool IsWindowEnabled(IntPtr h);
   static void MoveTo(int x, int y, uint buttons = 0) {
     var input = new INPUT[1];
     input[0].mi.dx = x * 65535 / (GetSystemMetrics(0) - 1); input[0].mi.dy = y * 65535 / (GetSystemMetrics(1) - 1);
@@ -68,7 +69,10 @@ foreach ($w in @(@{ id = 111; cls = 'ReLayoutExceptionsWnd'; name = 'exceptions'
   # The check box in the first row: Learned's first column; Per-app features' Auto-correct column.
   $dx = if ($w.name -eq 'learned') { 16 } else { 337 }
   [Shot]::ClickFirstRow($h, $dx); Start-Sleep -Milliseconds 800; [Shot]::Save($h, "$Out\$($w.name)-clicked.png")
+  # Modal: Settings takes no input while the window is open, and again after.
+  "$($w.name) open: settings enabled=$([Shot]::IsWindowEnabled($set))" | Add-Content "$Out\modal.txt"
   [void][Shot]::PostMessageW($h, $WM_CLOSE, [IntPtr]0, [IntPtr]0); Start-Sleep -Milliseconds 500
+  "$($w.name) closed: settings enabled=$([Shot]::IsWindowEnabled($set))" | Add-Content "$Out\modal.txt"
 }
 [void][Shot]::PostMessageW($set, $WM_CLOSE, [IntPtr]0, [IntPtr]0)
 'ok' | Set-Content "$Out\done.txt"

@@ -4,6 +4,19 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.3.16 — Learned words and Per-app features modal to Settings
+
+- Owner: View… and Apps… must be modal, Settings unusable meanwhile, and the
+  window must not move relative to Settings. macOS: the window is a child of
+  Settings (moves with it, `isMovable = false`); Settings gets a
+  `ModalShield` over its content (clicks beep and bring the child forward),
+  cannot become key, and its close button is off until the child closes.
+  Windows: the owner is disabled (`beginModal`), re-enabled before the
+  window is destroyed (`endModal`, else Windows activates another app), and
+  the caption does not drag (`fixedHitTest`).
+- win-shots records in `modal.txt` whether Settings was enabled while each
+  window was open and after it closed.
+
 ## After v1.3.16 — Windows Learned words: dark check boxes, no column lines
 
 - Learned's check boxes were the list view's own (`LVS_EX_CHECKBOXES`),

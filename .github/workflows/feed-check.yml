@@ -1,0 +1,30 @@
+name: feed-check
+
+# Daily: the Sparkle feed every installed copy polls answers over HTTPS, parses
+# as XML and lists the latest GitHub Release. A failure means auto-update is down.
+on:
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  feed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      FEED_URL: ${{ vars.RELAYOUT_FEED_URL }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Feed answers, parses and lists the latest release
+        run: |
+          set -euo pipefail
+          [ -n "$FEED_URL" ] || { echo "::error::RELAYOUT_FEED_URL unset"; exit 1; }
+          curl -fsS --max-time 30 "$FEED_URL" -o appcast.xml
+          python3 -c 'import sys, xml.etree.ElementTree as ET; ET.parse(sys.argv[1])' appcast.xml
+          TAG=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName -q .tagName)
+          grep -q "<sparkle:shortVersionString>${TAG#v}</sparkle:shortVersionString>" appcast.xml \
+            || { echo "::error::$FEED_URL does not list the latest release $TAG"; exit 1; }
+          echo "feed OK: $TAG"

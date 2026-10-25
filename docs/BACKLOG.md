@@ -23,7 +23,7 @@ Since 2026-10-25 `https://relayout.forfutdinov.com/` (landing + Sparkle `appcast
 
 **Steps:**
 - Decide whether the GitHub Pages mirror stays (or is switched off); write it down in `docs/RELEASING.md`.
-- Know who renews `forfutdinov.com`, and what an outage would look like (a monitor on `appcast.xml`?).
+- Know who renews `forfutdinov.com` (GoDaddy) and the Cloudflare account. The feed itself is watched since 2026-10-25: the release waits for its version in the feed, and `feed-check.yml` runs daily.
 - Consider a fallback for the feed (Sparkle reads one `SUFeedURL`; a second host means a release that changes it).
 
 ## Remember the key layouts per app and per session (3+ layouts)

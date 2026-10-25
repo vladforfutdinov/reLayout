@@ -154,7 +154,7 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${SPARKLE_ED_PRIVATE_KEY:-}" ]; then
-            echo "SPARKLE_ED_PRIVATE_KEY unset — skipping appcast"; exit 0
+            echo "::error::SPARKLE_ED_PRIVATE_KEY unset — a release without its appcast entry never reaches installed copies"; exit 1
           fi
           GEN="$(ls .sparkle/*/bin/generate_appcast | head -1)"
           printf '%s' "$SPARKLE_ED_PRIVATE_KEY" > "$RUNNER_TEMP/ed_priv"
@@ -187,6 +187,23 @@ jobs:
                 -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
               commit -m "appcast ${GITHUB_REF_NAME}" || { echo "no change"; exit 0; }
             git push origin gh-pages )
+
+      - name: Check the feed serves this release (release only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          FEED_URL: ${{ vars.RELAYOUT_FEED_URL }}
+        run: |
+          set -euo pipefail
+          # Cloudflare Pages deploys gh-pages on its own: wait until the feed lists this version.
+          VERSION="${GITHUB_REF_NAME#v}"
+          for i in $(seq 1 40); do
+            if curl -fsS --max-time 20 "${FEED_URL}?ci=${GITHUB_RUN_ID}-${i}" \
+                | grep -q "<sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>"; then
+              echo "feed serves ${VERSION}"; exit 0
+            fi
+            sleep 15
+          done
+          echo "::error::${FEED_URL} does not list ${VERSION} after 10 minutes"; exit 1
 
       - name: Update Homebrew tap (release only)
         if: startsWith(github.ref, 'refs/tags/v')

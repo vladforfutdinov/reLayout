@@ -4,6 +4,17 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.4.0 — the Sparkle feed is watched
+
+- Nothing told anyone when installed copies stopped getting updates. Now:
+  the appcast step fails on a tag without the Sparkle key (it used to skip
+  with exit 0, a green release missing from the feed); a new release step
+  polls `RELAYOUT_FEED_URL` up to 10 minutes for the new version (catches a
+  Cloudflare Pages deploy that did not happen); `feed-check.yml` daily: HTTPS,
+  XML parses, latest GitHub Release listed. Logic run locally against the
+  live feed: v1.4.0 found, a made-up 9.9.9 not. The workflows themselves run
+  only once on origin.
+
 ## After v1.4.0 — the site moves from DigitalOcean to Cloudflare Pages
 
 - `relayout.forfutdinov.com` (landing + Sparkle feed) was a DigitalOcean

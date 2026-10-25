@@ -109,6 +109,12 @@ git push origin vX.Y.Z
 
 CI then signs, notarizes, staples, and attaches the DMG/zip to the Release. Watch it: `gh run watch` · verify: `gh release view vX.Y.Z`.
 
+Rebuild only the Windows files of an existing release (the source of its tag, the current workflow, the tag's version stamped) and replace them in that release; macOS, the appcast and the tap are left alone:
+
+```sh
+gh workflow run build.yml --ref main -f windows_release=vX.Y.Z
+```
+
 ## Local signed build (optional)
 
 ```sh

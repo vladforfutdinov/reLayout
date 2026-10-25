@@ -4,6 +4,11 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.4.0 — Windows files of a release can be rebuilt by hand
+
+- Owner: rebuild the Windows files of v1.4.0 instead of a 1.4.1 that changes nothing on macOS. A plain manual `build` stamps `0.0.0-dev` and attaches nothing; re-tagging would need the release deleted (`gh release create` fails on an existing one), downloads gone ~20 min and a second "update to 1.4.0" on macOS.
+- `build.yml` `workflow_dispatch` input `windows_release`: the macOS job is skipped, the Windows jobs check out that tag, stamp its version (exe and installer) and `gh release upload --clobber` into it, with the current workflow's steps — so the fixed portable packaging applies.
+
 ## After v1.4.0 — portable fix verified; the bundled DLLs are enough
 
 - Manual `build` run on `a09b0e3` green, the new root check included. The arm64 portable's archive now holds `ReLayoutWin.exe`, the DLLs and `portable` at its root.

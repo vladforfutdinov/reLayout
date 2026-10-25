@@ -4,6 +4,12 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.4.0 — the Windows portable exe never started: payload under `dist/…` in the archive
+
+- Checking v1.4.0 for a clean machine on win-vm: `reLayout-windows-arm64.exe` and `-x64.exe` (release assets) each created `%TEMP%\7zS…`, started nothing, showed no window and hung. The 7z payload inside held `dist/payload-<arch>/ReLayoutWin.exe` and `dist/marker/portable`: `7z a $arc "dist/payload-$arch\*"` kept the relative folder, while the SFX config runs `ReLayoutWin.exe` from the archive root. v1.3.16's portable has the same layout, so the portable download was broken at least since then; the installer was not affected (it ships the folder itself). Defender detected and blocked nothing.
+- Fix in `build.yml`: add from inside each folder (`Push-Location`), archive path absolute; the step now throws unless `ReLayoutWin.exe` and `portable` are at the archive root.
+- The clean-machine DLL check itself (the app started with every Swift folder removed from PATH) is still owed: the portable never got as far as starting the app.
+
 ## After v1.4.0 — one host for the site: the GitHub Pages mirror is off
 
 - `vladforfutdinov.github.io/reLayout` served the same `gh-pages` as a duplicate. The API refuses to deactivate Pages for a repository publishing from `gh-pages` (422), so it was unpublished in Settings → Pages. Checked: the mirror and its `appcast.xml` answer 404; `relayout.forfutdinov.com/appcast.xml` and `handbook.forfutdinov.com` (another repository on the same github.io account) 200. Cloudflare Pages still deploys from `gh-pages`.

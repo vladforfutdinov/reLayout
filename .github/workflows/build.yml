@@ -357,12 +357,17 @@ jobs:
           Write-Host "SFX stub: $($sfx.FullName)"
           $sfx = $sfx.FullName
 
-          $arc = "dist/payload-$arch.7z"
+          $arc = Join-Path $PWD "dist/payload-$arch.7z"
           if (Test-Path $arc) { Remove-Item $arc }
-          & $sevenZip.FullName a -t7z $arc "$payload\*" | Out-Null
+          # Added from inside each folder: the SFX runs ReLayoutWin.exe from the archive root.
+          Push-Location $payload; & $sevenZip.FullName a -t7z $arc * | Out-Null; Pop-Location
           # Marker: the app disables launch-at-login when run from the temp dir.
           New-Item -ItemType File -Force -Path dist/marker/portable | Out-Null
-          & $sevenZip.FullName a -t7z $arc "dist/marker\*" | Out-Null
+          Push-Location dist/marker; & $sevenZip.FullName a -t7z $arc portable | Out-Null; Pop-Location
+          $paths = & $sevenZip.FullName l -slt $arc | Select-String '^Path = (.+)$' | ForEach-Object { $_.Matches[0].Groups[1].Value }
+          foreach ($need in 'ReLayoutWin.exe', 'portable') {
+            if ($paths -notcontains $need) { throw "portable payload: $need is not at the archive root" }
+          }
 
           $cfg = "dist/sfx-$arch.txt"
           ";!@Install@!UTF-8!`r`nRunProgram=`"ReLayoutWin.exe`"`r`n;!@InstallEnd@!`r`n" |

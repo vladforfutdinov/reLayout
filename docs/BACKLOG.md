@@ -1,6 +1,6 @@
 # reLayout — Backlog
 
-Committed, repo-travelling backlog of planned-but-not-started work. Operational day-to-day state lives in the gitignored `docs/SNAPSHOT.md`; durable history in `docs/HISTORY.md`. Move an item out of here once it's in progress.
+Committed, repo-travelling backlog of planned-but-not-started work. Operational day-to-day state lives in the gitignored `docs/SNAPSHOT.md`; durable history in `docs/HISTORY.md`. Move an item out of here once it's in progress. One line per paragraph or bullet — no hard wraps.
 
 ## Next after the release: CI hardening
 

@@ -1,6 +1,6 @@
 # reLayout — History
 
-Append-only chronology. Newest milestone on top. One block per coherent unit of work (not per commit). Operational "where are we right now" lives in [`SNAPSHOT.md`](SNAPSHOT.md), not here.
+Append-only chronology. Newest milestone on top. One block per coherent unit of work (not per commit). One line per paragraph or bullet — no hard wraps. Operational "where are we right now" lives in [`SNAPSHOT.md`](SNAPSHOT.md), not here.
 
 ---
 

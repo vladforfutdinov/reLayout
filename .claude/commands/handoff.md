@@ -14,7 +14,7 @@ Refresh the handoff docs so the next session picks up cleanly. Steps:
      prior-session entries entirely.
    - **In progress / Known issues / Next steps / Test status / Uncommitted.**
 
-3. **Append to `docs/HISTORY.md`** — one block per milestone completed this session
+3. **Append to `docs/HISTORY.md`** — one line per paragraph or bullet, no hard wraps; one block per milestone completed this session
    (not per commit). Newest on top, under the intro `---`. Reference commit SHAs.
    Skip if nothing milestone-worthy landed.
 

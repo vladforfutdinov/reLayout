@@ -2,7 +2,7 @@
 
 A release is a git tag `vX.Y.Z`. Pushing it runs `.github/workflows/build.yml`, which builds, **signs with Developer ID + Hardened Runtime, notarizes, staples**, and publishes a GitHub Release with `reLayout.dmg` + `reLayout.zip`.
 
-Manual `workflow_dispatch` builds skip signing and notarization (ad-hoc), so they need no secrets.
+Manual `workflow_dispatch` builds without `release` skip signing and notarization (ad-hoc), so they need no secrets.
 
 ## One-time: repository secrets
 
@@ -109,10 +109,10 @@ git push origin vX.Y.Z
 
 CI then signs, notarizes, staples, and attaches the DMG/zip to the Release. Watch it: `gh run watch` · verify: `gh release view vX.Y.Z`.
 
-Rebuild only the Windows files of an existing release (the source of its tag, the current workflow, the tag's version stamped) and replace them in that release; macOS, the appcast and the tap are left alone:
+Rebuild an existing release from its tag and replace its files (notes kept); `platforms` picks `all`, `macos` or `windows`. A macOS rebuild is signed and notarized like a release; the appcast and the Homebrew cask are updated only when the tag is the latest release:
 
 ```sh
-gh workflow run build.yml --ref main -f windows_release=vX.Y.Z
+gh workflow run build.yml --ref main -f release=vX.Y.Z -f platforms=windows
 ```
 
 ## Local signed build (optional)

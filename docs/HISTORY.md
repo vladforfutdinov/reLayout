@@ -4,6 +4,10 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.4.0 — rebuild any platform of an existing release by hand
+
+- Owner: not only Windows. `windows_release` became two `workflow_dispatch` inputs: `release` (tag) and `platforms` (all / macos / windows). Workflow-level `TAG` (input or ref name) and `RELEASE` (tag push or `release` set) drive every release step. Both jobs check out the tag; macOS keeps its commit-count build number, so Sparkle sees the same build. On a manual rebuild the release step uploads with `--clobber` instead of `gh release create` (which fails on an existing release), and the appcast, the feed check and the cask run only when the tag is the latest release: the appcast holds one item, so rebuilding an older release would roll the feed back.
+
 ## After v1.4.0 — Windows files of a release can be rebuilt by hand
 
 - Owner: rebuild the Windows files of v1.4.0 instead of a 1.4.1 that changes nothing on macOS. A plain manual `build` stamps `0.0.0-dev` and attaches nothing; re-tagging would need the release deleted (`gh release create` fails on an existing one), downloads gone ~20 min and a second "update to 1.4.0" on macOS.

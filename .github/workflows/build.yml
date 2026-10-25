@@ -5,10 +5,15 @@ on:
     tags: ['v*']
   workflow_dispatch:        # build distributables on demand (ad-hoc signed, no notarization)
     inputs:
-      windows_release:
-        description: 'Existing release tag (e.g. v1.4.0): rebuild its Windows files from that tag and replace them; macOS is skipped'
+      release:
+        description: 'Existing release tag (e.g. v1.4.0): rebuild from that tag and replace its files'
         required: false
         default: ''
+      platforms:
+        description: 'Platforms to build'
+        type: choice
+        options: [all, macos, windows]
+        default: all
 
 permissions:
   contents: write   # needed to create a Release on tags
@@ -33,13 +38,20 @@ permissions:
 # Unset → build.sh refuses release builds (neutral-id guard); the tap step fails
 # with a pointer here. See docs/RELEASING.md → "Forking" for setup.
 
+# A release run: a v* tag push, or a manual run with `release` set (rebuild of
+# that existing release from its tag; files replaced, notes kept).
+env:
+  TAG: ${{ inputs.release || github.ref_name }}
+  RELEASE: ${{ startsWith(github.ref, 'refs/tags/v') || inputs.release != '' }}
+
 jobs:
   build:
-    if: github.event_name == 'push' || inputs.windows_release == ''
+    if: github.event_name == 'push' || inputs.platforms != 'windows'
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v5
         with:
+          ref: ${{ inputs.release || github.ref }}
           fetch-depth: 0          # build number = commit count
           persist-credentials: false   # the write token stays out of .git/config; steps pass it explicitly
 
@@ -47,7 +59,7 @@ jobs:
         run: swiftc --version && sw_vers
 
       - name: Import Developer ID certificate (release only)
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: env.RELEASE == 'true'
         env:
           CERT_P12_BASE64: ${{ secrets.DEVELOPER_ID_CERT_P12_BASE64 }}
           CERT_PASSWORD: ${{ secrets.DEVELOPER_ID_CERT_PASSWORD }}
@@ -74,7 +86,7 @@ jobs:
           # tag pushes and manual workflow_dispatch runs.
           RELAYOUT_RELEASE: '1'
           # embed Sparkle only for tag releases; dispatch builds stay framework-free
-          WITH_SPARKLE: ${{ startsWith(github.ref, 'refs/tags/v') && '1' || '0' }}
+          WITH_SPARKLE: ${{ env.RELEASE == 'true' && '1' || '0' }}
           # owner identity (repository variables; build.sh rejects a release
           # build when these are missing)
           RELAYOUT_BUNDLE_ID: ${{ vars.RELAYOUT_BUNDLE_ID }}
@@ -88,7 +100,7 @@ jobs:
         run: ./scripts/run-tests.sh
 
       - name: Notarize + staple (release only)
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: env.RELEASE == 'true'
         env:
           AC_API_KEY_ID: ${{ secrets.AC_API_KEY_ID }}
           AC_API_ISSUER_ID: ${{ secrets.AC_API_ISSUER_ID }}
@@ -108,7 +120,7 @@ jobs:
           ./scripts/make-dmg.sh
 
       - name: Notarize + staple DMG (release only)
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: env.RELEASE == 'true'
         env:
           AC_API_KEY_ID: ${{ secrets.AC_API_KEY_ID }}
           AC_API_ISSUER_ID: ${{ secrets.AC_API_ISSUER_ID }}
@@ -121,7 +133,7 @@ jobs:
           rm -f "$RUNNER_TEMP/ac.p8"
 
       - name: Upload distributables (workflow_dispatch only)
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' && env.RELEASE != 'true'
         # upload-artifact@v4 is a Node-20 JS action (deprecated 2026-06-16);
         # run it on Node 24 so it keeps working past the cutoff.
         env:
@@ -135,24 +147,37 @@ jobs:
           if-no-files-found: error
 
       - name: Release (on tag)
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: env.RELEASE == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # hand-written notes are prepended to the auto-generated body, which keeps
           # the Full Changelog link: the macOS file (the same one the Sparkle
           # appcast embeds), then the Windows one — one section per platform
-          NOTES="docs/release-notes/${GITHUB_REF_NAME}.md"
-          WIN_NOTES="docs/release-notes/${GITHUB_REF_NAME}-windows.md"
+          NOTES="docs/release-notes/${TAG}.md"
+          WIN_NOTES="docs/release-notes/${TAG}-windows.md"
           BODY="$RUNNER_TEMP/release-notes.md"; : > "$BODY"
           [ -f "$NOTES" ] && cat "$NOTES" >> "$BODY"
           [ -f "$WIN_NOTES" ] && { printf '\n' >> "$BODY"; cat "$WIN_NOTES" >> "$BODY"; }
           [ -s "$BODY" ] && NOTES_ARG=(--notes-file "$BODY") || NOTES_ARG=()
-          gh release create "${GITHUB_REF_NAME}" dist/reLayout.dmg dist/reLayout.zip \
-            --title "${GITHUB_REF_NAME}" --generate-notes "${NOTES_ARG[@]}"
+          if [ "${GITHUB_EVENT_NAME}" = push ]; then
+            gh release create "$TAG" dist/reLayout.dmg dist/reLayout.zip \
+              --title "$TAG" --generate-notes "${NOTES_ARG[@]}"
+          else
+            gh release upload "$TAG" dist/reLayout.dmg dist/reLayout.zip --clobber
+          fi
+
+      - name: Latest release? (the appcast and the cask follow only the latest)
+        if: env.RELEASE == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          LATEST="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName -q .tagName)"
+          echo "LATEST=$([ "$LATEST" = "$TAG" ] && echo true || echo false)" >> "$GITHUB_ENV"
+          [ "$LATEST" = "$TAG" ] || echo "::notice::$TAG is not the latest release ($LATEST): appcast and cask left alone"
 
       - name: Publish Sparkle appcast to GitHub Pages (release only)
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: env.RELEASE == 'true' && env.LATEST == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Rotation 2026-10: the NEXT key pairs with the SUPublicEDKey embedded since 1.3.8.
@@ -168,7 +193,7 @@ jobs:
           # release notes for the Sparkle update window: generate_appcast embeds a
           # DOCTYPE/body-less .html sibling of the archive as the item <description>.
           # GitHub's /markdown endpoint renders the committed notes, so no converter.
-          NOTES="docs/release-notes/${GITHUB_REF_NAME}.md"
+          NOTES="docs/release-notes/${TAG}.md"
           if [ -f "$NOTES" ]; then
             gh api --method POST /markdown -f mode=gfm \
               -f "text=$(cat "$NOTES")" > "$SRC/reLayout.html"
@@ -176,7 +201,7 @@ jobs:
             echo "no $NOTES — appcast item will have no release notes"
           fi
           "$GEN" --ed-key-file "$RUNNER_TEMP/ed_priv" \
-            --download-url-prefix "https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/" \
+            --download-url-prefix "https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/" \
             "$SRC"
           OUT="$RUNNER_TEMP/pages"
           git clone --depth 1 --branch gh-pages \
@@ -191,17 +216,17 @@ jobs:
             git add appcast.xml
             git -c user.name='github-actions[bot]' \
                 -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
-              commit -m "appcast ${GITHUB_REF_NAME}" || { echo "no change"; exit 0; }
+              commit -m "appcast ${TAG}" || { echo "no change"; exit 0; }
             git push origin gh-pages )
 
       - name: Check the feed serves this release (release only)
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: env.RELEASE == 'true' && env.LATEST == 'true'
         env:
           FEED_URL: ${{ vars.RELAYOUT_FEED_URL }}
         run: |
           set -euo pipefail
           # Cloudflare Pages deploys gh-pages on its own: wait until the feed lists this version.
-          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${TAG#v}"
           for i in $(seq 1 40); do
             if curl -fsS --max-time 20 "${FEED_URL}?ci=${GITHUB_RUN_ID}-${i}" \
                 | grep -q "<sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>"; then
@@ -212,14 +237,14 @@ jobs:
           echo "::error::${FEED_URL} does not list ${VERSION} after 10 minutes"; exit 1
 
       - name: Update Homebrew tap (release only)
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: env.RELEASE == 'true' && env.LATEST == 'true'
         env:
           TAP_DEPLOY_KEY: ${{ secrets.TAP_DEPLOY_KEY }}   # SSH deploy key (write) on the tap repo
           # owner identity (repository variables; required by update-cask.sh)
           RELAYOUT_TAP_REPO: ${{ vars.RELAYOUT_TAP_REPO }}
           RELAYOUT_REPO_SLUG: ${{ vars.RELAYOUT_REPO_SLUG }}
           RELAYOUT_BUNDLE_ID: ${{ vars.RELAYOUT_BUNDLE_ID }}
-        run: ./packaging/homebrew/update-cask.sh "${GITHUB_REF_NAME#v}" dist/reLayout.dmg
+        run: ./packaging/homebrew/update-cask.sh "${TAG#v}" dist/reLayout.dmg
 
   # Windows distributables for x64 and arm64. Each arch builds natively on its
   # own runner (cross-compiling the Swift Windows toolchain is not supported),
@@ -233,8 +258,8 @@ jobs:
   build-windows:
     # On manual dispatch (artifacts only) and on tag releases, where the installer
     # and the portable exe are attached to the Release the macOS job creates.
-    # windows_release skips the macOS job: run after it unless it failed or was cancelled.
-    if: ${{ !cancelled() && needs.build.result != 'failure' && (github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')) }}
+    # The macOS job may be skipped (platforms: windows): run after it unless it failed or was cancelled.
+    if: ${{ !cancelled() && needs.build.result != 'failure' && inputs.platforms != 'macos' }}
     needs: build            # macOS job creates the GitHub Release on tag; wait so release-upload below finds it
     strategy:
       fail-fast: false      # don't kill arm64 if x64 fails, and vice-versa
@@ -250,7 +275,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: ${{ inputs.windows_release || github.ref }}
+          ref: ${{ inputs.release || github.ref }}
           persist-credentials: false   # third-party installers run in this job
 
       - name: Install Swift toolchain
@@ -266,7 +291,7 @@ jobs:
       - name: Build (release)
         shell: pwsh
         env:
-          REF_NAME: ${{ inputs.windows_release || github.ref_name }}
+          REF_NAME: ${{ env.TAG }}
         run: |
           $ErrorActionPreference = 'Stop'
           # Compile the icon resource (llvm-rc ships with the Swift toolchain) and
@@ -274,7 +299,7 @@ jobs:
           # Stamp the version shown in Settings/About (tag -> release version,
           # otherwise a dev marker). Overwrites the committed default.
           $ver = $env:REF_NAME -replace '^v',''
-          if ('${{ github.event_name }}' -ne 'push' -and -not '${{ inputs.windows_release }}') { $ver = '0.0.0-dev' }
+          if ('${{ env.RELEASE }}' -ne 'true') { $ver = '0.0.0-dev' }
           "// Generated by CI.`nlet appVersion = `"$ver`"`n" | Set-Content -Encoding utf8 windows/Version.swift
           # Stamp the About-link repo slug (overwrites the committed neutral default).
           $slug = '${{ vars.RELAYOUT_REPO_SLUG || github.repository }}'
@@ -395,7 +420,7 @@ jobs:
       - name: Build installer (Inno Setup)
         shell: pwsh
         env:
-          REF_NAME: ${{ inputs.windows_release || github.ref_name }}
+          REF_NAME: ${{ env.TAG }}
         run: |
           $ErrorActionPreference = 'Stop'
           $arch = '${{ matrix.arch }}'
@@ -406,7 +431,7 @@ jobs:
           if (-not $iscc) { throw 'ISCC.exe (Inno Setup) not found after install' }
 
           $ver = $env:REF_NAME -replace '^v',''
-          if ('${{ github.event_name }}' -ne 'push' -and -not '${{ inputs.windows_release }}') { $ver = '0.0.0-dev' }
+          if ('${{ env.RELEASE }}' -ne 'true') { $ver = '0.0.0-dev' }
 
           & $iscc.FullName `
             "/DAppVer=$ver" `
@@ -431,11 +456,10 @@ jobs:
           if-no-files-found: error
 
       - name: Attach to Release (on tag)
-        if: startsWith(github.ref, 'refs/tags/v') || inputs.windows_release != ''
+        if: env.RELEASE == 'true'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ inputs.windows_release || github.ref_name }}
         run: |
           gh release upload "$TAG" \
             "dist/reLayout-windows-${{ matrix.arch }}.exe" \

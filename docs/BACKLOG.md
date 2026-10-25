@@ -15,17 +15,6 @@ Found by the dev-guardrails session's jactionlint run (local branch `chore/guard
 - `concurrency` groups for `build.yml` (tags) and `core.yml`; `timeout-minutes` on the 7 jobs without one; explicit `permissions` on the 2 jobs without.
 - Decide on `chore/guardrails-ci` (push, PR); after the fixes `jactionlint --baseline-write`.
 
-## Sort out the site's domains
-
-Since 2026-10-25 `https://relayout.forfutdinov.com/` (landing + Sparkle `appcast.xml`) is Cloudflare Pages project `relayout`, deployed by Cloudflare from the `gh-pages` branch on every push; DigitalOcean is out of the chain. The GitHub Pages mirror `https://vladforfutdinov.github.io/reLayout/` still serves the same branch; the repository variable `RELAYOUT_FEED_URL` points Sparkle at the domain.
-
-**Why:** the feed every installed copy polls now hangs on one Cloudflare account and one domain. If either lapses, auto-update stops for every user while the mirror keeps working unseen; the mirror is also duplicate content (its `canonical` points at the domain).
-
-**Steps:**
-- Decide whether the GitHub Pages mirror stays (or is switched off); write it down in `docs/RELEASING.md`.
-- Know who renews `forfutdinov.com` (GoDaddy) and the Cloudflare account. The feed itself is watched since 2026-10-25: the release waits for its version in the feed, and `feed-check.yml` runs daily.
-- Consider a fallback for the feed (Sparkle reads one `SUFeedURL`; a second host means a release that changes it).
-
 ## Remember the key layouts per app and per session (3+ layouts)
 
 With three or more layouts enabled (ABC + Russian + Ukrainian) every switch is a cycle, and both the hotkey's press-again cycle and auto-correct's target choice guess from the text alone. Think through remembering which two layouts the user actually works with in a given app (and lately), so the first guess is right and the user is not walked through every layout.

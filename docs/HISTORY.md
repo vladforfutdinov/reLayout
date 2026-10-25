@@ -6,287 +6,118 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ## After v1.4.0 — the Sparkle feed is watched
 
-- Nothing told anyone when installed copies stopped getting updates. Now:
-  the appcast step fails on a tag without the Sparkle key (it used to skip
-  with exit 0, a green release missing from the feed); a new release step
-  polls `RELAYOUT_FEED_URL` up to 10 minutes for the new version (catches a
-  Cloudflare Pages deploy that did not happen); `feed-check.yml` daily: HTTPS,
-  XML parses, latest GitHub Release listed. Logic run locally against the
-  live feed: v1.4.0 found, a made-up 9.9.9 not. The workflows themselves run
-  only once on origin.
+- Nothing told anyone when installed copies stopped getting updates. Now: the appcast step fails on a tag without the Sparkle key (it used to skip with exit 0, a green release missing from the feed); a new release step polls `RELAYOUT_FEED_URL` up to 10 minutes for the new version (catches a Cloudflare Pages deploy that did not happen); `feed-check.yml` daily: HTTPS, XML parses, latest GitHub Release listed. Logic run locally against the live feed: v1.4.0 found, a made-up 9.9.9 not. The workflows themselves run only once on origin.
 
 ## After v1.4.0 — the site moves from DigitalOcean to Cloudflare Pages
 
-- `relayout.forfutdinov.com` (landing + Sparkle feed) was a DigitalOcean
-  static site deploying `gh-pages`. Now Cloudflare Pages project `relayout`,
-  connected to the repository (production branch `gh-pages`, no build),
-  deploys every push itself; the domain is a proxied CNAME to
-  `relayout.pages.dev`. A GitHub Action was ruled out: the CI appcast push
-  uses `GITHUB_TOKEN`, whose pushes trigger no workflow.
-- Checked: `relayout.pages.dev` and the domain serve `index.html` and
-  `appcast.xml` byte-identical to `gh-pages`, every favicon file, appcast
-  `max-age=0, must-revalidate`; certificate from Google Trust Services; http
-  → https 301. The feed URL did not change, so no app release was needed.
-- The first try made an empty Worker (the dashboard's Create now defaults to
-  Workers): no assets, `workers.dev` off, 404 everywhere — the domain was
-  attached only after the Pages project showed up with its Git source.
+- `relayout.forfutdinov.com` (landing + Sparkle feed) was a DigitalOcean static site deploying `gh-pages`. Now Cloudflare Pages project `relayout`, connected to the repository (production branch `gh-pages`, no build), deploys every push itself; the domain is a proxied CNAME to `relayout.pages.dev`. A GitHub Action was ruled out: the CI appcast push uses `GITHUB_TOKEN`, whose pushes trigger no workflow.
+- Checked: `relayout.pages.dev` and the domain serve `index.html` and `appcast.xml` byte-identical to `gh-pages`, every favicon file, appcast `max-age=0, must-revalidate`; certificate from Google Trust Services; http → https 301. The feed URL did not change, so no app release was needed.
+- The first try made an empty Worker (the dashboard's Create now defaults to Workers): no assets, `workers.dev` off, 404 everywhere — the domain was attached only after the Pages project showed up with its Git source.
 
 ## v1.4.0 — released; landing and favicons
 
-- Tagged `v1.4.0` on `474b628` (1.4, not 1.3.17: the per-app features
-  rework, the Shift-twice default and the Core refactors). CI green: build
-  (notarized dmg/zip, appcast 1.4.0, Homebrew tap), Windows x64/arm64
-  (installer 5.5 / 5.6 MB, portable 3.5 / 3.4 MB), core. Notes in
-  `docs/release-notes/v1.4.0{,-windows}.md`, landed in the release body and
-  the appcast.
-- Landing (`gh-pages`, `f30a232`..`7d0b9c9`): Windows size under "Native,
-  no Electron"; Exceptions copy → per-app features; the menu-bar/tray rL in
-  Install, the nav and hero logos drawn from one `rl-glyph` symbol (the
-  owner's cleaned `assets/rL-logo.svg` → `rL-logo-clean.svg` via svgOMG,
-  `81bf6af`), sized to the owner's DevTools values; favicons per Evil
-  Martians: `favicon.ico` 32, `icon.svg`, `apple-touch-icon.png` 180,
-  `manifest.webmanifest` with 192/512 — all rendered from one SVG.
+- Tagged `v1.4.0` on `474b628` (1.4, not 1.3.17: the per-app features rework, the Shift-twice default and the Core refactors). CI green: build (notarized dmg/zip, appcast 1.4.0, Homebrew tap), Windows x64/arm64 (installer 5.5 / 5.6 MB, portable 3.5 / 3.4 MB), core. Notes in `docs/release-notes/v1.4.0{,-windows}.md`, landed in the release body and the appcast.
+- Landing (`gh-pages`, `f30a232`..`7d0b9c9`): Windows size under "Native, no Electron"; Exceptions copy → per-app features; the menu-bar/tray rL in Install, the nav and hero logos drawn from one `rl-glyph` symbol (the owner's cleaned `assets/rL-logo.svg` → `rL-logo-clean.svg` via svgOMG, `81bf6af`), sized to the owner's DevTools values; favicons per Evil Martians: `favicon.ico` 32, `icon.svg`, `apple-touch-icon.png` 180, `manifest.webmanifest` with 192/512 — all rendered from one SVG.
 
 ## After v1.3.16 — performance check before v1.4.0 (macOS VM)
 
-- `RELAYOUT_E2E_PERF=15` (new harness mode) against v1.3.16 and HEAD, two
-  runs each, interleaved, debug builds (`RELAYOUT_DEBUG=1`). Word fix from
-  the space's key-down to a still field — v1.3.16: median 79 / 84 ms, p90
-  88 / 96, max 114 / 109; HEAD: median 80 / 82, p90 94 / 111, max 118 / 120.
-  14 of 15 words fixed in every run (the same one left in both). Phrases:
-  15/15 fixed, all work done before the last key in both. RSS 54.2 vs
-  54.3 MB; CPU per run 1.42 / 1.50 s vs 1.82 / 1.64 s — HEAD's debug build
-  also traces timings; release builds not measured.
-- Getting a fair number took three tries: timing from after `type()`
-  returned missed fixes that landed in its 30 ms key-up pause; one repeated
-  word was learned as kept after its third retype (revert learning), so
-  every word now appears once; after a fix switches the layout the rest of
-  a phrase types right, so a phrase measures only the tail.
+- `RELAYOUT_E2E_PERF=15` (new harness mode) against v1.3.16 and HEAD, two runs each, interleaved, debug builds (`RELAYOUT_DEBUG=1`). Word fix from the space's key-down to a still field — v1.3.16: median 79 / 84 ms, p90 88 / 96, max 114 / 109; HEAD: median 80 / 82, p90 94 / 111, max 118 / 120. 14 of 15 words fixed in every run (the same one left in both). Phrases: 15/15 fixed, all work done before the last key in both. RSS 54.2 vs 54.3 MB; CPU per run 1.42 / 1.50 s vs 1.82 / 1.64 s — HEAD's debug build also traces timings; release builds not measured.
+- Getting a fair number took three tries: timing from after `type()` returned missed fixes that landed in its 30 ms key-up pause; one repeated word was learned as kept after its third retype (revert learning), so every word now appears once; after a fix switches the layout the rest of a phrase types right, so a phrase measures only the tail.
 
 ## After v1.3.16 — the update keeps the hotkey where it worked
 
-- "A listed app starts with both off" would have turned the hotkey off in
-  terminals, editors, VMs and remote desktops for every user updating from
-  v1.3.16 — at once for most of them, since a hotkey list never saved takes
-  the defaults as they are. Owner: keep it as it was. Engine
-  `keepsOldHotkeyDefaults`: an install that ran before and has seen only the
-  old hotkey default (Figma) keeps its hotkey list (Figma alone when never
-  saved) and records the new defaults as seen. New installs and newly added
-  apps start with both off. macOS in `mergeNewDefaultExclusions`, Windows in
-  `keepOldHotkeyExclusions` before `pinOldDefaultHotkey` creates the prefs key.
-- Storage did not change with per-app features (same two lists, same
-  meaning per app), so nothing else migrates; only the UI reads them inverted.
+- "A listed app starts with both off" would have turned the hotkey off in terminals, editors, VMs and remote desktops for every user updating from v1.3.16 — at once for most of them, since a hotkey list never saved takes the defaults as they are. Owner: keep it as it was. Engine `keepsOldHotkeyDefaults`: an install that ran before and has seen only the old hotkey default (Figma) keeps its hotkey list (Figma alone when never saved) and records the new defaults as seen. New installs and newly added apps start with both off. macOS in `mergeNewDefaultExclusions`, Windows in `keepOldHotkeyExclusions` before `pinOldDefaultHotkey` creates the prefs key.
+- Storage did not change with per-app features (same two lists, same meaning per app), so nothing else migrates; only the UI reads them inverted.
 
 ## After v1.3.16 — macOS: Apps and Learned words as sheets
 
-- Owner: Settings should dim behind them, as System Settings does under its
-  sheets. That is the system sheet (`beginSheet`), which also blocks Settings
-  and moves with it, so the child window and `ModalShield` of the previous
-  entry are gone. A sheet has no close button; Done, Esc and Cmd+W end it
-  (`SettingsWindow.dismiss`). Windows has no system dimming of an owner and
-  keeps its disabled owner.
+- Owner: Settings should dim behind them, as System Settings does under its sheets. That is the system sheet (`beginSheet`), which also blocks Settings and moves with it, so the child window and `ModalShield` of the previous entry are gone. A sheet has no close button; Done, Esc and Cmd+W end it (`SettingsWindow.dismiss`). Windows has no system dimming of an owner and keeps its disabled owner.
 
 ## After v1.3.16 — Learned words and Per-app features modal to Settings
 
-- Owner: View… and Apps… must be modal, Settings unusable meanwhile, and the
-  window must not move relative to Settings. macOS: the window is a child of
-  Settings (moves with it, `isMovable = false`); Settings gets a
-  `ModalShield` over its content (clicks beep and bring the child forward),
-  cannot become key, and its close button is off until the child closes.
-  Windows: the owner is disabled (`beginModal`), re-enabled before the
-  window is destroyed (`endModal`, else Windows activates another app), and
-  the caption does not drag (`fixedHitTest`).
-- win-shots records in `modal.txt` whether Settings was enabled while each
-  window was open and after it closed.
+- Owner: View… and Apps… must be modal, Settings unusable meanwhile, and the window must not move relative to Settings. macOS: the window is a child of Settings (moves with it, `isMovable = false`); Settings gets a `ModalShield` over its content (clicks beep and bring the child forward), cannot become key, and its close button is off until the child closes. Windows: the owner is disabled (`beginModal`), re-enabled before the window is destroyed (`endModal`, else Windows activates another app), and the caption does not drag (`fixedHitTest`).
+- win-shots records in `modal.txt` whether Settings was enabled while each window was open and after it closed.
 
 ## After v1.3.16 — Windows Learned words: dark check boxes, no column lines
 
-- Learned's check boxes were the list view's own (`LVS_EX_CHECKBOXES`),
-  light in the dark theme. Now drawn like Per-app features': `addCheckImages`
-  (BUTTON theme) in the small image list, centred in column 0 at post-paint
-  (`drawCentredImage`), toggled on a click in that column (`clickedCell`,
-  shared with Per-app features) or Space.
-- The dark list style draws a line at every column's right edge. Not the
-  theme name (`DarkMode_ItemsView` kept them), not `LVS_EX_CHECKBOXES` (gone,
-  lines stayed), not custom draw alone. `coverColumnLines` paints them over
-  with the background at post-paint, skipping hot and selected rows; both
-  lists, dark theme only.
-- win-shots: its `SendInput` never worked — the C# `INPUT` was 48 bytes, not
-  40, so every call was refused; the hover seen in earlier shots was the real
-  cursor's. Fixed, and the shots now click a check box in each list and save
-  `*-clicked.png`; `RELAYOUT_SHOTS_DEBUG=1` keeps the debug log. Checked: the
-  clicks reach both lists and toggle.
+- Learned's check boxes were the list view's own (`LVS_EX_CHECKBOXES`), light in the dark theme. Now drawn like Per-app features': `addCheckImages` (BUTTON theme) in the small image list, centred in column 0 at post-paint (`drawCentredImage`), toggled on a click in that column (`clickedCell`, shared with Per-app features) or Space.
+- The dark list style draws a line at every column's right edge. Not the theme name (`DarkMode_ItemsView` kept them), not `LVS_EX_CHECKBOXES` (gone, lines stayed), not custom draw alone. `coverColumnLines` paints them over with the background at post-paint, skipping hot and selected rows; both lists, dark theme only.
+- win-shots: its `SendInput` never worked — the C# `INPUT` was 48 bytes, not 40, so every call was refused; the hover seen in earlier shots was the real cursor's. Fixed, and the shots now click a check box in each list and save `*-clicked.png`; `RELAYOUT_SHOTS_DEBUG=1` keeps the debug log. Checked: the clicks reach both lists and toggle.
 
 
 ## After v1.3.16 — macOS: Settings opens above the front app
 
-- Settings could open behind the app in front (seen once in ~30 demo opens,
-  over TextEdit): on macOS 14+ `NSApp.activate()` only asks for activation and
-  may be refused, and `makeKeyAndOrderFront` leaves an inactive app's window
-  behind. `bringToFront` adds `orderFrontRegardless()`; both Settings paths
-  (first build and reopen) use it. Learned words and Per-app features open
-  over Settings and were never affected.
-- Checked in the macOS VM: TextEdit in front, Settings opened from the menu bar
-  icon 15 times — above TextEdit every time. No run of the old build for
-  comparison: the old failure was too rare to reproduce on demand.
+- Settings could open behind the app in front (seen once in ~30 demo opens, over TextEdit): on macOS 14+ `NSApp.activate()` only asks for activation and may be refused, and `makeKeyAndOrderFront` leaves an inactive app's window behind. `bringToFront` adds `orderFrontRegardless()`; both Settings paths (first build and reopen) use it. Learned words and Per-app features open over Settings and were never affected.
+- Checked in the macOS VM: TextEdit in front, Settings opened from the menu bar icon 15 times — above TextEdit every time. No run of the old build for comparison: the old failure was too rare to reproduce on demand.
 - The demo scenario's AX raise workaround is gone.
 
 ## After v1.3.16 — demo follows the per-app features rework
 
-- Listed apps now start with both features off, so the demo's Terminal scene
-  changed: Shift twice does nothing there, the hotkey is allowed for Terminal
-  in Per-app features (Apps…), then Shift twice converts in Terminal. README
-  shows the small GIF (560 px, 6 fps, 7.6 MB).
-- Seen while recording: Settings opened behind TextEdit once — `NSApp.activate()`
-  is cooperative on macOS 14+, so a user can hit this too. The scenario raises
-  the window over AX; reLayout itself is unchanged.
+- Listed apps now start with both features off, so the demo's Terminal scene changed: Shift twice does nothing there, the hotkey is allowed for Terminal in Per-app features (Apps…), then Shift twice converts in Terminal. README shows the small GIF (560 px, 6 fps, 7.6 MB).
+- Seen while recording: Settings opened behind TextEdit once — `NSApp.activate()` is cooperative on macOS 14+, so a user can hit this too. The scenario raises the window over AX; reLayout itself is unchanged.
 
 ## After v1.3.16 — per-app features: a listed app starts with both off
 
-- Owner: by default both ticks cleared. The default apps (terminals,
-  editors, VMs, remote desktops, Figma) now have the hotkey off as well as
-  auto-correct, so reLayout reads no keys there; an added app (Add current
-  app, +) starts with both off too (engine `AppExceptions.add`).
-- Existing users get the new hotkey defaults once, through the "seen"
-  lists, but only for apps whose auto-correct is still off: an app they took
-  off the list does not come back as a hotkey-only row. macOS keeps Figma
-  as the hotkey list's pre-"seen" default.
-- The column tips say what a tick means without "Ticked:", and the ⓘ says
-  the listed apps start with everything off.
-- macOS: Learned words' check boxes were green and uncentred; now standard
-  ones centred in their cell, as in Per-app features (`centeredCheckbox`).
+- Owner: by default both ticks cleared. The default apps (terminals, editors, VMs, remote desktops, Figma) now have the hotkey off as well as auto-correct, so reLayout reads no keys there; an added app (Add current app, +) starts with both off too (engine `AppExceptions.add`).
+- Existing users get the new hotkey defaults once, through the "seen" lists, but only for apps whose auto-correct is still off: an app they took off the list does not come back as a hotkey-only row. macOS keeps Figma as the hotkey list's pre-"seen" default.
+- The column tips say what a tick means without "Ticked:", and the ⓘ says the listed apps start with everything off.
+- macOS: Learned words' check boxes were green and uncentred; now standard ones centred in their cell, as in Per-app features (`centeredCheckbox`).
 
 ## After v1.3.16 — "Exceptions" becomes per-app features
 
-- The Settings row said "turn off in chosen programs", the window under it
-  "allow features for each program", and the ticks now mean "works": three
-  framings of one list. Now one: the Settings row reads "Allow features per
-  app" with the defaults ⓘ next to it, the button is "Apps…", the window
-  "Per-app features" with no hint line or ⓘ of its own, and "Exclude current
-  app" is "Add current app". Storage keeps its exception lists.
+- The Settings row said "turn off in chosen programs", the window under it "allow features for each program", and the ticks now mean "works": three framings of one list. Now one: the Settings row reads "Allow features per app" with the defaults ⓘ next to it, the button is "Apps…", the window "Per-app features" with no hint line or ⓘ of its own, and "Exclude current app" is "Add current app". Storage keeps its exception lists.
 
 ## After v1.3.16 — Windows: hover in light lists
 
-- Exceptions and Learned words highlighted the row under the cursor only in
-  the dark theme: there the list has the `DarkMode_Explorer` style, in the
-  light theme no style. The light `Explorer` style hovers too but draws
-  column lines, so light lists draw the hover themselves: a subclass
-  (`trackHover`) follows the row under the cursor, custom draw
-  (`paintHover`) fills it with File Explorer's hover blue; selected rows
-  keep the selection.
-- `scripts/win-shots.sh` moves the real mouse (SendInput) over a list row
-  once the list exists, so the shots show the hover.
+- Exceptions and Learned words highlighted the row under the cursor only in the dark theme: there the list has the `DarkMode_Explorer` style, in the light theme no style. The light `Explorer` style hovers too but draws column lines, so light lists draw the hover themselves: a subclass (`trackHover`) follows the row under the cursor, custom draw (`paintHover`) fills it with File Explorer's hover blue; selected rows keep the selection.
+- `scripts/win-shots.sh` moves the real mouse (SendInput) over a list row once the list exists, so the shots show the hover.
 
 ## After v1.3.16 — Windows exceptions: check boxes centred by custom draw
 
-- The centring of 1.3.16 (box-wide check columns between pad columns) showed
-  as frames in the dark theme: `DarkMode_Explorer` draws lines at column
-  edges. Now three columns as wide as their titles; the list paints each cell,
-  then the box is centred in it at `NM_CUSTOMDRAW` post-paint. The lines are
-  gone with it; selection and hover still come from the list.
-- Learned words still shows those lines in the dark theme. Not the theme
-  (`DarkMode_ItemsView` kept them) and not custom draw alone (asking for
-  every cell's stage kept them); the list's `LVS_EX_CHECKBOXES` is the
-  remaining suspect, as old Exceptions had them with `LVS_EX_SUBITEMIMAGES`.
-- Learned words: the last column kept a scroll bar's width free even with no
-  scroll bar, an empty column at the right. It now fills the list
-  (`LVSCW_AUTOSIZE_USEHEADER` after each fill).
+- The centring of 1.3.16 (box-wide check columns between pad columns) showed as frames in the dark theme: `DarkMode_Explorer` draws lines at column edges. Now three columns as wide as their titles; the list paints each cell, then the box is centred in it at `NM_CUSTOMDRAW` post-paint. The lines are gone with it; selection and hover still come from the list.
+- Learned words still shows those lines in the dark theme. Not the theme (`DarkMode_ItemsView` kept them) and not custom draw alone (asking for every cell's stage kept them); the list's `LVS_EX_CHECKBOXES` is the remaining suspect, as old Exceptions had them with `LVS_EX_SUBITEMIMAGES`.
+- Learned words: the last column kept a scroll bar's width free even with no scroll bar, an empty column at the right. It now fills the list (`LVSCW_AUTOSIZE_USEHEADER` after each fill).
 
 ## After v1.3.16 — Windows: dark check boxes in Exceptions; UI screenshots in the repo
 
-- In the dark theme the Exceptions list's empty check boxes were light: they were
-  the list view's own state images, which `DarkMode_Explorer` leaves light. Now
-  drawn with the BUTTON theme of a hidden themed button
-  (`relayout_add_check_image`, uxtheme `DrawThemeBackground`), the same boxes
-  as in Settings.
-- The screenshot scripts used for VM checks lived only in the VM's `C:\src`.
-  Now `scripts/win-shots.sh` + `scripts/e2e/win-shots{,-inner}.ps1`.
+- In the dark theme the Exceptions list's empty check boxes were light: they were the list view's own state images, which `DarkMode_Explorer` leaves light. Now drawn with the BUTTON theme of a hidden themed button (`relayout_add_check_image`, uxtheme `DrawThemeBackground`), the same boxes as in Settings.
+- The screenshot scripts used for VM checks lived only in the VM's `C:\src`. Now `scripts/win-shots.sh` + `scripts/e2e/win-shots{,-inner}.ps1`.
 
 ## After v1.3.16 — the demo is recorded and cut by scripts
 
-- `scripts/demo-vm.sh setup|take` plays a feature tour in the macOS VM
-  (`scripts/demo/scenario.swift`: hotkey, Settings, auto-correct and the
-  menu bar dot, learning by undo, Learned words, Terminal, Exceptions,
-  ⌃⌥A off) with HID keys and clicks found over Accessibility, while
-  `record.swift` writes the screen without the cursor plus a key/mouse log
-  (reLayout's own synthetic keys flagged). `render.swift` cuts it: camera
-  from scene markers with a dead zone and zoom caps, the native arrow
-  cursor captured in the VM, hotkey-only keycaps, captions held ~1.5 s
-  before each action. GIF via ffmpeg (640 px, 7 fps, ×1.2, < 10 MB).
-- Learned on the way: walking reLayout's whole AX tree while its menu tracks
-  stalls the app and lost the Settings click — the item is clicked by its
-  offset; KeyCastr cannot tell synthetic keys apart (it showed reLayout's
-  ⌘C), hence keycaps in post; Terminal resizes its window on a font change,
-  so the font goes first; UTM's HiDPI reached the guest only after a VM
-  restart; the first Settings window takes 1.2–1.8 s to build in the VM
-  (once > 3 s, cause unknown).
-- The Settings hotkey field shows ⌃⌥A as "⌃⌥Ф" while the Ukrainian layout is
-  active: its label follows the current layout. Not fixed.
+- `scripts/demo-vm.sh setup|take` plays a feature tour in the macOS VM (`scripts/demo/scenario.swift`: hotkey, Settings, auto-correct and the menu bar dot, learning by undo, Learned words, Terminal, Exceptions, ⌃⌥A off) with HID keys and clicks found over Accessibility, while `record.swift` writes the screen without the cursor plus a key/mouse log (reLayout's own synthetic keys flagged). `render.swift` cuts it: camera from scene markers with a dead zone and zoom caps, the native arrow cursor captured in the VM, hotkey-only keycaps, captions held ~1.5 s before each action. GIF via ffmpeg (640 px, 7 fps, ×1.2, < 10 MB).
+- Learned on the way: walking reLayout's whole AX tree while its menu tracks stalls the app and lost the Settings click — the item is clicked by its offset; KeyCastr cannot tell synthetic keys apart (it showed reLayout's ⌘C), hence keycaps in post; Terminal resizes its window on a font change, so the font goes first; UTM's HiDPI reached the guest only after a VM restart; the first Settings window takes 1.2–1.8 s to build in the VM (once > 3 s, cause unknown).
+- The Settings hotkey field shows ⌃⌥A as "⌃⌥Ф" while the Ukrainian layout is active: its label follows the current layout. Not fixed.
 
 ## After v1.3.16 — exceptions: a tick means the feature works
 
-- The Exceptions window's check boxes read inverted: ticked meant auto-correct
-  or the hotkey was *off*, which confused. Now ticked = works in that program,
-  cleared = off, on macOS and Windows. Only the display flips; the stored
-  `autoExcludedApps` / `hotkeyExcludedApps` lists and `AppExceptions` are
-  unchanged, so no settings migration. The window's hint line and both column
-  tips say so in all 12 languages.
+- The Exceptions window's check boxes read inverted: ticked meant auto-correct or the hotkey was *off*, which confused. Now ticked = works in that program, cleared = off, on macOS and Windows. Only the display flips; the stored `autoExcludedApps` / `hotkeyExcludedApps` lists and `AppExceptions` are unchanged, so no settings migration. The window's hint line and both column tips say so in all 12 languages.
 
 ## After v1.3.16 — Windows UI helpers shared; CI shows the smaller download
 
-- The audit's last item: Settings, Exceptions and Learned each carried their
-  own control factory, dpi scale, fonts, text measuring, `WM_CTLCOLOR*` and
-  background painting, list-view setup, class registration and window
-  sizing. Now in `windows/WinUI.swift`; each window keeps its own state and
-  extras (Settings' separators and disabled labels, its work-area centering).
-- Checked without a human: the three windows shot with `PrintWindow` in the
-  VM, light and dark, with fixed prefs (auto-correct on, four learned words),
-  before and after — all six pixel-identical. Opened by `WM_COMMAND` to the
-  tray window (Settings) and to Settings (buttons 111, 117).
-- CI on `5ab6561` (first run with the import-closure payload): build, core and
-  e2e green (macOS 11/11, Windows 18/18). Downloads: installer 18 → 5.5 MB,
-  portable exe 16 → 3.5 MB, x64 and arm64.
+- The audit's last item: Settings, Exceptions and Learned each carried their own control factory, dpi scale, fonts, text measuring, `WM_CTLCOLOR*` and background painting, list-view setup, class registration and window sizing. Now in `windows/WinUI.swift`; each window keeps its own state and extras (Settings' separators and disabled labels, its work-area centering).
+- Checked without a human: the three windows shot with `PrintWindow` in the VM, light and dark, with fixed prefs (auto-correct on, four learned words), before and after — all six pixel-identical. Opened by `WM_COMMAND` to the tray window (Settings) and to Settings (buttons 111, 117).
+- CI on `5ab6561` (first run with the import-closure payload): build, core and e2e green (macOS 11/11, Windows 18/18). Downloads: installer 18 → 5.5 MB, portable exe 16 → 3.5 MB, x64 and arm64.
 - The Mac Enter e2e flake did not come back in six VM runs.
-- Cold Windows VM rechecked: rebuilt before a reboot, e2e run 6 min after boot
-  on `273d499` — plain 18/18, spell 20/20, no hook callback over 100 ms. The
-  cold-start losses and the 22 s stall seen before the stall fixes did not
-  come back; one cold run, so "fixed" is likely, not proven.
+- Cold Windows VM rechecked: rebuilt before a reboot, e2e run 6 min after boot on `273d499` — plain 18/18, spell 20/20, no hook callback over 100 ms. The cold-start losses and the 22 s stall seen before the stall fixes did not come back; one cold run, so "fixed" is likely, not proven.
 
 ---
 
 ## After v1.3.16 — Windows without Foundation: 59 MB of runtime down to 11
 
-- Installed, the port took 68 MB; the exe is 1.7 MB. Measured in the arm64 VM
-  as the exe plus the runtime DLLs it loads (transitively): 58.7 MB, of which
-  ICU 36 MB and Foundation's DLLs ~11 MB. CI copied the whole runtime folder
-  besides (63 MB: XCTest, Testing, FoundationNetworking…).
-- Foundation went from `windows/` (Core never imported it): file reads, the
-  `lang` directory list and threads are Win32 (`WinSys.swift`), language names
-  `GetLocaleInfoEx` (same autonyms, checked for all 12), the update tag Core's
-  `jsonStringField` (tested; checked on the live GitHub reply), `%@`
-  `replacing`, the debug log `WriteFile`. Result: 10.8 MB — exe 2.7, swiftCore
-  5.2, string processing 1.4, the C++ runtime 1.5. CI now bundles only the
-  imported DLLs.
-- Static stdlib tried too: `--static-swift-stdlib` is ignored by SwiftPM on
-  Windows; `-Xswiftc -static-stdlib` fails to link with Foundation (Blocks
-  runtime imported as a DLL) and without it gives 12.7 MB — larger than
-  dynamic, so not taken.
-- Checked: swift test 165, Windows e2e 18/18 and spell 20/20 in the VM. Not
-  run: a CI build with the new payload step (needs a push).
+- Installed, the port took 68 MB; the exe is 1.7 MB. Measured in the arm64 VM as the exe plus the runtime DLLs it loads (transitively): 58.7 MB, of which ICU 36 MB and Foundation's DLLs ~11 MB. CI copied the whole runtime folder besides (63 MB: XCTest, Testing, FoundationNetworking…).
+- Foundation went from `windows/` (Core never imported it): file reads, the `lang` directory list and threads are Win32 (`WinSys.swift`), language names `GetLocaleInfoEx` (same autonyms, checked for all 12), the update tag Core's `jsonStringField` (tested; checked on the live GitHub reply), `%@` `replacing`, the debug log `WriteFile`. Result: 10.8 MB — exe 2.7, swiftCore 5.2, string processing 1.4, the C++ runtime 1.5. CI now bundles only the imported DLLs.
+- Static stdlib tried too: `--static-swift-stdlib` is ignored by SwiftPM on Windows; `-Xswiftc -static-stdlib` fails to link with Foundation (Blocks runtime imported as a DLL) and without it gives 12.7 MB — larger than dynamic, so not taken.
+- Checked: swift test 165, Windows e2e 18/18 and spell 20/20 in the VM. Not run: a CI build with the new payload step (needs a push).
 
 ---
 
 ## After v1.3.16 — Windows installer: upgrade and uninstall checked in the VM
 
-- First real run of the installer since the uninstall rule went in (it was
-  "not exercised" in the security batch). Built from HEAD with ISCC 6.7.1 as
-  CI does (arm64, via winget in the VM), silent install and uninstall:
-  - over 1.3.10 with the autostart task: the old Startup shortcut is removed,
-    the `Run` value written, all 13 settings kept;
-  - uninstall: install folder, Start menu shortcut, `Run` value and
-    `HKCU\Software\reLayout` all gone;
-  - without the autostart task, a `Run` value written as the app's "Launch at
-    login" does, plus a setting: both removed on uninstall too.
+- First real run of the installer since the uninstall rule went in (it was "not exercised" in the security batch). Built from HEAD with ISCC 6.7.1 as CI does (arm64, via winget in the VM), silent install and uninstall:
+  - over 1.3.10 with the autostart task: the old Startup shortcut is removed, the `Run` value written, all 13 settings kept;
+  - uninstall: install folder, Start menu shortcut, `Run` value and `HKCU\Software\reLayout` all gone;
+  - without the autostart task, a `Run` value written as the app's "Launch at login" does, plus a setting: both removed on uninstall too.
 - The VM's own 1.3.10 install and settings were backed up and restored after.
 - Not run: the interactive wizard, x64.
 
@@ -294,790 +125,317 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ## After v1.3.16 — Shift twice on macOS too; Windows hook stalls
 
-- macOS default hotkey is Shift tapped twice as well (was a tap of left ⌥),
-  so both apps share it. A Mac that ran an earlier version and never saved a
-  hotkey keeps left ⌥: `pinOldDefaultHotkey` saves it once at launch
-  (`hkDefaultPinned`), judged by keys an earlier launch left
-  (`autoExcludedDefaultsSeen`, `SUHasLaunchedBefore`, `autoMode`).
-- Windows e2e lost a scenario now and then, once fixing across a Tab
-  (`d\tкнига` → `dвкнига`). The key log showed the hook silent for 22 s with
-  key-ups missing: Windows passes keys by a hook that does not answer in
-  time, so the run never saw the Tab and joined both words. Two stalls of
-  the hook thread found:
-  - `reloadAutoMode` queued dictionary warm-up on the hook thread, each step
-    waiting up to 5 s for the spell thread (since hooks got their own thread);
-    now a thread of its own does it.
-  - the DEBUG key log opened and closed its file per event — an antivirus
-    scans on close (140 ms seen); it stays open now.
-  DEBUG builds log a hook callback over 100 ms (`slow hook`), and
-  `e2e-win.ps1 -Trace` prints those lines on every run.
-- Not proven: the 22 s stall itself was not caught again (six runs after the
-  logging went in, worst 140 ms), so whether these two explain all of it is open.
-- Test VMs reachable as `ssh mac-vm` / `ssh win-vm` (mDNS names);
-  `e2e-mac-vm.sh` defaults to `mac-vm`.
-- README demo re-recorded in the macOS VM: `ghbdsn` → Shift twice → `привіт`,
-  then `руддщ` → `hello`, a caption showing only the hotkey. Recorded with
-  `screencapture -v` over SSH (one "bypass the private window picker" consent
-  in the VM); `make-demo-gif.sh` no longer exits 1 on success.
+- macOS default hotkey is Shift tapped twice as well (was a tap of left ⌥), so both apps share it. A Mac that ran an earlier version and never saved a hotkey keeps left ⌥: `pinOldDefaultHotkey` saves it once at launch (`hkDefaultPinned`), judged by keys an earlier launch left (`autoExcludedDefaultsSeen`, `SUHasLaunchedBefore`, `autoMode`).
+- Windows e2e lost a scenario now and then, once fixing across a Tab (`d\tкнига` → `dвкнига`). The key log showed the hook silent for 22 s with key-ups missing: Windows passes keys by a hook that does not answer in time, so the run never saw the Tab and joined both words. Two stalls of the hook thread found:
+  - `reloadAutoMode` queued dictionary warm-up on the hook thread, each step waiting up to 5 s for the spell thread (since hooks got their own thread); now a thread of its own does it.
+  - the DEBUG key log opened and closed its file per event — an antivirus scans on close (140 ms seen); it stays open now. DEBUG builds log a hook callback over 100 ms (`slow hook`), and `e2e-win.ps1 -Trace` prints those lines on every run.
+- Not proven: the 22 s stall itself was not caught again (six runs after the logging went in, worst 140 ms), so whether these two explain all of it is open.
+- Test VMs reachable as `ssh mac-vm` / `ssh win-vm` (mDNS names); `e2e-mac-vm.sh` defaults to `mac-vm`.
+- README demo re-recorded in the macOS VM: `ghbdsn` → Shift twice → `привіт`, then `руддщ` → `hello`, a caption showing only the hotkey. Recorded with `screencapture -v` over SSH (one "bypass the private window picker" consent in the VM); `make-demo-gif.sh` no longer exits 1 on success.
 
 ---
 
 ## After v1.3.16 — Windows default hotkey: Left Shift twice
 
-- Was Ctrl+Alt+R: Ctrl+Alt is AltGr on many European layouts, and a
-  three-key chord is heavier than macOS's one tap. Left Shift twice is a
-  modifier tap (engine `ModifierTap` + `TapSequence`), so Shift held for a
-  capital never counts; twice, not five times — five open Sticky Keys.
-- Installs from before, which never saved a hotkey, keep Ctrl+Alt+R:
-  `pinOldDefaultHotkey` writes it once at start when the prefs key exists
-  without a hotkey, then marks `HotkeyDefaultPinned`. An install that never
-  wrote any preference gets the new default.
+- Was Ctrl+Alt+R: Ctrl+Alt is AltGr on many European layouts, and a three-key chord is heavier than macOS's one tap. Left Shift twice is a modifier tap (engine `ModifierTap` + `TapSequence`), so Shift held for a capital never counts; twice, not five times — five open Sticky Keys.
+- Installs from before, which never saved a hotkey, keep Ctrl+Alt+R: `pinOldDefaultHotkey` writes it once at start when the prefs key exists without a hotkey, then marks `HotkeyDefaultPinned`. An install that never wrote any preference gets the new default.
 - The Windows e2e harness presses the new default.
 
 ---
 
 ## After v1.3.16 — more of both apps' rules in Core
 
-- `planRetype` lost its unused `replaced` field. New in Core: `retypeSource`
-  (selection / typed word / clipboard probe / nothing), `mayEditText` (which
-  keys arm learning by revert), `FieldCheck` (Windows' asynchronous password
-  check: numbered questions, fail closed while pending), `enterFixPlan` (the
-  word Return ended). Each with unit tests.
+- `planRetype` lost its unused `replaced` field. New in Core: `retypeSource` (selection / typed word / clipboard probe / nothing), `mayEditText` (which keys arm learning by revert), `FieldCheck` (Windows' asynchronous password check: numbered questions, fail closed while pending), `enterFixPlan` (the word Return ended). Each with unit tests.
 - Behavior changes, by unifying the two apps:
-  - macOS probes with Cmd+C when accessibility says nothing is selected and
-    nothing was typed (VS Code reports an empty selection for a real one).
-  - macOS arms revert learning on Home/End/PgUp/PgDn; Windows no longer on
-    Esc/Insert.
-  - macOS merges new defaults into the hotkey exclusion list too (seen record
-    `hotkeyExcludedDefaultsSeen`), as Windows did; a default the user removed
-    stays removed.
-- Verified: swift test 164, run-tests 39, Mac VM e2e 12/12, Windows VM build
-  and e2e (plain and spell) clean twice. Right after the Windows VM rebooted,
-  three runs each lost one different scenario (a word left unfixed); the base
-  commit was not run cold, so a cold-UIA flake is the likely, unproven cause.
+  - macOS probes with Cmd+C when accessibility says nothing is selected and nothing was typed (VS Code reports an empty selection for a real one).
+  - macOS arms revert learning on Home/End/PgUp/PgDn; Windows no longer on Esc/Insert.
+  - macOS merges new defaults into the hotkey exclusion list too (seen record `hotkeyExcludedDefaultsSeen`), as Windows did; a default the user removed stays removed.
+- Verified: swift test 164, run-tests 39, Mac VM e2e 12/12, Windows VM build and e2e (plain and spell) clean twice. Right after the Windows VM rebooted, three runs each lost one different scenario (a word left unfixed); the base commit was not run cold, so a cold-UIA flake is the likely, unproven cause.
 
 ---
 
 ## After v1.3.16 — macOS e2e in a test VM over SSH
 
-- Why: `e2e.sh` posts real key events and holds focus, so on the owner's Mac it
-  takes the keyboard and screen. Ways that do not: the CI runner (only pushed
-  code) and a local VM. Posting to a pid (`postToPid`) skips the session tap
-  reLayout listens on; a second login session gets no input.
-- `scripts/e2e-mac-vm.sh` → `scripts/e2e/vm-run.sh` in the VM; TCC grants moved
-  to `scripts/e2e/grant-tcc.sh`, shared with the CI workflow; one-time setup in
-  `scripts/e2e/vm-setup.sh`. VM: macOS 26.6.2 arm64, ssh alias `relayout-mac`,
-  SIP off, passwordless sudo.
+- Why: `e2e.sh` posts real key events and holds focus, so on the owner's Mac it takes the keyboard and screen. Ways that do not: the CI runner (only pushed code) and a local VM. Posting to a pid (`postToPid`) skips the session tap reLayout listens on; a second login session gets no input.
+- `scripts/e2e-mac-vm.sh` → `scripts/e2e/vm-run.sh` in the VM; TCC grants moved to `scripts/e2e/grant-tcc.sh`, shared with the CI workflow; one-time setup in `scripts/e2e/vm-setup.sh`. VM: macOS 26.6.2 arm64, ssh alias `relayout-mac`, SIP off, passwordless sudo.
 - Found on the way:
-  - `softwareupdate` lists Command Line Tools 27.0 on macOS 26.6; installed,
-    its compiler (6.3.3) refused its own SDK 27 (built with 6.4). The SDK of
-    the VM's macOS major in the same tools works; vm-run picks it, vm-setup
-    installs the tools for the VM's major. The 26.6 download crawled (~100 KB/s)
-    and was stopped.
-  - Started over SSH the harness counts as `sshd-keygen-wrapper`'s for TCC —
-    the GitHub image grants that binary for the same reason. Grants carry each
-    binary's real designated requirement now, not NULL.
+  - `softwareupdate` lists Command Line Tools 27.0 on macOS 26.6; installed, its compiler (6.3.3) refused its own SDK 27 (built with 6.4). The SDK of the VM's macOS major in the same tools works; vm-run picks it, vm-setup installs the tools for the VM's major. The 26.6 download crawled (~100 KB/s) and was stopped.
+  - Started over SSH the harness counts as `sshd-keygen-wrapper`'s for TCC — the GitHub image grants that binary for the same reason. Grants carry each binary's real designated requirement now, not NULL.
   - `sudo` drops the environment: `SDKROOT` is passed to `e2e.sh` explicitly.
-  - The VM has ABC + Ukrainian + Russian, so press-again cycles before it undoes;
-    the macOS harness now checks that ("ghbdsn": привіт → привыт → back), as the
-    Windows one does.
-- Result: 12/12 in the VM, this Mac untouched. Not run: the CI workflow with
-  `grant-tcc.sh` (needs a push), `vm-setup.sh` end to end (its steps ran by hand).
+  - The VM has ABC + Ukrainian + Russian, so press-again cycles before it undoes; the macOS harness now checks that ("ghbdsn": привіт → привыт → back), as the Windows one does.
+- Result: 12/12 in the VM, this Mac untouched. Not run: the CI workflow with `grant-tcc.sh` (needs a push), `vm-setup.sh` end to end (its steps ran by hand).
 
 ## After v1.3.16 — boundary step, press-again and Windows modifier taps in Core
 
-- 1: Windows' `HotkeyDetector` uses `ModifierTap` for modifier-only hotkeys:
-  600 ms like macOS (a single modifier had 400), and a click now cancels the
-  tap (the mouse hook calls `interruptHotkeyTaps`), so Shift+click to extend
-  a selection no longer fires a Shift-tap hotkey. A bare modifier keeps its
-  side on Windows (Left Shift), as before; macOS matches either side.
-  e2e: the auto-correct toggle bound to a Right Ctrl tap — a tap turns it off
-  and on, a tap with a click inside does nothing.
-- 2: `Core/Boundary.swift` `evaluateBoundary`: edit lessons, the decision, the
-  short-word chain and bridge, switch-only, the fix plan — the ~45 lines both
-  apps had. The decision now sees verdicts as updated by this boundary's
-  lessons (it read the stored ones; same result, since both apps wrote them
-  first). 6 tests, incl. the bridge rule, which had none.
-- 3: `Core/PressAgain.swift`: `Conversion`, the record, retarget-vs-undo and
-  the epoch guard (`mark`/`record`/`forget`; `drop` for the macOS key that may
-  be starting a correction). 4 tests.
-- The intermittent "first scenario fails" on Windows: the first UI Automation
-  call of a fresh process is slow, so the first word's password answer came
-  after its boundary and the word was left (nothing is corrected while it is
-  pending). The app now makes that call at startup. Two consecutive VM runs
-  green since (15+3 plain, 17+3 spell).
-- macOS pauses around synthetic input are named (`landPause`,
-  `autoLandPause`, `pollInterval`, `keyGap`) instead of repeated literals.
-- Checked: `swift test` 151, macOS run-tests 39, Windows e2e plain and spell
-  twice. Not run: macOS e2e after these changes.
+- 1: Windows' `HotkeyDetector` uses `ModifierTap` for modifier-only hotkeys: 600 ms like macOS (a single modifier had 400), and a click now cancels the tap (the mouse hook calls `interruptHotkeyTaps`), so Shift+click to extend a selection no longer fires a Shift-tap hotkey. A bare modifier keeps its side on Windows (Left Shift), as before; macOS matches either side. e2e: the auto-correct toggle bound to a Right Ctrl tap — a tap turns it off and on, a tap with a click inside does nothing.
+- 2: `Core/Boundary.swift` `evaluateBoundary`: edit lessons, the decision, the short-word chain and bridge, switch-only, the fix plan — the ~45 lines both apps had. The decision now sees verdicts as updated by this boundary's lessons (it read the stored ones; same result, since both apps wrote them first). 6 tests, incl. the bridge rule, which had none.
+- 3: `Core/PressAgain.swift`: `Conversion`, the record, retarget-vs-undo and the epoch guard (`mark`/`record`/`forget`; `drop` for the macOS key that may be starting a correction). 4 tests.
+- The intermittent "first scenario fails" on Windows: the first UI Automation call of a fresh process is slow, so the first word's password answer came after its boundary and the word was left (nothing is corrected while it is pending). The app now makes that call at startup. Two consecutive VM runs green since (15+3 plain, 17+3 spell).
+- macOS pauses around synthetic input are named (`landPause`, `autoLandPause`, `pollInterval`, `keyGap`) instead of repeated literals.
+- Checked: `swift test` 151, macOS run-tests 39, Windows e2e plain and spell twice. Not run: macOS e2e after these changes.
 
 ## After v1.3.16 — tests split by layer; keystroke gate and hotkey taps in Core
 
-- Test layers written down in ARCHITECTURE: unit (Core, corner cases), e2e
-  (what a user can do, against the unmodified app; the one seam is Windows'
-  injected-key marker), manual (release builds, installer, Sparkle update,
-  UWP exclusion). Fault injection into the app for e2e was proposed and
-  dropped: the watchdog is a unit-tested rule instead.
-- `Core/KeyGate.swift`: the gate around a correction (hold, backspace un-types,
-  replay one at a time with the clock restarting per key, release when stuck)
-  with 6 tests. The platforms differed: Windows released held keys plus the
-  current one in order and dropped the stuck fix; macOS just stopped holding,
-  so new keys went out before the held ones (letters out of order). Both now
-  release in order; macOS cannot cancel a fix already on its worker queue.
-  Windows' backspace during a fix with nothing held is held too, and replayed
-  as a key.
-- `Core/HotkeyTaps.swift`: `TapSequence` (multi-press hotkeys; Windows' double
-  tap now counts like macOS' N taps) and `ModifierTap` (modifier-only taps:
-  exact chord, no key/click/extra modifier, released in time), 8 tests; macOS
-  uses both, Windows uses `TapSequence`. Windows' own modifier-tap detection
-  (`HotkeyDetector`) is unchanged: 400 ms for a single modifier vs 600 ms,
-  exact side only, and a click does not cancel it — left for a separate
-  change, it has no e2e coverage.
-- `build.yml` dispatched (run 39648892347): macOS build + tests + package,
-  Windows x64 and arm64 builds and installers — all green, so the pinned choco
-  versions and the installer's new [Tasks]/[Registry]/[InstallDelete] compile.
-  Sparkle is embedded only on tags, so its hash check ran only locally.
-- Checked: `swift test` 141, macOS run-tests 39, macOS e2e 11/11, Windows e2e
-  15/15 and spell 17/17 in the VM.
+- Test layers written down in ARCHITECTURE: unit (Core, corner cases), e2e (what a user can do, against the unmodified app; the one seam is Windows' injected-key marker), manual (release builds, installer, Sparkle update, UWP exclusion). Fault injection into the app for e2e was proposed and dropped: the watchdog is a unit-tested rule instead.
+- `Core/KeyGate.swift`: the gate around a correction (hold, backspace un-types, replay one at a time with the clock restarting per key, release when stuck) with 6 tests. The platforms differed: Windows released held keys plus the current one in order and dropped the stuck fix; macOS just stopped holding, so new keys went out before the held ones (letters out of order). Both now release in order; macOS cannot cancel a fix already on its worker queue. Windows' backspace during a fix with nothing held is held too, and replayed as a key.
+- `Core/HotkeyTaps.swift`: `TapSequence` (multi-press hotkeys; Windows' double tap now counts like macOS' N taps) and `ModifierTap` (modifier-only taps: exact chord, no key/click/extra modifier, released in time), 8 tests; macOS uses both, Windows uses `TapSequence`. Windows' own modifier-tap detection (`HotkeyDetector`) is unchanged: 400 ms for a single modifier vs 600 ms, exact side only, and a click does not cancel it — left for a separate change, it has no e2e coverage.
+- `build.yml` dispatched (run 39648892347): macOS build + tests + package, Windows x64 and arm64 builds and installers — all green, so the pinned choco versions and the installer's new [Tasks]/[Registry]/[InstallDelete] compile. Sparkle is embedded only on tags, so its hash check ran only locally.
+- Checked: `swift test` 141, macOS run-tests 39, macOS e2e 11/11, Windows e2e 15/15 and spell 17/17 in the VM.
 
 ## After v1.3.16 — e2e workflow for GitHub-hosted runners
 
-- `.github/workflows/e2e.yml`: manual, non-blocking, `contents: read`. Both
-  jobs first print what the machine allows, so a failure tells the runner
-  from the app.
-- macOS: the image pre-grants Accessibility and PostEvent to bash and the
-  runner agent (actions/runner-images `configure-tccdb-macos.sh`), so the
-  harness can likely post events; the app itself gets a TCC row written with
-  its own designated requirement — whether that takes depends on SIP being
-  off during the job, which no doc states. Layouts are enabled through TIS
-  (`enable-layouts.swift`), not `defaults`, so no re-login is needed.
-- Windows: no official word on an interactive desktop; WinAppDriver ships in
-  the image, which suggests one. `e2e-win.ps1` starts programs through
-  interactive scheduled tasks (built for SSH into the VM); whether that works
-  in the runner's session is part of what the first run shows. Spell mode is
-  left out (no ru/uk dictionaries on the image).
-- Pushed by the user's request and run (runs 39629346137, 39629695175,
-  39630166651). What the runners turned out to be:
-  - macOS 15 arm64 VM, user `runner`, **SIP disabled**, so a TCC row written
-    in the job takes: the dev app got Accessibility and macOS e2e passed
-    11/11 (US + Russian picked; the image already had US enabled).
-  - Windows Server x64, `runneradmin` in an **active console session 2**,
-    high integrity, interactive; `schtasks /it` works there unchanged.
-    Windows e2e passed 15/15 — the first x64 run of the port at all.
-- First-run fixes: an ad-hoc signature prints its requirement as
-  `# designated => cdhash …` (the `sed` expected no `#`); `query session`
-  exits 1 even when it prints, and GitHub's pwsh wrapper exits with the last
-  native code; `e2e.sh`'s restore trap returned 1 when no reLayout had been
-  running (`[ -n "" ] && open` under `set -e`), failing a green run.
+- `.github/workflows/e2e.yml`: manual, non-blocking, `contents: read`. Both jobs first print what the machine allows, so a failure tells the runner from the app.
+- macOS: the image pre-grants Accessibility and PostEvent to bash and the runner agent (actions/runner-images `configure-tccdb-macos.sh`), so the harness can likely post events; the app itself gets a TCC row written with its own designated requirement — whether that takes depends on SIP being off during the job, which no doc states. Layouts are enabled through TIS (`enable-layouts.swift`), not `defaults`, so no re-login is needed.
+- Windows: no official word on an interactive desktop; WinAppDriver ships in the image, which suggests one. `e2e-win.ps1` starts programs through interactive scheduled tasks (built for SSH into the VM); whether that works in the runner's session is part of what the first run shows. Spell mode is left out (no ru/uk dictionaries on the image).
+- Pushed by the user's request and run (runs 39629346137, 39629695175, 39630166651). What the runners turned out to be:
+  - macOS 15 arm64 VM, user `runner`, **SIP disabled**, so a TCC row written in the job takes: the dev app got Accessibility and macOS e2e passed 11/11 (US + Russian picked; the image already had US enabled).
+  - Windows Server x64, `runneradmin` in an **active console session 2**, high integrity, interactive; `schtasks /it` works there unchanged. Windows e2e passed 15/15 — the first x64 run of the port at all.
+- First-run fixes: an ad-hoc signature prints its requirement as `# designated => cdhash …` (the `sed` expected no `#`); `query session` exits 1 even when it prints, and GitHub's pwsh wrapper exits with the last native code; `e2e.sh`'s restore trap returned 1 when no reLayout had been running (`[ -n "" ] && open` under `set -e`), failing a green run.
 - Run 39630166651: both jobs green.
 
 ## After v1.3.16 — macOS replays held keys in the layout the fix switched to
 
-- Owner typed `rkjl` + space and, while the fix ran, `j,`: the result was
-  `клод j,новлен`. macOS held the keys as the text they typed in ABC and replayed
-  that text after the fix had switched to Ukrainian. Keys typed during a fix are
-  typed blind in the layout the fix just called wrong, so they now replay
-  transliterated into the new one (`об`), as Windows already did by replaying
-  key codes in the active layout.
+- Owner typed `rkjl` + space and, while the fix ran, `j,`: the result was `клод j,новлен`. macOS held the keys as the text they typed in ABC and replayed that text after the fix had switched to Ukrainian. Keys typed during a fix are typed blind in the layout the fix just called wrong, so they now replay transliterated into the new one (`об`), as Windows already did by replaying key codes in the active layout.
 
 ## After v1.3.16 — Windows spell check never ran while typing; e2e with it on
 
-- `scripts/e2e-win.ps1 -Spell` runs the whole suite with the spell-check option
-  on, plus two scenarios only the dictionary decides (a doubled letter and
-  swapped letters in a wrong-layout word: "ghbddtn", "gbhdtn" -> "привет").
-- They failed: the trigrams converted as typed ("приввет", "пирвет") and no
-  repair came. A probe showed the factory and all three checkers created fine
-  on the hook thread, but every `Check`/`Suggest` returned 0x8001010D,
-  RPC_E_CANTCALLOUT_ININPUTSYNCCALL: the checker is an out-of-process COM
-  server, and an outgoing COM call from inside a low-level hook callback (an
-  input-synchronous call) is refused. That was true before the hook moved to
-  its own thread too — the option never acted while typing on Windows; only
-  the warm-up, outside a callback, ever succeeded (the "2-7 ms" measurement in
-  WinAuto was presumably taken there).
-- Fix: `relayout_spell.cpp` runs every call on a COM worker thread of its own
-  (MTA) that owns all spell objects; callers hand a request over (inputs
-  copied, refcounted, so a caller that stops waiting leaves nothing dangling)
-  and wait 40 ms for a check or suggestions (then "unknown"), 5 s to open a
-  dictionary. One request at a time: while the worker is busy, a call returns
-  "unknown" at once. The hook thread makes no COM call at all now.
-- Runs (each after a fresh VM build): spell mode 3/3 (17 scenarios); plain
-  mode 2/3. The failed plain run stalled the UI thread ~2.5 s right after
-  start: the first word went uncorrected (password answer pending — fail
-  closed, by design) and the Enter fix had erased the word but not retyped it
-  when the harness stopped waiting. Not reproduced since; cause not found.
+- `scripts/e2e-win.ps1 -Spell` runs the whole suite with the spell-check option on, plus two scenarios only the dictionary decides (a doubled letter and swapped letters in a wrong-layout word: "ghbddtn", "gbhdtn" -> "привет").
+- They failed: the trigrams converted as typed ("приввет", "пирвет") and no repair came. A probe showed the factory and all three checkers created fine on the hook thread, but every `Check`/`Suggest` returned 0x8001010D, RPC_E_CANTCALLOUT_ININPUTSYNCCALL: the checker is an out-of-process COM server, and an outgoing COM call from inside a low-level hook callback (an input-synchronous call) is refused. That was true before the hook moved to its own thread too — the option never acted while typing on Windows; only the warm-up, outside a callback, ever succeeded (the "2-7 ms" measurement in WinAuto was presumably taken there).
+- Fix: `relayout_spell.cpp` runs every call on a COM worker thread of its own (MTA) that owns all spell objects; callers hand a request over (inputs copied, refcounted, so a caller that stops waiting leaves nothing dangling) and wait 40 ms for a check or suggestions (then "unknown"), 5 s to open a dictionary. One request at a time: while the worker is busy, a call returns "unknown" at once. The hook thread makes no COM call at all now.
+- Runs (each after a fresh VM build): spell mode 3/3 (17 scenarios); plain mode 2/3. The failed plain run stalled the UI thread ~2.5 s right after start: the first word went uncorrected (password answer pending — fail closed, by design) and the Enter fix had erased the word but not retyped it when the harness stopped waiting. Not reproduced since; cause not found.
 
 ## After v1.3.16 — audit 17/20 and the small items: shared Core rules, stragglers
 
-- 17: `Core/Learned.swift` holds what both apps did twice — the auto decision
-  chain (`autoDecision`: trigram, then spell check and typo repair, with an
-  optional suggestion budget; Windows passes one, macOS none) and the
-  learned-verdict rules (`LearnedWords`: count misses and promote after
-  `autoLearnRepeats`, undo, promote/demote, forget, clean). The platforms only
-  store the lists (UserDefaults, registry) and show them. Windows counted a
-  miss once per occurrence in the text, macOS once per word; it is once per
-  word now. A count reaching the limit with no output word no longer
-  promotes an empty conversion.
-- 20: macOS `stopAutoMonitor` zeroed `autoPending` mid-correction, so
-  `finishCorrection` took it to -1 and the keystroke gate stopped engaging;
-  `unlearn` ran on the worker and raced the main thread's UserDefaults
-  writes; trigram files with `nan` are rejected value by value (a `nan`
-  floor rejects the model); the script-language list is built once.
-- Words over 64 letters were trimmed to their last 64, so a fix erased and
-  retyped only the tail; such a run is now dropped whole until whitespace.
-- macOS `typeUnicode` caps an event at 20 UTF-16 units (a long indent ran in
-  one event; the per-event limit is not documented, 20 is the known one).
-- Windows: "Exclude current app" and the exclusion check named every UWP app
-  `applicationframehost.exe`; `appWindow` finds the child window of the app's
-  own process. The Exceptions and Learned windows used Settings' font, which
-  Settings frees on every rebuild; they use a per-dpi font kept for the
-  process's life. Overlapping update checks shared one result slot (a manual
-  check could report a failure); each answer now travels with its request
-  via `postToUI`. The fix watchdog dropped held keys: it now re-sends them
-  (and the key that tripped it) and drops the stuck fix so it cannot run late.
-  The double-tap window is 500 ms, as on macOS (was 350).
+- 17: `Core/Learned.swift` holds what both apps did twice — the auto decision chain (`autoDecision`: trigram, then spell check and typo repair, with an optional suggestion budget; Windows passes one, macOS none) and the learned-verdict rules (`LearnedWords`: count misses and promote after `autoLearnRepeats`, undo, promote/demote, forget, clean). The platforms only store the lists (UserDefaults, registry) and show them. Windows counted a miss once per occurrence in the text, macOS once per word; it is once per word now. A count reaching the limit with no output word no longer promotes an empty conversion.
+- 20: macOS `stopAutoMonitor` zeroed `autoPending` mid-correction, so `finishCorrection` took it to -1 and the keystroke gate stopped engaging; `unlearn` ran on the worker and raced the main thread's UserDefaults writes; trigram files with `nan` are rejected value by value (a `nan` floor rejects the model); the script-language list is built once.
+- Words over 64 letters were trimmed to their last 64, so a fix erased and retyped only the tail; such a run is now dropped whole until whitespace.
+- macOS `typeUnicode` caps an event at 20 UTF-16 units (a long indent ran in one event; the per-event limit is not documented, 20 is the known one).
+- Windows: "Exclude current app" and the exclusion check named every UWP app `applicationframehost.exe`; `appWindow` finds the child window of the app's own process. The Exceptions and Learned windows used Settings' font, which Settings frees on every rebuild; they use a per-dpi font kept for the process's life. Overlapping update checks shared one result slot (a manual check could report a failure); each answer now travels with its request via `postToUI`. The fix watchdog dropped held keys: it now re-sends them (and the key that tripped it) and drops the stuck fix so it cannot run late. The double-tap window is 500 ms, as on macOS (was 350).
 - Doc comments that sat above the wrong declarations (Engine, Auto) moved.
-- Left: the Windows UI-helper duplication across Settings/Exceptions/Learned
-  (a refactor of three windows nobody can check visually here).
-- Checked: `swift test` 127, macOS run-tests 39, Windows build + e2e 15/15 in
-  the VM, macOS e2e 11/11 (after the screen was unlocked). Its new held-key
-  scenario first failed on the test itself: it reused a word fixed one
-  scenario earlier, and a click plus retyping that word reads as reverting
-  the fix (learning by revert, by design), so the word was kept. It uses its
-  own word now. Not run: the spell option on Windows, a UWP app exclusion,
-  the watchdog path.
+- Left: the Windows UI-helper duplication across Settings/Exceptions/Learned (a refactor of three windows nobody can check visually here).
+- Checked: `swift test` 127, macOS run-tests 39, Windows build + e2e 15/15 in the VM, macOS e2e 11/11 (after the screen was unlocked). Its new held-key scenario first failed on the test itself: it reused a word fixed one scenario earlier, and a click plus retyping that word reads as reverting the fix (learning by revert, by design), so the word was kept. It uses its own word now. Not run: the spell option on Windows, a UWP app exclusion, the watchdog path.
 
 ## After v1.3.16 — audit 18/19: mixed words on punctuation keys, dead code
 
-- A mixed word whose Latin half was typed on punctuation keys ("[jh" is
-  "хор" before the switch, "ошо" after) was rejected by both the hotkey
-  (`fixMixedWord`) and auto mode (`mixed` required pure letters).
-  `isMixedWordMaterial` accepts keys that type a letter on an enabled
-  Cyrillic layout; `convertScriptRuns` lets such a key join a run it touches,
-  so a comma after the Cyrillic half stays a comma.
-- `planRetype` fixed a mixed word only when the selection was exactly that
-  word: a double-click that also took the trailing space ("ghjшто ") went to
-  whole-text conversion ("ghjinj "). It now looks at the one word and retypes
-  the surrounding whitespace as it was.
-- Deleted `caretWord` (no caller since the hotkey converts only a selection)
-  and its tests, and the engine tests duplicated in `macos/tests.swift`
-  (`Tests/ReLayoutCoreTests` has each); macOS run-tests keeps its own 39.
-- macOS e2e gains the held-key replay scenario; not run yet — the Mac's
-  screen was locked (the harness aborted on focus, as designed).
+- A mixed word whose Latin half was typed on punctuation keys ("[jh" is "хор" before the switch, "ошо" after) was rejected by both the hotkey (`fixMixedWord`) and auto mode (`mixed` required pure letters). `isMixedWordMaterial` accepts keys that type a letter on an enabled Cyrillic layout; `convertScriptRuns` lets such a key join a run it touches, so a comma after the Cyrillic half stays a comma.
+- `planRetype` fixed a mixed word only when the selection was exactly that word: a double-click that also took the trailing space ("ghjшто ") went to whole-text conversion ("ghjinj "). It now looks at the one word and retypes the surrounding whitespace as it was.
+- Deleted `caretWord` (no caller since the hotkey converts only a selection) and its tests, and the engine tests duplicated in `macos/tests.swift` (`Tests/ReLayoutCoreTests` has each); macOS run-tests keeps its own 39.
+- macOS e2e gains the held-key replay scenario; not run yet — the Mac's screen was locked (the harness aborted on focus, as designed).
 
 ## After v1.3.16 — Windows hooks on their own thread
 
-- The keyboard and mouse hooks ran on the UI thread, so any slow UI work (a
-  UIA read, typing a fix, the clipboard) delayed keys, and UIA calls sat in
-  the hook itself (the password check per word, the Enter snapshot) — past
-  LowLevelHooksTimeout Windows silently drops the hook. They now run on a
-  dedicated thread that owns all hotkey/auto-correct state and the spell
-  checker; the UI thread reaches it through `onHook` (synchronous), the hook
-  thread hands work back through `postToUI`. The hook thread never waits for
-  the UI thread.
-- UIA left the hook: the password check is asked on the UI thread at each
-  word start (`passwordPending` blocks corrections until the answer; a stale
-  "yes" from another field does not drop keys meanwhile — the first e2e run
-  lost the "g" of "ghbdtn" that way); Return is held back when a follow-up
-  is likely, the UI thread reads the field, re-sends Return, then fixes.
-- Held-key replay keeps the gate shut until the queue is empty (new keys
-  queue behind it), stops when another fix is queued (also after the
-  watchdog), and re-checks the field for a password first; after a replayed
-  Tab the field counts as unknown (no corrections) until a typed word asks.
-- `conversionEpoch` guards the undo record like macOS's `undoEpoch`: a click
-  during a retype is no longer overwritten by the retype's record.
+- The keyboard and mouse hooks ran on the UI thread, so any slow UI work (a UIA read, typing a fix, the clipboard) delayed keys, and UIA calls sat in the hook itself (the password check per word, the Enter snapshot) — past LowLevelHooksTimeout Windows silently drops the hook. They now run on a dedicated thread that owns all hotkey/auto-correct state and the spell checker; the UI thread reaches it through `onHook` (synchronous), the hook thread hands work back through `postToUI`. The hook thread never waits for the UI thread.
+- UIA left the hook: the password check is asked on the UI thread at each word start (`passwordPending` blocks corrections until the answer; a stale "yes" from another field does not drop keys meanwhile — the first e2e run lost the "g" of "ghbdtn" that way); Return is held back when a follow-up is likely, the UI thread reads the field, re-sends Return, then fixes.
+- Held-key replay keeps the gate shut until the queue is empty (new keys queue behind it), stops when another fix is queued (also after the watchdog), and re-checks the field for a password first; after a replayed Tab the field counts as unknown (no corrections) until a typed word asks.
+- `conversionEpoch` guards the undo record like macOS's `undoEpoch`: a click during a retype is no longer overwritten by the retype's record.
 - Re-sent keys take Shift as it was when typed, whatever is held now.
-- Cross-thread closures go through an in-process `CallQueue`; the window
-  message carries no pointer (an automated security review flagged the first
-  version, which passed an object pointer in `lParam` that any process could
-  forge). The hook thread is woken through a message-only window (a COM wait
-  drops thread messages) and runs one queued item per wake.
-- A second security-review pass: an in-flight password answer asked for one
-  field could clear the block for the next; answers now count only for the
-  latest question (`passwordAsk`), a stale one asks again, and keys held over
-  a fix that ended on Tab leave the field unknown instead of trusting a read
-  taken before focus settled.
-- Settings' hotkey capture results are dropped if the capture was cancelled
-  before they reached the UI thread.
+- Cross-thread closures go through an in-process `CallQueue`; the window message carries no pointer (an automated security review flagged the first version, which passed an object pointer in `lParam` that any process could forge). The hook thread is woken through a message-only window (a COM wait drops thread messages) and runs one queued item per wake.
+- A second security-review pass: an in-flight password answer asked for one field could clear the block for the next; answers now count only for the latest question (`passwordAsk`), a stale one asks again, and keys held over a fix that ended on Tab leave the field unknown instead of trusting a read taken before focus settled.
+- Settings' hotkey capture results are dropped if the capture was cancelled before they reached the UI thread.
 - Startup: tray first (the hook thread posts to it), then the hook thread.
-- e2e: a password-field scenario (two words, the second after the answer);
-  the runner waits for the app's process — the "first scenario fails now and
-  then" flake was the harness typing before the app had started. 15/15 twice.
-- An Opus review of the diff found two must-fix defects (an escaping-closure
-  trap in `onHook`; replayed words never corrected because the password
-  answer could not come back mid-replay) and four should-fix ones; all fixed.
-- Not verified: hook removal under a really hung app (no such app in the VM),
-  the spell-check option on the new thread (off in e2e).
+- e2e: a password-field scenario (two words, the second after the answer); the runner waits for the app's process — the "first scenario fails now and then" flake was the harness typing before the app had started. 15/15 twice.
+- An Opus review of the diff found two must-fix defects (an escaping-closure trap in `onHook`; replayed words never corrected because the password answer could not come back mid-replay) and four should-fix ones; all fixed.
+- Not verified: hook removal under a really hung app (no such app in the VM), the spell-check option on the new thread (off in e2e).
 
 ## After v1.3.16 — Windows batch: foreign keys, held-key replay, installer autostart
 
-- Keys reLayout sends now carry `ownInputMarker` in `dwExtraInfo`. Any other
-  injected key-down (a remapper, an on-screen keyboard, a password manager's
-  autotype) resets the run and ends the undo window: before, it was skipped,
-  so the run no longer matched the screen and a fix erased the wrong text.
-- Held keys (typed while a fix runs) were captured as text in the old layout
-  but fed to the run in the new one at replay, so the screen said "rfr" and
-  the run "как". Held keys now keep scan code and Shift; at replay one string
-  is worked out in the layout the fix left and both fed and typed.
-- Installer: the Startup shortcut (invisible to the app's "Launch at login"
-  switch, so unchecking it did nothing) is gone, also on upgrade
-  (`[InstallDelete]`); a default-on task writes the same Run value the app
-  manages.
-- e2e: +2 scenarios (an unmarked key mid-word leaves the word alone; keys
-  typed during a fix land in the new layout), 14/14. The second also passes
-  when no key happens to be held, so it guards the fix only partly.
+- Keys reLayout sends now carry `ownInputMarker` in `dwExtraInfo`. Any other injected key-down (a remapper, an on-screen keyboard, a password manager's autotype) resets the run and ends the undo window: before, it was skipped, so the run no longer matched the screen and a fix erased the wrong text.
+- Held keys (typed while a fix runs) were captured as text in the old layout but fed to the run in the new one at replay, so the screen said "rfr" and the run "как". Held keys now keep scan code and Shift; at replay one string is worked out in the layout the fix left and both fed and typed.
+- Installer: the Startup shortcut (invisible to the app's "Launch at login" switch, so unchecking it did nothing) is gone, also on upgrade (`[InstallDelete]`); a default-on task writes the same Run value the app manages.
+- e2e: +2 scenarios (an unmarked key mid-word leaves the word alone; keys typed during a fix land in the new layout), 14/14. The second also passes when no key happens to be held, so it guards the fix only partly.
 - Not exercised: the installer itself (no Inno Setup in the VM).
 
 ## After v1.3.16 — Sparkle 2.6.4 -> 2.10.0
 
-- 2.6.4 was simply the version pinned when Sparkle was added (`cb61f8f`).
-  2.10.0 hash = the release asset's GitHub digest (the user had it too).
-- Release notes 2.7-2.10: appcast changes are additive; no change to EdDSA or
-  `SUPublicEDKey`; framework minimum macOS 12.0 (app is 13.0); main-thread
-  use enforced since 2.8 (the app creates and calls the updater on main);
-  several security fixes (2.7.2, 2.9.2, 2.9.5, 2.9.6).
-- Checked locally: a WITH_SPARKLE build signs and passes `codesign --verify
-  --deep --strict`; 2.10's `generate_appcast` with a throwaway key signs the
-  item, `appcast-informational.py` still patches it, and 2.6.4's `sign_update
-  --verify` accepts the signature — so installed 2.6.4 clients can verify it.
-  It now also emits `<sparkle:hardwareRequirements>arm64` (the CI build is
-  arm64-only); 2.6.4 clients ignore it, as before.
-- 2.9+ reads `.md` release notes; the `/markdown` render step still works and
-  was left alone.
-- `resign-appcast.yml` fetched Sparkle with `curl | tar` and ran `sign_update`
-  with the private key; it now uses the same pinned version and hash, read
-  from `scripts/sparkle.env` (sparse checkout) like `build.sh` — one place.
+- 2.6.4 was simply the version pinned when Sparkle was added (`cb61f8f`). 2.10.0 hash = the release asset's GitHub digest (the user had it too).
+- Release notes 2.7-2.10: appcast changes are additive; no change to EdDSA or `SUPublicEDKey`; framework minimum macOS 12.0 (app is 13.0); main-thread use enforced since 2.8 (the app creates and calls the updater on main); several security fixes (2.7.2, 2.9.2, 2.9.5, 2.9.6).
+- Checked locally: a WITH_SPARKLE build signs and passes `codesign --verify --deep --strict`; 2.10's `generate_appcast` with a throwaway key signs the item, `appcast-informational.py` still patches it, and 2.6.4's `sign_update --verify` accepts the signature — so installed 2.6.4 clients can verify it. It now also emits `<sparkle:hardwareRequirements>arm64` (the CI build is arm64-only); 2.6.4 clients ignore it, as before.
+- 2.9+ reads `.md` release notes; the `/markdown` render step still works and was left alone.
+- `resign-appcast.yml` fetched Sparkle with `curl | tar` and ran `sign_update` with the private key; it now uses the same pinned version and hash, read from `scripts/sparkle.env` (sparse checkout) like `build.sh` — one place.
 - Not verified: a real update from an installed 1.3.x to a 2.10.0 build.
 
 ## After v1.3.16 — audit security batch: Sparkle pin, update key, uninstall, CI token
 
-- `build.sh`: the Sparkle tarball is cached as a file and checked against a
-  pinned SHA-256 on every build, then extracted fresh — before, `curl | tar`
-  ran unchecked and the extracted cache was trusted, then signed with
-  Developer ID. Hash taken from the official 2.6.4 release asset (GitHub
-  gives no digest for it); its framework binary matches the copy the local
-  cache already held.
-- `build.sh` fails on a feed with no EdDSA key (the updater would reject
-  every update and users would stay on that version), a non-https feed, or
-  a release with Sparkle and no feed (was a warning).
-- Inno Setup: uninstall deletes `HKCU\Software\reLayout` (learned lists hold
-  words the user typed) and the `reLayout` Run value.
-- CI: checkouts no longer persist the write token in `.git/config` (no step
-  relied on it: releases use `gh` with GH_TOKEN, gh-pages a token URL, the
-  tap an SSH key); choco installs pinned (innosetup 6.7.1, 7zip 26.4.0).
+- `build.sh`: the Sparkle tarball is cached as a file and checked against a pinned SHA-256 on every build, then extracted fresh — before, `curl | tar` ran unchecked and the extracted cache was trusted, then signed with Developer ID. Hash taken from the official 2.6.4 release asset (GitHub gives no digest for it); its framework binary matches the copy the local cache already held.
+- `build.sh` fails on a feed with no EdDSA key (the updater would reject every update and users would stay on that version), a non-https feed, or a release with Sparkle and no feed (was a warning).
+- Inno Setup: uninstall deletes `HKCU\Software\reLayout` (learned lists hold words the user typed) and the `reLayout` Run value.
+- CI: checkouts no longer persist the write token in `.git/config` (no step relied on it: releases use `gh` with GH_TOKEN, gh-pages a token URL, the tap an SSH key); choco installs pinned (innosetup 6.7.1, 7zip 26.4.0).
 - Not exercised: a real tagged release, the installer's uninstall, a CI run.
 
 ## After v1.3.16 — Windows end-to-end harness; Ctrl+Alt+R kept the typed word
 
-- `scripts/e2e-win.ps1` + `scripts/e2e/win-harness.swift`: the macOS
-  scenarios on Windows, plus the three-layout press-again cycle with ru + uk
-  installed ("ghbdsn": привіт on uk -> привыт on ru -> ghbdsn on en); 12/12.
-  Keys go in with SendInput scan codes marked in `dwExtraInfo`; only DEBUG
-  builds' hook accepts the marker. Interception (driver-level keys, no
-  injected flag) was the first choice and was dropped: x86/x64 drivers only,
-  and the VM is Windows 11 on ARM64.
-- Found by it: with nothing selected, the default hotkey Ctrl+Alt+R never
-  converted the typed word. Alt's keydown arrives with Ctrl already down,
-  reads as a shortcut, and `autoFeed` reset the run before R fired the
-  hotkey. A modifier alone now returns early: it types nothing.
-- A plain EDIT has no UI Automation text, so the selection read fell back to
-  Ctrl+C and the Enter follow-up (UIA snapshot) never ran. The harness uses
-  RichEdit, as Notepad does.
-- The VM build script fetched the bundle into `audit-fixes` while that branch
-  was checked out in its worktree; git refused and the build ran the old
-  commit — so the earlier "builds in the VM" for audit batch 1 checked stale
-  code. The script now removes the worktree first and checks HEAD.
+- `scripts/e2e-win.ps1` + `scripts/e2e/win-harness.swift`: the macOS scenarios on Windows, plus the three-layout press-again cycle with ru + uk installed ("ghbdsn": привіт on uk -> привыт on ru -> ghbdsn on en); 12/12. Keys go in with SendInput scan codes marked in `dwExtraInfo`; only DEBUG builds' hook accepts the marker. Interception (driver-level keys, no injected flag) was the first choice and was dropped: x86/x64 drivers only, and the VM is Windows 11 on ARM64.
+- Found by it: with nothing selected, the default hotkey Ctrl+Alt+R never converted the typed word. Alt's keydown arrives with Ctrl already down, reads as a shortcut, and `autoFeed` reset the run before R fired the hotkey. A modifier alone now returns early: it types nothing.
+- A plain EDIT has no UI Automation text, so the selection read fell back to Ctrl+C and the Enter follow-up (UIA snapshot) never ran. The harness uses RichEdit, as Notepad does.
+- The VM build script fetched the bundle into `audit-fixes` while that branch was checked out in its worktree; git refused and the build ran the old commit — so the earlier "builds in the VM" for audit batch 1 checked stale code. The script now removes the worktree first and checks HEAD.
 - First run: scenario 1 failed once and passed on every rerun (warm-up).
 - PowerShell variable names ignore case: `$trace` overwrote the `-Trace` switch.
 
 ## After v1.3.16 — audit batch 1: AX timeout, Tab, CRLF, clipboard, Dvorak
 
-- macOS: a global AX messaging timeout (0.1 s, set on the system-wide element)
-  so the key taps' inline AX calls cannot stall all input on a hung app.
-- Engine: a Tab breaks the short-word chain. "d", Tab to the next field,
-  "ljhjut " erased 8 characters there (2 never typed) and typed "в дорогу".
-  The word before the Tab is still judged at it; only the chain past it ends.
-- Engine: `enterOutcome` accepts "\r\n" (one Character, two UTF-16 units),
-  so the Enter follow-up works in Windows CRLF controls.
-- macOS Cmd+C fallback: waits up to 400 ms for the pasteboard to change
-  instead of a fixed 120 ms (a late copy otherwise stayed on the clipboard
-  after the restore), and posts the key that types "c" in the current layout
-  (Dvorak sent Cmd+J). An empty probe now costs up to 400 ms.
-- Windows Settings: `where colors.dark` covered only WM_CTLCOLOREDIT, so the
-  language list was themed dark-path in light mode too.
-- e2e gains a Tab scenario. Its first run failed on the word itself: the
-  earlier undo scenario had learned it as kept, so it uses its own word.
+- macOS: a global AX messaging timeout (0.1 s, set on the system-wide element) so the key taps' inline AX calls cannot stall all input on a hung app.
+- Engine: a Tab breaks the short-word chain. "d", Tab to the next field, "ljhjut " erased 8 characters there (2 never typed) and typed "в дорогу". The word before the Tab is still judged at it; only the chain past it ends.
+- Engine: `enterOutcome` accepts "\r\n" (one Character, two UTF-16 units), so the Enter follow-up works in Windows CRLF controls.
+- macOS Cmd+C fallback: waits up to 400 ms for the pasteboard to change instead of a fixed 120 ms (a late copy otherwise stayed on the clipboard after the restore), and posts the key that types "c" in the current layout (Dvorak sent Cmd+J). An empty probe now costs up to 400 ms.
+- Windows Settings: `where colors.dark` covered only WM_CTLCOLOREDIT, so the language list was themed dark-path in light mode too.
+- e2e gains a Tab scenario. Its first run failed on the word itself: the earlier undo scenario had learned it as kept, so it uses its own word.
 
 ## After v1.3.16 — macOS end-to-end harness
 
-- `scripts/e2e.sh` + `scripts/e2e/harness.swift`: drives the real dev build
-  with synthetic physical keys into a test window and checks the text and
-  the layout. Nine scenarios: auto-fix, right word kept, hotkey on a
-  selection, press-again undo, undo of an auto-fix, hotkey after typing on
-  converts the new word (the stale-undo bug from the audit), Enter follow-up.
-- Words depend on the Cyrillic layout found (ru "ghbdtn", uk "ghbdsn"); the
-  first run assumed Russian and skipped on an ABC + Ukrainian-PC machine.
-- The first real run lost its first two scenarios: the window was not yet
-  key, so the keys went to whichever app had focus. The harness now waits
-  for focus before each scenario and aborts instead of typing elsewhere.
-- Prefs isolation: the dev domain is exported, the app's keys reset, and the
-  export re-imported on exit; whichever reLayout was running is relaunched.
-- Not covered: a click during a running retype (timing-dependent), Windows
-  (its hook drops all injected keys, so SendInput cannot drive it).
+- `scripts/e2e.sh` + `scripts/e2e/harness.swift`: drives the real dev build with synthetic physical keys into a test window and checks the text and the layout. Nine scenarios: auto-fix, right word kept, hotkey on a selection, press-again undo, undo of an auto-fix, hotkey after typing on converts the new word (the stale-undo bug from the audit), Enter follow-up.
+- Words depend on the Cyrillic layout found (ru "ghbdtn", uk "ghbdsn"); the first run assumed Russian and skipped on an ABC + Ukrainian-PC machine.
+- The first real run lost its first two scenarios: the window was not yet key, so the keys went to whichever app had focus. The harness now waits for focus before each scenario and aborts instead of typing elsewhere.
+- Prefs isolation: the dev domain is exported, the app's keys reset, and the export re-imported on exit; whichever reLayout was running is relaunched.
+- Not covered: a click during a running retype (timing-dependent), Windows (its hook drops all injected keys, so SendInput cannot drive it).
 
 ## After v1.3.16 — audit fixes: parser crash, stale undo, cut selection, hook timeouts
 
 - A repo audit (Core, macOS, Windows+CI) found four must-fix defects.
-- `parseStrings` trapped on a key with no closing quote at end of file
-  (`removeFirst` on an empty slice); the Windows app reads `lang/*.strings`
-  at launch, so one truncated translation crashed it.
-- macOS: `lastConversion` was cleared by the taps on main and written by the
-  worker with no ordering. A click during a retype was overwritten by the
-  worker's record, so the next hotkey "undid" at the new caret and erased
-  text that was never converted; keys replayed after a correction skipped
-  `autoFeed` when auto mode was off and never ended the window. Now main-only:
-  user input bumps `undoEpoch`, the worker records only if the epoch is the
-  one its correction began with. A key in the undo watch does not bump (it
-  may be the boundary that began the correction; replay ends the window).
-- Windows: a selection longer than 4095 UTF-16 units was cut to its tail and
-  the retype overwrote the whole selection with the tail's conversion. The
-  native read now returns the needed length and Swift retries.
-- Windows: UI Automation calls inside the low-level hook had no timeout, so a
-  hung app could hold the hook past LowLevelHooksTimeout and Windows silently
-  removed it. UIA connection/transaction timeouts are 100 ms; trigram models
-  load in `reloadAutoMode` instead of on the first word inside the hook.
-  Open: the Enter snapshot still makes ~10 UIA calls in the hook.
+- `parseStrings` trapped on a key with no closing quote at end of file (`removeFirst` on an empty slice); the Windows app reads `lang/*.strings` at launch, so one truncated translation crashed it.
+- macOS: `lastConversion` was cleared by the taps on main and written by the worker with no ordering. A click during a retype was overwritten by the worker's record, so the next hotkey "undid" at the new caret and erased text that was never converted; keys replayed after a correction skipped `autoFeed` when auto mode was off and never ended the window. Now main-only: user input bumps `undoEpoch`, the worker records only if the epoch is the one its correction began with. A key in the undo watch does not bump (it may be the boundary that began the correction; replay ends the window).
+- Windows: a selection longer than 4095 UTF-16 units was cut to its tail and the retype overwrote the whole selection with the tail's conversion. The native read now returns the needed length and Swift retries.
+- Windows: UI Automation calls inside the low-level hook had no timeout, so a hung app could hold the hook past LowLevelHooksTimeout and Windows silently removed it. UIA connection/transaction timeouts are 100 ms; trigram models load in `reloadAutoMode` instead of on the first word inside the hook. Open: the Enter snapshot still makes ~10 UIA calls in the hook.
 
 ## After v1.3.16 — press-again: erase instead of reselect, multi-tap hotkeys
 
-- Trace from Terminal: the hotkey converted two letters, the second press
-  (undo) left them and appended `;2D;2D` plus the original. Undo and the
-  layout cycle selected the typed text with Shift+Left and typed over it; a
-  terminal has no selection, so zsh got each arrow's `ESC[1;2D` and inserted
-  its tail. Both now erase with Backspace (the caret is right after the typed
-  text, as the undo window already guarantees), like the conversion itself —
-  macOS `eraseBack`, Windows `sendBackspaces`; Windows `selectLeft` is gone.
-- Press-again now works with multi-tap hotkeys too (owner: double Shift on
-  Windows converted once and never undid). It was off there for fear of
-  ambiguity with the trigger, but each completed sequence is one press, and
-  the taps of a sequence never end the undo window.
+- Trace from Terminal: the hotkey converted two letters, the second press (undo) left them and appended `;2D;2D` plus the original. Undo and the layout cycle selected the typed text with Shift+Left and typed over it; a terminal has no selection, so zsh got each arrow's `ESC[1;2D` and inserted its tail. Both now erase with Backspace (the caret is right after the typed text, as the undo window already guarantees), like the conversion itself — macOS `eraseBack`, Windows `sendBackspaces`; Windows `selectLeft` is gone.
+- Press-again now works with multi-tap hotkeys too (owner: double Shift on Windows converted once and never undid). It was off there for fear of ambiguity with the trigger, but each completed sequence is one press, and the taps of a sequence never end the undo window.
 
 ## After v1.3.16 — Windows exceptions: check boxes centred
 
-- Owner, comparing with macOS: the check images sat at the left of wide
-  columns. A list view draws a sub-item image at the cell's left edge, so the
-  check columns are now just the box wide, with pad columns around them, and
-  the titles above are centred (SS_CENTER) over the same span.
-- Exception rules moved into engine `AppExceptions` (rows = auto then
-  hotkey-only, keys off = both, add turns auto-correct off, remove drops both),
-  tested once; both platforms only store the two lists and draw the window.
+- Owner, comparing with macOS: the check images sat at the left of wide columns. A list view draws a sub-item image at the cell's left edge, so the check columns are now just the box wide, with pad columns around them, and the titles above are centred (SS_CENTER) over the same span.
+- Exception rules moved into engine `AppExceptions` (rows = auto then hotkey-only, keys off = both, add turns auto-correct off, remove drops both), tested once; both platforms only store the two lists and draw the window.
 - v1.3.16 re-released from this state (the first upload had 0 downloads).
 
 ---
 
 ## After v1.3.15 — exceptions follow Spotlight (macOS)
 
-- Issue #2 (per-app layout, lsl87Serhii) noted that Spotlight takes focus
-  without becoming the frontmost app. Measured: with Finder in front, opening
-  Spotlight left `NSWorkspace.frontmostApplication` at Finder, while
-  `kAXFocusedApplicationAttribute` on the system-wide element flipped to
-  `com.apple.Spotlight` exactly with each open/close; the on-screen window list
-  showed the panel ~2-5 s longer (fade). Over an Electron app (Claude, Figma)
-  the attribute fails fast (-25204, 0-2 ms).
-- So the exceptions used the app UNDER Spotlight: over a terminal (auto
-  excluded) Spotlight had no auto-correct, over Figma no hotkey. Now
-  `refreshKeyApp` picks the app with keyboard focus (AX, else Spotlight's window,
-  else frontmost), refreshed on clicks, Cmd/Ctrl keys, Return/Esc/Tab (and 0.2 s
-  later), word boundaries and the hotkey.
-- The per-app layout itself is not taken: a forced layout fits Figma or a
-  terminal, not Spotlight, where the owner searches in Russian too.
+- Issue #2 (per-app layout, lsl87Serhii) noted that Spotlight takes focus without becoming the frontmost app. Measured: with Finder in front, opening Spotlight left `NSWorkspace.frontmostApplication` at Finder, while `kAXFocusedApplicationAttribute` on the system-wide element flipped to `com.apple.Spotlight` exactly with each open/close; the on-screen window list showed the panel ~2-5 s longer (fade). Over an Electron app (Claude, Figma) the attribute fails fast (-25204, 0-2 ms).
+- So the exceptions used the app UNDER Spotlight: over a terminal (auto excluded) Spotlight had no auto-correct, over Figma no hotkey. Now `refreshKeyApp` picks the app with keyboard focus (AX, else Spotlight's window, else frontmost), refreshed on clicks, Cmd/Ctrl keys, Return/Esc/Tab (and 0.2 s later), word boundaries and the hotkey.
+- The per-app layout itself is not taken: a forced layout fits Figma or a terminal, not Spotlight, where the owner searches in Russian too.
 
 ---
 
 ## After v1.3.15 — per-app exceptions for auto-correct and the hotkey (macOS)
 
-- First outside contribution: PR #3 by lsl87Serhii (`d13a6db`, issue #1). In
-  Figma a released Option fired the retype hotkey; the exceptions applied to
-  auto-correct only, and our Unicode events carry key code 0 ("A", the Frame
-  tool) while the erase backspaces delete layers. The PR added a "Fully off"
-  checkbox per exception and Figma as a default. Merged as is, authorship kept.
-- Fixed on top (`be3c552`): the PR's early return in the key tap also passed the
-  tap-disabled notices through, so a tap disabled while such an app was
-  frontmost would never be re-enabled.
-- Owner's extension: two flags instead of "Fully off" — auto-correct and hotkey
-  (`autoExcludedApps`, new `hotkeyExcludedApps`; both = no key read at all);
-  table rows are the union, checkbox columns with header tooltips; a new app
-  gets auto-correct off only. The Exceptions… button moved from the
-  auto-correct row into its own Settings section, enabled regardless of
-  auto-correct availability (it covers the hotkey too).
+- First outside contribution: PR #3 by lsl87Serhii (`d13a6db`, issue #1). In Figma a released Option fired the retype hotkey; the exceptions applied to auto-correct only, and our Unicode events carry key code 0 ("A", the Frame tool) while the erase backspaces delete layers. The PR added a "Fully off" checkbox per exception and Figma as a default. Merged as is, authorship kept.
+- Fixed on top (`be3c552`): the PR's early return in the key tap also passed the tap-disabled notices through, so a tap disabled while such an app was frontmost would never be re-enabled.
+- Owner's extension: two flags instead of "Fully off" — auto-correct and hotkey (`autoExcludedApps`, new `hotkeyExcludedApps`; both = no key read at all); table rows are the union, checkbox columns with header tooltips; a new app gets auto-correct off only. The Exceptions… button moved from the auto-correct row into its own Settings section, enabled regardless of auto-correct availability (it covers the hotkey too).
 ---
 
 ## After v1.3.15 — per-app exceptions: auto-correct and hotkey (Windows)
 
-- Issue #1 (Figma: the hotkey's backspaces and typed letters act as canvas
-  tool commands) on Windows, with the macOS semantics: two flags per program
-  instead of the earlier "Fully off". `AutoCorrectExcluded` keeps its meaning
-  (auto-correct off); new `HotkeyExcludedApps` turns the retype hotkey off.
-  Both off → the hook feeds no key to auto mode (never while a fix is in
-  flight); the auto-correct on/off hotkey still works everywhere.
-- `figma.exe` joins both default lists, merged once into saved lists like
-  earlier defaults.
-- Exceptions window: two check columns titled like Learned words (labels
-  over a header-less list). Sub-item check images are copied from a hidden
-  list view with `LVS_EX_CHECKBOXES`, so they follow the dark theme.
-  Settings: Exceptions… moves to its own section, always enabled.
-- The foreground exe name is cached per foreground HWND: the "both off" check
-  runs on every key inside the hook.
+- Issue #1 (Figma: the hotkey's backspaces and typed letters act as canvas tool commands) on Windows, with the macOS semantics: two flags per program instead of the earlier "Fully off". `AutoCorrectExcluded` keeps its meaning (auto-correct off); new `HotkeyExcludedApps` turns the retype hotkey off. Both off → the hook feeds no key to auto mode (never while a fix is in flight); the auto-correct on/off hotkey still works everywhere.
+- `figma.exe` joins both default lists, merged once into saved lists like earlier defaults.
+- Exceptions window: two check columns titled like Learned words (labels over a header-less list). Sub-item check images are copied from a hidden list view with `LVS_EX_CHECKBOXES`, so they follow the dark theme. Settings: Exceptions… moves to its own section, always enabled.
+- The foreground exe name is cached per foreground HWND: the "both off" check runs on every key inside the hook.
 
 ---
 
 ## After v1.3.14 — Windows spell-check timing, suggestion budget
 
-- Measured in the VM (clang++ bench over the same COM API, ~2000 words per
-  language, half misspelled): Check p50 0.07-0.09 ms, p99 0.2-0.5 ms, max
-  24 ms (5-7x faster than macOS); Suggest p50 1.9-6.9 ms, p99 13-39 ms, max
-  101-127 ms; first dictionary load 9-51 ms (already warmed up off the hook).
-- Suggestions run inside the low-level keyboard hook (Windows skips and may
-  drop a slow hook), and a Cyrillic target asks ru and uk: worst case ~250 ms.
-  Budget: 50 ms from the first suggestion call; later languages are skipped,
-  and a repair decided past it falls back to the plain decision.
+- Measured in the VM (clang++ bench over the same COM API, ~2000 words per language, half misspelled): Check p50 0.07-0.09 ms, p99 0.2-0.5 ms, max 24 ms (5-7x faster than macOS); Suggest p50 1.9-6.9 ms, p99 13-39 ms, max 101-127 ms; first dictionary load 9-51 ms (already warmed up off the hook).
+- Suggestions run inside the low-level keyboard hook (Windows skips and may drop a slow hook), and a Cyrillic target asks ru and uk: worst case ~250 ms. Budget: 50 ms from the first suggestion call; later languages are skipped, and a repair decided past it falls back to the plain decision.
 
 ---
 
 ## After v1.3.14 — Windows: modifier chords as a hotkey
 
-- Owner: Ctrl+Shift could not be recorded on Windows (macOS has chord taps
-  since the start). A hotkey there was a lone modifier tap or a combo with a
-  real key; the recorder fired on the first modifier released. Now `vk`
-  `chordVK` (0xFF, a reserved VK) with `mods` = the chord: the recorder waits
-  until every modifier is up and reports the peak set; the detector tracks
-  held/peak per press and fires when the last one is released (no other key,
-  < 600 ms); Alt/Win in the chord get the masked release. Double tap works
-  the same way.
+- Owner: Ctrl+Shift could not be recorded on Windows (macOS has chord taps since the start). A hotkey there was a lone modifier tap or a combo with a real key; the recorder fired on the first modifier released. Now `vk` `chordVK` (0xFF, a reserved VK) with `mods` = the chord: the recorder waits until every modifier is up and reports the peak set; the detector tracks held/peak per press and fires when the last one is released (no other key, < 600 ms); Alt/Win in the chord get the masked release. Double tap works the same way.
 
 ---
 
 ## After v1.3.14 — no time windows for undo and learning
 
-- Owner: the 1.5 s press-again undo and the 15 s revert window were limits a
-  user cannot see. Now signals end them instead:
-  - press-again undo lasts until any other key or click of the user's
-    (macOS `startUndoWatch`, a listen-only tap running with auto-correct off
-    too — the auto tap alone only covered auto mode; Windows already forgot
-    on any key in its hotkey hook and on clicks in the always-on mouse hook);
-  - a `RevertWatch` watches only the next word: retyped after an edit, it is a
-    revert/unkeep/manual fix; typed with no edit, the user moved on.
-- The three watches, their arming and the lessons moved from both platforms
-  into engine `EditLearning` (+ `EditLesson`, tested once). The spell chain
-  (`decideAutoTarget` -> `spellCheckedTarget` -> `spellRepairedTarget`) stays
-  per platform: ~8 lines each, interleaved with platform trace lines.
+- Owner: the 1.5 s press-again undo and the 15 s revert window were limits a user cannot see. Now signals end them instead:
+  - press-again undo lasts until any other key or click of the user's (macOS `startUndoWatch`, a listen-only tap running with auto-correct off too — the auto tap alone only covered auto mode; Windows already forgot on any key in its hotkey hook and on clicks in the always-on mouse hook);
+  - a `RevertWatch` watches only the next word: retyped after an edit, it is a revert/unkeep/manual fix; typed with no edit, the user moved on.
+- The three watches, their arming and the lessons moved from both platforms into engine `EditLearning` (+ `EditLesson`, tested once). The spell chain (`decideAutoTarget` -> `spellCheckedTarget` -> `spellRepairedTarget`) stays per platform: ~8 lines each, interleaved with platform trace lines.
 
 ---
 
 ## After v1.3.14 — a keep is dropped the same way it was learned
 
-- Owner: a keep learned by revert could only be removed in the Learned words
-  table (the hotkey does not clear it: `hotkeyMisses` counts only words auto
-  mode would leave anyway, and a reverted word is one it converts). Caramba
-  removes an exception by erasing and retyping the word, so: a second
-  `RevertWatch` arms when a `keep` word is left alone; an edit plus the same
-  word again within 15 s drops the keep and the word is judged afresh
-  (converted). Both platforms.
-- Teaching a conversion without the hotkey (owner: "учше" -> "exit"): a
-  word left alone, erased and typed in its other-layout reading within 15 s
-  is learned `convert` at once (owner chose once, not the hotkey's three).
-  Third `RevertWatch` (`manualWatch`); retyping the same word is no signal.
+- Owner: a keep learned by revert could only be removed in the Learned words table (the hotkey does not clear it: `hotkeyMisses` counts only words auto mode would leave anyway, and a reverted word is one it converts). Caramba removes an exception by erasing and retyping the word, so: a second `RevertWatch` arms when a `keep` word is left alone; an edit plus the same word again within 15 s drops the keep and the word is judged afresh (converted). Both platforms.
+- Teaching a conversion without the hotkey (owner: "учше" -> "exit"): a word left alone, erased and typed in its other-layout reading within 15 s is learned `convert` at once (owner chose once, not the hotkey's three). Third `RevertWatch` (`manualWatch`); retyping the same word is no signal.
 
 ---
 
 ## After v1.3.14 — abbreviations left alone (both platforms)
 
-- From Caramba Switcher: a word typed in capitals (2+ letters, all upper:
-  IBM, МФЦ, КПСС) is never auto-corrected; a learned `convert` still wins,
-  the hotkey still converts. Cost, accepted: a word typed with Caps Lock in
-  the wrong layout ("GHBDTN") is left too. Not measured — the frequency lists
-  carry no case.
-- Dot rule, owner's version: a trailing "."/"," is a letter only if it is
-  one in the other layout; then both readings are scored — "ghbdtn." ->
-  "привет." (dot kept) beats "приветю"; "стр." on the Russian layout reads
-  "cnh/" the other way, junk, left. A learned convert with junk both ways
-  now gives "привет," (was "приветб").
-  First version wanted the rest of the word to be plain letters, so "re,f,"
-  ("куба,": a "," inside is "б") got nothing; now the converted rest must
-  be letters.
-- Reverted (owner): read keys literally. The Russian comma/period are other
-  keys (Shift+/ and /), so "re,f," is "кубаб" and "[kr," is "хлкб" ("хлеб"
-  with a typo); the dual reading also let a fragment beat the real word
-  ("хле" -3.1 vs "хлеб" -4.1). Back to mapped punctuation = letter.
-  Typo repair now also takes words with letters on punctuation keys ("[kr,"
-  = "хлкб"); here it still stays: ru guesses "хлеб", uk "хліб" — two
-  candidates, no repair.
+- From Caramba Switcher: a word typed in capitals (2+ letters, all upper: IBM, МФЦ, КПСС) is never auto-corrected; a learned `convert` still wins, the hotkey still converts. Cost, accepted: a word typed with Caps Lock in the wrong layout ("GHBDTN") is left too. Not measured — the frequency lists carry no case.
+- Dot rule, owner's version: a trailing "."/"," is a letter only if it is one in the other layout; then both readings are scored — "ghbdtn." -> "привет." (dot kept) beats "приветю"; "стр." on the Russian layout reads "cnh/" the other way, junk, left. A learned convert with junk both ways now gives "привет," (was "приветб"). First version wanted the rest of the word to be plain letters, so "re,f," ("куба,": a "," inside is "б") got nothing; now the converted rest must be letters.
+- Reverted (owner): read keys literally. The Russian comma/period are other keys (Shift+/ and /), so "re,f," is "кубаб" and "[kr," is "хлкб" ("хлеб" with a typo); the dual reading also let a fragment beat the real word ("хле" -3.1 vs "хлеб" -4.1). Back to mapped punctuation = letter. Typo repair now also takes words with letters on punctuation keys ("[kr," = "хлкб"); here it still stays: ru guesses "хлеб", uk "хліб" — two candidates, no repair.
 
 ---
 
 ## After v1.3.14 — learning by revert (both platforms)
 
-- Idea from Caramba Switcher ("erase a wrong switch with Backspace and retype
-  it — remembered"), widened on the owner's question: erasing may be letter by
-  letter, a selection deleted at once, or typing over a selection. reLayout
-  sees keys and clicks, not what is selected, so the signal is "an edit that
-  may delete text, then the same word typed again": engine `RevertWatch`
-  (15 s window; edits = Backspace, Delete, arrows/navigation, a click, a
-  Cmd/Ctrl shortcut; synthetic keys ignored). The retyped word is left and
-  stored as `keep`. Typing the same word twice with no edit between is not a
-  revert. Typo repairs never arm it (they are never learned).
-- First live test failed twice: the owner's word was a typo repair (never
-  armed, by rule — owner confirmed: never learned), and the retype began in
-  the layout the fix had switched to ("я"+"aaa"). The retype is now mapped
-  back through the fix's layouts (`typedBack`, `convertScriptRuns`) before
-  comparing; typing the correction itself again is no revert.
-- Then "kpss" (an abbreviation): converted with a typo repair every time and
-  never learnable. Owner's split: the repair is never learned as a
-  conversion, but undoing/reverting it stores the TYPED word as `keep`. The
-  `learn:` flag is gone on both platforms; every auto-correction arms the
-  revert watch.
-- macOS: a keep learned by revert did not show in an open Learned words
-  list until reopened (`64e0000`); Windows already refreshed on save.
+- Idea from Caramba Switcher ("erase a wrong switch with Backspace and retype it — remembered"), widened on the owner's question: erasing may be letter by letter, a selection deleted at once, or typing over a selection. reLayout sees keys and clicks, not what is selected, so the signal is "an edit that may delete text, then the same word typed again": engine `RevertWatch` (15 s window; edits = Backspace, Delete, arrows/navigation, a click, a Cmd/Ctrl shortcut; synthetic keys ignored). The retyped word is left and stored as `keep`. Typing the same word twice with no edit between is not a revert. Typo repairs never arm it (they are never learned).
+- First live test failed twice: the owner's word was a typo repair (never armed, by rule — owner confirmed: never learned), and the retype began in the layout the fix had switched to ("я"+"aaa"). The retype is now mapped back through the fix's layouts (`typedBack`, `convertScriptRuns`) before comparing; typing the correction itself again is no revert.
+- Then "kpss" (an abbreviation): converted with a typo repair every time and never learnable. Owner's split: the repair is never learned as a conversion, but undoing/reverting it stores the TYPED word as `keep`. The `learn:` flag is gone on both platforms; every auto-correction arms the revert watch.
+- macOS: a keep learned by revert did not show in an open Learned words list until reopened (`64e0000`); Windows already refreshed on save.
 
 ---
 
 ## After v1.3.14 — spell-check option on Windows (`autoSpell`, Windows)
 
-- The macOS `autoSpell` option ported: Windows Spell Checking API in a new C++
-  shim (`windows/native/relayout_spell.cpp`), `WinSpell.swift` wraps it as the
-  engine's `SpellCheck` / `SpellGuesses`; `WinAuto.autoDecide` runs the same
-  chain as macOS for the boundary fix and the Enter follow-up; a repaired typo is
-  never learned. Settings row + ⓘ under "Between similar layouts", registry
-  `AutoCorrectSpell`, default off.
-- Language mapping: the 2-letter layout code if the API supports it, else the
-  first supported `<code>-…` tag. One checker cached per code.
-- COM on the UI thread (STA), as the UIA reader. Dictionaries are opened when
-  preferences load, not on the first word: a slow first load inside the
-  low-level keyboard hook would hit its timeout.
-- Debug trace logs only the outcome ("spell: left/converted",
-  "typo: repaired len=N"), no words — the Windows log records no typed text.
+- The macOS `autoSpell` option ported: Windows Spell Checking API in a new C++ shim (`windows/native/relayout_spell.cpp`), `WinSpell.swift` wraps it as the engine's `SpellCheck` / `SpellGuesses`; `WinAuto.autoDecide` runs the same chain as macOS for the boundary fix and the Enter follow-up; a repaired typo is never learned. Settings row + ⓘ under "Between similar layouts", registry `AutoCorrectSpell`, default off.
+- Language mapping: the 2-letter layout code if the API supports it, else the first supported `<code>-…` tag. One checker cached per code.
+- COM on the UI thread (STA), as the UIA reader. Dictionaries are opened when preferences load, not on the first word: a slow first load inside the low-level keyboard hook would hit its timeout.
+- Debug trace logs only the outcome ("spell: left/converted", "typo: repaired len=N"), no words — the Windows log records no typed text.
 - Not verified on Windows at commit time (no Windows build on the macOS host).
 
 ## After v1.3.14 — typo repair inside wrong-layout words (`autoSpell`, `98c2b56`)
 
-- Owner's goal: "ghbddtn" / "gbhdtn" / "ghjdtn" -> "привет" in auto mode; a typo
-  in a right-layout word is the app's business, the hotkey never repairs.
-  Measured offline (FrequencyWords 20k, 1,000 typo'd words per class per
-  direction, en<->ru/uk both ways, synthetic uniform typos; F = fixed / W =
-  wrong word; FP = layout switch on correct words N0 / typo'd right-layout
-  words N1):
-  - A2g alone: F 0 everywhere (51-79% converted with the typo);
-    FP 0.015% / 0.776%.
-  - doubled + swap only: F 87% / 87% on those classes, W <= 0.3%;
-    FP 0.075% / 1.11%.
+- Owner's goal: "ghbddtn" / "gbhdtn" / "ghjdtn" -> "привет" in auto mode; a typo in a right-layout word is the app's business, the hotkey never repairs. Measured offline (FrequencyWords 20k, 1,000 typo'd words per class per direction, en<->ru/uk both ways, synthetic uniform typos; F = fixed / W = wrong word; FP = layout switch on correct words N0 / typo'd right-layout words N1):
+  - A2g alone: F 0 everywhere (51-79% converted with the typo); FP 0.015% / 0.776%.
+  - doubled + swap only: F 87% / 87% on those classes, W <= 0.3%; FP 0.075% / 1.11%.
   - + adjacent-key substitution: subK F 69%; FP 0.22% / 1.8%; ~45 checks/word.
-  - + system guesses one edit away (shipped, owner's pick): F dbl 87%, swp 87%,
-    random letter 47%, adjacent key 47%, insertion 68%, deletion 26%;
-    W 1-7%; FP 0.52% / 4.2%; guesses() 6.8 ms mean, p99 21 ms, called for
-    ~75% of eligible (junk, misspelled) words, up to 2 languages.
-  - first guess regardless of ambiguity: more F but W up to 33%, FP 0.75% /
-    5.2% — rejected. Every-letter substitution: ~200 checks/word — rejected.
+  - + system guesses one edit away (shipped, owner's pick): F dbl 87%, swp 87%, random letter 47%, adjacent key 47%, insertion 68%, deletion 26%; W 1-7%; FP 0.52% / 4.2%; guesses() 6.8 ms mean, p99 21 ms, called for ~75% of eligible (junk, misspelled) words, up to 2 languages.
+  - first guess regardless of ambiguity: more F but W up to 33%, FP 0.75% / 5.2% — rejected. Every-letter substitution: ~200 checks/word — rejected.
   - Several candidates -> no repair, the trigram/spell decision stands.
-- The similar-layouts ⓘ got the same treatment: non-Cyrillic UIs explain it
-  with en <-> de (“yeit” -> “zeit”; de UI: „zes“ -> „yes“), ru/uk/be keep
-  «ъжа» -> «їжа».
-- Repairs never enter the learned words. Hint examples per UI language:
-  “рудддщ” -> “hello” (Latin UIs), «ghbddtn» -> «привет» (ru, be),
-  «ghbdssn» -> «привіт» (uk).
+- The similar-layouts ⓘ got the same treatment: non-Cyrillic UIs explain it with en <-> de (“yeit” -> “zeit”; de UI: „zes“ -> „yes“), ru/uk/be keep «ъжа» -> «їжа».
+- Repairs never enter the learned words. Hint examples per UI language: “рудддщ” -> “hello” (Latin UIs), «ghbddtn» -> «привет» (ru, be), «ghbdssn» -> «привіт» (uk).
 
 ---
 
 ## After v1.3.14 — auto-correct on/off hotkey + menu-bar dot (macOS)
 
-- A second recordable hotkey toggles `autoMode` (Settings row "Auto-correct
-  on/off:", restore button clears it; unset by default, nothing registered).
-  Same kinds as the main hotkey: Carbon combo, modifier tap, tap sequence.
-  The scattered `hotKey*` properties became a `Hotkey` value and two
-  `HotkeySlot`s; the main hotkey keeps its `hk*` keys, the toggle uses `autoHk*`.
-- Recording one hotkey with the other's activation is refused and shown on the
-  conflict line; same chord with a different tap count counts as the same
-  (the single tap would fire on the double's first tap).
-- While auto-correct is unavailable (one script) the toggle does nothing, as
-  the disabled checkbox can't change the preference either.
-- The auto tap now passes our combo hotkeys' keyDown untouched (no run reset,
-  no feed), which settles the open question from "After v1.3.2 — hotkey
-  converts the word being typed": a combo retype hotkey no longer risks
-  emptying the typed-word target.
-- Menu-bar icon: a dot in the top-right corner while auto-correct is on and
-  available. The icon is a template (only alpha survives), so the owner's
-  "green, light for monochrome" resolves to the light variant: the glyph's
-  tone at 60 % alpha. Not checked visually yet.
-- Recording no longer outlives a commit (`24b7eed`): the field used to stay
-  in recording mode until focus left it, and recording pauses both hotkeys
-  and auto-correct — owner saw both stop right after setting the toggle.
+- A second recordable hotkey toggles `autoMode` (Settings row "Auto-correct on/off:", restore button clears it; unset by default, nothing registered). Same kinds as the main hotkey: Carbon combo, modifier tap, tap sequence. The scattered `hotKey*` properties became a `Hotkey` value and two `HotkeySlot`s; the main hotkey keeps its `hk*` keys, the toggle uses `autoHk*`.
+- Recording one hotkey with the other's activation is refused and shown on the conflict line; same chord with a different tap count counts as the same (the single tap would fire on the double's first tap).
+- While auto-correct is unavailable (one script) the toggle does nothing, as the disabled checkbox can't change the preference either.
+- The auto tap now passes our combo hotkeys' keyDown untouched (no run reset, no feed), which settles the open question from "After v1.3.2 — hotkey converts the word being typed": a combo retype hotkey no longer risks emptying the typed-word target.
+- Menu-bar icon: a dot in the top-right corner while auto-correct is on and available. The icon is a template (only alpha survives), so the owner's "green, light for monochrome" resolves to the light variant: the glyph's tone at 60 % alpha. Not checked visually yet.
+- Recording no longer outlives a commit (`24b7eed`): the field used to stay in recording mode until focus left it, and recording pauses both hotkeys and auto-correct — owner saw both stop right after setting the toggle.
 
 ---
 
 ## After v1.3.14 — auto-correct on/off hotkey + tray dot (Windows)
 
-- A second recordable hotkey toggles auto-correct, with the Settings
-  checkbox's effect (prefs, `reloadAutoMode`, Settings synced). Default unset;
-  same kinds as the convert hotkey (combo, modifier tap, double tap). Prefs:
-  `AutoHotkeyMods` / `AutoHotkeyVK` / `AutoHotkeyDoubleTap`; the convert keys
-  are unchanged. Hotkey state became `Hotkey` + `HotkeySlot` + one
-  `HotkeyDetector` per slot in the hook.
-- Recording refuses the other hotkey's keys even if only the double tap
-  differs: a single tap would fire alongside the double one.
-- Unavailable auto-correct (one script): the toggle does nothing, like the
-  disabled checkbox; the debug log notes it.
-- Tray: a green dot in the glyph's corner while auto-correct is on, drawn at
-  runtime. Windows has no monochrome tray variant (the ICOs are pre-tinted
-  per taskbar), so the dot is always green: deeper on light, lighter on dark.
-- Built in the VM on first try (`4c9c998`). Owner's review (`5c6536a`): a
-  text-less checkbox drew its focus cue as a dotted sliver beside the box —
-  hidden (WM_UPDATEUISTATE UISF_HIDEFOCUS); the ⓘ glyphs sat 2 px low.
-  Captions (Language, both hotkeys) left-aligned like macOS.
-  ⓘ glyphs: nudging the top (y+2 low, y high, y+1 still high) never fit — the
-  icon font's glyph sits high in its cell; now SS_CENTERIMAGE over the label's
-  one-line rect (`053f6e7`); Learned words column titles moved
-  over the row text — missed; then (`ed26dd8`) the list became three
-  columns: the check box alone in column 0, Typed and Becomes as sub-items,
-  titles at list border + the cells' 4 px text inset. Label editing of
-  column 0 gave way to the edit-box-over-cell used for Becomes, for both.
+- A second recordable hotkey toggles auto-correct, with the Settings checkbox's effect (prefs, `reloadAutoMode`, Settings synced). Default unset; same kinds as the convert hotkey (combo, modifier tap, double tap). Prefs: `AutoHotkeyMods` / `AutoHotkeyVK` / `AutoHotkeyDoubleTap`; the convert keys are unchanged. Hotkey state became `Hotkey` + `HotkeySlot` + one `HotkeyDetector` per slot in the hook.
+- Recording refuses the other hotkey's keys even if only the double tap differs: a single tap would fire alongside the double one.
+- Unavailable auto-correct (one script): the toggle does nothing, like the disabled checkbox; the debug log notes it.
+- Tray: a green dot in the glyph's corner while auto-correct is on, drawn at runtime. Windows has no monochrome tray variant (the ICOs are pre-tinted per taskbar), so the dot is always green: deeper on light, lighter on dark.
+- Built in the VM on first try (`4c9c998`). Owner's review (`5c6536a`): a text-less checkbox drew its focus cue as a dotted sliver beside the box — hidden (WM_UPDATEUISTATE UISF_HIDEFOCUS); the ⓘ glyphs sat 2 px low. Captions (Language, both hotkeys) left-aligned like macOS. ⓘ glyphs: nudging the top (y+2 low, y high, y+1 still high) never fit — the icon font's glyph sits high in its cell; now SS_CENTERIMAGE over the label's one-line rect (`053f6e7`); Learned words column titles moved over the row text — missed; then (`ed26dd8`) the list became three columns: the check box alone in column 0, Typed and Becomes as sub-items, titles at list border + the cells' 4 px text inset. Label editing of column 0 gave way to the edit-box-over-cell used for Becomes, for both.
 
 ---
 
 ## After v1.3.14 — same-language doubled-letter fix removed
 
-- Owner: a typo in a word typed in the right layout is visible and the app's
-  own spelling handles it; reLayout targets typos inside wrong-layout words
-  ("ghbddtn", "gbhdtn", "ghjdtn" -> "привет"; measurement pending). `undoubled`,
-  `AutoRun.respell`, their tests and the hint sentence are gone (`ef61880`,
-  `3caac67` superseded). Rule kept from `8a82e73`: typo fixes never enter
-  the learned words.
-- Settings: a disabled sub-option (Enter, similar layouts, system dictionary)
-  shows unchecked; the stored preference is kept.
-  Refined by the owner: only a system reason (no such layouts, no dictionary)
-  shows it off; disabled because auto-correct is off, it keeps its state.
+- Owner: a typo in a word typed in the right layout is visible and the app's own spelling handles it; reLayout targets typos inside wrong-layout words ("ghbddtn", "gbhdtn", "ghjdtn" -> "привет"; measurement pending). `undoubled`, `AutoRun.respell`, their tests and the hint sentence are gone (`ef61880`, `3caac67` superseded). Rule kept from `8a82e73`: typo fixes never enter the learned words.
+- Settings: a disabled sub-option (Enter, similar layouts, system dictionary) shows unchecked; the stored preference is kept. Refined by the owner: only a system reason (no such layouts, no dictionary) shows it off; disabled because auto-correct is off, it keeps its state.
 
 ---
 
 ## After v1.3.14 — system spelling dictionary as an option (`autoSpell`)
 
-- Owner's call: the OS spell checker is allowed (no dictionary of our own).
-  Measured offline on FrequencyWords 2018 50k (first 20k words of 3+ letters
-  per language, row-aligned maps, real `decideAutoTarget`, NSSpellChecker
-  ru/uk/en; uk list filtered by the same checker, so uk-active FP is optimistic):
-  - Layout rule (A2g, shipped): recall / FP, baseline -> spell
-    en<->ru ABC 98.88/0.150 -> 99.27/0.100; ru 98.14/0.139 -> 98.54/0.059;
-    en<->uk ABC 99.17/0.195 -> 99.61/0.130; uk 98.04/0.099 -> 98.55/0.015.
-    Fixed e.g. "учше" -> "exit", "herf" -> "рука"; broken: names/acronyms the
-    en dictionary lacks (manolo, cath), "мммм".
-  - Rejected variants: never convert a dictionary word (loses "иге" -> "but",
-    ru words that are junk typing); override for 3-letter words (breaks tim,
-    ceo, gen into "ешь", "сущ", "пут"); spell only in an "uncertain" score band
-    (40-60% of words fall in it, worse on both axes).
-  - Doubled letter (B3, shipped): synthetic doubles fixed ru 87.7%, uk 97.0%,
-    en 80.2%, wrong fixes <= 0.013%; real words altered ru 0.010%, en 0.055%
-    (British spellings: travelling). Without the capital skip and 4-letter
-    floor it altered 0.36-0.44% (Scott -> scot, хмм -> хм). Skipping words
-    the app's own autocorrect would fix kept only 2-3% recall: dropped.
-- Spell-check latency: median 0.5 ms, 1 in 100 calls 50-100 ms; the call is
-  synchronous (`shortcut:`), only for words the trigrams convert or score as junk.
+- Owner's call: the OS spell checker is allowed (no dictionary of our own). Measured offline on FrequencyWords 2018 50k (first 20k words of 3+ letters per language, row-aligned maps, real `decideAutoTarget`, NSSpellChecker ru/uk/en; uk list filtered by the same checker, so uk-active FP is optimistic):
+  - Layout rule (A2g, shipped): recall / FP, baseline -> spell en<->ru ABC 98.88/0.150 -> 99.27/0.100; ru 98.14/0.139 -> 98.54/0.059; en<->uk ABC 99.17/0.195 -> 99.61/0.130; uk 98.04/0.099 -> 98.55/0.015. Fixed e.g. "учше" -> "exit", "herf" -> "рука"; broken: names/acronyms the en dictionary lacks (manolo, cath), "мммм".
+  - Rejected variants: never convert a dictionary word (loses "иге" -> "but", ru words that are junk typing); override for 3-letter words (breaks tim, ceo, gen into "ешь", "сущ", "пут"); spell only in an "uncertain" score band (40-60% of words fall in it, worse on both axes).
+  - Doubled letter (B3, shipped): synthetic doubles fixed ru 87.7%, uk 97.0%, en 80.2%, wrong fixes <= 0.013%; real words altered ru 0.010%, en 0.055% (British spellings: travelling). Without the capital skip and 4-letter floor it altered 0.36-0.44% (Scott -> scot, хмм -> хм). Skipping words the app's own autocorrect would fix kept only 2-3% recall: dropped.
+- Spell-check latency: median 0.5 ms, 1 in 100 calls 50-100 ms; the call is synchronous (`shortcut:`), only for words the trigrams convert or score as junk.
 - Default off, experimental; macOS only (Windows passes no checker).
 - The ⓘ hint's doubled-letter example is in the UI language (`3caac67`): "helllo" -> "hello", „gehhen“ -> „gehen“ …, each checked to be misspelled with a single dictionary fix (pl „dziękkuję“ passed the pl checker as a word, so pl uses „dobrrze“).
 
@@ -1085,26 +443,15 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ## After v1.3.14 — a late switcher re-post drops the word
 
-- Vivaldi, "anthropic " + Globe + a Cyrillic word came out "anthropicооум":
-  TextInputSwitcher re-posted the key it held while its HUD was up 100 ms
-  after the NEXT key, so the `lastFedKey` filter (re-post == last fed key)
-  missed it. The buffer kept the first sighting (Latin) plus the re-post, one
-  char more than the screen; the fix erased 4 and took the space.
-- Any TextInputSwitcher-sourced key that is not that immediate double now
-  resets the word buffer and goes through unfed: no fix for that word rather
-  than a wrong-span erase. The trace logs which recent fed key it matched.
+- Vivaldi, "anthropic " + Globe + a Cyrillic word came out "anthropicооум": TextInputSwitcher re-posted the key it held while its HUD was up 100 ms after the NEXT key, so the `lastFedKey` filter (re-post == last fed key) missed it. The buffer kept the first sighting (Latin) plus the re-post, one char more than the screen; the fix erased 4 and took the space.
+- Any TextInputSwitcher-sourced key that is not that immediate double now resets the word buffer and goes through unfed: no fix for that word rather than a wrong-span erase. The trace logs which recent fed key it matched.
 
 ---
 
 ## After v1.3.14 — the dev trace holds no typed text
 
-- The secure-input skip left terminal passwords (sudo, ssh) in
-  `/tmp/relayout.log`. `dbgRedact` now masks every quoted string in a trace
-  line: letters -> `a`/`я` (script stays visible), digits -> `0`, symbols ->
-  `·`; spaces and escapes stay. The tap line names only non-text key codes
-  and carries `same=` (key equals the previous one) for spotting doubles.
-- Cost: the log no longer shows which word was typed — repro reports carry
-  the word.
+- The secure-input skip left terminal passwords (sudo, ssh) in `/tmp/relayout.log`. `dbgRedact` now masks every quoted string in a trace line: letters -> `a`/`я` (script stays visible), digits -> `0`, symbols -> `·`; spaces and escapes stay. The tap line names only non-text key codes and carries `same=` (key equals the previous one) for spotting doubles.
+- Cost: the log no longer shows which word was typed — repro reports carry the word.
 
 ---
 

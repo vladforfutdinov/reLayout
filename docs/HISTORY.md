@@ -4,6 +4,10 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.4.0 — one host for the site: the GitHub Pages mirror is off
+
+- `vladforfutdinov.github.io/reLayout` served the same `gh-pages` as a duplicate. The API refuses to deactivate Pages for a repository publishing from `gh-pages` (422), so it was unpublished in Settings → Pages. Checked: the mirror and its `appcast.xml` answer 404; `relayout.forfutdinov.com/appcast.xml` and `handbook.forfutdinov.com` (another repository on the same github.io account) 200. Cloudflare Pages still deploys from `gh-pages`.
+
 ## After v1.4.0 — the Sparkle feed is watched
 
 - Nothing told anyone when installed copies stopped getting updates. Now: the appcast step fails on a tag without the Sparkle key (it used to skip with exit 0, a green release missing from the feed); a new release step polls `RELAYOUT_FEED_URL` up to 10 minutes for the new version (catches a Cloudflare Pages deploy that did not happen); `feed-check.yml` daily: HTTPS, XML parses, latest GitHub Release listed. Logic run locally against the live feed: v1.4.0 found, a made-up 9.9.9 not. The workflows themselves run only once on origin.

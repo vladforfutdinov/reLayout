@@ -4,6 +4,22 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.4.0 — the site moves from DigitalOcean to Cloudflare Pages
+
+- `relayout.forfutdinov.com` (landing + Sparkle feed) was a DigitalOcean
+  static site deploying `gh-pages`. Now Cloudflare Pages project `relayout`,
+  connected to the repository (production branch `gh-pages`, no build),
+  deploys every push itself; the domain is a proxied CNAME to
+  `relayout.pages.dev`. A GitHub Action was ruled out: the CI appcast push
+  uses `GITHUB_TOKEN`, whose pushes trigger no workflow.
+- Checked: `relayout.pages.dev` and the domain serve `index.html` and
+  `appcast.xml` byte-identical to `gh-pages`, every favicon file, appcast
+  `max-age=0, must-revalidate`; certificate from Google Trust Services; http
+  → https 301. The feed URL did not change, so no app release was needed.
+- The first try made an empty Worker (the dashboard's Create now defaults to
+  Workers): no assets, `workers.dev` off, 404 everywhere — the domain was
+  attached only after the Pages project showed up with its Git source.
+
 ## v1.4.0 — released; landing and favicons
 
 - Tagged `v1.4.0` on `474b628` (1.4, not 1.3.17: the per-app features

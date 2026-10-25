@@ -17,13 +17,13 @@ Found by the dev-guardrails session's jactionlint run (local branch `chore/guard
 
 ## Sort out the site's domains
 
-The landing and the Sparkle appcast live in one branch, `gh-pages`, served twice: `https://relayout.forfutdinov.com/` (DigitalOcean static site that redeploys from `gh-pages`, behind Cloudflare — 172.67.x / 104.21.x) and the GitHub Pages mirror `https://vladforfutdinov.github.io/reLayout/` (`cname: null`). Checked 2026-10-24: both return 200 with the v1.4.0 appcast and the new favicons; the repository variable `RELAYOUT_FEED_URL` points Sparkle at the domain.
+Since 2026-10-25 `https://relayout.forfutdinov.com/` (landing + Sparkle `appcast.xml`) is Cloudflare Pages project `relayout`, deployed by Cloudflare from the `gh-pages` branch on every push; DigitalOcean is out of the chain. The GitHub Pages mirror `https://vladforfutdinov.github.io/reLayout/` still serves the same branch; the repository variable `RELAYOUT_FEED_URL` points Sparkle at the domain.
 
-**Why:** two hosts of the same pages and the feed every installed copy polls. If the DigitalOcean site or the DNS lapses, auto-update stops for every user while the mirror keeps working unseen; the mirror itself is duplicate content (its `canonical` does point at the domain).
+**Why:** the feed every installed copy polls now hangs on one Cloudflare account and one domain. If either lapses, auto-update stops for every user while the mirror keeps working unseen; the mirror is also duplicate content (its `canonical` points at the domain).
 
 **Steps:**
-- Decide which host is primary and whether the mirror stays (or redirects); write it down in `docs/RELEASING.md`.
-- Know who renews `forfutdinov.com` and the DigitalOcean site, and what an outage would look like (a monitor on `appcast.xml`?).
+- Decide whether the GitHub Pages mirror stays (or is switched off); write it down in `docs/RELEASING.md`.
+- Know who renews `forfutdinov.com`, and what an outage would look like (a monitor on `appcast.xml`?).
 - Consider a fallback for the feed (Sparkle reads one `SUFeedURL`; a second host means a release that changes it).
 
 ## Remember the key layouts per app and per session (3+ layouts)

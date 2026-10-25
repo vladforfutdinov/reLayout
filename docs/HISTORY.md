@@ -4,6 +4,12 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## After v1.4.0 — portable fix verified; the bundled DLLs are enough
+
+- Manual `build` run on `a09b0e3` green, the new root check included. The arm64 portable's archive now holds `ReLayoutWin.exe`, the DLLs and `portable` at its root.
+- On win-vm (ARM64, Swift toolchain in the user PATH) both portables from that run, arm64 and x64 (emulated), were started from the desktop session with every Swift folder removed from PATH: each unpacked to `%TEMP%\7zS…`, ran `ReLayoutWin.exe` from there with the tray icon up and the `portable` marker beside it, and the SFX exited once the app was stopped. So the shipped DLLs (Swift core/WinSDK/RegexParser/StringProcessing + the VC++ runtime) suffice without a system Swift runtime. One `7zS…` folder stayed in TEMP after a forced stop.
+- Not covered: a machine without the VC++ runtime installed system-wide (the package carries its own copies), and the installer itself on a clean machine.
+
 ## After v1.4.0 — the Windows portable exe never started: payload under `dist/…` in the archive
 
 - Checking v1.4.0 for a clean machine on win-vm: `reLayout-windows-arm64.exe` and `-x64.exe` (release assets) each created `%TEMP%\7zS…`, started nothing, showed no window and hung. The 7z payload inside held `dist/payload-<arch>/ReLayoutWin.exe` and `dist/marker/portable`: `7z a $arc "dist/payload-$arch\*"` kept the relative folder, while the SFX config runs `ReLayoutWin.exe` from the archive root. v1.3.16's portable has the same layout, so the portable download was broken at least since then; the installer was not affected (it ships the folder itself). Defender detected and blocked nothing.

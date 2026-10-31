@@ -15,6 +15,11 @@ void relayout_set_dark_title_bar(void *hwnd, int32_t dark) {
     DwmSetWindowAttribute((HWND)hwnd, 20 /* DWMWA_USE_IMMERSIVE_DARK_MODE */, &value, sizeof(value));
 }
 
+void relayout_round_corners(void *hwnd) {
+    int value = 2 /* DWMWCP_ROUND */;
+    DwmSetWindowAttribute((HWND)hwnd, 33 /* DWMWA_WINDOW_CORNER_PREFERENCE */, &value, sizeof(value));
+}
+
 void relayout_set_window_theme(void *hwnd, const uint16_t *subAppName) {
     SetWindowTheme((HWND)hwnd, (LPCWSTR)subAppName, nullptr);
 }

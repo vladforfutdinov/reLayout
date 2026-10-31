@@ -27,6 +27,10 @@ int32_t relayout_uia_snapshot(uint16_t *tail, int32_t cap,
 /// UI Automation cannot say.
 int32_t relayout_uia_is_password(void);
 
+/// Rounded corners for a caption-less window (DWMWA_WINDOW_CORNER_PREFERENCE,
+/// Windows 11; ignored before).
+void relayout_round_corners(void *hwnd);
+
 /// Dark title bar for `hwnd` (DWMWA_USE_IMMERSIVE_DARK_MODE, Windows 10 20H1+).
 void relayout_set_dark_title_bar(void *hwnd, int32_t dark);
 

@@ -391,7 +391,7 @@ func openLearned(owner: HWND?) {
     if !learnedClassRegistered { learnedClassRegistered = registerWindowClass(learnedClassW, proc: learnedWndProc) }
     guard learnedClassRegistered else { return }
 
-    learnedHwnd = createWindow(learnedClassW, title: L("settings.learned.title"), width: 440, height: 400, owner: owner)
+    learnedHwnd = createWindow(learnedClassW, title: L("settings.learned.title"), width: 440, height: 400, owner: owner, popup: true)
     guard let hwnd = learnedHwnd else { return }
     lrnDpi = windowDpi(hwnd)
     buildLearned(hwnd)

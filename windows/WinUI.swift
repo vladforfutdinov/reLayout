@@ -316,16 +316,21 @@ func registerWindowClass(_ className: [UInt16],
 }
 
 /// A captioned window of `className` at the default position, `owner` its owner.
-func createWindow(_ className: [UInt16], title: String, width: Int32, height: Int32, owner: HWND?) -> HWND? {
-    let style = DWORD(WS_OVERLAPPED) | DWORD(WS_CAPTION) | DWORD(WS_SYSMENU)
+/// - Parameter popup: no title bar, rounded on Windows 11 — for modals, closed by Done or Esc.
+func createWindow(_ className: [UInt16], title: String, width: Int32, height: Int32, owner: HWND?,
+                  popup: Bool = false) -> HWND? {
+    let style = popup ? DWORD(WS_POPUP) | DWORD(WS_BORDER)
+                      : DWORD(WS_OVERLAPPED) | DWORD(WS_CAPTION) | DWORD(WS_SYSMENU)
     let hInst = GetModuleHandleW(nil)
-    return className.withUnsafeBufferPointer { name in
+    let hwnd = className.withUnsafeBufferPointer { name in
         title.withCString(encodedAs: UTF16.self) { title in
             CreateWindowExW(0, name.baseAddress, title, style,
                             Int32(CW_USEDEFAULT), Int32(CW_USEDEFAULT), width, height,
                             owner, nil, hInst, nil)
         }
     }
+    if popup { relayout_round_corners(UnsafeMutableRawPointer(hwnd)) }
+    return hwnd
 }
 
 /// Opens `hwnd` modal to its owner: the owner takes no input until `endModal`.

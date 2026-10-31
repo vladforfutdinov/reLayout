@@ -410,7 +410,7 @@ func openExceptions(owner: HWND?) {
     if !exceptionsClassRegistered { exceptionsClassRegistered = registerWindowClass(exceptionsClassW, proc: exceptionsWndProc) }
     guard exceptionsClassRegistered else { return }
 
-    exceptionsHwnd = createWindow(exceptionsClassW, title: L("settings.exc.title"), width: 440, height: 400, owner: owner)
+    exceptionsHwnd = createWindow(exceptionsClassW, title: L("settings.exc.title"), width: 440, height: 400, owner: owner, popup: true)
     guard let hwnd = exceptionsHwnd else { return }
     excDpi = windowDpi(hwnd)
     rows = loadRows()

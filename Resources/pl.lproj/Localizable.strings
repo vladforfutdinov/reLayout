@@ -30,7 +30,8 @@
 "settings.autoCorrectUnavailable" = "Autokorekta wymaga układów o różnych alfabetach, np. angielskiego i dowolnego cyrylickiego. Układów jednego alfabetu (%@) nie da się wiarygodnie rozróżnić – użyj skrótu klawiszowego.";
 
 // per-app features (stored as exception lists)
-"settings.exceptions" = "Aplikacje…";
+"settings.credits" = "Podziękowania";
+"settings.exceptions" = "Wyjątki…";
 "settings.exc.title" = "Funkcje według aplikacji";
 "settings.exc.addCurrent" = "Dodaj bieżącą aplikację";
 "settings.exc.choose" = "Wybierz…";

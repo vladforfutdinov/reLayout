@@ -30,7 +30,8 @@
 "settings.autoCorrectUnavailable" = "A correção automática precisa de layouts de alfabetos diferentes, por ex. inglês e qualquer cirílico. Layouts do mesmo alfabeto (%@) não se distinguem com fiabilidade — use o atalho.";
 
 // per-app features (stored as exception lists)
-"settings.exceptions" = "Apps…";
+"settings.credits" = "Agradecimentos";
+"settings.exceptions" = "Exceções…";
 "settings.exc.title" = "Recursos por app";
 "settings.exc.addCurrent" = "Adicionar app atual";
 "settings.exc.choose" = "Escolher…";

@@ -30,7 +30,8 @@
 "settings.autoCorrectUnavailable" = "自动纠正需要不同文字的键盘布局，例如英语和任意西里尔文布局。同一文字的布局（%@）无法可靠区分，请使用快捷键。";
 
 // per-app features (stored as exception lists)
-"settings.exceptions" = "应用…";
+"settings.credits" = "致谢";
+"settings.exceptions" = "例外…";
 "settings.exc.title" = "按应用设置功能";
 "settings.exc.addCurrent" = "添加当前应用";
 "settings.exc.choose" = "选择…";

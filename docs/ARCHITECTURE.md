@@ -6,7 +6,7 @@ Deep reference. For day-one orientation read [`CLAUDE.md`](../CLAUDE.md) first; 
 
 - `RELAYOUT_VERSION` — override version string.
 - `RELAYOUT_RELEASE=1` / `RELAYOUT_DEV=1` — force release vs dev bundle id/name.
-- `WITH_SPARKLE=1` — fetch & embed Sparkle 2.10.0 framework (needs macOS 12+; the app needs 13), compile with `-D SPARKLE`. CI uses this for releases. The tarball (cached as `.sparkle/Sparkle-<ver>.tar.xz`) must match the hash in `scripts/sparkle.env` on every build — the one place the version and hash live (`build.sh` and `resign-appcast.yml` both read it).
+- `WITH_SPARKLE=1` — fetch & embed Sparkle 2.10.0 framework (needs macOS 12+; the app needs 13), compile with `-D SPARKLE`. Also copies Sparkle's `LICENSE` to `Resources/Sparkle-LICENSE.txt`, shown by Settings → Credits. CI uses this for releases. The tarball (cached as `.sparkle/Sparkle-<ver>.tar.xz`) must match the hash in `scripts/sparkle.env` on every build — the one place the version and hash live (`build.sh` and `resign-appcast.yml` both read it).
 - `RELAYOUT_DEBUG=1` — compile with `-D DEBUG`: `dbg()` traces to `/tmp/relayout.log` (`scripts/run.sh` sets it).
 - `SIGN_IDENTITY` — Developer ID Application identity. Triggers Hardened Runtime + secure timestamp (notarization-ready). Without it, uses `ReLayout Self Signed` if present, else ad-hoc.
 

@@ -30,7 +30,8 @@
 "settings.autoCorrectUnavailable" = "自動修正には異なる文字体系のレイアウト（例：英語と任意のキリル文字）が必要です。同じ文字体系のレイアウト（%@）は確実に区別できないため、ホットキーを使ってください。";
 
 // per-app features (stored as exception lists)
-"settings.exceptions" = "アプリ…";
+"settings.credits" = "謝辞";
+"settings.exceptions" = "例外…";
 "settings.exc.title" = "アプリごとの機能";
 "settings.exc.addCurrent" = "現在のアプリを追加";
 "settings.exc.choose" = "選択…";

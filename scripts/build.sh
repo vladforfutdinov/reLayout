@@ -171,6 +171,7 @@ if [ "${WITH_SPARKLE:-0}" = "1" ]; then
     tar -xJf "$SPARKLE_TAR" -C "$SPARKLE_DIR"
     mkdir -p "$APP/Contents/Frameworks"
     cp -R "$SPARKLE_DIR/Sparkle.framework" "$APP/Contents/Frameworks/"
+    cp "$SPARKLE_DIR/LICENSE" "$APP/Contents/Resources/Sparkle-LICENSE.txt"   # MIT/BSD notices, shown in Settings → Credits
     SWIFT_FLAGS+=(-D SPARKLE)
     LINK_FLAGS+=(-F "$SPARKLE_DIR" -framework Sparkle
                  -Xlinker -rpath -Xlinker @executable_path/../Frameworks)

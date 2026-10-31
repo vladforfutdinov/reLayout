@@ -73,6 +73,9 @@ func testPressedModKeys() {
     eq(pressedModKeys(NSEvent.ModifierFlags(rawValue: 0x00000001)), [UInt16(kVK_Control)],
        "pressedModKeys left control bit")
     eq(pressedModKeys(NSEvent.ModifierFlags(rawValue: 0)), [], "pressedModKeys none")
+    eq(pressedModKeys(NSEvent.ModifierFlags(rawValue: 0x00800000 | 0x00000002)), [UInt16(kVK_Function), UInt16(kVK_Shift)], "pressedModKeys fn+shift")
+    eq(modsFromCGFlags([.maskSecondaryFn, .maskShift]), [UInt16(kVK_Function), UInt16(kVK_Shift)], "modsFromCGFlags fn+shift")
+    eq(modKeyLabel(UInt16(kVK_Function)), "fn", "modKeyLabel fn")
 }
 
 func testHotkeyClashes() {

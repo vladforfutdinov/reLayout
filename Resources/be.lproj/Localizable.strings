@@ -30,7 +30,8 @@
 "settings.autoCorrectUnavailable" = "Аўтавыпраўленню патрэбныя раскладкі розных алфавітаў, напрыклад англійская і любая кірылічная. Раскладкі аднаго алфавіта (%@) надзейна не адрозніць — карыстайцеся гарачай клавішай.";
 
 // per-app features (stored as exception lists)
-"settings.exceptions" = "Праграмы…";
+"settings.credits" = "Падзякі";
+"settings.exceptions" = "Выключэнні…";
 "settings.exc.title" = "Функцыі па праграмах";
 "settings.exc.addCurrent" = "Дадаць бягучую праграму";
 "settings.exc.choose" = "Выбраць…";

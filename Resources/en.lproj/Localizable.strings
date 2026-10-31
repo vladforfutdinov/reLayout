@@ -30,7 +30,8 @@
 "settings.autoCorrectUnavailable" = "Auto-correct needs keyboard layouts of different scripts, e.g. English and any Cyrillic one. Layouts of one script (%@) can't be told apart reliably — use the hotkey.";
 
 // per-app features (stored as exception lists)
-"settings.exceptions" = "Apps…";
+"settings.credits" = "Credits";
+"settings.exceptions" = "Exceptions…";
 "settings.exc.title" = "Per-app features";
 "settings.exc.addCurrent" = "Add current app";
 "settings.exc.choose" = "Choose…";

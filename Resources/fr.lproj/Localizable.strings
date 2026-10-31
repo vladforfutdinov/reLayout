@@ -30,7 +30,8 @@
 "settings.autoCorrectUnavailable" = "La correction automatique nécessite des dispositions d’alphabets différents, par ex. anglais et n’importe quelle cyrillique. Celles d’un même alphabet (%@) ne se distinguent pas de façon fiable : utilisez le raccourci.";
 
 // per-app features (stored as exception lists)
-"settings.exceptions" = "Apps…";
+"settings.credits" = "Remerciements";
+"settings.exceptions" = "Exceptions…";
 "settings.exc.title" = "Fonctions par app";
 "settings.exc.addCurrent" = "Ajouter l'app actuelle";
 "settings.exc.choose" = "Choisir…";

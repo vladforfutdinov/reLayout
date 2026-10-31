@@ -30,7 +30,8 @@
 "settings.autoCorrectUnavailable" = "Die automatische Korrektur braucht Tastaturlayouts verschiedener Schriften, z. B. Englisch und ein beliebiges kyrillisches. Layouts derselben Schrift (%@) lassen sich nicht zuverlässig unterscheiden – nutzen Sie das Tastenkürzel.";
 
 // per-app features (stored as exception lists)
-"settings.exceptions" = "Apps…";
+"settings.credits" = "Danksagungen";
+"settings.exceptions" = "Ausnahmen…";
 "settings.exc.title" = "Funktionen je App";
 "settings.exc.addCurrent" = "Aktuelle App hinzufügen";
 "settings.exc.choose" = "Auswählen…";

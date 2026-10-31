@@ -347,6 +347,7 @@ func keyName(_ code: UInt16, _ chars: String?) -> String {
 }
 
 func modKeyLabel(_ kc: UInt16) -> String {
+    if kc == UInt16(kVK_Function) { return "fn" }   // one key, no left/right
     let sym: String
     switch Int(kc) {
     case kVK_Option, kVK_RightOption:   sym = "⌥"
@@ -374,6 +375,7 @@ func modsFromCGFlags(_ f: CGEventFlags) -> Set<UInt16> {
     if f.contains(.maskShift)     { s.insert(UInt16(kVK_Shift)) }
     if f.contains(.maskAlternate) { s.insert(UInt16(kVK_Option)) }
     if f.contains(.maskCommand)   { s.insert(UInt16(kVK_Command)) }
+    if f.contains(.maskSecondaryFn) { s.insert(UInt16(kVK_Function)) }
     return s
 }
 
@@ -410,6 +412,7 @@ func pressedModKeys(_ f: NSEvent.ModifierFlags) -> Set<UInt16> {
         (0x00000002, kVK_Shift),   (0x00000004, kVK_RightShift),
         (0x00000020, kVK_Option),  (0x00000040, kVK_RightOption),
         (0x00000008, kVK_Command), (0x00000010, kVK_RightCommand),
+        (0x00800000, kVK_Function),
     ]
     var s = Set<UInt16>()
     for (bit, kc) in map where raw & bit != 0 { s.insert(UInt16(kc)) }
@@ -772,6 +775,9 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     private weak var learnedLabel: NSTextField?
     private weak var learnedViewBtn: NSButton?
     private var learnedWindow: NSWindow?
+#if SPARKLE
+    private var creditsWindow: NSWindow?
+#endif
     private weak var learnedTable: NSTableView?
     private weak var autoInfo: NSImageView?
     private weak var excTable: NSTableView?
@@ -1316,7 +1322,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
 
         let autoCb = makeCheckbox(L("settings.autoCorrect"), #selector(toggleAutoCorrect(_:)), on: autoMode)
         let excBtn = NSButton(title: L("settings.exceptions"), target: self, action: #selector(openExceptions))
-        excBtn.bezelStyle = .rounded; excBtn.controlSize = .small
+        excBtn.bezelStyle = .rounded
         let autoInfoIcon = NSImageView(image: NSImage(systemSymbolName: "info.circle", accessibilityDescription: nil) ?? NSImage())
         autoInfoIcon.contentTintColor = .secondaryLabelColor
         let label = NSStackView(views: [autoCb, autoInfoIcon])
@@ -1326,18 +1332,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         }
         let autoRow = NSStackView(views: [label])
         // Exceptions cover the hotkey as well as auto-correct: a section of their own.
-        let excLabel = NSTextField(labelWithString: L("settings.exc.section"))
-        excLabel.textColor = .secondaryLabelColor
-        excLabel.lineBreakMode = .byWordWrapping
-        excLabel.preferredMaxLayoutWidth = 240
-        excLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        // Why a fresh install already lists apps (terminals, editors, VMs).
-        let excInfo = NSImageView(image: NSImage(systemSymbolName: "info.circle", accessibilityDescription: nil) ?? NSImage())
-        excInfo.contentTintColor = .secondaryLabelColor
-        excInfo.toolTip = L("settings.exc.info")
-        let excTitle = NSStackView(views: [excLabel, excInfo])
-        excTitle.orientation = .horizontal; excTitle.spacing = 4; excTitle.alignment = .centerY
-        let excRow = NSStackView(views: [excTitle, spacer(), excBtn])
+        let excRow = NSStackView(views: [spacer(), excBtn])
         excRow.orientation = .horizontal; excRow.spacing = 12; excRow.alignment = .centerY
         autoRow.orientation = .horizontal; autoRow.spacing = 12; autoRow.alignment = .centerY
         let enterCb = makeCheckbox(L("settings.autoCorrectEnter"), #selector(toggleAutoEnter(_:)), on: autoEnterNewline)
@@ -1360,7 +1355,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         spellRow.edgeInsets = NSEdgeInsets(top: 0, left: 20, bottom: 0, right: 0)
         let learnedLbl = NSTextField(labelWithString: "")
         let learnedView = NSButton(title: L("settings.learned.view"), target: self, action: #selector(openLearned))
-        learnedView.bezelStyle = .rounded; learnedView.controlSize = .small
+        learnedView.bezelStyle = .rounded
         let learnedRow = NSStackView(views: [learnedLbl, spacer(), learnedView])
         learnedRow.orientation = .horizontal; learnedRow.spacing = 12; learnedRow.alignment = .centerY
         learnedRow.edgeInsets = NSEdgeInsets(top: 0, left: 20, bottom: 0, right: 0)
@@ -1427,6 +1422,13 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
 #endif
         arranged += [langGrid, sep2, hkGrid, sep3, autoRow, enterRow, similarRow, spellRow, learnedRow,
                      sep4, excRow, version, link, copyright]
+#if SPARKLE
+        let creditsBtn = NSButton(title: L("settings.credits"), target: self, action: #selector(openCredits))
+        creditsBtn.bezelStyle = .rounded; creditsBtn.controlSize = .small
+        let credits = NSStackView()
+        credits.setViews([creditsBtn], in: .center)
+        arranged.append(credits)
+#endif
 
         let stack = NSStackView(views: arranged)
         stack.orientation = .vertical
@@ -1467,6 +1469,9 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             link.widthAnchor.constraint(equalTo: stack.widthAnchor),
             copyright.widthAnchor.constraint(equalTo: stack.widthAnchor),
         ])
+#if SPARKLE
+        credits.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+#endif
         content.layoutSubtreeIfNeeded()
         w.setContentSize(content.fittingSize)
         w.center()
@@ -1482,6 +1487,59 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         guard !repoSlug.isEmpty, let u = URL(string: "https://github.com/\(repoSlug)") else { return }
         NSWorkspace.shared.open(u)
     }
+
+#if SPARKLE
+    // MARK: - Credits (third-party notices: Sparkle's LICENSE, bundled by build.sh)
+
+    @objc private func openCredits() {
+        guard let parent = settingsWindow else { return }
+        present(creditsWindow ?? buildCreditsWindow(), over: parent)
+    }
+
+    @objc private func creditsDone() {
+        (creditsWindow as? SettingsWindow)?.dismiss()
+    }
+
+    private func buildCreditsWindow() -> NSWindow {
+        let w = SettingsWindow(contentRect: NSRect(x: 0, y: 0, width: 560, height: 380),
+                               styleMask: [.titled, .closable], backing: .buffered, defer: false)
+        w.title = L("settings.credits")
+        w.isReleasedWhenClosed = false
+        let content = NSView()
+        content.translatesAutoresizingMaskIntoConstraints = false
+        w.contentView = content
+
+        let scroll = NSTextView.scrollableTextView()
+        scroll.borderType = .bezelBorder
+        scroll.translatesAutoresizingMaskIntoConstraints = false
+        if let text = scroll.documentView as? NSTextView {
+            let license = Bundle.main.url(forResource: "Sparkle-LICENSE", withExtension: "txt")
+                .flatMap { try? String(contentsOf: $0, encoding: .utf8) } ?? ""
+            text.string = "Sparkle\n\n" + license
+            text.font = .monospacedSystemFont(ofSize: 10, weight: .regular)
+            text.isEditable = false
+            text.textContainerInset = NSSize(width: 6, height: 6)
+        }
+
+        let done = NSButton(title: L("settings.exc.done"), target: self, action: #selector(creditsDone))
+        done.bezelStyle = .rounded; done.controlSize = .small
+        done.translatesAutoresizingMaskIntoConstraints = false
+
+        content.addSubview(scroll); content.addSubview(done)
+        NSLayoutConstraint.activate([
+            content.widthAnchor.constraint(equalToConstant: 560),
+            scroll.topAnchor.constraint(equalTo: content.topAnchor, constant: 16),
+            scroll.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 16),
+            scroll.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -16),
+            scroll.heightAnchor.constraint(equalToConstant: 320),
+            done.topAnchor.constraint(equalTo: scroll.bottomAnchor, constant: 10),
+            done.trailingAnchor.constraint(equalTo: scroll.trailingAnchor),
+            done.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -16),
+        ])
+        creditsWindow = w
+        return w
+    }
+#endif
 
     // MARK: - Learned words (the user's hotkey verdicts; see Core hotkeyMisses)
 
@@ -1894,6 +1952,11 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         let spacer = NSView()
         spacer.translatesAutoresizingMaskIntoConstraints = false
         spacer.setContentHuggingPriority(.init(1), for: .horizontal)
+        // Why a fresh install already lists apps (terminals, editors, VMs).
+        let hint = NSTextField(wrappingLabelWithString: L("settings.exc.info"))
+        hint.font = .systemFont(ofSize: 11)
+        hint.textColor = .secondaryLabelColor
+        hint.translatesAutoresizingMaskIntoConstraints = false
         // ⊕ is "Choose…", ⊖ removes the selection; "Exclude current app" stays a button.
         let (box, minus) = listBox(scroll, plus: #selector(excChoose), minus: #selector(excMinusAction))
         excMinus = minus
@@ -1903,10 +1966,13 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         bar.orientation = .horizontal; bar.spacing = 8; bar.distribution = .fill
         bar.translatesAutoresizingMaskIntoConstraints = false
 
-        content.addSubview(box); content.addSubview(bar)
+        content.addSubview(hint); content.addSubview(box); content.addSubview(bar)
         NSLayoutConstraint.activate([
             content.widthAnchor.constraint(equalToConstant: 440),
-            box.topAnchor.constraint(equalTo: content.topAnchor, constant: 16),
+            hint.topAnchor.constraint(equalTo: content.topAnchor, constant: 16),
+            hint.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 16),
+            hint.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -16),
+            box.topAnchor.constraint(equalTo: hint.bottomAnchor, constant: 8),
             box.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 16),
             box.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -16),
             box.heightAnchor.constraint(equalToConstant: 224),
@@ -2014,6 +2080,9 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             w.close()
         }
         excWindow = nil; learnedWindow = nil   // cached sheets carry the old language
+#if SPARKLE
+        creditsWindow = nil
+#endif
         DispatchQueue.main.async { self.openReLayoutSettings() }
     }
 

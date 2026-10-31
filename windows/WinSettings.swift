@@ -29,8 +29,6 @@ private let idCapHotkey:     Int = 121
 private let idVersion:       Int = 122
 private let idCopyright:     Int = 123
 private let idCapAutoHotkey: Int = 124
-private let idExcSection:    Int = 125
-private let idExcInfo:       Int = 126
 private let secondaryIDs: Set<Int> = [idCapLanguage, idCapHotkey, idCapAutoHotkey, idVersion, idCopyright]
 
 private func hotkeyIDs(_ slot: HotkeySlot) -> (caption: Int, field: Int, reset: Int) {
@@ -130,11 +128,6 @@ private func makeControl(_ cls: String, _ text: String, _ style: Int32,
 /// Width of `text` in the UI font, in 96-dpi units.
 private func textWidth(_ text: String, _ hwnd: HWND?) -> Int32 {
     uiTextWidth(text, hwnd, font: uiFont, dpi: uiDpi)
-}
-
-/// Height of `text` in the UI font, wrapped at `width`, in 96-dpi units.
-private func textHeight(_ text: String, width: Int32, _ hwnd: HWND?) -> Int32 {
-    (measureWrapped(text, wrapWidth: sc(width), hwnd, font: uiFont).cy * 96 + uiDpi - 1) / uiDpi
 }
 
 private func setFieldText(_ hwnd: HWND?, _ id: Int, _ s: String) {
@@ -257,7 +250,7 @@ private func buildControls(_ hwnd: HWND?) {
     let learnedViewW = textWidth(learnedViewTitle, hwnd) + 24
     let rows: [Int32] = [
         autoW + 24,
-        160 + 16 + excW,
+        excW,
         20 + textWidth(L("settings.autoCorrectEnter"), hwnd) + 24,
         20 + textWidth(similarTitle, hwnd) + 24 + 22,
         20 + textWidth(spellTitle, hwnd) + 24 + 22,
@@ -376,19 +369,9 @@ private func buildControls(_ hwnd: HWND?) {
     y += 14
 
     // ── section D: Exceptions… — always enabled, it covers the hotkey too ──
-    let excLabel = L("settings.exc.section")
-    let excLabelW = min(textWidth(excLabel, hwnd) + 4, content - excW - 16 - 22)   // 22: the ⓘ after it
-    let excLabelH = textHeight(excLabel, width: excLabelW, hwnd)
-    let excRowH = max(excLabelH, 26)
-    makeControl("STATIC", excLabel, 0, margin, y + (excRowH - excLabelH) / 2, excLabelW, excLabelH, hwnd, idExcSection)
-    // Why a fresh install already lists programs (terminals, editors, VMs).
-    let excInfo = makeControl("STATIC", "\u{E946}" /* Info glyph */, Int32(0x0200 /* SS_CENTERIMAGE */),
-                              margin + excLabelW + 2, y + (excRowH - 16) / 2, 20, 16, hwnd, idExcInfo)
-    setFont(excInfo, glyphFont)
-    addTooltip(&tooltip, hwnd, excInfo, L("settings.exc.info"), overWindow: true)
     makeControl("BUTTON", excTitle, Int32(WS_TABSTOP),
-                clientWidth - margin - excW, y + (excRowH - 26) / 2, excW, 26, hwnd, idBtnExceptions)
-    y += excRowH + 16
+                clientWidth - margin - excW, y, excW, 26, hwnd, idBtnExceptions)
+    y += 26 + 16
 
     // ── footer: version, link, copyright — centered, secondary ──
     let version = L("win.version", appVersion)

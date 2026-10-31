@@ -38,7 +38,6 @@
 "settings.exc.remove" = "移除";
 "settings.exc.done" = "完成";
 "settings.exc.info" = "终端、代码编辑器、虚拟机和远程桌面一开始就在列表中，且全部关闭：在那里输入的是命令或代码，或者按键交给另一个有自己布局的系统。勾选应当可用的功能，或将应用从列表中移除。Figma 也在列表中：它的画布会把输入的文字当作工具快捷键。";
-"settings.exc.section" = "按应用允许功能";
 "settings.exc.auto" = "自动更正";
 "settings.exc.auto.tip" = "此应用中自动更正可用。";
 "settings.exc.hotkey" = "快捷键";

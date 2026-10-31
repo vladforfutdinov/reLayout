@@ -38,7 +38,6 @@
 "settings.exc.remove" = "Remover";
 "settings.exc.done" = "Concluído";
 "settings.exc.info" = "Terminais, editores de código, máquinas virtuais e áreas de trabalho remotas estão na lista desde o início, com tudo desligado: ali se digitam comandos ou código, ou as teclas vão para outro sistema com seu próprio layout. Marque o que deve funcionar ou remova o app da lista. O Figma também está: sua tela lê o texto digitado como atalhos de ferramentas.";
-"settings.exc.section" = "Permitir recursos por app";
 "settings.exc.auto" = "Correção automática";
 "settings.exc.auto.tip" = "A correção automática funciona neste app.";
 "settings.exc.hotkey" = "Atalho";

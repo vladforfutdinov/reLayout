@@ -38,7 +38,6 @@
 "settings.exc.remove" = "Quitar";
 "settings.exc.done" = "Listo";
 "settings.exc.info" = "Los terminales, editores de código, máquinas virtuales y escritorios remotos están en la lista desde el principio, con todo desactivado: ahí se escriben comandos o código, o las teclas van a otro sistema con su propia distribución. Marca lo que deba funcionar o quita la app de la lista. Figma también está: su lienzo toma el texto escrito como atajos de herramientas.";
-"settings.exc.section" = "Permitir funciones por app";
 "settings.exc.auto" = "Autocorrección";
 "settings.exc.auto.tip" = "La autocorrección funciona en esta app.";
 "settings.exc.hotkey" = "Atajo";

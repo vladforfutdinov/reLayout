@@ -16,6 +16,7 @@ private let idExcRemove: Int = 204
 private let idExcDone:   Int = 206
 private let idExcColAuto: Int = 208
 private let idExcColHotkey: Int = 209
+private let idExcHint:   Int = 210
 
 // Columns: program, auto, hotkey. A list view puts a cell image at the cell's left
 // edge, so the check boxes are custom-drawn, centred in their cells.
@@ -283,7 +284,7 @@ private func makeExcControl(_ cls: String, _ text: String, _ style: Int32,
 }
 
 private let clientW: Int32 = 480
-private let clientH: Int32 = 294
+private var clientH: Int32 = 294   // follows the hint's wrapped height
 
 private func buildExceptions(_ hwnd: HWND?) {
     excColors = ThemeColors.current()
@@ -291,6 +292,13 @@ private func buildExceptions(_ hwnd: HWND?) {
     excBrush = CreateSolidBrush(excColors.background)
     applyTitleBarTheme(hwnd, dark: excColors.dark)
     excTooltip = nil
+
+    // Why a fresh install already lists programs (terminals, editors, VMs).
+    let hint = L("settings.exc.info")
+    let hintH = measureWrapped(hint, wrapWidth: esc(clientW - 32), hwnd, font: uiFont(dpi: excDpi)).cy * 96 / excDpi + 4
+    makeExcControl("STATIC", hint, 0, 16, 16, clientW - 32, hintH, hwnd, idExcHint)
+    let top = 16 + hintH + 12   // where the column titles start
+    clientH = top + 278
 
     // Check column titles as labels over a header-less list (a list view's header
     // does not follow the dark theme), as in Learned words: each starts where the
@@ -302,17 +310,17 @@ private func buildExceptions(_ hwnd: HWND?) {
     let autoW = max(textWidth(autoTitle, hwnd) + 12, 36), hotkeyW = max(textWidth(hotkeyTitle, hwnd) + 12, 36)
     let nameCx = esc(listW - autoW - hotkeyW) - GetSystemMetrics(SM_CXVSCROLL) - 4
     let autoX = 16 + 2 + nameCx * 96 / excDpi   // list border, then the program column
-    let autoLabel = makeExcControl("STATIC", autoTitle, Int32(0x0001 /* SS_CENTER */), autoX, 16, autoW, 18,
+    let autoLabel = makeExcControl("STATIC", autoTitle, Int32(0x0001 /* SS_CENTER */), autoX, top, autoW, 18,
                                    hwnd, idExcColAuto)
     addTooltip(&excTooltip, hwnd, autoLabel, L("settings.exc.auto.tip"), overWindow: true)
-    let hotkeyLabel = makeExcControl("STATIC", hotkeyTitle, Int32(0x0001 /* SS_CENTER */), autoX + autoW, 16,
+    let hotkeyLabel = makeExcControl("STATIC", hotkeyTitle, Int32(0x0001 /* SS_CENTER */), autoX + autoW, top,
                                      hotkeyW, 18, hwnd, idExcColHotkey)
     addTooltip(&excTooltip, hwnd, hotkeyLabel, L("settings.exc.hotkey.tip"), overWindow: true)
 
     let list = makeExcControl("SysListView32", "",
                               Int32(0x1 /* LVS_REPORT */) | Int32(0x4000 /* LVS_NOCOLUMNHEADER */)
                               | Int32(0x8 /* LVS_SHOWSELALWAYS */) | Int32(WS_TABSTOP),
-                              16, 36, listW, 200, hwnd, idExcList, exStyle: DWORD(WS_EX_CLIENTEDGE))
+                              16, top + 20, listW, 200, hwnd, idExcList, exStyle: DWORD(WS_EX_CLIENTEDGE))
     SendMessageW(list, UINT(0x1036 /* LVM_SETEXTENDEDLISTVIEWSTYLE */), 0,
                  LPARAM(0x20 /* LVS_EX_FULLROWSELECT */ | 0x10000 /* LVS_EX_DOUBLEBUFFER */))
     applyListColors(list, excColors)
@@ -321,13 +329,13 @@ private func buildExceptions(_ hwnd: HWND?) {
 
     // "+" (Choose…) / "−" (remove the selection), then "Exclude current app"; Done
     // on the right, as on macOS.
-    makeExcControl("BUTTON", "+", Int32(WS_TABSTOP), 16, 248, 28, 28, hwnd, idExcChoose)
-    makeExcControl("BUTTON", "\u{2212}", Int32(WS_TABSTOP), 16 + 28 + 4, 248, 28, 28, hwnd, idExcRemove)
-    makeExcControl("BUTTON", L("settings.exc.addCurrent"), Int32(WS_TABSTOP), 16 + 28 + 4 + 28 + 16, 248,
+    makeExcControl("BUTTON", "+", Int32(WS_TABSTOP), 16, top + 232, 28, 28, hwnd, idExcChoose)
+    makeExcControl("BUTTON", "\u{2212}", Int32(WS_TABSTOP), 16 + 28 + 4, top + 232, 28, 28, hwnd, idExcRemove)
+    makeExcControl("BUTTON", L("settings.exc.addCurrent"), Int32(WS_TABSTOP), 16 + 28 + 4 + 28 + 16, top + 232,
                    textWidth(L("settings.exc.addCurrent"), hwnd) + 24, 28, hwnd, idExcCurrent)
     let doneW = max(textWidth(L("settings.exc.done"), hwnd) + 24, 80)
     makeExcControl("BUTTON", L("settings.exc.done"), Int32(WS_TABSTOP) | Int32(BS_DEFPUSHBUTTON),
-                   clientW - 16 - doneW, 248, doneW, 28, hwnd, idExcDone)
+                   clientW - 16 - doneW, top + 232, doneW, 28, hwnd, idExcDone)
     fillList(hwnd)
 }
 

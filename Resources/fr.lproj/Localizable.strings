@@ -38,7 +38,6 @@
 "settings.exc.remove" = "Retirer";
 "settings.exc.done" = "Terminé";
 "settings.exc.info" = "Les terminaux, éditeurs de code, machines virtuelles et bureaux à distance sont dans la liste dès le départ, tout désactivé : on y tape des commandes ou du code, ou les touches vont à un autre système avec sa propre disposition. Cochez ce qui doit fonctionner, ou retirez l'app de la liste. Figma y est aussi : son canevas prend le texte tapé pour des raccourcis d'outils.";
-"settings.exc.section" = "Autoriser des fonctions par app";
 "settings.exc.auto" = "Correction auto";
 "settings.exc.auto.tip" = "La correction automatique fonctionne dans cette app.";
 "settings.exc.hotkey" = "Raccourci";

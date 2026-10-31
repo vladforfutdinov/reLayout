@@ -38,7 +38,6 @@
 "settings.exc.remove" = "Entfernen";
 "settings.exc.done" = "Fertig";
 "settings.exc.info" = "Terminals, Code-Editoren, virtuelle Maschinen und Remotedesktops stehen von Anfang an in der Liste, mit allem aus: Dort tippt man Befehle oder Code, oder ein anderes System mit eigenem Layout erhält die Tasten. Haken Sie an, was funktionieren soll, oder entfernen Sie die App aus der Liste. Auch Figma steht darin: Seine Zeichenfläche liest getippten Text als Werkzeug-Kürzel.";
-"settings.exc.section" = "Funktionen je App erlauben";
 "settings.exc.auto" = "Autokorrektur";
 "settings.exc.auto.tip" = "Die Autokorrektur ist in dieser App aktiv.";
 "settings.exc.hotkey" = "Hotkey";

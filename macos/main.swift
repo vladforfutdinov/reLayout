@@ -361,7 +361,8 @@ func modKeyLabel(_ kc: UInt16) -> String {
 }
 
 func chordDisplay(_ set: Set<UInt16>) -> String {
-    set.sorted().map(modKeyLabel).joined(separator: "+")
+    set.sorted { ($0 == UInt16(kVK_Function) ? 0 : $0) < ($1 == UInt16(kVK_Function) ? 0 : $1) }
+        .map(modKeyLabel).joined(separator: " + ")
 }
 
 // Which modifier KEYS are down, distinguishing left/right via device-dependent bits.

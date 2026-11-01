@@ -344,7 +344,9 @@ jobs:
           # Trigram models for the auto-correct mode, read from trigram/<lang>.txt
           # next to the exe (the macOS app reads them from its bundle).
           New-Item -ItemType Directory -Force -Path "$payload/trigram" | Out-Null
-          Copy-Item Resources/trigram/*.txt "$payload/trigram"
+          Copy-Item Resources/trigram/*.txt, Resources/trigram/NOTICE "$payload/trigram"
+          # The runtime DLLs ship as files of their own: Apache 2.0 wants its text along.
+          Copy-Item packaging/windows/LICENSE-Swift.txt $payload
           # UI strings: the macOS app's Localizable.strings, read from lang/<code>.lproj.
           New-Item -ItemType Directory -Force -Path "$payload/lang" | Out-Null
           Get-ChildItem Resources -Directory -Filter *.lproj | ForEach-Object {

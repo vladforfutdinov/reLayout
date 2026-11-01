@@ -33,7 +33,7 @@ $out = "dist\win"
 New-Item -ItemType Directory -Force -Path "$out\trigram", "$out\lang" | Out-Null
 $bin = swift build -c release --show-bin-path
 Copy-Item "$bin\ReLayoutWin.exe" $out -Force
-Copy-Item Resources\trigram\*.txt "$out\trigram" -Force
+Copy-Item Resources\trigram\*.txt, Resources\trigram\NOTICE "$out\trigram" -Force
 Get-ChildItem Resources -Directory -Filter *.lproj | ForEach-Object {
   New-Item -ItemType Directory -Force -Path "$out\lang\$($_.Name)" | Out-Null
   Copy-Item "$($_.FullName)\Localizable.strings" "$out\lang\$($_.Name)\" -Force

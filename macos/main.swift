@@ -776,9 +776,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     private weak var learnedLabel: NSTextField?
     private weak var learnedViewBtn: NSButton?
     private var learnedWindow: NSWindow?
-#if SPARKLE
     private var creditsWindow: NSWindow?
-#endif
     private weak var learnedTable: NSTableView?
     private weak var autoInfo: NSImageView?
     private weak var excTable: NSTableView?
@@ -1423,13 +1421,11 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
 #endif
         arranged += [langGrid, sep2, hkGrid, sep3, autoRow, enterRow, similarRow, spellRow, learnedRow,
                      sep4, excRow, version, link, copyright]
-#if SPARKLE
         let creditsBtn = NSButton(title: L("settings.credits"), target: self, action: #selector(openCredits))
         creditsBtn.bezelStyle = .rounded; creditsBtn.controlSize = .small
         let credits = NSStackView()
         credits.setViews([creditsBtn], in: .center)
         arranged.append(credits)
-#endif
 
         let stack = NSStackView(views: arranged)
         stack.orientation = .vertical
@@ -1470,9 +1466,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             link.widthAnchor.constraint(equalTo: stack.widthAnchor),
             copyright.widthAnchor.constraint(equalTo: stack.widthAnchor),
         ])
-#if SPARKLE
         credits.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
-#endif
         content.layoutSubtreeIfNeeded()
         w.setContentSize(content.fittingSize)
         w.center()
@@ -1489,8 +1483,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         NSWorkspace.shared.open(u)
     }
 
-#if SPARKLE
-    // MARK: - Credits (third-party notices: Sparkle's LICENSE, bundled by build.sh)
+    // MARK: - Credits (third-party notices: Sparkle's LICENSE when embedded, the trigram models' source)
 
     @objc private func openCredits() {
         guard let parent = settingsWindow else { return }
@@ -1502,7 +1495,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
     }
 
     private func buildCreditsWindow() -> NSWindow {
-        let w = SettingsWindow(contentRect: NSRect(x: 0, y: 0, width: 560, height: 380),
+        let w = SettingsWindow(contentRect: NSRect(x: 0, y: 0, width: 372, height: 380),
                                styleMask: [.titled, .closable], backing: .buffered, defer: false)
         w.title = L("settings.credits")
         w.isReleasedWhenClosed = false
@@ -1514,9 +1507,10 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         scroll.borderType = .bezelBorder
         scroll.translatesAutoresizingMaskIntoConstraints = false
         if let text = scroll.documentView as? NSTextView {
-            let license = Bundle.main.url(forResource: "Sparkle-LICENSE", withExtension: "txt")
-                .flatMap { try? String(contentsOf: $0, encoding: .utf8) } ?? ""
-            text.string = "Sparkle\n\n" + license
+            func read(_ url: URL?) -> String? { url.flatMap { try? String(contentsOf: $0, encoding: .utf8) } }
+            text.string = [read(Bundle.main.url(forResource: "Sparkle-LICENSE", withExtension: "txt")).map { "Sparkle\n\n" + $0 },
+                           read(Bundle.main.url(forResource: "NOTICE", withExtension: nil, subdirectory: "trigram"))]
+                .compactMap { $0 }.joined(separator: "\n\n")
             text.font = .monospacedSystemFont(ofSize: 10, weight: .regular)
             text.isEditable = false
             text.textContainerInset = NSSize(width: 6, height: 6)
@@ -1528,7 +1522,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
 
         content.addSubview(scroll); content.addSubview(done)
         NSLayoutConstraint.activate([
-            content.widthAnchor.constraint(equalToConstant: 560),
+            content.widthAnchor.constraint(equalToConstant: 372),
             scroll.topAnchor.constraint(equalTo: content.topAnchor, constant: 16),
             scroll.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 16),
             scroll.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -16),
@@ -1540,7 +1534,6 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         creditsWindow = w
         return w
     }
-#endif
 
     // MARK: - Learned words (the user's hotkey verdicts; see Core hotkeyMisses)
 
@@ -2081,9 +2074,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
             w.close()
         }
         excWindow = nil; learnedWindow = nil   // cached sheets carry the old language
-#if SPARKLE
         creditsWindow = nil
-#endif
         DispatchQueue.main.async { self.openReLayoutSettings() }
     }
 

@@ -33,7 +33,7 @@ Steps:
 4. **Draft the release notes — one per platform.** Read `git log <prevtag>..HEAD
    --oneline` and the actual diffs for anything user-visible. Write short markdown
    for each platform that changed: a `## What's new in vX.Y.Z — macOS` (or
-   `— Windows (preview)`) header, one bullet per **user-visible** change in plain
+   `— Windows`) header, one bullet per **user-visible** change in plain
    language (not raw commit titles), with a concrete before/after example where it
    helps. **One line per bullet** — no hard wraps: a line break inside a bullet
    renders as a break in the Sparkle window and on GitHub. Skip pure internal/

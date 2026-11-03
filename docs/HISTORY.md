@@ -4,6 +4,12 @@ Append-only chronology. Newest milestone on top. One block per coherent unit of 
 
 ---
 
+## v1.4.1 released
+
+- Tag `v1.4.1` on `749b704` (notes `docs/release-notes/v1.4.1.md`, `-windows.md`); `main` pushed, `origin/main` = `f851976`. Gate on `a681dd6`: `run-tests.sh` 43 passed, `swift test` green. CI `build` (macOS + Windows x64/arm64) and `core` green; release has dmg, zip and Windows setup + portable for both arches; `appcast.xml` on `gh-pages` serves 1.4.1 with the notes.
+- Owner: Windows is no longer a preview. The tag's notes still said "Windows (preview)", so the GitHub release body was edited by hand; `ea3b2f1` fixes the file and the `/release` template. `f851976`: the portable line said "unpacks with no extra folder"; it actually hung since at least v1.3.16 — the notes file and release body now say it starts again.
+- Article materials: "Дополнение: v1.4.1" in `~/Own/articles/drafts/relayout-part3-engine/materials.md`.
+
 ## After v1.4.0 — Credits and notices, Exceptions button, Fn in hotkeys, captionless Windows modals
 
 - Commits `35731c9`..`a681dd6`, merged into local `main`, released in v1.4.1. `run-tests.sh` 43 passed, `swift test` 166 passed; Windows built and shot in win-vm.

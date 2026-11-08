@@ -61,6 +61,6 @@ public struct PressAgain<Src, Dst> {
         var then = c
         then.typed = n.out + c.suffix
         then.alternatives.removeFirst()
-        return .retarget(erase: c.typed.count, type: then.typed, dst: n.dst, then: then)
+        return .retarget(erase: c.typed.unicodeScalars.count, type: then.typed, dst: n.dst, then: then)
     }
 }

@@ -2129,6 +2129,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
 
     // Electron/Chromium (VS Code) can apply a burst of deletes after text posted
     // right behind it, leaving the old word half-erased; pace them and let them land.
+    // Callers count unicode scalars, not Characters: one Backspace erases one typed key,
+    // and a Thai mark is its own key ("้ำ" is one Character but two keys).
     private func eraseBack(_ n: Int) {
         for _ in 0..<n { postKey(CGKeyCode(kVK_Delete), []); usleep(keyGap) }
         usleep(30_000)
@@ -2548,7 +2550,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         dbg("enter: \(outcome) before=\(before.tail.debugDescription) after=\(after.tail.debugDescription)")
         guard outcome == .newline else { return }
         waitModifiersReleased()
-        eraseBack(original.count + 1)
+        eraseBack(original.unicodeScalars.count + 1)
         typeUnicode(text)
         typeKey("\r", flags: flags)
         usleep(autoLandPause)
@@ -2914,7 +2916,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         }
         let spaces = String(repeating: " ", count: typed.spaces)
         dbg("type: \(r.out.debugDescription) replacing typed \(typed.text.debugDescription) +\(typed.spaces) spaces")
-        eraseBack(typed.text.count + typed.spaces)
+        eraseBack(typed.text.unicodeScalars.count + typed.spaces)
         typeUnicode(r.out + spaces)
         usleep(landPause)
         DispatchQueue.main.sync { self.autoRun.reset(); self.selectLayout(r.dst) }
@@ -2942,7 +2944,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         waitModifiersReleased()
         dbg("undo: restore \(last.original.debugDescription)")
         DispatchQueue.main.sync { if self.autoMode { self.unlearn(last) } }   // UserDefaults: main thread
-        eraseBack(last.typed.count)
+        eraseBack(last.typed.unicodeScalars.count)
         // A Return/Tab boundary goes back as the real key, like it was typed.
         if let b = last.original.last, "\r\n\t".contains(b) {
             typeUnicode(String(last.original.dropLast()))

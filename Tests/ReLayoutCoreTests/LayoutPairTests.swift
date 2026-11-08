@@ -138,6 +138,26 @@ final class LayoutPairTests: XCTestCase {
 
     // "9" is ต on Thai: it joins a word typed on the wrong layout instead of ending
     // it, so the typed-word buffer holds "9jv" and the hotkey converts all of it.
+    // Thai typed on the Thai layout that was meant to be English: "hello" is ้ำสสน.
+    func testThaiToLatin() {
+        XCTAssertEqual(convertWrong("้ำสสน", src: thai, dst: abc), "hello")
+        XCTAssertEqual(convertWrong("ต่อ", src: thai, dst: abc), "9jv")
+        XCTAssertEqual(convertWrong("ำ สนด", src: thai, dst: abc), "e lof")
+    }
+
+    // Thai text is not a Latin-layout mistake: ABC -> Thai leaves it, and digits stay.
+    func testThaiTextIsNotRetypedFromLatin() {
+        XCTAssertNil(convertWrong("ต่อ", src: abc, dst: thai))
+        XCTAssertNil(convertWrong("2024", src: thai, dst: abc))
+    }
+
+    // Thai typed as meant for English: the leading ้ is a mark, still part of the word.
+    func testThaiMarkFirstWordBuffersWhole() {
+        var run = AutoRun()
+        for k in ["้", "ำ", "ส", "ส", "น"] { _ = run.feed(k, mapsToCyrillic: { _ in false }) }
+        XCTAssertEqual(run.word, "้ำสสน")
+    }
+
     func testThaiDigitRowKeyBuffersAsWordMaterial() {
         XCTAssertTrue(mapsToOtherScriptLetter("9", src: abc, dst: thai))
         XCTAssertTrue(mapsToOtherScriptLetter("j", src: abc, dst: thai))

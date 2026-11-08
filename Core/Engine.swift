@@ -39,6 +39,17 @@ public func transliterate(_ text: String, from src: LayoutMaps, to dst: LayoutMa
         let key = String(ch)
         if let stroke = src.charToStroke[key], let mapped = dst.strokeToChar[stroke] {
             out += mapped
+        } else if ch.unicodeScalars.count > 1 {
+            // A grapheme cluster that is several keys: Thai "ต่" is the 9 key then
+            // the j key, so each scalar is looked up on its own.
+            for u in ch.unicodeScalars {
+                let k = String(u)
+                if let stroke = src.charToStroke[k], let mapped = dst.strokeToChar[stroke] {
+                    out += mapped
+                } else {
+                    out += k
+                }
+            }
         } else {
             out += key
         }
@@ -85,6 +96,18 @@ public func mapsToConnector(_ ch: Character, src: LayoutMaps, dst: LayoutMaps) -
     guard let st = src.charToStroke[String(ch)], let m = dst.strokeToChar[st],
           m.count == 1 else { return false }
     return isWordConnector(Character(m))
+}
+
+// True if `w` holds a letter (or combining mark) of a script that is neither Latin
+// nor Cyrillic and that `src` itself types — Thai text on the Thai layout. Such a
+// token is src-script text the way Latin is on a Latin layout, so the hotkey may
+// retype it on `dst` ("้ำสนด" -> "hello").
+func typesOtherScriptLetter(_ w: Substring, src: LayoutMaps) -> Bool {
+    w.unicodeScalars.contains { u in
+        !isLatinLetter(u) && !isCyrLetter(u)
+            && (u.properties.isAlphabetic || u.properties.generalCategory == .nonspacingMark)
+            && src.charToStroke[String(u)] != nil
+    }
 }
 
 // True if any char of `w`, retyped src -> dst, becomes a letter (or a combining
@@ -210,7 +233,8 @@ public func convertWrong(_ text: String, src: LayoutMaps, dst: LayoutMaps) -> St
         if src.isCyrillic {
             wrong = hasCyr(t)
         } else {
-            wrong = !hasCyr(t) && (hasLatin(t) || mapsToCyr(t, src: src, dst: dst))
+            wrong = !hasCyr(t) && (hasLatin(t) || mapsToCyr(t, src: src, dst: dst)
+                                   || typesOtherScriptLetter(t, src: src))
         }
         acc += wrong ? transliterate(String(t), from: src, to: dst) : String(t)
     }

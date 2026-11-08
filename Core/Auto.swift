@@ -727,7 +727,10 @@ public struct AutoRun {
         // A combining mark (Thai ้ ่ ั …) typed as its own key is part of the word it
         // sits in: "้ำสสน" is hello on the Thai layout, mark first.
         let isMark = c.unicodeScalars.allSatisfy { $0.properties.generalCategory == .nonspacingMark }
-        if c.isLetter || isMark || (trail.isEmpty && (mapsToCyrillic(c) || (isWordConnector(c) && !word.isEmpty))) {
+        // A native digit (Thai ๙) typed on its own key is word material too: on the
+        // Thai layout "๙" is Shift+= and retypes as "+", never a word on its own.
+        let isNativeDigit = c.isNumber && !c.isASCII
+        if c.isLetter || isMark || isNativeDigit || (trail.isEmpty && (mapsToCyrillic(c) || (isWordConnector(c) && !word.isEmpty))) {
             if !trail.isEmpty { reset() }   // "a?b": a new run
             guard !tooLong else { return .none }
             word.append(c)

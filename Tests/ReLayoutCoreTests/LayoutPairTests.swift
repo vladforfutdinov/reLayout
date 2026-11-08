@@ -158,6 +158,15 @@ final class LayoutPairTests: XCTestCase {
         XCTAssertEqual(run.word, "้ำสสน")
     }
 
+    // "1+2" on the Thai layout is ๅ๙/: the Thai digit is a key of the word, and the
+    // "/" trails it, so the hotkey takes all three.
+    func testThaiNativeDigitStaysInTypedWord() {
+        var run = AutoRun()
+        for k in ["ๅ", "๙", "/"] { _ = run.feed(k, mapsToCyrillic: { _ in false }) }
+        XCTAssertEqual(run.word + run.trail, "ๅ๙/")
+        XCTAssertEqual(convertWrong("ๅ๙/", src: thai, dst: abc), "1+2")
+    }
+
     func testThaiDigitRowKeyBuffersAsWordMaterial() {
         XCTAssertTrue(mapsToOtherScriptLetter("9", src: abc, dst: thai))
         XCTAssertTrue(mapsToOtherScriptLetter("j", src: abc, dst: thai))

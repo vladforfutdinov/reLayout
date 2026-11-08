@@ -2604,7 +2604,10 @@ final class AppController: NSObject, NSApplicationDelegate, NSTableViewDataSourc
         let enabled = Layout.enabledList()
         guard let cur = enabled.first(where: { $0.id == currentSourceID() }),
               !cur.isCyrillic else { return false }
-        return enabled.contains { $0.isCyrillic && mapsToWordChar(s[...], src: cur, dst: $0, connectors: true) }
+        return enabled.contains {
+            $0.isCyrillic ? mapsToWordChar(s[...], src: cur, dst: $0, connectors: true)
+                          : ($0.id != cur.id && mapsToOtherScriptLetter(s[...], src: cur, dst: $0))
+        }
     }
 
     @discardableResult

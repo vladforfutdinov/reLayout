@@ -50,6 +50,7 @@ final class LayoutPairTests: XCTestCase {
     let georgian = Table("„1234567890-= | ქწერტყუიოპ[]\\ | ასდფგჰჯკლ;' | ზხცვბნმ,./")
     let greek = Table("`1234567890-= | ;ςερτυθιοπ[]\\ | ασδφγηξκλ΄' | ζχψωβνμ,./")
     let hebrew = Table(";1234567890-= | /׳קראטוןםפ][ֿ | שדגכעיחלךף, | זסבהנמצתץ.")
+    let thai = Table("_ๅ/-ภถุึคตจขช | ๆไำพะัีรนยบลฃ | ฟหกดเ้่าสวง | ผปแอิืทมใฝ")
     let arabic = Table("ـ١٢٣٤٥٦٧٨٩٠-= | ضصثقفغعهخحجة\\ | شسيبلاتنمك؛ | ظطذدزرو،./")
 
     // MARK: Latin <-> Latin
@@ -129,5 +130,23 @@ final class LayoutPairTests: XCTestCase {
 
     func testLatinToArabic() {
         XCTAssertEqual(convertWrong("lnpfh", src: abc, dst: arabic), "مرحبا")
+    }
+
+    func testLatinToThaiDigitRowKey() {
+        XCTAssertEqual(convertWrong("9jv", src: abc, dst: thai), "ต่อ")
+    }
+
+    // "9" is ต on Thai: it joins a word typed on the wrong layout instead of ending
+    // it, so the typed-word buffer holds "9jv" and the hotkey converts all of it.
+    func testThaiDigitRowKeyBuffersAsWordMaterial() {
+        XCTAssertTrue(mapsToOtherScriptLetter("9", src: abc, dst: thai))
+        XCTAssertTrue(mapsToOtherScriptLetter("j", src: abc, dst: thai))
+        XCTAssertFalse(mapsToOtherScriptLetter("9", src: abc, dst: german))
+        XCTAssertFalse(mapsToOtherScriptLetter("9", src: abc, dst: russianMac))
+        var run = AutoRun()
+        for k in ["9", "j", "v"] {
+            _ = run.feed(k, mapsToCyrillic: { mapsToOtherScriptLetter(String($0)[...], src: self.abc, dst: self.thai) })
+        }
+        XCTAssertEqual(run.word, "9jv")
     }
 }

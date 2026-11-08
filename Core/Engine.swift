@@ -87,6 +87,19 @@ public func mapsToConnector(_ ch: Character, src: LayoutMaps, dst: LayoutMaps) -
     return isWordConnector(Character(m))
 }
 
+// True if any char of `w`, retyped src -> dst, becomes a letter (or a combining
+// mark) of a non-Latin script — Thai "9" is ต, "j" is ่ — so the key belongs to a
+// word typed on the wrong layout rather than ending it. The typed-word buffer asks
+// this beside `mapsToWordChar`, which knows only Cyrillic.
+public func mapsToOtherScriptLetter(_ w: Substring, src: LayoutMaps, dst: LayoutMaps) -> Bool {
+    for ch in w {
+        guard let st = src.charToStroke[String(ch)], let m = dst.strokeToChar[st],
+              let f = m.unicodeScalars.first, !isLatinLetter(f) else { continue }
+        if f.properties.isAlphabetic || f.properties.generalCategory == .nonspacingMark { return true }
+    }
+    return false
+}
+
 // True if any char of `w` becomes word material when retyped src -> dst: a
 // Cyrillic letter, or — with `connectors` — an intra-word connector. The
 // Ukrainian apostrophe has no key of its own on a Latin layout, so "мʼяко" is

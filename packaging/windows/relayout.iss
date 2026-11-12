@@ -1,5 +1,5 @@
 ; Inno Setup script for reLayout (Windows).
-; Installs the portable, statically-linked single exe per-user (no admin),
+; Installs the exe with its Swift runtime DLLs, trigram models and strings per-user (no admin),
 ; adds a Start Menu shortcut and the "Launch at login" Run value (a task, on by default),
 ; and offers to launch on finish.
 ;

@@ -724,7 +724,13 @@ public struct AutoRun {
         // The word before the Tab was judged at it; no chain reaches past it into what
         // may be another field.
         if crossedTab { previous = nil; bridged = []; crossedTab = false }
-        if c.isLetter || (trail.isEmpty && (mapsToCyrillic(c) || (isWordConnector(c) && !word.isEmpty))) {
+        // A combining mark (Thai ้ ่ ั …) typed as its own key is part of the word it
+        // sits in: "้ำสสน" is hello on the Thai layout, mark first.
+        let isMark = c.unicodeScalars.allSatisfy { $0.properties.generalCategory == .nonspacingMark }
+        // A native digit (Thai ๙) typed on its own key is word material too: on the
+        // Thai layout "๙" is Shift+= and retypes as "+", never a word on its own.
+        let isNativeDigit = c.isNumber && !c.isASCII
+        if c.isLetter || isMark || isNativeDigit || (trail.isEmpty && (mapsToCyrillic(c) || (isWordConnector(c) && !word.isEmpty))) {
             if !trail.isEmpty { reset() }   // "a?b": a new run
             guard !tooLong else { return .none }
             word.append(c)
@@ -795,7 +801,7 @@ public struct AutoRun {
         func fix(_ before: [(raw: String, out: String)]) -> Fix {
             let raws = before.map(\.raw) + [raw], outs = before.map(\.out) + [out]
             let original = raws.joined(separator: " ")
-            return Fix(erase: original.count, text: outs.joined(separator: " "), original: original)
+            return Fix(erase: original.unicodeScalars.count, text: outs.joined(separator: " "), original: original)
         }
         if trusted || (wordBody(raw) >= 3 && !ambiguous) {
             let swallow = chain.flatMap { $0.committed ? nil : ($0.raw, $0.out) }.map { [$0] } ?? []

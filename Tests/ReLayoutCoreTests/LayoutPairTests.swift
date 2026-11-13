@@ -50,6 +50,7 @@ final class LayoutPairTests: XCTestCase {
     let georgian = Table("„1234567890-= | ქწერტყუიოპ[]\\ | ასდფგჰჯკლ;' | ზხცვბნმ,./")
     let greek = Table("`1234567890-= | ;ςερτυθιοπ[]\\ | ασδφγηξκλ΄' | ζχψωβνμ,./")
     let hebrew = Table(";1234567890-= | /׳קראטוןםפ][ֿ | שדגכעיחלךף, | זסבהנמצתץ.")
+    let thai = Table("_ๅ/-ภถุึคตจขช | ๆไำพะัีรนยบลฃ | ฟหกดเ้่าสวง | ผปแอิืทมใฝ")
     let arabic = Table("ـ١٢٣٤٥٦٧٨٩٠-= | ضصثقفغعهخحجة\\ | شسيبلاتنمك؛ | ظطذدزرو،./")
 
     // MARK: Latin <-> Latin
@@ -129,5 +130,52 @@ final class LayoutPairTests: XCTestCase {
 
     func testLatinToArabic() {
         XCTAssertEqual(convertWrong("lnpfh", src: abc, dst: arabic), "مرحبا")
+    }
+
+    func testLatinToThaiDigitRowKey() {
+        XCTAssertEqual(convertWrong("9jv", src: abc, dst: thai), "ต่อ")
+    }
+
+    // "9" is ต on Thai: it joins a word typed on the wrong layout instead of ending
+    // it, so the typed-word buffer holds "9jv" and the hotkey converts all of it.
+    // Thai typed on the Thai layout that was meant to be English: "hello" is ้ำสสน.
+    func testThaiToLatin() {
+        XCTAssertEqual(convertWrong("้ำสสน", src: thai, dst: abc), "hello")
+        XCTAssertEqual(convertWrong("ต่อ", src: thai, dst: abc), "9jv")
+        XCTAssertEqual(convertWrong("ำ สนด", src: thai, dst: abc), "e lof")
+    }
+
+    // Thai text is not a Latin-layout mistake: ABC -> Thai leaves it, and digits stay.
+    func testThaiTextIsNotRetypedFromLatin() {
+        XCTAssertNil(convertWrong("ต่อ", src: abc, dst: thai))
+        XCTAssertNil(convertWrong("2024", src: thai, dst: abc))
+    }
+
+    // Thai typed as meant for English: the leading ้ is a mark, still part of the word.
+    func testThaiMarkFirstWordBuffersWhole() {
+        var run = AutoRun()
+        for k in ["้", "ำ", "ส", "ส", "น"] { _ = run.feed(k, mapsToCyrillic: { _ in false }) }
+        XCTAssertEqual(run.word, "้ำสสน")
+    }
+
+    // "1+2" on the Thai layout is ๅ๙/: the Thai digit is a key of the word, and the
+    // "/" trails it, so the hotkey takes all three.
+    func testThaiNativeDigitStaysInTypedWord() {
+        var run = AutoRun()
+        for k in ["ๅ", "๙", "/"] { _ = run.feed(k, mapsToCyrillic: { _ in false }) }
+        XCTAssertEqual(run.word + run.trail, "ๅ๙/")
+        XCTAssertEqual(convertWrong("ๅ๙/", src: thai, dst: abc), "1+2")
+    }
+
+    func testThaiDigitRowKeyBuffersAsWordMaterial() {
+        XCTAssertTrue(mapsToOtherScriptLetter("9", src: abc, dst: thai))
+        XCTAssertTrue(mapsToOtherScriptLetter("j", src: abc, dst: thai))
+        XCTAssertFalse(mapsToOtherScriptLetter("9", src: abc, dst: german))
+        XCTAssertFalse(mapsToOtherScriptLetter("9", src: abc, dst: russianMac))
+        var run = AutoRun()
+        for k in ["9", "j", "v"] {
+            _ = run.feed(k, mapsToCyrillic: { mapsToOtherScriptLetter(String($0)[...], src: self.abc, dst: self.thai) })
+        }
+        XCTAssertEqual(run.word, "9jv")
     }
 }

@@ -204,7 +204,8 @@ func autoModeActive() -> Bool { onHook { autoEnabled } && WinLayout.crossScriptA
 private func mapsToCyrillic(_ ch: Character, cur: WinLayout) -> Bool {
     guard !cur.isCyrillic else { return false }
     return WinLayout.installedList().contains {
-        $0.isCyrillic && mapsToWordChar(String(ch)[...], src: cur, dst: $0, connectors: true)
+        $0.isCyrillic ? mapsToWordChar(String(ch)[...], src: cur, dst: $0, connectors: true)
+                      : ($0.id != cur.id && mapsToOtherScriptLetter(String(ch)[...], src: cur, dst: $0))
     }
 }
 
